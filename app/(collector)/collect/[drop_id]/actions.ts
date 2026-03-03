@@ -40,13 +40,13 @@ export async function purchaseDropAction(formData: FormData): Promise<void> {
   const session = token ? await gateway.getSessionByToken(token) : null;
 
   if (!session) {
-    redirect(`/auth/sign-in?returnTo=${encodeURIComponent(`/pay/buy/${dropId}`)}`);
+    redirect(`/auth/sign-in?returnTo=${encodeURIComponent(`/collect/${dropId}`)}`);
   }
 
   const baseUrl = await resolveAppBaseUrl();
   const checkoutSession = await gateway.createCheckoutSession(session.accountId, dropId, {
     successUrl: `${baseUrl}/my-collection?status=checkout_success`,
-    cancelUrl: `${baseUrl}/pay/buy/${encodeURIComponent(dropId)}?status=checkout_cancelled`
+    cancelUrl: `${baseUrl}/collect/${encodeURIComponent(dropId)}?status=checkout_cancelled`
   });
 
   if (!checkoutSession) {

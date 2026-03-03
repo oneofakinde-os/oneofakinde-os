@@ -2,14 +2,21 @@
   "version": "phase1-freeze-v1",
   "townhall": {
     "canonical_routes": [
+      "/showroom",
+      "/showroom/watch",
+      "/showroom/listen",
+      "/showroom/read",
+      "/showroom/photos",
+      "/showroom/live"
+    ],
+    "legacy_redirect_routes": [
       "/townhall",
       "/townhall/watch",
       "/townhall/listen",
       "/townhall/read",
       "/townhall/photos",
-      "/townhall/live"
-    ],
-    "legacy_redirect_routes": [
+      "/townhall/live",
+      "/townhall/search",
       "/townhall/gallery"
     ],
     "required_search_placeholder": "search users, worlds, and drops",

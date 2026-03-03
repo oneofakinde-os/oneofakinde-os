@@ -26,7 +26,7 @@ async function parseJson<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
 }
 
-test("integration proof: drop -> buy -> my collection -> certificate -> watch", async (t) => {
+test("integration proof: drop -> collect -> my collection -> certificate -> watch", async (t) => {
   const dbPath = createIsolatedDbPath();
   process.env.OOK_BFF_DB_PATH = dbPath;
   process.env.OOK_PAYMENTS_PROVIDER = "manual";
@@ -47,7 +47,7 @@ test("integration proof: drop -> buy -> my collection -> certificate -> watch", 
   assert.ok(drop, "expected at least one drop in the catalog");
 
   const dropPath = `/drops/${drop.id}`;
-  const buyPath = `/pay/buy/${drop.id}`;
+  const collectPath = `/collect/${drop.id}`;
   const collectionPath = "/my-collection";
   const watchPath = `/drops/${drop.id}/watch`;
 
@@ -58,23 +58,33 @@ test("integration proof: drop -> buy -> my collection -> certificate -> watch", 
   });
   assert.equal(dropPolicyPublic.kind, "next");
 
-  const buyPolicyNoSession = evaluateRoutePolicy({
-    pathname: buyPath,
+  const buyLegacyPolicy = evaluateRoutePolicy({
+    pathname: `/pay/buy/${drop.id}`,
     search: "",
     hasSession: false
   });
-  assert.equal(buyPolicyNoSession.kind, "redirect");
-  if (buyPolicyNoSession.kind === "redirect") {
-    assert.equal(buyPolicyNoSession.pathname, "/auth/sign-in");
+  assert.equal(buyLegacyPolicy.kind, "redirect");
+  if (buyLegacyPolicy.kind === "redirect") {
+    assert.equal(buyLegacyPolicy.pathname, collectPath);
   }
 
-  const buyPolicyWithSession = evaluateRoutePolicy({
-    pathname: buyPath,
+  const collectPolicyNoSession = evaluateRoutePolicy({
+    pathname: collectPath,
+    search: "",
+    hasSession: false
+  });
+  assert.equal(collectPolicyNoSession.kind, "redirect");
+  if (collectPolicyNoSession.kind === "redirect") {
+    assert.equal(collectPolicyNoSession.pathname, "/auth/sign-in");
+  }
+
+  const collectPolicyWithSession = evaluateRoutePolicy({
+    pathname: collectPath,
     search: "",
     hasSession: true,
     sessionRoles: ["collector"]
   });
-  assert.equal(buyPolicyWithSession.kind, "next");
+  assert.equal(collectPolicyWithSession.kind, "next");
 
   const checkoutResponse = await postCheckoutRoute(
     new Request(`http://127.0.0.1:3000/api/v1/payments/checkout/${drop.id}`, {

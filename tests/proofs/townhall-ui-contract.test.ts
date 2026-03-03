@@ -77,7 +77,16 @@ test("proof: townhall canonical and legacy routes align with route helpers", asy
     routes.townhallPhotos(),
     routes.townhallLive()
   ]);
-  const expectedLegacy = new Set(["/townhall/gallery"]);
+  const expectedLegacy = new Set([
+    "/townhall",
+    "/townhall/watch",
+    "/townhall/listen",
+    "/townhall/read",
+    "/townhall/photos",
+    "/townhall/live",
+    "/townhall/search",
+    "/townhall/gallery"
+  ]);
 
   assert.deepEqual(new Set(contract.townhall.canonical_routes), expectedCanonical);
   assert.deepEqual(new Set(contract.townhall.legacy_redirect_routes), expectedLegacy);

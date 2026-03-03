@@ -19,7 +19,7 @@ function firstParam(value: string | string[] | undefined): string | null {
 
 export default async function WalletConnectPage({ searchParams }: WalletConnectPageProps) {
   const [resolvedParams, session] = await Promise.all([searchParams, getOptionalSession()]);
-  const defaultReturnTo = routes.profileSetup(routes.townhall());
+  const defaultReturnTo = routes.profileSetup(routes.showroom());
   const returnTo = normalizeReturnTo(
     firstParam(resolvedParams.returnTo),
     defaultReturnTo

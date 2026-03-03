@@ -12,7 +12,7 @@ function getReturnTo(pathnameWithSearch: string): string | null {
   return url.searchParams.get("returnTo");
 }
 
-test("system flow: default entry journey routes through auth -> wallet -> profile -> townhall", () => {
+test("system flow: default entry journey routes through auth -> wallet -> profile -> showroom", () => {
   const flow = buildDefaultEntryFlow();
 
   assert.equal(flow.finalReturnTo, routes.townhall());
@@ -79,9 +79,9 @@ test("system flow: public steps stay public and protected steps enforce session"
   }
 });
 
-test("system flow: townhall, certificate, and media steps expose canonical surface keys", () => {
+test("system flow: showroom, certificate, and media steps expose canonical surface keys", () => {
   const checks = [
-    { pathname: routes.townhall(), expectedSurfaceKey: "townhall" },
+    { pathname: routes.townhall(), expectedSurfaceKey: "showroom" },
     { pathname: routes.certificate(FLOW_CERT_ID), expectedSurfaceKey: "certificate_verify" },
     { pathname: routes.dropWatch(FLOW_DROP_ID), expectedSurfaceKey: "drop_full_watch" },
     { pathname: routes.dropListen(FLOW_DROP_ID), expectedSurfaceKey: "drop_full_listen" },

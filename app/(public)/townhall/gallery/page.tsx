@@ -26,5 +26,5 @@ export default async function TownhallGalleryLegacyRedirectPage({
   }
 
   const query = redirectParams.toString();
-  redirect(query ? `/townhall/photos?${query}` : "/townhall/photos");
+  redirect(query ? `/showroom/photos?${query}` : "/showroom/photos");
 }

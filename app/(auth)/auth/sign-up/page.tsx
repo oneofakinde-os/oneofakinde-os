@@ -17,7 +17,7 @@ function firstParam(value: string | string[] | undefined): string | null {
 
 export default async function SignUpPage({ searchParams }: SignUpPageProps) {
   const resolvedParams = await searchParams;
-  const returnTo = normalizeReturnTo(firstParam(resolvedParams.returnTo), "/townhall");
+  const returnTo = normalizeReturnTo(firstParam(resolvedParams.returnTo), "/showroom");
   const walletConnectReturnTo = routes.profileSetup(returnTo);
   const errorCode = firstParam(resolvedParams.error);
   const hasInvalidEmail = errorCode === "invalid_email";

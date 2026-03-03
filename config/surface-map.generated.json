@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-02-24T22:16:03.057Z",
+  "generated_at": "2026-03-03T20:01:32.492Z",
   "source_path": "config/surface-map.source.txt",
   "source_metadata": {
     "format": "lintable_txt_v1",
-    "last_updated": "2026-02-23",
+    "last_updated": "2026-03-01",
     "notes": "this file is machine-lintable; no free-text notes. everything is structured."
   },
   "locked_glossary": {
@@ -14,7 +14,7 @@
       "library": "saved/curation bucket (pinterest-style saves)",
       "studio": "public-facing creator presence (creator identity surface)",
       "workshop": "creator back-office (making suite; formerly studio when meaning the suite)",
-      "townhall": "showroom + collect surface (community + marketplace)",
+      "showroom": "primary feed + discovery shell (community + marketplace)",
       "watch": "video consumable mode",
       "listen": "audio consumable mode",
       "read": "text consumable mode",
@@ -40,6 +40,12 @@
       },
       "gallery": {
         "replace_with": "photos"
+      },
+      "townhall": {
+        "replace_with": "showroom"
+      },
+      "invest": {
+        "replace_with": "collect"
       },
       "profile": {
         "replace_with": "studio"
@@ -535,10 +541,10 @@
       "rules": []
     },
     {
-      "route": "/studios/:handle",
+      "route": "/studio/:handle",
       "legacy_routes": [
         "/creators/:handle",
-        "/studio/:handle"
+        "/studios/:handle"
       ],
       "surface_key": "studio_public",
       "ui_title": "studio",
@@ -1034,11 +1040,12 @@
       "rules": []
     },
     {
-      "route": "/pay/buy/:drop_id",
+      "route": "/collect/:drop_id",
       "legacy_routes": [
+        "/pay/buy/:drop_id",
         "/pay/buy/:asset_id"
       ],
-      "surface_key": "pay_buy_drop",
+      "surface_key": "collect_drop",
       "ui_title": "collect",
       "ui_nouns": [
         "drop"
@@ -1318,7 +1325,9 @@
     },
     {
       "route": "/collect",
-      "legacy_routes": [],
+      "legacy_routes": [
+        "/invest"
+      ],
       "surface_key": "collect_market",
       "ui_title": "collect",
       "ui_nouns": [
@@ -1428,33 +1437,6 @@
       "contract_deps": [
         "openapi_v1.social",
         "schema_v1.social"
-      ],
-      "proof_ids": [
-        "p_session_required"
-      ],
-      "rules": []
-    },
-    {
-      "route": "/invest",
-      "legacy_routes": [],
-      "surface_key": "invest",
-      "ui_title": "invest",
-      "ui_nouns": [
-        "collect",
-        "drop"
-      ],
-      "lint_targets": [
-        "h1",
-        "metadata_labels"
-      ],
-      "roles": [
-        "collector",
-        "creator"
-      ],
-      "public_safe": false,
-      "contract_deps": [
-        "openapi_v1.catalog",
-        "schema_v1.catalog"
       ],
       "proof_ids": [
         "p_session_required"
@@ -1693,12 +1675,14 @@
       "rules": []
     },
     {
-      "route": "/townhall",
-      "legacy_routes": [],
-      "surface_key": "townhall",
-      "ui_title": "townhall",
+      "route": "/showroom",
+      "legacy_routes": [
+        "/townhall"
+      ],
+      "surface_key": "showroom",
+      "ui_title": "showroom",
       "ui_nouns": [
-        "townhall",
+        "showroom",
         "drop"
       ],
       "lint_targets": [
@@ -1725,12 +1709,14 @@
       "rules": []
     },
     {
-      "route": "/townhall/watch",
-      "legacy_routes": [],
-      "surface_key": "townhall_watch",
-      "ui_title": "townhall watch",
+      "route": "/showroom/watch",
+      "legacy_routes": [
+        "/townhall/watch"
+      ],
+      "surface_key": "showroom_watch",
+      "ui_title": "showroom watch",
       "ui_nouns": [
-        "townhall",
+        "showroom",
         "watch",
         "drop"
       ],
@@ -1756,12 +1742,14 @@
       "rules": []
     },
     {
-      "route": "/townhall/listen",
-      "legacy_routes": [],
-      "surface_key": "townhall_listen",
-      "ui_title": "townhall listen",
+      "route": "/showroom/listen",
+      "legacy_routes": [
+        "/townhall/listen"
+      ],
+      "surface_key": "showroom_listen",
+      "ui_title": "showroom listen",
       "ui_nouns": [
-        "townhall",
+        "showroom",
         "listen",
         "drop"
       ],
@@ -1787,12 +1775,14 @@
       "rules": []
     },
     {
-      "route": "/townhall/read",
-      "legacy_routes": [],
-      "surface_key": "townhall_read",
-      "ui_title": "townhall read",
+      "route": "/showroom/read",
+      "legacy_routes": [
+        "/townhall/read"
+      ],
+      "surface_key": "showroom_read",
+      "ui_title": "showroom read",
       "ui_nouns": [
-        "townhall",
+        "showroom",
         "read",
         "drop"
       ],
@@ -1818,14 +1808,15 @@
       "rules": []
     },
     {
-      "route": "/townhall/photos",
+      "route": "/showroom/photos",
       "legacy_routes": [
+        "/townhall/photos",
         "/townhall/gallery"
       ],
-      "surface_key": "townhall_photos",
-      "ui_title": "townhall photos",
+      "surface_key": "showroom_photos",
+      "ui_title": "showroom photos",
       "ui_nouns": [
-        "townhall",
+        "showroom",
         "photos",
         "drop"
       ],
@@ -1851,12 +1842,14 @@
       "rules": []
     },
     {
-      "route": "/townhall/live",
-      "legacy_routes": [],
-      "surface_key": "townhall_live",
-      "ui_title": "townhall live",
+      "route": "/showroom/live",
+      "legacy_routes": [
+        "/townhall/live"
+      ],
+      "surface_key": "showroom_live",
+      "ui_title": "showroom live",
       "ui_nouns": [
-        "townhall",
+        "showroom",
         "live",
         "drop"
       ],
@@ -1882,12 +1875,14 @@
       "rules": []
     },
     {
-      "route": "/townhall/search",
-      "legacy_routes": [],
-      "surface_key": "townhall_search",
-      "ui_title": "townhall search",
+      "route": "/showroom/search",
+      "legacy_routes": [
+        "/townhall/search"
+      ],
+      "surface_key": "showroom_search",
+      "ui_title": "showroom search",
       "ui_nouns": [
-        "townhall",
+        "showroom",
         "drop",
         "world",
         "studio"
@@ -1935,8 +1930,8 @@
     "/collections": "/worlds",
     "/live": "/live-now",
     "/network-setup": "/space-setup",
-    "/creators/:handle": "/studios/:handle",
-    "/studio/:handle": "/studios/:handle",
+    "/creators/:handle": "/studio/:handle",
+    "/studios/:handle": "/studio/:handle",
     "/collections/:id": "/worlds/:id",
     "/collections/:id/titles": "/worlds/:id/drops",
     "/assets/:id": "/drops/:id",
@@ -1952,15 +1947,24 @@
     "/assets/:id/read": "/drops/:id/read",
     "/assets/:id/view": "/drops/:id/photos",
     "/drops/:id/gallery": "/drops/:id/photos",
-    "/pay/buy/:asset_id": "/pay/buy/:drop_id",
+    "/pay/buy/:drop_id": "/collect/:drop_id",
+    "/pay/buy/:asset_id": "/collect/:drop_id",
     "/my-assets": "/my-collection",
     "/owned-assets": "/my-collection",
     "/owned": "/my-collection",
     "/saved": "/library",
     "/bookmarks": "/library",
     "/studio": "/workshop",
+    "/invest": "/collect",
     "/gallery": "/photos",
-    "/townhall/gallery": "/townhall/photos"
+    "/townhall": "/showroom",
+    "/townhall/watch": "/showroom/watch",
+    "/townhall/listen": "/showroom/listen",
+    "/townhall/read": "/showroom/read",
+    "/townhall/photos": "/showroom/photos",
+    "/townhall/gallery": "/showroom/photos",
+    "/townhall/live": "/showroom/live",
+    "/townhall/search": "/showroom/search"
   },
   "session_required_route_patterns": [
     "/logout",
@@ -1969,7 +1973,7 @@
     "/drops/:id/listen",
     "/drops/:id/read",
     "/drops/:id/photos",
-    "/pay/buy/:drop_id",
+    "/collect/:drop_id",
     "/my-collection",
     "/library",
     "/workshop",
@@ -1978,7 +1982,6 @@
     "/collect",
     "/favorites",
     "/following",
-    "/invest",
     "/settings/account",
     "/settings/apps",
     "/settings/notifications",
@@ -1998,7 +2001,7 @@
     "/live-now",
     "/auth/sign-in",
     "/auth/sign-up",
-    "/studios/:handle",
+    "/studio/:handle",
     "/worlds/:id",
     "/worlds/:id/drops",
     "/drops/:id",
@@ -2012,13 +2015,13 @@
     "/auth/wallet-connect",
     "/auctions",
     "/photos",
-    "/townhall",
-    "/townhall/watch",
-    "/townhall/listen",
-    "/townhall/read",
-    "/townhall/photos",
-    "/townhall/live",
-    "/townhall/search"
+    "/showroom",
+    "/showroom/watch",
+    "/showroom/listen",
+    "/showroom/read",
+    "/showroom/photos",
+    "/showroom/live",
+    "/showroom/search"
   ],
   "canon_dependencies": [
     "canon_certificates",
@@ -2028,9 +2031,9 @@
     "canon_payments_stripe"
   ],
   "stats": {
-    "route_count": 54,
+    "route_count": 53,
     "public_safe_count": 30,
-    "session_required_count": 24,
-    "legacy_redirect_count": 29
+    "session_required_count": 23,
+    "legacy_redirect_count": 38
   }
 }

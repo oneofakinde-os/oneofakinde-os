@@ -2504,7 +2504,7 @@ async function createCheckoutSessionForPayment(
     const paymentId = `pay_${randomUUID()}`;
     const createdAt = new Date().toISOString();
     const successUrl = input.successUrl ?? "/my-collection?payment=success";
-    const cancelUrl = input.cancelUrl ?? `/pay/buy/${encodeURIComponent(drop.id)}?payment=cancel`;
+    const cancelUrl = input.cancelUrl ?? `/collect/${encodeURIComponent(drop.id)}?payment=cancel`;
     const checkout = await createCheckoutSession({
       paymentId,
       accountId: account.id,

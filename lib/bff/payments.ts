@@ -130,7 +130,7 @@ async function createStripeCheckoutSession(input: CreateCheckoutInput): Promise<
   const body = new URLSearchParams();
   body.set("mode", "payment");
   body.set("success_url", resolveAbsoluteAppUrl(input.successUrl, "/my-collection?payment=success"));
-  body.set("cancel_url", resolveAbsoluteAppUrl(input.cancelUrl, "/pay/buy/" + input.drop.id + "?payment=cancel"));
+  body.set("cancel_url", resolveAbsoluteAppUrl(input.cancelUrl, "/collect/" + input.drop.id + "?payment=cancel"));
   body.set("line_items[0][quantity]", "1");
   body.set("line_items[0][price_data][currency]", "usd");
   body.set("line_items[0][price_data][unit_amount]", amountToStripeCents(input.amountUsd));

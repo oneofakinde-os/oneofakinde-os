@@ -19,7 +19,7 @@ const mapFixture: SurfaceMapLike = {
   },
   exceptions: {
     by_route: {
-      "/pay/buy/:drop_id": {
+      "/collect/:drop_id": {
         allow_terms: ["receipt"]
       }
     }

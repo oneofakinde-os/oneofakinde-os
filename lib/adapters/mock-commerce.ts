@@ -993,7 +993,7 @@ export const commerceGateway: CommerceGateway = {
       checkoutSessionId,
       checkoutUrl:
         options?.successUrl ??
-        `/pay/buy/${encodeURIComponent(dropId)}?payment=success&payment_id=${encodeURIComponent(paymentId)}`,
+        `/collect/${encodeURIComponent(dropId)}?payment=success&payment_id=${encodeURIComponent(paymentId)}`,
       drop,
       amountUsd: Number((drop.priceUsd + PROCESSING_FEE_USD).toFixed(2)),
       currency: "USD"

@@ -8,21 +8,30 @@ export const routes = {
   home: (): Route => asRoute("/"),
   explore: (): Route => asRoute("/explore"),
   collect: (): Route => asRoute("/collect"),
-  invest: (): Route => asRoute("/invest"),
   auctions: (): Route => asRoute("/auctions"),
   create: (): Route => asRoute("/create"),
 
-  townhall: (): Route => asRoute("/townhall"),
+  showroom: (): Route => asRoute("/showroom"),
+  showroomSearch: (query?: string): Route =>
+    query
+      ? asRoute(`/showroom/search?q=${encodeURIComponent(query)}`)
+      : asRoute("/showroom/search"),
+  showroomWatch: (): Route => asRoute("/showroom/watch"),
+  showroomListen: (): Route => asRoute("/showroom/listen"),
+  showroomRead: (): Route => asRoute("/showroom/read"),
+  showroomPhotos: (): Route => asRoute("/showroom/photos"),
+  showroomLive: (): Route => asRoute("/showroom/live"),
+  townhall: (): Route => asRoute("/showroom"),
   townhallSearch: (query?: string): Route =>
     query
-      ? asRoute(`/townhall/search?q=${encodeURIComponent(query)}`)
-      : asRoute("/townhall/search"),
-  townhallWatch: (): Route => asRoute("/townhall/watch"),
-  townhallListen: (): Route => asRoute("/townhall/listen"),
-  townhallRead: (): Route => asRoute("/townhall/read"),
-  townhallPhotos: (): Route => asRoute("/townhall/photos"),
-  townhallGallery: (): Route => asRoute("/townhall/photos"),
-  townhallLive: (): Route => asRoute("/townhall/live"),
+      ? asRoute(`/showroom/search?q=${encodeURIComponent(query)}`)
+      : asRoute("/showroom/search"),
+  townhallWatch: (): Route => asRoute("/showroom/watch"),
+  townhallListen: (): Route => asRoute("/showroom/listen"),
+  townhallRead: (): Route => asRoute("/showroom/read"),
+  townhallPhotos: (): Route => asRoute("/showroom/photos"),
+  townhallGallery: (): Route => asRoute("/showroom/photos"),
+  townhallLive: (): Route => asRoute("/showroom/live"),
 
   watchHub: (): Route => asRoute("/watch"),
   listenHub: (): Route => asRoute("/listen"),
@@ -51,8 +60,8 @@ export const routes = {
   dropPhotos: (dropId: string): Route => asRoute(`/drops/${dropId}/photos`),
   dropGallery: (dropId: string): Route => asRoute(`/drops/${dropId}/photos`),
 
-  collectDrop: (dropId: string): Route => asRoute(`/pay/buy/${dropId}`),
-  buyDrop: (dropId: string): Route => asRoute(`/pay/buy/${dropId}`),
+  collectDrop: (dropId: string): Route => asRoute(`/collect/${dropId}`),
+  buyDrop: (dropId: string): Route => asRoute(`/collect/${dropId}`),
   myCollection: (): Route => asRoute("/my-collection"),
   favorites: (): Route => asRoute("/favorites"),
   library: (): Route => asRoute("/library"),

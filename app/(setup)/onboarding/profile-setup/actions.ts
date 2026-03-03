@@ -6,5 +6,5 @@ import { redirect } from "next/navigation";
 
 export async function completeProfileSetupAction(formData: FormData): Promise<void> {
   const returnTo = String(formData.get("returnTo") ?? "");
-  redirect(normalizeReturnTo(returnTo, "/townhall") as Route);
+  redirect(normalizeReturnTo(returnTo, "/showroom") as Route);
 }

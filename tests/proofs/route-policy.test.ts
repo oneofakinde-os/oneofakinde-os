@@ -25,10 +25,12 @@ test("legacy redirect supports renamed params", () => {
     sessionRoles: ["collector"]
   });
 
-  assert.equal(decision.kind, "next");
-  if (decision.kind === "next") {
-    assert.equal(decision.headers["x-ook-surface-key"], "pay_buy_drop");
-  }
+  assert.deepEqual(decision, {
+    kind: "redirect",
+    status: 308,
+    pathname: "/collect/voidrunner",
+    searchParams: {}
+  });
 });
 
 test("session required route redirects to sign in", () => {
