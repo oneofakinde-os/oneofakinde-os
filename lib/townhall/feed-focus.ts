@@ -69,7 +69,7 @@ export function buildTownhallFeedHrefWithFocus(input: {
   const params = new URLSearchParams();
 
   if (input.ordering !== DEFAULT_TOWNHALL_SHOWROOM_ORDERING) {
-    params.set("ordering", input.ordering);
+    params.set("lane_key", input.ordering);
   }
 
   const focusDropId = parseTownhallFeedFocusDrop(input.focusDropId);

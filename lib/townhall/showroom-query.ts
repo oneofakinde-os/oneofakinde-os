@@ -1,7 +1,13 @@
 import type { Drop, DropPreviewMode } from "@/lib/domain/contracts";
 
 export type TownhallShowroomMediaFilter = "all" | DropPreviewMode;
-export type TownhallShowroomOrdering = "rising" | "newest" | "most_collected";
+export type TownhallShowroomOrdering =
+  | "for_you"
+  | "rising"
+  | "newest"
+  | "most_collected"
+  | "new_voices"
+  | "sustained_craft";
 
 export const TOWNHALL_SHOWROOM_MEDIA_FILTERS: TownhallShowroomMediaFilter[] = [
   "all",
@@ -13,9 +19,12 @@ export const TOWNHALL_SHOWROOM_MEDIA_FILTERS: TownhallShowroomMediaFilter[] = [
 ];
 
 export const TOWNHALL_SHOWROOM_ORDERINGS: TownhallShowroomOrdering[] = [
+  "for_you",
   "rising",
   "newest",
-  "most_collected"
+  "most_collected",
+  "new_voices",
+  "sustained_craft"
 ];
 
 export const DEFAULT_TOWNHALL_SHOWROOM_MEDIA_FILTER: TownhallShowroomMediaFilter = "all";
@@ -44,6 +53,10 @@ export function parseTownhallShowroomOrdering(
   }
 
   return DEFAULT_TOWNHALL_SHOWROOM_ORDERING;
+}
+
+export function parseTownhallShowroomOrderingFromParams(params: URLSearchParams): TownhallShowroomOrdering {
+  return parseTownhallShowroomOrdering(params.get("lane_key") ?? params.get("ordering"));
 }
 
 export function filterDropsForShowroomMedia(

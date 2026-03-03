@@ -38,6 +38,15 @@ test("showroom query parsing falls back to canonical defaults", () => {
   assert.equal(parseTownhallShowroomOrdering("bad"), "rising");
 });
 
+test("showroom ordering parsing supports six-lane contract", () => {
+  assert.equal(parseTownhallShowroomOrdering("for_you"), "for_you");
+  assert.equal(parseTownhallShowroomOrdering("rising"), "rising");
+  assert.equal(parseTownhallShowroomOrdering("newest"), "newest");
+  assert.equal(parseTownhallShowroomOrdering("most_collected"), "most_collected");
+  assert.equal(parseTownhallShowroomOrdering("new_voices"), "new_voices");
+  assert.equal(parseTownhallShowroomOrdering("sustained_craft"), "sustained_craft");
+});
+
 test("showroom media filtering returns only drops with the selected mode", () => {
   const drops = [
     makeDrop("watch-only", ["watch"]),
@@ -58,4 +67,3 @@ test("showroom media filtering returns only drops with the selected mode", () =>
     ["watch-only", "listen-read", "all-modes"]
   );
 });
-

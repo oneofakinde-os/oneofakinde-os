@@ -652,9 +652,12 @@ function normalizeTownhallTelemetryMetadata(
   }
 
   if (
+    value.ordering === "for_you" ||
     value.ordering === "rising" ||
     value.ordering === "newest" ||
-    value.ordering === "most_collected"
+    value.ordering === "most_collected" ||
+    value.ordering === "new_voices" ||
+    value.ordering === "sustained_craft"
   ) {
     metadata.ordering = value.ordering;
   }

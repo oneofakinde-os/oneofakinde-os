@@ -27,12 +27,18 @@ export async function loadTownhallFeedContext(options: LoadTownhallFeedContextOp
   const ordering = parseTownhallShowroomOrdering(options.ordering);
   const [session, drops] = await Promise.all([getOptionalSession(), gateway.listDrops()]);
   const filteredDrops = filterDropsForShowroomMedia(drops, mediaFilter);
+
+  const collection = session ? await gateway.getMyCollection(session.accountId) : null;
+  const viewerHasTasteSignals = Boolean((collection?.ownedDrops ?? []).length);
+
   const telemetryByDropId = await commerceBffService.getTownhallTelemetrySignals(
     filteredDrops.map((drop) => drop.id)
   );
   const rankedDrops = rankDropsForTownhall(filteredDrops, {
     telemetryByDropId,
-    ordering
+    laneKey: ordering,
+    viewerAccountId: session?.accountId ?? null,
+    viewerHasTasteSignals
   });
   const initialPage = paginateTownhallFeed(rankedDrops, {
     pageSize: DEFAULT_TOWNHALL_FEED_PAGE_SIZE
@@ -54,10 +60,7 @@ export async function loadTownhallFeedContext(options: LoadTownhallFeedContextOp
     };
   }
 
-  const [collection, social] = await Promise.all([
-    gateway.getMyCollection(session.accountId),
-    commerceBffService.getTownhallSocialSnapshot(session.accountId, initialDropIds)
-  ]);
+  const social = await commerceBffService.getTownhallSocialSnapshot(session.accountId, initialDropIds);
 
   return {
     viewer: {

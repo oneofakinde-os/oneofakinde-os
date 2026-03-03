@@ -22,6 +22,7 @@ function firstQueryValue(
 
 export default async function TownhallLivePage({ searchParams }: TownhallLivePageProps) {
   const params = (await searchParams) ?? {};
+  const laneKey = firstQueryValue(params.lane_key) ?? firstQueryValue(params.ordering);
   const {
     viewer,
     drops,
@@ -33,7 +34,7 @@ export default async function TownhallLivePage({ searchParams }: TownhallLivePag
     ordering
   } = await loadTownhallFeedContext({
     mediaFilter: "live",
-    ordering: firstQueryValue(params.ordering)
+    ordering: laneKey
   });
   return (
     <TownhallFeedScreen

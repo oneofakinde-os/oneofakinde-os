@@ -22,6 +22,7 @@ function firstQueryValue(
 
 export default async function TownhallPhotosPage({ searchParams }: TownhallPhotosPageProps) {
   const params = (await searchParams) ?? {};
+  const laneKey = firstQueryValue(params.lane_key) ?? firstQueryValue(params.ordering);
   const {
     viewer,
     drops,
@@ -33,7 +34,7 @@ export default async function TownhallPhotosPage({ searchParams }: TownhallPhoto
     ordering
   } = await loadTownhallFeedContext({
     mediaFilter: "photos",
-    ordering: firstQueryValue(params.ordering)
+    ordering: laneKey
   });
   return (
     <TownhallFeedScreen

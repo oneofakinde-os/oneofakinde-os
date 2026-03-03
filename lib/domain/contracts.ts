@@ -455,7 +455,7 @@ export type TownhallTelemetryMetadata = {
   source?: "showroom" | "drop";
   surface?: "townhall" | "watch" | "listen" | "read" | "photos" | "live";
   mediaFilter?: "all" | "watch" | "listen" | "read" | "photos" | "live";
-  ordering?: "rising" | "newest" | "most_collected";
+  ordering?: "for_you" | "rising" | "newest" | "most_collected" | "new_voices" | "sustained_craft";
   position?: number;
   channel?: TownhallShareChannel;
   action?: "open" | "complete" | "start" | "toggle" | "submit";

@@ -3,6 +3,7 @@ import { badRequest, ok } from "@/lib/bff/http";
 import { commerceBffService } from "@/lib/bff/service";
 import type { TownhallDropSocialSnapshot } from "@/lib/domain/contracts";
 import { gateway } from "@/lib/gateway";
+import { emitOperationalEvent } from "@/lib/ops/observability";
 import {
   paginateTownhallFeed,
   parseTownhallFeedPageSize
@@ -11,7 +12,7 @@ import { rankDropsForTownhall } from "@/lib/townhall/ranking";
 import {
   filterDropsForShowroomMedia,
   parseTownhallShowroomMediaFilter,
-  parseTownhallShowroomOrdering
+  parseTownhallShowroomOrderingFromParams
 } from "@/lib/townhall/showroom-query";
 
 export async function GET(request: Request) {
@@ -19,16 +20,33 @@ export async function GET(request: Request) {
   const cursor = url.searchParams.get("cursor");
   const pageSize = parseTownhallFeedPageSize(url.searchParams.get("limit"));
   const mediaFilter = parseTownhallShowroomMediaFilter(url.searchParams.get("media"));
-  const ordering = parseTownhallShowroomOrdering(url.searchParams.get("ordering"));
+  const ordering = parseTownhallShowroomOrderingFromParams(url.searchParams);
 
   const [session, drops] = await Promise.all([getRequestSession(request), gateway.listDrops()]);
   const filteredDrops = filterDropsForShowroomMedia(drops, mediaFilter);
+
+  const collection = session ? await gateway.getMyCollection(session.accountId) : null;
+  const viewerHasTasteSignals = Boolean((collection?.ownedDrops ?? []).length);
+
   const telemetryByDropId = await commerceBffService.getTownhallTelemetrySignals(
     filteredDrops.map((drop) => drop.id)
   );
   const rankedDrops = rankDropsForTownhall(filteredDrops, {
     telemetryByDropId,
-    ordering
+    laneKey: ordering,
+    viewerAccountId: session?.accountId ?? null,
+    viewerHasTasteSignals
+  });
+
+  console.info(
+    `[ook.showroom] lane_key=${ordering} media=${mediaFilter} session=${session ? "true" : "false"} page_size=${pageSize}`
+  );
+  emitOperationalEvent("showroom.feed.request", {
+    lane_key: ordering,
+    media_filter: mediaFilter,
+    viewer_session: Boolean(session),
+    page_size: pageSize,
+    has_cursor: Boolean(cursor)
   });
 
   let page;
@@ -47,7 +65,6 @@ export async function GET(request: Request) {
     pageDropIds
   );
 
-  const collection = session ? await gateway.getMyCollection(session.accountId) : null;
   return ok({
     viewer: session
       ? {

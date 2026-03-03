@@ -96,9 +96,9 @@ test("proof: townhall feed rejects malformed cursor", async () => {
   assert.equal(response.status, 400);
 });
 
-test("proof: townhall feed supports ordering lanes", async () => {
+test("proof: townhall feed supports six-lane ordering via lane_key", async () => {
   const newestResponse = await getTownhallFeedRoute(
-    new Request("http://127.0.0.1:3000/api/v1/townhall/feed?ordering=newest&limit=4")
+    new Request("http://127.0.0.1:3000/api/v1/townhall/feed?lane_key=newest&limit=4")
   );
   assert.equal(newestResponse.status, 200);
   const newestPayload = await parseJson<FeedPayload>(newestResponse);
@@ -108,12 +108,35 @@ test("proof: townhall feed supports ordering lanes", async () => {
   );
 
   const collectedResponse = await getTownhallFeedRoute(
-    new Request("http://127.0.0.1:3000/api/v1/townhall/feed?ordering=most_collected&limit=2")
+    new Request("http://127.0.0.1:3000/api/v1/townhall/feed?lane_key=most_collected&limit=2")
   );
   assert.equal(collectedResponse.status, 200);
   const collectedPayload = await parseJson<FeedPayload>(collectedResponse);
+  const allDrops = await commerceBffService.listDrops();
+  const telemetryByDropId = await commerceBffService.getTownhallTelemetrySignals(
+    allDrops.map((drop) => drop.id)
+  );
+  const expectedMostCollected = rankDropsForTownhall(allDrops, {
+    laneKey: "most_collected",
+    telemetryByDropId
+  }).slice(0, 2);
   assert.deepEqual(
     collectedPayload.feed.drops.map((drop) => drop.id),
-    ["voidrunner", "stardust"]
+    expectedMostCollected.map((drop) => drop.id)
   );
+
+  const newVoicesResponse = await getTownhallFeedRoute(
+    new Request("http://127.0.0.1:3000/api/v1/townhall/feed?lane_key=new_voices&limit=2")
+  );
+  assert.equal(newVoicesResponse.status, 200);
+
+  const sustainedResponse = await getTownhallFeedRoute(
+    new Request("http://127.0.0.1:3000/api/v1/townhall/feed?lane_key=sustained_craft&limit=2")
+  );
+  assert.equal(sustainedResponse.status, 200);
+
+  const forYouResponse = await getTownhallFeedRoute(
+    new Request("http://127.0.0.1:3000/api/v1/townhall/feed?lane_key=for_you&limit=2")
+  );
+  assert.equal(forYouResponse.status, 200);
 });

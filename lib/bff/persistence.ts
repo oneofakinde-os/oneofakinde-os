@@ -947,9 +947,12 @@ function normalizeTownhallTelemetryMetadata(value: unknown): TownhallTelemetryMe
   }
 
   if (
+    candidate.ordering === "for_you" ||
     candidate.ordering === "rising" ||
     candidate.ordering === "newest" ||
-    candidate.ordering === "most_collected"
+    candidate.ordering === "most_collected" ||
+    candidate.ordering === "new_voices" ||
+    candidate.ordering === "sustained_craft"
   ) {
     metadata.ordering = candidate.ordering;
   }

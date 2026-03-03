@@ -139,9 +139,12 @@ const SHOWROOM_MODE_OPTIONS: ShowroomModeOption[] = [
 ];
 
 const SHOWROOM_ORDERING_OPTIONS: ShowroomOrderingOption[] = [
+  { value: "for_you", label: "for you" },
   { value: "rising", label: "rising" },
   { value: "newest", label: "newest" },
-  { value: "most_collected", label: "most collected" }
+  { value: "most_collected", label: "most collected" },
+  { value: "new_voices", label: "new voices" },
+  { value: "sustained_craft", label: "sustained craft" }
 ];
 
 const MODE_COPY: Record<Exclude<TownhallSurfaceMode, "townhall">, ModeCopy> = {
@@ -829,7 +832,7 @@ export function TownhallFeedScreen({
       return {
         pathname,
         query: {
-          ordering
+          lane_key: ordering
         }
       };
     }
@@ -846,7 +849,7 @@ export function TownhallFeedScreen({
       return pathname;
     }
 
-    return `${pathname}?ordering=${encodeURIComponent(ordering)}`;
+    return `${pathname}?lane_key=${encodeURIComponent(ordering)}`;
   }
 
   function currentFeedHref(): string {
@@ -891,7 +894,7 @@ export function TownhallFeedScreen({
       params.set("cursor", nextCursor);
       params.set("limit", String(pageSize));
       params.set("media", effectiveShowroomMedia);
-      params.set("ordering", parsedShowroomOrdering);
+      params.set("lane_key", parsedShowroomOrdering);
       const response = await fetch(`/api/v1/townhall/feed?${params.toString()}`, {
         method: "GET",
         cache: "no-store"

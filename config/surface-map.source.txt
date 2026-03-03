@@ -807,6 +807,7 @@ surfaces (v2.0 additions)
 internal config (v2.1)
 
 showroom_lanes:
+- for_you
 - newest
 - rising
 - most_collected

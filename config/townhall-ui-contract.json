@@ -1,5 +1,5 @@
 {
-  "version": "phase1-freeze-v1",
+  "version": "phase1-train1-v1",
   "townhall": {
     "canonical_routes": [
       "/showroom",
@@ -29,9 +29,12 @@
       "live"
     ],
     "required_ordering_lanes": [
+      "for_you",
       "rising",
       "newest",
-      "most_collected"
+      "most_collected",
+      "new_voices",
+      "sustained_craft"
     ],
     "required_social_actions": [
       "like drop",
