@@ -20,6 +20,10 @@ export function forbidden(message = "forbidden"): NextResponse<{ error: string }
   return NextResponse.json({ error: message }, { status: 403 });
 }
 
+export function conflict(message = "conflict"): NextResponse<{ error: string }> {
+  return NextResponse.json({ error: message }, { status: 409 });
+}
+
 export function getRequiredSearchParam(url: URL, key: string): string | null {
   const value = url.searchParams.get(key)?.trim();
   return value || null;
