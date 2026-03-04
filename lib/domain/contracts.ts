@@ -57,6 +57,32 @@ export type MembershipEntitlement = {
   isActive: boolean;
 };
 
+export type PatronStatus = "active" | "lapsed";
+
+export type Patron = {
+  id: string;
+  accountId: string;
+  handle: string;
+  studioHandle: string;
+  status: PatronStatus;
+  committedAt: string;
+  lapsedAt?: string;
+};
+
+export type PatronCommitment = {
+  id: string;
+  patronId: string;
+  amountCents: number;
+  periodStart: string;
+  periodEnd: string;
+  ledgerTransactionId: string;
+};
+
+export type PatronRosterEntry = {
+  handle: string;
+  committedAt: string;
+};
+
 export type LiveSessionEligibilityRule = "public" | "membership_active" | "drop_owner";
 
 export type LiveSession = {

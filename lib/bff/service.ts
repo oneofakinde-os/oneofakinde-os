@@ -25,6 +25,8 @@ import type {
   MembershipEntitlement,
   OwnedDrop,
   OwnershipHistoryEntry,
+  Patron,
+  PatronRosterEntry,
   PurchaseReceipt,
   ReceiptBadge,
   SettlementLineItem,
@@ -65,7 +67,7 @@ import {
 import { sortDropsForStudioSurface, sortDropsForWorldSurface } from "@/lib/catalog/drop-curation";
 import { applyCollectOfferAction, canApplyCollectOfferAction } from "@/lib/collect/offer-state-machine";
 import { createCheckoutSession, parseStripeWebhook, type ParsedStripeWebhookEvent } from "@/lib/bff/payments";
-import { buildCollectSettlementQuote } from "@/lib/domain/quote-engine";
+import { buildCollectSettlementQuote, buildPatronSettlementQuote } from "@/lib/domain/quote-engine";
 import {
   type CollectEnforcementSignalRecord,
   type CollectOfferRecord,
@@ -73,6 +75,8 @@ import {
   type LedgerTransactionRecord,
   type LiveSessionRecord,
   type MembershipEntitlementRecord,
+  type PatronCommitmentRecord,
+  type PatronRecord,
   type WorldReleaseQueueRecord,
   type WorldCollectOwnershipRecord,
   type WatchAccessGrantRecord,
@@ -100,6 +104,10 @@ const COLLECT_INTEGRITY_RECENT_SIGNAL_LIMIT = 100;
 const WORLD_COLLECT_OWNERSHIP_LOG_LIMIT = 20_000;
 const WORLD_RELEASE_QUEUE_LOG_LIMIT = 20_000;
 const WATCH_ACCESS_GRANTS_LOG_LIMIT = 20_000;
+const PATRON_ROSTER_LOG_LIMIT = 20_000;
+const PATRON_COMMITMENT_LOG_LIMIT = 50_000;
+const DEFAULT_PATRON_COMMITMENT_AMOUNT_CENTS = 500;
+const DEFAULT_PATRON_COMMITMENT_PERIOD_DAYS = 30;
 const WATCH_ACCESS_TOKEN_VERSION = 1 as const;
 const WATCH_ACCESS_TOKEN_DEFAULT_TTL_SECONDS = 300;
 const WATCH_ACCESS_TOKEN_MIN_TTL_SECONDS = 1;
@@ -257,6 +265,24 @@ function resolveWatchAccessTokenTtlSeconds(): number {
   }
 
   return WATCH_ACCESS_TOKEN_DEFAULT_TTL_SECONDS;
+}
+
+function resolvePatronCommitmentAmountCents(): number {
+  const configured = Number.parseInt(process.env.OOK_PATRON_COMMITMENT_AMOUNT_CENTS ?? "", 10);
+  if (Number.isFinite(configured) && configured > 0) {
+    return configured;
+  }
+
+  return DEFAULT_PATRON_COMMITMENT_AMOUNT_CENTS;
+}
+
+function resolvePatronCommitmentPeriodDays(): number {
+  const configured = Number.parseInt(process.env.OOK_PATRON_COMMITMENT_PERIOD_DAYS ?? "", 10);
+  if (Number.isFinite(configured) && configured > 0) {
+    return configured;
+  }
+
+  return DEFAULT_PATRON_COMMITMENT_PERIOD_DAYS;
 }
 
 function createWatchAccessSignature(payloadEncoded: string, secret: string): string {
@@ -1670,6 +1696,89 @@ function toMembershipEntitlement(
     whatYouGet: toMembershipWhatYouGet(db, entitlement),
     isActive
   };
+}
+
+function toPublicPatron(patron: PatronRecord): Pick<Patron, "handle" | "studioHandle" | "status" | "committedAt"> {
+  return {
+    handle: patron.handle,
+    studioHandle: patron.studioHandle,
+    status: patron.status,
+    committedAt: patron.committedAt
+  };
+}
+
+function toPatronRosterEntry(patron: PatronRecord): PatronRosterEntry {
+  return {
+    handle: patron.handle,
+    committedAt: patron.committedAt
+  };
+}
+
+function trimPatrons(db: BffDatabase): void {
+  if (db.patrons.length > PATRON_ROSTER_LOG_LIMIT) {
+    db.patrons.length = PATRON_ROSTER_LOG_LIMIT;
+  }
+}
+
+function trimPatronCommitments(db: BffDatabase): void {
+  if (db.patronCommitments.length > PATRON_COMMITMENT_LOG_LIMIT) {
+    db.patronCommitments.length = PATRON_COMMITMENT_LOG_LIMIT;
+  }
+}
+
+function hasActiveMembershipForWorld(
+  db: BffDatabase,
+  account: AccountRecord,
+  world: World
+): boolean {
+  return db.membershipEntitlements.some((entitlement) => {
+    if (entitlement.accountId !== account.id) {
+      return false;
+    }
+
+    if (!isMembershipEntitlementActive(entitlement)) {
+      return false;
+    }
+
+    if (entitlement.studioHandle !== world.studioHandle) {
+      return false;
+    }
+
+    return entitlement.worldId === null || entitlement.worldId === world.id;
+  });
+}
+
+function hasCollectEntitlementForWorld(
+  db: BffDatabase,
+  account: AccountRecord,
+  world: World
+): boolean {
+  const hasWorldCollectOwnership = db.worldCollectOwnerships.some(
+    (ownership) =>
+      ownership.accountId === account.id &&
+      ownership.worldId === world.id &&
+      ownership.status === "active"
+  );
+
+  if (hasWorldCollectOwnership) {
+    return true;
+  }
+
+  return db.ownerships.some((ownership) => {
+    if (ownership.accountId !== account.id) {
+      return false;
+    }
+    const drop = findDropById(db, ownership.dropId);
+    return drop?.worldId === world.id;
+  });
+}
+
+function canAccessWorldPatronRoster(
+  db: BffDatabase,
+  account: AccountRecord,
+  world: World
+): boolean {
+  return hasActiveMembershipForWorld(db, account, world) || hasCollectEntitlementForWorld(db, account, world);
 }
 
 function toLiveSessionWhatYouGet(db: BffDatabase, liveSession: LiveSessionRecord): string {
@@ -3136,6 +3245,169 @@ export const commerceBffService = {
     return completePendingPaymentById(paymentId, {
       expectedAccountId: accountId,
       allowedProviders: ["manual"]
+    });
+  },
+
+  async commitPatron(
+    accountId: string,
+    studioHandle: string
+  ): Promise<
+    | {
+        ok: true;
+        patron: Pick<Patron, "handle" | "studioHandle" | "status" | "committedAt">;
+      }
+    | { ok: false; reason: "forbidden" | "not_found" }
+  > {
+    return withDatabase<
+      | {
+          ok: true;
+          patron: Pick<Patron, "handle" | "studioHandle" | "status" | "committedAt">;
+        }
+      | { ok: false; reason: "forbidden" | "not_found" }
+    >(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account || !account.roles.includes("collector")) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "forbidden" as const
+          }
+        };
+      }
+
+      const studio = db.catalog.studios.find((entry) => entry.handle === studioHandle) ?? null;
+      if (!studio) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "not_found" as const
+          }
+        };
+      }
+
+      const nowIso = new Date().toISOString();
+      const existingPatron =
+        db.patrons.find(
+          (entry) => entry.accountId === account.id && entry.studioHandle === studio.handle
+        ) ?? null;
+
+      const patronRecord: PatronRecord = existingPatron ?? {
+        id: `pat_${randomUUID()}`,
+        accountId: account.id,
+        handle: account.handle,
+        studioHandle: studio.handle,
+        status: "active",
+        committedAt: nowIso,
+        lapsedAt: null
+      };
+
+      patronRecord.handle = account.handle;
+      patronRecord.studioHandle = studio.handle;
+      patronRecord.status = "active";
+      patronRecord.committedAt = nowIso;
+      patronRecord.lapsedAt = null;
+
+      if (!existingPatron) {
+        db.patrons.unshift(patronRecord);
+      }
+
+      trimPatrons(db);
+
+      const amountCents = resolvePatronCommitmentAmountCents();
+      const periodStart = nowIso;
+      const periodEnd = new Date(
+        Date.parse(periodStart) + resolvePatronCommitmentPeriodDays() * 24 * 60 * 60 * 1000
+      ).toISOString();
+      const quote = buildPatronSettlementQuote(amountCents / 100);
+      const ledger = appendLedgerEntries(db, {
+        kind: "patron",
+        accountId: account.id,
+        dropId: null,
+        paymentId: null,
+        receiptId: null,
+        quote,
+        createdAt: nowIso
+      });
+
+      const commitmentRecord: PatronCommitmentRecord = {
+        id: `patc_${randomUUID()}`,
+        patronId: patronRecord.id,
+        amountCents,
+        periodStart,
+        periodEnd,
+        ledgerTransactionId: ledger.transaction.id
+      };
+
+      db.patronCommitments.unshift(commitmentRecord);
+      trimPatronCommitments(db);
+
+      return {
+        persist: true,
+        result: {
+          ok: true as const,
+          patron: toPublicPatron(patronRecord)
+        }
+      };
+    });
+  },
+
+  async listWorldPatronRoster(
+    accountId: string,
+    worldId: string
+  ): Promise<
+    | {
+        ok: true;
+        patrons: PatronRosterEntry[];
+      }
+    | { ok: false; reason: "not_found" | "forbidden" }
+  > {
+    return withDatabase<
+      | {
+          ok: true;
+          patrons: PatronRosterEntry[];
+        }
+      | { ok: false; reason: "not_found" | "forbidden" }
+    >(async (db) => {
+      const account = findAccountById(db, accountId);
+      const world = findWorldById(db, worldId);
+      if (!account || !world) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "not_found" as const
+          }
+        };
+      }
+
+      if (!canAccessWorldPatronRoster(db, account, world)) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "forbidden" as const
+          }
+        };
+      }
+
+      const roster = db.patrons
+        .filter(
+          (patron) =>
+            patron.studioHandle === world.studioHandle &&
+            patron.status === "active"
+        )
+        .sort((a, b) => Date.parse(b.committedAt) - Date.parse(a.committedAt))
+        .map((patron) => toPatronRosterEntry(patron));
+
+      return {
+        persist: false,
+        result: {
+          ok: true as const,
+          patrons: roster
+        }
+      };
     });
   },
 

@@ -8,6 +8,7 @@ import type {
   LedgerTransaction,
   LiveSessionEligibilityRule,
   MembershipEntitlementStatus,
+  PatronStatus,
   PurchaseReceipt,
   ReceiptBadge,
   SettlementLineItem,
@@ -111,6 +112,25 @@ export type MembershipEntitlementRecord = {
   status: MembershipEntitlementStatus;
   startedAt: string;
   endsAt: string | null;
+};
+
+export type PatronRecord = {
+  id: string;
+  accountId: string;
+  handle: string;
+  studioHandle: string;
+  status: PatronStatus;
+  committedAt: string;
+  lapsedAt: string | null;
+};
+
+export type PatronCommitmentRecord = {
+  id: string;
+  patronId: string;
+  amountCents: number;
+  periodStart: string;
+  periodEnd: string;
+  ledgerTransactionId: string;
 };
 
 export type LiveSessionRecord = {
@@ -243,6 +263,8 @@ export type BffDatabase = {
   stripeWebhookEvents: StripeWebhookEventRecord[];
   watchAccessGrants: WatchAccessGrantRecord[];
   membershipEntitlements: MembershipEntitlementRecord[];
+  patrons: PatronRecord[];
+  patronCommitments: PatronCommitmentRecord[];
   liveSessions: LiveSessionRecord[];
   townhallLikes: TownhallLikeRecord[];
   townhallComments: TownhallCommentRecord[];
@@ -640,6 +662,8 @@ function createSeedDatabase(): BffDatabase {
         endsAt: new Date(now.valueOf() + DAY_MS * 30).toISOString()
       }
     ],
+    patrons: [],
+    patronCommitments: [],
     liveSessions: [
       {
         id: "live_dark_matter_open_studio",
@@ -824,6 +848,8 @@ function createCatalogSeedDatabase(): BffDatabase {
     stripeWebhookEvents: [],
     watchAccessGrants: [],
     membershipEntitlements: [],
+    patrons: [],
+    patronCommitments: [],
     liveSessions: seeded.liveSessions,
     townhallLikes: [],
     townhallComments: [],
@@ -857,6 +883,8 @@ function createEmptyDatabase(): BffDatabase {
     stripeWebhookEvents: [],
     watchAccessGrants: [],
     membershipEntitlements: [],
+    patrons: [],
+    patronCommitments: [],
     liveSessions: [],
     townhallLikes: [],
     townhallComments: [],
@@ -893,6 +921,8 @@ function isValidDb(input: unknown): input is BffDatabase {
     Array.isArray(candidate.stripeWebhookEvents) &&
     Array.isArray(candidate.watchAccessGrants) &&
     Array.isArray(candidate.membershipEntitlements) &&
+    Array.isArray(candidate.patrons) &&
+    Array.isArray(candidate.patronCommitments) &&
     Array.isArray(candidate.liveSessions) &&
     Array.isArray(candidate.townhallLikes) &&
     Array.isArray(candidate.townhallComments) &&
@@ -912,6 +942,8 @@ function hasLegacyBaseDbShape(input: unknown): input is Omit<
   | "stripeWebhookEvents"
   | "watchAccessGrants"
   | "membershipEntitlements"
+  | "patrons"
+  | "patronCommitments"
   | "liveSessions"
   | "townhallLikes"
   | "townhallComments"
@@ -1080,6 +1112,62 @@ function normalizeMembershipEntitlementRecords(
         typeof candidate.endsAt === "string" && candidate.endsAt.trim().length > 0
           ? candidate.endsAt
           : null
+    };
+  });
+}
+
+function normalizePatronStatus(value: unknown): PatronStatus {
+  return value === "lapsed" ? "lapsed" : "active";
+}
+
+function normalizePatronRecords(records: PatronRecord[]): PatronRecord[] {
+  return records.map((record) => {
+    const candidate = record as Partial<PatronRecord>;
+
+    return {
+      id: typeof candidate.id === "string" && candidate.id.trim() ? candidate.id : `pat_${randomUUID()}`,
+      accountId: typeof candidate.accountId === "string" ? candidate.accountId : "",
+      handle: typeof candidate.handle === "string" ? candidate.handle : "",
+      studioHandle: typeof candidate.studioHandle === "string" ? candidate.studioHandle : "",
+      status: normalizePatronStatus(candidate.status),
+      committedAt:
+        typeof candidate.committedAt === "string" && candidate.committedAt.trim()
+          ? candidate.committedAt
+          : new Date().toISOString(),
+      lapsedAt:
+        typeof candidate.lapsedAt === "string" && candidate.lapsedAt.trim().length > 0
+          ? candidate.lapsedAt
+          : null
+    };
+  });
+}
+
+function normalizePatronCommitmentRecords(
+  records: PatronCommitmentRecord[]
+): PatronCommitmentRecord[] {
+  return records.map((record) => {
+    const candidate = record as Partial<PatronCommitmentRecord>;
+
+    return {
+      id:
+        typeof candidate.id === "string" && candidate.id.trim()
+          ? candidate.id
+          : `patc_${randomUUID()}`,
+      patronId: typeof candidate.patronId === "string" ? candidate.patronId : "",
+      amountCents:
+        typeof candidate.amountCents === "number" && Number.isFinite(candidate.amountCents)
+          ? Math.max(0, Math.floor(candidate.amountCents))
+          : 0,
+      periodStart:
+        typeof candidate.periodStart === "string" && candidate.periodStart.trim()
+          ? candidate.periodStart
+          : new Date().toISOString(),
+      periodEnd:
+        typeof candidate.periodEnd === "string" && candidate.periodEnd.trim()
+          ? candidate.periodEnd
+          : new Date().toISOString(),
+      ledgerTransactionId:
+        typeof candidate.ledgerTransactionId === "string" ? candidate.ledgerTransactionId : ""
     };
   });
 }
@@ -1685,6 +1773,8 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
       watchAccessGrants: normalizeWatchAccessGrantRecords(input.watchAccessGrants),
       receiptBadges: normalizeReceiptBadgeRecords(input.receiptBadges),
       membershipEntitlements: normalizeMembershipEntitlementRecords(input.membershipEntitlements),
+      patrons: normalizePatronRecords(input.patrons),
+      patronCommitments: normalizePatronCommitmentRecords(input.patronCommitments),
       liveSessions: normalizeLiveSessionRecords(input.liveSessions),
       townhallComments: normalizeTownhallCommentRecords(input.townhallComments),
       townhallTelemetryEvents: normalizeTownhallTelemetryEvents(input.townhallTelemetryEvents),
@@ -1716,6 +1806,14 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
       membershipEntitlements: Array.isArray(candidate.membershipEntitlements)
         ? normalizeMembershipEntitlementRecords(
             candidate.membershipEntitlements as MembershipEntitlementRecord[]
+          )
+        : [],
+      patrons: Array.isArray(candidate.patrons)
+        ? normalizePatronRecords(candidate.patrons as PatronRecord[])
+        : [],
+      patronCommitments: Array.isArray(candidate.patronCommitments)
+        ? normalizePatronCommitmentRecords(
+            candidate.patronCommitments as PatronCommitmentRecord[]
           )
         : [],
       liveSessions: Array.isArray(candidate.liveSessions)
@@ -1922,6 +2020,8 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     webhookEventsResult,
     watchAccessGrantsResult,
     membershipEntitlementsResult,
+    patronsResult,
+    patronCommitmentsResult,
     liveSessionsResult,
     townhallLikesResult,
     townhallCommentsResult,
@@ -2015,6 +2115,12 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     ),
     client.query<MembershipEntitlementRecord>(
       'SELECT id, account_id AS "accountId", studio_handle AS "studioHandle", world_id AS "worldId", status, started_at AS "startedAt", ends_at AS "endsAt" FROM bff_membership_entitlements ORDER BY started_at DESC'
+    ),
+    client.query<PatronRecord>(
+      'SELECT id, account_id AS "accountId", handle, studio_handle AS "studioHandle", status, committed_at AS "committedAt", lapsed_at AS "lapsedAt" FROM bff_patrons ORDER BY committed_at DESC'
+    ),
+    client.query<PatronCommitmentRecord>(
+      'SELECT id, patron_id AS "patronId", amount_cents AS "amountCents", period_start AS "periodStart", period_end AS "periodEnd", ledger_transaction_id AS "ledgerTransactionId" FROM bff_patron_commitments ORDER BY period_start DESC'
     ),
     client.query<LiveSessionRecord>(
       'SELECT id, studio_handle AS "studioHandle", world_id AS "worldId", drop_id AS "dropId", title, synopsis, starts_at AS "startsAt", ends_at AS "endsAt", mode, eligibility_rule AS "eligibilityRule" FROM bff_live_sessions ORDER BY starts_at ASC'
@@ -2146,6 +2252,8 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     webhookEventsResult.rowCount === 0 &&
     watchAccessGrantsResult.rowCount === 0 &&
     membershipEntitlementsResult.rowCount === 0 &&
+    patronsResult.rowCount === 0 &&
+    patronCommitmentsResult.rowCount === 0 &&
     liveSessionsResult.rowCount === 0 &&
     townhallLikesResult.rowCount === 0 &&
     townhallCommentsResult.rowCount === 0 &&
@@ -2243,6 +2351,13 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     watchAccessGrants: normalizeWatchAccessGrantRecords(watchAccessGrantsResult.rows),
     membershipEntitlements: normalizeMembershipEntitlementRecords(
       membershipEntitlementsResult.rows
+    ),
+    patrons: normalizePatronRecords(patronsResult.rows),
+    patronCommitments: normalizePatronCommitmentRecords(
+      patronCommitmentsResult.rows.map((row) => ({
+        ...row,
+        amountCents: Number(row.amountCents)
+      }))
     ),
     liveSessions: normalizeLiveSessionRecords(liveSessionsResult.rows),
     townhallLikes: townhallLikesResult.rows,
@@ -2356,6 +2471,8 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
       bff_collect_offers,
       bff_live_sessions,
       bff_membership_entitlements,
+      bff_patron_commitments,
+      bff_patrons,
       bff_townhall_shares,
       bff_townhall_comments,
       bff_townhall_likes,
@@ -2539,6 +2656,35 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
         entitlement.status,
         entitlement.startedAt,
         entitlement.endsAt
+      ]
+    );
+  }
+
+  for (const patron of db.patrons) {
+    await client.query(
+      "INSERT INTO bff_patrons (id, account_id, handle, studio_handle, status, committed_at, lapsed_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+      [
+        patron.id,
+        patron.accountId,
+        patron.handle,
+        patron.studioHandle,
+        patron.status,
+        patron.committedAt,
+        patron.lapsedAt
+      ]
+    );
+  }
+
+  for (const commitment of db.patronCommitments) {
+    await client.query(
+      "INSERT INTO bff_patron_commitments (id, patron_id, amount_cents, period_start, period_end, ledger_transaction_id) VALUES ($1, $2, $3, $4, $5, $6)",
+      [
+        commitment.id,
+        commitment.patronId,
+        commitment.amountCents,
+        commitment.periodStart,
+        commitment.periodEnd,
+        commitment.ledgerTransactionId
       ]
     );
   }
