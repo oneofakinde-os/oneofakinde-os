@@ -7,7 +7,8 @@ import type {
   PurchaseReceipt,
   Session,
   WatchQualityLevel,
-  WatchQualityMode
+  WatchQualityMode,
+  WatchSessionEndReason
 } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
 import { resolveDropPreview } from "@/lib/townhall/preview-media";
@@ -33,19 +34,20 @@ type DropWatchModeProps = {
   certificate: Certificate | null;
 };
 
-type WatchTelemetryEventType =
-  | "watch_time"
-  | "completion"
-  | "access_start"
-  | "access_complete"
-  | "quality_change"
-  | "rebuffer";
-
 type QualityChangeReason = "manual_select" | "auto_step_down_stalled" | "auto_step_down_error";
 type RebufferReason = "waiting" | "stalled" | "error";
+type WatchLifecycleHeartbeatInput = {
+  watchTimeSeconds?: number;
+  completionPercent?: number;
+  qualityMode?: WatchQualityMode;
+  qualityLevel?: WatchQualityLevel;
+  qualityReason?: QualityChangeReason;
+  rebufferReason?: RebufferReason;
+};
 
 const QUALITY_OPTIONS: WatchQualityMode[] = ["auto", "high", "medium", "low"];
 const REBUFFER_LOG_THROTTLE_MS = 1500;
+const WATCH_HEARTBEAT_FLUSH_SECONDS = 12;
 
 function modeClass(active: boolean): string {
   return `dropmedia-mode-link ${active ? "active" : ""}`;
@@ -60,51 +62,6 @@ function formatTimeLabel(value: number | null): string {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
-}
-
-async function postWatchTelemetry(input: {
-  dropId: string;
-  eventType: WatchTelemetryEventType;
-  watchTimeSeconds?: number;
-  completionPercent?: number;
-  action?: "start" | "complete" | "toggle";
-  qualityMode?: WatchQualityMode;
-  qualityLevel?: WatchQualityLevel;
-  qualityReason?: QualityChangeReason;
-  rebufferReason?: RebufferReason;
-}): Promise<void> {
-  const body = {
-    dropId: input.dropId,
-    eventType: input.eventType,
-    ...(typeof input.watchTimeSeconds === "number"
-      ? { watchTimeSeconds: Number(input.watchTimeSeconds.toFixed(2)) }
-      : {}),
-    ...(typeof input.completionPercent === "number"
-      ? { completionPercent: Number(input.completionPercent.toFixed(2)) }
-      : {}),
-    metadata: {
-      source: "drop" as const,
-      surface: "watch" as const,
-      ...(input.action ? { action: input.action } : {}),
-      ...(input.qualityMode ? { qualityMode: input.qualityMode } : {}),
-      ...(input.qualityLevel ? { qualityLevel: input.qualityLevel } : {}),
-      ...(input.qualityReason ? { qualityReason: input.qualityReason } : {}),
-      ...(input.rebufferReason ? { rebufferReason: input.rebufferReason } : {})
-    }
-  };
-
-  try {
-    await fetch("/api/v1/townhall/telemetry", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json"
-      },
-      body: JSON.stringify(body),
-      keepalive: true
-    });
-  } catch {
-    // Telemetry is best-effort.
-  }
 }
 
 export function DropWatchMode({ session, drop, receipt, certificate }: DropWatchModeProps) {
@@ -134,8 +91,9 @@ export function DropWatchMode({ session, drop, receipt, certificate }: DropWatch
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const resumeRestoredRef = useRef(false);
-  const accessStartedRef = useRef(false);
-  const accessCompletedRef = useRef(false);
+  const watchSessionIdRef = useRef<string | null>(null);
+  const startingWatchSessionRef = useRef<Promise<string | null> | null>(null);
+  const watchSessionEndedRef = useRef(false);
   const completionLoggedRef = useRef(false);
   const lastObservedSecondsRef = useRef<number | null>(null);
   const bufferedWatchSecondsRef = useRef(0);
@@ -148,35 +106,186 @@ export function DropWatchMode({ session, drop, receipt, certificate }: DropWatch
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [volume, setVolume] = useState(0.65);
+  const selectedQualityModeRef = useRef<WatchQualityMode>("auto");
+  const activeQualityLevelRef = useRef<WatchQualityLevel>(initialAutoLevel);
 
-  const flushWatchTelemetry = useCallback(() => {
-    const pendingSeconds = Number(bufferedWatchSecondsRef.current.toFixed(2));
-    if (pendingSeconds <= 0) {
-      return;
+  const ensureWatchSessionStarted = useCallback(async (): Promise<string | null> => {
+    if (watchSessionEndedRef.current) {
+      return null;
     }
 
-    bufferedWatchSecondsRef.current = 0;
-    void postWatchTelemetry({
-      dropId: drop.id,
-      eventType: "watch_time",
-      watchTimeSeconds: pendingSeconds
-    });
+    if (watchSessionIdRef.current) {
+      return watchSessionIdRef.current;
+    }
+
+    if (startingWatchSessionRef.current) {
+      return startingWatchSessionRef.current;
+    }
+
+    const startRequest = (async () => {
+      try {
+        const response = await fetch(
+          `/api/v1/watch/sessions/${encodeURIComponent(drop.id)}/start`,
+          {
+            method: "POST",
+            keepalive: true
+          }
+        );
+
+        if (!response.ok) {
+          return null;
+        }
+
+        const payload = (await response.json()) as {
+          watchSession?: {
+            id?: string;
+          };
+        };
+        const sessionId = payload.watchSession?.id;
+        if (typeof sessionId !== "string" || !sessionId.trim()) {
+          return null;
+        }
+
+        watchSessionIdRef.current = sessionId;
+        return sessionId;
+      } catch {
+        return null;
+      } finally {
+        startingWatchSessionRef.current = null;
+      }
+    })();
+
+    startingWatchSessionRef.current = startRequest;
+    return startRequest;
   }, [drop.id]);
 
+  const flushWatchSessionHeartbeat = useCallback(
+    (input: WatchLifecycleHeartbeatInput = {}) => {
+      const roundedWatchSeconds = Number(bufferedWatchSecondsRef.current.toFixed(2));
+      const hasWatchTime = roundedWatchSeconds > 0;
+      const hasCompletion = typeof input.completionPercent === "number";
+      const hasQualitySignal = Boolean(
+        input.qualityMode || input.qualityLevel || input.qualityReason || input.rebufferReason
+      );
+      if (!hasWatchTime && !hasCompletion && !hasQualitySignal) {
+        return;
+      }
+
+      if (hasWatchTime) {
+        bufferedWatchSecondsRef.current = 0;
+      }
+
+      const body = {
+        ...(hasWatchTime ? { watchTimeSeconds: roundedWatchSeconds } : {}),
+        ...(hasCompletion
+          ? { completionPercent: Number((input.completionPercent ?? 0).toFixed(2)) }
+          : {}),
+        ...(input.qualityMode ? { qualityMode: input.qualityMode } : {}),
+        ...(input.qualityLevel ? { qualityLevel: input.qualityLevel } : {}),
+        ...(input.qualityReason ? { qualityReason: input.qualityReason } : {}),
+        ...(input.rebufferReason ? { rebufferReason: input.rebufferReason } : {})
+      };
+
+      void (async () => {
+        const sessionId = await ensureWatchSessionStarted();
+        if (!sessionId) {
+          return;
+        }
+
+        try {
+          const response = await fetch(
+            `/api/v1/watch/sessions/${encodeURIComponent(sessionId)}/heartbeat`,
+            {
+              method: "POST",
+              headers: {
+                "content-type": "application/json"
+              },
+              body: JSON.stringify(body),
+              keepalive: true
+            }
+          );
+
+          if (response.status === 404 || response.status === 409) {
+            watchSessionIdRef.current = null;
+            if (response.status === 409) {
+              watchSessionEndedRef.current = true;
+            }
+          }
+        } catch {
+          // Watch session lifecycle rails are best-effort.
+        }
+      })();
+    },
+    [ensureWatchSessionStarted]
+  );
+
+  const endWatchSession = useCallback(
+    (input: {
+      completionPercent?: number;
+      endReason: WatchSessionEndReason;
+      qualityMode?: WatchQualityMode;
+      qualityLevel?: WatchQualityLevel;
+      qualityReason?: QualityChangeReason;
+      rebufferReason?: RebufferReason;
+    }) => {
+      if (watchSessionEndedRef.current) {
+        return;
+      }
+
+      watchSessionEndedRef.current = true;
+      const roundedWatchSeconds = Number(bufferedWatchSecondsRef.current.toFixed(2));
+      const hasWatchTime = roundedWatchSeconds > 0;
+      if (hasWatchTime) {
+        bufferedWatchSecondsRef.current = 0;
+      }
+
+      const body = {
+        ...(hasWatchTime ? { watchTimeSeconds: roundedWatchSeconds } : {}),
+        ...(typeof input.completionPercent === "number"
+          ? { completionPercent: Number(input.completionPercent.toFixed(2)) }
+          : {}),
+        ...(input.qualityMode ? { qualityMode: input.qualityMode } : {}),
+        ...(input.qualityLevel ? { qualityLevel: input.qualityLevel } : {}),
+        ...(input.qualityReason ? { qualityReason: input.qualityReason } : {}),
+        ...(input.rebufferReason ? { rebufferReason: input.rebufferReason } : {}),
+        endReason: input.endReason
+      };
+
+      void (async () => {
+        let sessionId = watchSessionIdRef.current;
+        if (!sessionId && startingWatchSessionRef.current) {
+          sessionId = await startingWatchSessionRef.current;
+        }
+        if (!sessionId) {
+          return;
+        }
+
+        try {
+          await fetch(`/api/v1/watch/sessions/${encodeURIComponent(sessionId)}/end`, {
+            method: "POST",
+            headers: {
+              "content-type": "application/json"
+            },
+            body: JSON.stringify(body),
+            keepalive: true
+          });
+        } catch {
+          // Watch session lifecycle rails are best-effort.
+        } finally {
+          watchSessionIdRef.current = null;
+        }
+      })();
+    },
+    []
+  );
+
   const markAccessStarted = useCallback(() => {
-    if (accessStartedRef.current) {
+    if (watchSessionEndedRef.current) {
       return;
     }
 
-    accessStartedRef.current = true;
-    void postWatchTelemetry({
-      dropId: drop.id,
-      eventType: "access_start",
-      action: "start",
-      qualityMode: selectedQualityMode,
-      qualityLevel: activeQualityLevel
-    });
-  }, [activeQualityLevel, drop.id, selectedQualityMode]);
+    void ensureWatchSessionStarted();
+  }, [ensureWatchSessionStarted]);
 
   const markCompletion = useCallback(
     (completionPercent: number) => {
@@ -185,31 +294,15 @@ export function DropWatchMode({ session, drop, receipt, certificate }: DropWatch
       }
 
       completionLoggedRef.current = true;
-      flushWatchTelemetry();
       clearWatchResumeSeconds(drop.id);
-
-      void postWatchTelemetry({
-        dropId: drop.id,
-        eventType: "completion",
+      endWatchSession({
         completionPercent,
-        action: "complete",
+        endReason: "completed",
         qualityMode: selectedQualityMode,
         qualityLevel: activeQualityLevel
       });
-
-      if (!accessCompletedRef.current) {
-        accessCompletedRef.current = true;
-        void postWatchTelemetry({
-          dropId: drop.id,
-          eventType: "access_complete",
-          completionPercent,
-          action: "complete",
-          qualityMode: selectedQualityMode,
-          qualityLevel: activeQualityLevel
-        });
-      }
     },
-    [activeQualityLevel, drop.id, flushWatchTelemetry, selectedQualityMode]
+    [activeQualityLevel, drop.id, endWatchSession, selectedQualityMode]
   );
 
   const emitRebufferTelemetry = useCallback(
@@ -220,16 +313,13 @@ export function DropWatchMode({ session, drop, receipt, certificate }: DropWatch
       }
 
       lastRebufferAtRef.current = now;
-      void postWatchTelemetry({
-        dropId: drop.id,
-        eventType: "rebuffer",
-        action: "toggle",
+      flushWatchSessionHeartbeat({
         qualityMode: selectedQualityMode,
         qualityLevel: activeQualityLevel,
         rebufferReason
       });
     },
-    [activeQualityLevel, drop.id, selectedQualityMode]
+    [activeQualityLevel, flushWatchSessionHeartbeat, selectedQualityMode]
   );
 
   const stepDownQualityForAuto = useCallback(
@@ -254,10 +344,7 @@ export function DropWatchMode({ session, drop, receipt, certificate }: DropWatch
       setDurationSeconds(media && Number.isFinite(media.duration) ? media.duration : durationSeconds);
       lastObservedSecondsRef.current = preserveSeconds;
 
-      void postWatchTelemetry({
-        dropId: drop.id,
-        eventType: "quality_change",
-        action: "toggle",
+      flushWatchSessionHeartbeat({
         qualityMode: "auto",
         qualityLevel: nextLevel,
         qualityReason
@@ -266,8 +353,8 @@ export function DropWatchMode({ session, drop, receipt, certificate }: DropWatch
     },
     [
       autoQualityLevel,
-      drop.id,
       durationSeconds,
+      flushWatchSessionHeartbeat,
       qualityLadder.availableLevels,
       selectedQualityMode
     ]
@@ -275,8 +362,9 @@ export function DropWatchMode({ session, drop, receipt, certificate }: DropWatch
 
   useEffect(() => {
     resumeRestoredRef.current = false;
-    accessStartedRef.current = false;
-    accessCompletedRef.current = false;
+    watchSessionIdRef.current = null;
+    startingWatchSessionRef.current = null;
+    watchSessionEndedRef.current = false;
     completionLoggedRef.current = false;
     lastObservedSecondsRef.current = null;
     bufferedWatchSecondsRef.current = 0;
@@ -290,6 +378,8 @@ export function DropWatchMode({ session, drop, receipt, certificate }: DropWatch
     setVolume(0.65);
     setSelectedQualityMode("auto");
     setAutoQualityLevel(initialAutoLevel);
+    selectedQualityModeRef.current = "auto";
+    activeQualityLevelRef.current = initialAutoLevel;
   }, [drop.id, initialAutoLevel]);
 
   useEffect(() => {
@@ -298,15 +388,31 @@ export function DropWatchMode({ session, drop, receipt, certificate }: DropWatch
     }
   }, [qualityLadder.availableLevels, selectedQualityMode]);
 
+  useEffect(() => {
+    selectedQualityModeRef.current = selectedQualityMode;
+    activeQualityLevelRef.current = activeQualityLevel;
+  }, [activeQualityLevel, selectedQualityMode]);
+
   useEffect(
     () => () => {
-      flushWatchTelemetry();
       const media = videoRef.current;
       if (media) {
         writeWatchResumeSeconds(drop.id, media.currentTime, media.duration);
       }
+
+      if (!completionLoggedRef.current) {
+        endWatchSession({
+          completionPercent:
+            media && Number.isFinite(media.duration)
+              ? watchCompletionPercent(media.currentTime, media.duration)
+              : undefined,
+          endReason: "user_exit",
+          qualityMode: selectedQualityModeRef.current,
+          qualityLevel: activeQualityLevelRef.current
+        });
+      }
     },
-    [drop.id, flushWatchTelemetry]
+    [drop.id, endWatchSession]
   );
 
   const progressMax = durationSeconds > 0 ? durationSeconds : 1;
@@ -361,7 +467,7 @@ export function DropWatchMode({ session, drop, receipt, certificate }: DropWatch
               setIsPlaying(false);
               const media = event.currentTarget;
               setCurrentSeconds(media.currentTime);
-              flushWatchTelemetry();
+              flushWatchSessionHeartbeat();
               writeWatchResumeSeconds(drop.id, media.currentTime, media.duration);
             }}
             onWaiting={() => {
@@ -397,8 +503,8 @@ export function DropWatchMode({ session, drop, receipt, certificate }: DropWatch
                 if (delta > 0 && delta < 20) {
                   bufferedWatchSecondsRef.current += delta;
                   writeWatchResumeSeconds(drop.id, current, duration);
-                  if (bufferedWatchSecondsRef.current >= 12) {
-                    flushWatchTelemetry();
+                  if (bufferedWatchSecondsRef.current >= WATCH_HEARTBEAT_FLUSH_SECONDS) {
+                    flushWatchSessionHeartbeat();
                   }
                 }
               }
@@ -620,10 +726,7 @@ export function DropWatchMode({ session, drop, receipt, certificate }: DropWatch
                     }
 
                     setSelectedQualityMode(qualityMode);
-                    void postWatchTelemetry({
-                      dropId: drop.id,
-                      eventType: "quality_change",
-                      action: "toggle",
+                    flushWatchSessionHeartbeat({
                       qualityMode,
                       qualityLevel:
                         qualityMode === "auto"
