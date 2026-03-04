@@ -23,6 +23,7 @@ import type {
   MembershipEntitlement,
   OwnedDrop,
   PurchaseReceipt,
+  ReceiptBadge,
   Session,
   Studio,
   TownhallModerationCaseResolution,
@@ -74,6 +75,7 @@ import {
   type AccountRecord,
   type BffDatabase,
   type CertificateRecord,
+  type ReceiptBadgeRecord,
   type PaymentRecord,
   type TownhallCommentRecord,
   type TownhallTelemetryEventRecord
@@ -351,6 +353,53 @@ function toPublicCertificate(record: CertificateRecord): Certificate {
     receiptId: record.receiptId,
     status: record.status
   };
+}
+
+function toPublicReceiptBadge(record: ReceiptBadgeRecord): ReceiptBadge {
+  return {
+    id: record.id,
+    dropTitle: record.dropTitle,
+    worldTitle: record.worldTitle,
+    collectDate: record.collectDate,
+    editionPosition: record.editionPosition,
+    collectorHandle: record.collectorHandle,
+    createdAt: record.createdAt
+  };
+}
+
+function resolveReceiptBadgeCollectDate(receipt: PurchaseReceipt): string {
+  const collectDate = new Date(receipt.purchasedAt);
+  if (Number.isNaN(collectDate.valueOf())) {
+    return receipt.purchasedAt;
+  }
+
+  return collectDate.toISOString();
+}
+
+function resolveReceiptBadgeEditionPosition(
+  db: BffDatabase,
+  receipt: PurchaseReceipt
+): string | undefined {
+  const orderedReceipts = db.receipts
+    .filter((entry) => entry.dropId === receipt.dropId && entry.status === "completed")
+    .sort((a, b) => {
+      const byDate = Date.parse(a.purchasedAt) - Date.parse(b.purchasedAt);
+      if (byDate !== 0) {
+        return byDate;
+      }
+      return a.id.localeCompare(b.id);
+    });
+
+  if (orderedReceipts.length === 0) {
+    return undefined;
+  }
+
+  const position = orderedReceipts.findIndex((entry) => entry.id === receipt.id);
+  if (position < 0) {
+    return undefined;
+  }
+
+  return `${position + 1} of ${orderedReceipts.length}`;
 }
 
 function getDropMap(db: BffDatabase): Map<string, Drop> {
@@ -2848,6 +2897,97 @@ export const commerceBffService = {
     return completePendingPaymentById(paymentId, {
       expectedAccountId: accountId,
       allowedProviders: ["manual"]
+    });
+  },
+
+  async createReceiptBadge(
+    accountId: string,
+    receiptId: string
+  ): Promise<
+    | { ok: true; badge: ReceiptBadge }
+    | { ok: false; reason: "not_found" | "forbidden" | "conflict" }
+  > {
+    return withDatabase<
+      | { ok: true; badge: ReceiptBadge }
+      | { ok: false; reason: "not_found" | "forbidden" | "conflict" }
+    >(async (db) => {
+      const receipt = db.receipts.find((entry) => entry.id === receiptId) ?? null;
+      if (!receipt) {
+        return {
+          persist: false,
+          result: {
+            ok: false,
+            reason: "not_found" as const
+          }
+        };
+      }
+
+      if (receipt.accountId !== accountId || receipt.status !== "completed") {
+        return {
+          persist: false,
+          result: {
+            ok: false,
+            reason: "forbidden" as const
+          }
+        };
+      }
+
+      const existing = db.receiptBadges.find((entry) => entry.receiptId === receipt.id) ?? null;
+      if (existing) {
+        return {
+          persist: false,
+          result: {
+            ok: false,
+            reason: "conflict" as const
+          }
+        };
+      }
+
+      const account = findAccountById(db, accountId);
+      const drop = findDropById(db, receipt.dropId);
+      if (!account || !drop) {
+        return {
+          persist: false,
+          result: {
+            ok: false,
+            reason: "not_found" as const
+          }
+        };
+      }
+
+      const world = findWorldById(db, drop.worldId);
+      const nowIso = new Date().toISOString();
+      const badgeRecord: ReceiptBadgeRecord = {
+        id: `badge_${randomUUID()}`,
+        dropTitle: drop.title,
+        worldTitle: world?.title ?? drop.worldLabel,
+        collectDate: resolveReceiptBadgeCollectDate(receipt),
+        editionPosition: resolveReceiptBadgeEditionPosition(db, receipt),
+        collectorHandle: account.handle,
+        createdAt: nowIso,
+        receiptId: receipt.id,
+        ownerAccountId: account.id
+      };
+
+      db.receiptBadges.unshift(badgeRecord);
+
+      return {
+        persist: true,
+        result: {
+          ok: true,
+          badge: toPublicReceiptBadge(badgeRecord)
+        }
+      };
+    });
+  },
+
+  async getReceiptBadgeById(badgeId: string): Promise<ReceiptBadge | null> {
+    return withDatabase(async (db) => {
+      const badge = db.receiptBadges.find((entry) => entry.id === badgeId) ?? null;
+      return {
+        persist: false,
+        result: badge ? toPublicReceiptBadge(badge) : null
+      };
     });
   },
 

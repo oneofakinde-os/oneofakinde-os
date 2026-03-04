@@ -344,6 +344,16 @@ export type Certificate = {
   status: "verified" | "revoked";
 };
 
+export type ReceiptBadge = {
+  id: string;
+  dropTitle: string;
+  worldTitle?: string;
+  collectDate: string;
+  editionPosition?: string;
+  collectorHandle: string;
+  createdAt: string;
+};
+
 export type OwnedDrop = {
   drop: Drop;
   certificateId: string;

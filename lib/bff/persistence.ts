@@ -8,6 +8,7 @@ import type {
   LiveSessionEligibilityRule,
   MembershipEntitlementStatus,
   PurchaseReceipt,
+  ReceiptBadge,
   WorldReleaseQueuePacingMode,
   WorldReleaseQueueStatus,
   WorldCollectBundleType,
@@ -57,6 +58,11 @@ export type SavedDropRecord = {
 };
 
 export type CertificateRecord = Certificate & {
+  ownerAccountId: string;
+};
+
+export type ReceiptBadgeRecord = ReceiptBadge & {
+  receiptId: string;
   ownerAccountId: string;
 };
 
@@ -223,6 +229,7 @@ export type BffDatabase = {
   savedDrops: SavedDropRecord[];
   receipts: PurchaseReceipt[];
   certificates: CertificateRecord[];
+  receiptBadges: ReceiptBadgeRecord[];
   payments: PaymentRecord[];
   stripeWebhookEvents: StripeWebhookEventRecord[];
   watchAccessGrants: WatchAccessGrantRecord[];
@@ -607,6 +614,7 @@ function createSeedDatabase(): BffDatabase {
     ],
     receipts: [seededReceipt],
     certificates: [seededCertificate],
+    receiptBadges: [],
     payments: [],
     stripeWebhookEvents: [],
     watchAccessGrants: [],
@@ -798,6 +806,7 @@ function createCatalogSeedDatabase(): BffDatabase {
     savedDrops: [],
     receipts: [],
     certificates: [],
+    receiptBadges: [],
     payments: [],
     stripeWebhookEvents: [],
     watchAccessGrants: [],
@@ -828,6 +837,7 @@ function createEmptyDatabase(): BffDatabase {
     savedDrops: [],
     receipts: [],
     certificates: [],
+    receiptBadges: [],
     payments: [],
     stripeWebhookEvents: [],
     watchAccessGrants: [],
@@ -861,6 +871,7 @@ function isValidDb(input: unknown): input is BffDatabase {
     Array.isArray(candidate.savedDrops) &&
     Array.isArray(candidate.receipts) &&
     Array.isArray(candidate.certificates) &&
+    Array.isArray(candidate.receiptBadges) &&
     Array.isArray(candidate.payments) &&
     Array.isArray(candidate.stripeWebhookEvents) &&
     Array.isArray(candidate.watchAccessGrants) &&
@@ -891,6 +902,7 @@ function hasLegacyBaseDbShape(input: unknown): input is Omit<
   | "collectEnforcementSignals"
   | "worldCollectOwnerships"
   | "worldReleaseQueue"
+  | "receiptBadges"
 > {
   if (!input || typeof input !== "object") {
     return false;
@@ -1387,11 +1399,41 @@ function normalizeWatchAccessGrantRecords(records: WatchAccessGrantRecord[]): Wa
   });
 }
 
+function normalizeReceiptBadgeRecords(records: ReceiptBadgeRecord[]): ReceiptBadgeRecord[] {
+  return records.map((record) => {
+    const candidate = record as Partial<ReceiptBadgeRecord>;
+    return {
+      id: typeof candidate.id === "string" && candidate.id.trim() ? candidate.id : `badge_${randomUUID()}`,
+      dropTitle: typeof candidate.dropTitle === "string" ? candidate.dropTitle : "",
+      worldTitle:
+        typeof candidate.worldTitle === "string" && candidate.worldTitle.trim()
+          ? candidate.worldTitle
+          : undefined,
+      collectDate:
+        typeof candidate.collectDate === "string" && candidate.collectDate.trim()
+          ? candidate.collectDate
+          : new Date().toISOString(),
+      editionPosition:
+        typeof candidate.editionPosition === "string" && candidate.editionPosition.trim()
+          ? candidate.editionPosition
+          : undefined,
+      collectorHandle: typeof candidate.collectorHandle === "string" ? candidate.collectorHandle : "",
+      createdAt:
+        typeof candidate.createdAt === "string" && candidate.createdAt.trim()
+          ? candidate.createdAt
+          : new Date().toISOString(),
+      receiptId: typeof candidate.receiptId === "string" ? candidate.receiptId : "",
+      ownerAccountId: typeof candidate.ownerAccountId === "string" ? candidate.ownerAccountId : ""
+    };
+  });
+}
+
 function normalizeDatabase(input: unknown): BffDatabase | null {
   if (isValidDb(input)) {
     return {
       ...input,
       watchAccessGrants: normalizeWatchAccessGrantRecords(input.watchAccessGrants),
+      receiptBadges: normalizeReceiptBadgeRecords(input.receiptBadges),
       membershipEntitlements: normalizeMembershipEntitlementRecords(input.membershipEntitlements),
       liveSessions: normalizeLiveSessionRecords(input.liveSessions),
       townhallComments: normalizeTownhallCommentRecords(input.townhallComments),
@@ -1414,6 +1456,9 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         : [],
       watchAccessGrants: Array.isArray(candidate.watchAccessGrants)
         ? normalizeWatchAccessGrantRecords(candidate.watchAccessGrants as WatchAccessGrantRecord[])
+        : [],
+      receiptBadges: Array.isArray(candidate.receiptBadges)
+        ? normalizeReceiptBadgeRecords(candidate.receiptBadges as ReceiptBadgeRecord[])
         : [],
       membershipEntitlements: Array.isArray(candidate.membershipEntitlements)
         ? normalizeMembershipEntitlementRecords(
@@ -1610,6 +1655,7 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     savedDropsResult,
     receiptsResult,
     certificatesResult,
+    receiptBadgesResult,
     paymentsResult,
     webhookEventsResult,
     watchAccessGrantsResult,
@@ -1659,6 +1705,19 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     ),
     client.query<CertificateRecord>(
       'SELECT id, drop_id AS "dropId", drop_title AS "dropTitle", owner_handle AS "ownerHandle", issued_at AS "issuedAt", receipt_id AS "receiptId", status, owner_account_id AS "ownerAccountId" FROM bff_certificates ORDER BY issued_at DESC'
+    ),
+    client.query<{
+      id: string;
+      dropTitle: string;
+      worldTitle: string | null;
+      collectDate: string;
+      editionPosition: string | null;
+      collectorHandle: string;
+      createdAt: string;
+      receiptId: string;
+      ownerAccountId: string;
+    }>(
+      'SELECT id, drop_title AS "dropTitle", world_title AS "worldTitle", collect_date AS "collectDate", edition_position AS "editionPosition", collector_handle AS "collectorHandle", created_at AS "createdAt", receipt_id AS "receiptId", owner_account_id AS "ownerAccountId" FROM bff_receipt_badges ORDER BY created_at DESC'
     ),
     client.query<{
       id: string;
@@ -1781,6 +1840,7 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     savedDropsResult.rowCount === 0 &&
     receiptsResult.rowCount === 0 &&
     certificatesResult.rowCount === 0 &&
+    receiptBadgesResult.rowCount === 0 &&
     paymentsResult.rowCount === 0 &&
     webhookEventsResult.rowCount === 0 &&
     watchAccessGrantsResult.rowCount === 0 &&
@@ -1832,6 +1892,19 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       purchasedAt: row.purchasedAt
     })),
     certificates: certificatesResult.rows,
+    receiptBadges: normalizeReceiptBadgeRecords(
+      receiptBadgesResult.rows.map((row) => ({
+        id: row.id,
+        dropTitle: row.dropTitle,
+        worldTitle: row.worldTitle ?? undefined,
+        collectDate: row.collectDate,
+        editionPosition: row.editionPosition ?? undefined,
+        collectorHandle: row.collectorHandle,
+        createdAt: row.createdAt,
+        receiptId: row.receiptId,
+        ownerAccountId: row.ownerAccountId
+      }))
+    ),
     payments: paymentsResult.rows.map((row) => ({
       id: row.id,
       provider: row.provider,
@@ -1938,6 +2011,7 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
       bff_stripe_webhook_events,
       bff_watch_access_grants,
       bff_payments,
+      bff_receipt_badges,
       bff_certificates,
       bff_receipts,
       bff_saved_drops,
@@ -2033,6 +2107,23 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
         certificate.receiptId,
         certificate.status,
         certificate.ownerAccountId
+      ]
+    );
+  }
+
+  for (const badge of db.receiptBadges) {
+    await client.query(
+      "INSERT INTO bff_receipt_badges (id, drop_title, world_title, collect_date, edition_position, collector_handle, created_at, receipt_id, owner_account_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+      [
+        badge.id,
+        badge.dropTitle,
+        badge.worldTitle ?? null,
+        badge.collectDate,
+        badge.editionPosition ?? null,
+        badge.collectorHandle,
+        badge.createdAt,
+        badge.receiptId,
+        badge.ownerAccountId
       ]
     );
   }
