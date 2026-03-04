@@ -425,6 +425,24 @@ export type ReceiptBadge = {
   createdAt: string;
 };
 
+export type OwnershipHistoryEventKind = "collect" | "refund";
+
+export type OwnershipHistoryEntry = {
+  id: string;
+  dropId: string;
+  occurredAt: string;
+  kind: OwnershipHistoryEventKind;
+  actorHandle: string;
+  receiptId: string | null;
+  certificateId: string | null;
+  publicAmountUsd: number | null;
+};
+
+export type DropOwnershipHistory = {
+  dropId: string;
+  entries: OwnershipHistoryEntry[];
+};
+
 export type OwnedDrop = {
   drop: Drop;
   certificateId: string;

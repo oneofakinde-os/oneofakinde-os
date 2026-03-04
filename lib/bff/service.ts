@@ -20,9 +20,11 @@ import type {
   LedgerTransaction,
   LiveSession,
   LiveSessionEligibility,
+  DropOwnershipHistory,
   MyCollectionSnapshot,
   MembershipEntitlement,
   OwnedDrop,
+  OwnershipHistoryEntry,
   PurchaseReceipt,
   ReceiptBadge,
   SettlementLineItem,
@@ -622,6 +624,54 @@ function buildReceiptWithSettlement(
   return {
     ...receipt,
     lineItems: resolveReceiptLineItems(db, receipt.id)
+  };
+}
+
+function resolvePublicLineItemAmountUsd(
+  db: BffDatabase,
+  transactionId: string,
+  kind: SettlementLineItem["kind"]
+): number | null {
+  const amount = db.ledgerLineItems
+    .filter((entry) => entry.transactionId === transactionId && entry.scope === "public" && entry.kind === kind)
+    .reduce((sum, entry) => sum + entry.amountUsd, 0);
+  if (!Number.isFinite(amount)) {
+    return null;
+  }
+  return Number(amount.toFixed(2));
+}
+
+function buildDropOwnershipHistory(db: BffDatabase, dropId: string): DropOwnershipHistory {
+  const ownershipTransactions = db.ledgerTransactions.filter(
+    (
+      entry
+    ): entry is LedgerTransactionRecord & {
+      kind: "collect" | "refund";
+    } => entry.dropId === dropId && (entry.kind === "collect" || entry.kind === "refund")
+  );
+
+  const entries: OwnershipHistoryEntry[] = ownershipTransactions
+    .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt))
+    .map((entry) => {
+      const actor = findAccountById(db, entry.accountId);
+      const certificate = entry.receiptId
+        ? db.certificates.find((candidate) => candidate.receiptId === entry.receiptId) ?? null
+        : null;
+      return {
+        id: entry.id,
+        dropId,
+        occurredAt: entry.createdAt,
+        kind: entry.kind,
+        actorHandle: actor?.handle ?? "unknown",
+        receiptId: entry.receiptId,
+        certificateId: certificate?.id ?? null,
+        publicAmountUsd: resolvePublicLineItemAmountUsd(db, entry.id, "collect_subtotal")
+      };
+    });
+
+  return {
+    dropId,
+    entries
   };
 }
 
@@ -3174,6 +3224,23 @@ export const commerceBffService = {
       return {
         persist: false,
         result: badge ? toPublicReceiptBadge(badge) : null
+      };
+    });
+  },
+
+  async getDropOwnershipHistory(dropId: string): Promise<DropOwnershipHistory | null> {
+    return withDatabase(async (db) => {
+      const drop = findDropById(db, dropId);
+      if (!drop) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      return {
+        persist: false,
+        result: buildDropOwnershipHistory(db, drop.id)
       };
     });
   },
