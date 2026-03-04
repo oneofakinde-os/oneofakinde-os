@@ -21,7 +21,8 @@
     "test:proofs": "node --import tsx --test tests/proofs/*.test.ts",
     "rc:dry-run": "node --import tsx scripts/release-candidate-dry-run.ts",
     "generate:policy-tests": "node --import tsx scripts/generate-route-policy-tests.ts",
-    "check:surface-sync": "node --import tsx scripts/check-surface-route-sync.ts"
+    "check:surface-sync": "node --import tsx scripts/check-surface-route-sync.ts",
+    "test:smoke:showroom": "playwright test --config=playwright.config.ts"
   },
   "dependencies": {
     "next": "15.5.12",
@@ -30,14 +31,15 @@
     "react-dom": "18.2.0"
   },
   "devDependencies": {
-    "@types/pg": "^8.15.6",
+    "@playwright/test": "^1.58.2",
     "@types/node": "22.10.1",
+    "@types/pg": "^8.15.6",
     "@types/react": "18.3.18",
     "@types/react-dom": "18.3.5",
     "eslint": "9.39.2",
     "eslint-config-next": "15.5.12",
-    "typescript": "5.7.2",
-    "tsx": "4.20.5"
+    "tsx": "4.20.5",
+    "typescript": "5.7.2"
   },
   "engines": {
     "node": ">=20.0.0"
