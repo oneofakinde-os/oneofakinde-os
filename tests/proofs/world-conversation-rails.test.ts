@@ -10,6 +10,8 @@ import {
 import { POST as postWorldConversationReportRoute } from "../../app/api/v1/worlds/[world_id]/conversation/[message_id]/report/route";
 import { POST as postWorldConversationAppealRoute } from "../../app/api/v1/worlds/[world_id]/conversation/[message_id]/appeal/route";
 import { POST as postWorldConversationResolveRoute } from "../../app/api/v1/worlds/[world_id]/conversation/[message_id]/resolve/route";
+import { GET as getWorkshopWorldConversationModerationQueueRoute } from "../../app/api/v1/workshop/moderation/world-conversation/route";
+import { POST as postWorkshopWorldConversationModerationResolveRoute } from "../../app/api/v1/workshop/moderation/world-conversation/[world_id]/[message_id]/resolve/route";
 import { GET as getCollectInventoryRoute } from "../../app/api/v1/collect/inventory/route";
 import { GET as getTownhallFeedRoute } from "../../app/api/v1/townhall/feed/route";
 import { commerceBffService } from "../../lib/bff/service";
@@ -131,6 +133,50 @@ test("proof: world conversation rails enforce member visibility with moderation 
   const messageId = createdMessage?.id ?? "";
   assert.ok(messageId, "expected created world conversation message id");
 
+  const createReply = await postWorldConversationRoute(
+    new Request("http://127.0.0.1:3000/api/v1/worlds/dark-matter/conversation", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-ook-session-token": member.sessionToken
+      },
+      body: JSON.stringify({
+        body: "reply in world thread.",
+        parentMessageId: messageId
+      })
+    }),
+    withRouteParams({ world_id: "dark-matter" })
+  );
+  assert.equal(createReply.status, 201);
+  const replyPayload = await parseJson<{ thread: WorldConversationThread }>(createReply);
+  const rootMessage = replyPayload.thread.messages.find((entry) => entry.id === messageId);
+  const replyMessage = replyPayload.thread.messages.find(
+    (entry) => entry.parentMessageId === messageId
+  );
+  assert.ok(rootMessage, "expected root world conversation message");
+  assert.ok(replyMessage, "expected reply world conversation message");
+  assert.equal(rootMessage?.depth, 0);
+  assert.equal(rootMessage?.replyCount, 1);
+  assert.equal(replyMessage?.depth, 1);
+  assert.equal(replyMessage?.replyCount, 0);
+  assert.equal(replyMessage?.canReply, true);
+
+  const invalidReplyParent = await postWorldConversationRoute(
+    new Request("http://127.0.0.1:3000/api/v1/worlds/dark-matter/conversation", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-ook-session-token": member.sessionToken
+      },
+      body: JSON.stringify({
+        body: "reply with invalid parent",
+        parentMessageId: "wcm_missing_parent"
+      })
+    }),
+    withRouteParams({ world_id: "dark-matter" })
+  );
+  assert.equal(invalidReplyParent.status, 400);
+
   const nonMemberReportBlocked = await postWorldConversationReportRoute(
     new Request(`http://127.0.0.1:3000/api/v1/worlds/dark-matter/conversation/${messageId}/report`, {
       method: "POST",
@@ -240,6 +286,88 @@ test("proof: world conversation rails enforce member visibility with moderation 
   assert.equal(appealedMessage?.appealRequested, true);
   assert.equal(appealedMessage?.canAppeal, false);
 
+  const forbiddenModerationQueue = await getWorkshopWorldConversationModerationQueueRoute(
+    new Request("http://127.0.0.1:3000/api/v1/workshop/moderation/world-conversation", {
+      headers: {
+        "x-ook-session-token": nonMember.sessionToken
+      }
+    })
+  );
+  assert.equal(forbiddenModerationQueue.status, 403);
+
+  const moderationQueue = await getWorkshopWorldConversationModerationQueueRoute(
+    new Request("http://127.0.0.1:3000/api/v1/workshop/moderation/world-conversation?world_id=dark-matter", {
+      headers: {
+        "x-ook-session-token": creator.sessionToken
+      }
+    })
+  );
+  assert.equal(moderationQueue.status, 200);
+  const moderationQueuePayload = await parseJson<{
+    queue: Array<{
+      worldId: string;
+      messageId: string;
+      parentMessageId: string | null;
+      reportCount: number;
+      appealRequested: boolean;
+    }>;
+  }>(moderationQueue);
+  const moderationQueueEntry = moderationQueuePayload.queue.find((entry) => entry.messageId === messageId);
+  assert.ok(moderationQueueEntry, "expected appealed world conversation message in moderation queue");
+  assert.equal(moderationQueueEntry?.worldId, "dark-matter");
+  assert.equal(moderationQueueEntry?.parentMessageId, null);
+  assert.equal(moderationQueueEntry?.reportCount, 0);
+  assert.equal(moderationQueueEntry?.appealRequested, true);
+  assertNoForbiddenKeys(moderationQueuePayload, [...WORLD_CONVERSATION_FORBIDDEN_KEYS]);
+
+  const forbiddenCaseResolve = await postWorkshopWorldConversationModerationResolveRoute(
+    new Request(
+      `http://127.0.0.1:3000/api/v1/workshop/moderation/world-conversation/dark-matter/${messageId}/resolve`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-ook-session-token": nonMember.sessionToken
+        },
+        body: JSON.stringify({
+          resolution: "dismiss"
+        })
+      }
+    ),
+    withRouteParams({ world_id: "dark-matter", message_id: messageId })
+  );
+  assert.equal(forbiddenCaseResolve.status, 403);
+
+  const dismissCase = await postWorkshopWorldConversationModerationResolveRoute(
+    new Request(
+      `http://127.0.0.1:3000/api/v1/workshop/moderation/world-conversation/dark-matter/${messageId}/resolve`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-ook-session-token": creator.sessionToken
+        },
+        body: JSON.stringify({
+          resolution: "dismiss"
+        })
+      }
+    ),
+    withRouteParams({ world_id: "dark-matter", message_id: messageId })
+  );
+  assert.equal(dismissCase.status, 200);
+  const dismissPayload = await parseJson<{
+    ok: true;
+    queue: Array<{
+      messageId: string;
+    }>;
+  }>(dismissCase);
+  assert.equal(dismissPayload.ok, true);
+  assert.equal(
+    dismissPayload.queue.some((entry) => entry.messageId === messageId),
+    false,
+    "expected dismissed world conversation case to leave moderation queue"
+  );
+
   const restoreResponse = await postWorldConversationResolveRoute(
     new Request(`http://127.0.0.1:3000/api/v1/worlds/dark-matter/conversation/${messageId}/resolve`, {
       method: "POST",
@@ -295,4 +423,3 @@ test("proof: world conversation rails do not regress collect inventory and townh
   );
   assert.equal(townhallFeed.status, 200);
 });
-

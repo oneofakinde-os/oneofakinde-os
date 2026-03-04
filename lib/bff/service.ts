@@ -47,6 +47,8 @@ import type {
   WorldReleaseQueuePacingMode,
   WorldReleaseQueueStatus,
   WorldConversationMessage,
+  WorldConversationModerationCaseResolveResult,
+  WorldConversationModerationQueueItem,
   WorldConversationModerationResolution,
   WorldConversationThread,
   WorldCollectBundleCollectResult,
@@ -105,6 +107,7 @@ const TOWNHALL_COMMENTS_PREVIEW_LIMIT = 24;
 const WORLD_CONVERSATION_MESSAGE_MAX_LENGTH = 600;
 const WORLD_CONVERSATION_MESSAGES_PREVIEW_LIMIT = 200;
 const WORLD_CONVERSATION_MESSAGE_LOG_LIMIT = 50_000;
+const WORLD_CONVERSATION_MODERATION_QUEUE_LIMIT = 500;
 const COLLECT_OFFERS_LOG_LIMIT = 50_000;
 const COLLECT_ENFORCEMENT_SIGNAL_LOG_LIMIT = 10_000;
 const COLLECT_INTEGRITY_RECENT_SIGNAL_LIMIT = 100;
@@ -1144,6 +1147,17 @@ function canAccountModerateWorldConversationMessage(
   return account.roles.includes("creator") && account.handle === world.studioHandle;
 }
 
+function canAccountResolveWorldConversationModerationCase(
+  account: AccountRecord | null,
+  world: World
+): boolean {
+  if (!account) {
+    return false;
+  }
+
+  return account.roles.includes("creator") && account.handle === world.studioHandle;
+}
+
 function canAccountReportWorldConversationMessage(
   account: AccountRecord | null,
   message: WorldConversationMessageRecord
@@ -1219,13 +1233,20 @@ function toWorldConversationMessage(
   record: WorldConversationMessageRecord,
   accountHandleById: Map<string, string>,
   viewerAccount: AccountRecord | null,
-  world: World
+  world: World,
+  options: {
+    depth: number;
+    replyCount: number;
+  }
 ): WorldConversationMessage {
   const canModerate = canAccountModerateWorldConversationMessage(viewerAccount, world, record);
   const isAuthor = Boolean(viewerAccount && viewerAccount.id === record.accountId);
   return {
     id: record.id,
     worldId: record.worldId,
+    parentMessageId: record.parentMessageId,
+    depth: options.depth,
+    replyCount: options.replyCount,
     authorHandle: accountHandleById.get(record.accountId) ?? "community",
     body:
       !canModerate && !isAuthor && record.visibility === "hidden"
@@ -1240,6 +1261,7 @@ function toWorldConversationMessage(
     reportCount: record.reportCount,
     canModerate,
     canReport: canAccountReportWorldConversationMessage(viewerAccount, record),
+    canReply: viewerAccount !== null,
     canAppeal: canAccountAppealWorldConversationMessage(viewerAccount, record),
     appealRequested: Boolean(record.appealRequestedAt)
   };
@@ -1251,7 +1273,7 @@ function buildWorldConversationThread(
   viewerAccount: AccountRecord
 ): WorldConversationThread {
   const accountHandleById = new Map(db.accounts.map((entry) => [entry.id, entry.handle]));
-  const messages = db.worldConversationMessages
+  const visibleMessages = db.worldConversationMessages
     .filter((entry) => entry.worldId === world.id)
     .filter((entry) => {
       if (entry.visibility === "visible") {
@@ -1265,8 +1287,50 @@ function buildWorldConversationThread(
       return canAccountModerateWorldConversationMessage(viewerAccount, world, entry);
     })
     .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt))
-    .slice(-WORLD_CONVERSATION_MESSAGES_PREVIEW_LIMIT)
-    .map((entry) => toWorldConversationMessage(entry, accountHandleById, viewerAccount, world));
+    .slice(-WORLD_CONVERSATION_MESSAGES_PREVIEW_LIMIT);
+
+  const visibleById = new Map(visibleMessages.map((entry) => [entry.id, entry]));
+  const childrenByParentId = new Map<string, WorldConversationMessageRecord[]>();
+  const rootMessages: WorldConversationMessageRecord[] = [];
+  const replyCountByParentId = new Map<string, number>();
+
+  for (const message of visibleMessages) {
+    if (message.parentMessageId && visibleById.has(message.parentMessageId)) {
+      const currentChildren = childrenByParentId.get(message.parentMessageId) ?? [];
+      currentChildren.push(message);
+      childrenByParentId.set(message.parentMessageId, currentChildren);
+      replyCountByParentId.set(
+        message.parentMessageId,
+        (replyCountByParentId.get(message.parentMessageId) ?? 0) + 1
+      );
+    } else {
+      rootMessages.push(message);
+    }
+  }
+
+  rootMessages.sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
+  for (const [parentId, entries] of childrenByParentId.entries()) {
+    entries.sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
+    childrenByParentId.set(parentId, entries);
+  }
+
+  const messages: WorldConversationMessage[] = [];
+  const traverse = (record: WorldConversationMessageRecord, depth: number) => {
+    messages.push(
+      toWorldConversationMessage(record, accountHandleById, viewerAccount, world, {
+        depth,
+        replyCount: replyCountByParentId.get(record.id) ?? 0
+      })
+    );
+    const children = childrenByParentId.get(record.id) ?? [];
+    for (const child of children) {
+      traverse(child, depth + 1);
+    }
+  };
+
+  for (const root of rootMessages) {
+    traverse(root, 0);
+  }
 
   return {
     worldId: world.id,
@@ -1469,6 +1533,57 @@ function buildTownhallModerationQueue(
       const bRank = Date.parse(b.appealRequestedAt ?? b.reportedAt ?? b.createdAt);
       return bRank - aRank;
     });
+}
+
+function buildWorldConversationModerationQueue(
+  db: BffDatabase,
+  account: AccountRecord,
+  worldId?: string | null
+): WorldConversationModerationQueueItem[] {
+  if (!account.roles.includes("creator")) {
+    return [];
+  }
+
+  const creatorWorlds = db.catalog.worlds.filter((world) => world.studioHandle === account.handle);
+  const creatorWorldById = new Map(
+    creatorWorlds
+      .filter((world) => (worldId ? world.id === worldId : true))
+      .map((world) => [world.id, world])
+  );
+
+  if (worldId && !creatorWorldById.has(worldId)) {
+    return [];
+  }
+
+  const accountHandleById = new Map(db.accounts.map((entry) => [entry.id, entry.handle]));
+
+  return db.worldConversationMessages
+    .filter((message) => creatorWorldById.has(message.worldId))
+    .filter((message) => message.reportCount > 0 || message.appealRequestedAt !== null)
+    .map((message) => {
+      const world = creatorWorldById.get(message.worldId)!;
+      return {
+        worldId: world.id,
+        worldTitle: world.title,
+        messageId: message.id,
+        parentMessageId: message.parentMessageId,
+        authorHandle: accountHandleById.get(message.accountId) ?? "community",
+        body: message.body,
+        visibility: message.visibility,
+        reportCount: message.reportCount,
+        reportedAt: message.reportedAt,
+        moderatedAt: message.moderatedAt,
+        appealRequested: Boolean(message.appealRequestedAt),
+        appealRequestedAt: message.appealRequestedAt,
+        createdAt: message.createdAt
+      } satisfies WorldConversationModerationQueueItem;
+    })
+    .sort((a, b) => {
+      const aRank = Date.parse(a.appealRequestedAt ?? a.reportedAt ?? a.createdAt);
+      const bRank = Date.parse(b.appealRequestedAt ?? b.reportedAt ?? b.createdAt);
+      return bRank - aRank;
+    })
+    .slice(0, WORLD_CONVERSATION_MODERATION_QUEUE_LIMIT);
 }
 
 function buildTownhallSocialSnapshot(
@@ -3656,7 +3771,8 @@ export const commerceBffService = {
   async addWorldConversationMessage(
     accountId: string,
     worldId: string,
-    body: string
+    body: string,
+    parentMessageId?: string | null
   ): Promise<
     | {
         ok: true;
@@ -3704,11 +3820,30 @@ export const commerceBffService = {
         };
       }
 
+      const normalizedParentMessageId = parentMessageId?.trim() || null;
+      if (normalizedParentMessageId) {
+        const parentMessage = findWorldConversationMessageById(
+          db,
+          world.id,
+          normalizedParentMessageId
+        );
+        if (!parentMessage) {
+          return {
+            persist: false,
+            result: {
+              ok: false as const,
+              reason: "invalid" as const
+            }
+          };
+        }
+      }
+
       const nowIso = new Date().toISOString();
       const message: WorldConversationMessageRecord = {
         id: `wcm_${randomUUID()}`,
         worldId: world.id,
         accountId: account.id,
+        parentMessageId: normalizedParentMessageId,
         body: normalizedBody,
         createdAt: nowIso,
         visibility: "visible",
@@ -3913,7 +4048,7 @@ export const commerceBffService = {
         };
       }
 
-      if (!canAccountModerateWorldConversationMessage(account, world, message)) {
+      if (!canAccountResolveWorldConversationModerationCase(account, world)) {
         return {
           persist: false,
           result: {
@@ -3930,6 +4065,68 @@ export const commerceBffService = {
         result: {
           ok: true as const,
           thread: buildWorldConversationThread(db, world, account)
+        }
+      };
+    });
+  },
+
+  async listWorldConversationModerationQueue(
+    accountId: string,
+    worldId?: string | null
+  ): Promise<WorldConversationModerationQueueItem[]> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account) {
+        return {
+          persist: false,
+          result: []
+        };
+      }
+
+      return {
+        persist: false,
+        result: buildWorldConversationModerationQueue(db, account, worldId)
+      };
+    });
+  },
+
+  async resolveWorldConversationModerationCase(
+    accountId: string,
+    worldId: string,
+    messageId: string,
+    resolution: WorldConversationModerationResolution
+  ): Promise<WorldConversationModerationCaseResolveResult> {
+    return withDatabase<WorldConversationModerationCaseResolveResult>(async (db) => {
+      const account = findAccountById(db, accountId);
+      const world = findWorldById(db, worldId);
+      const message = findWorldConversationMessageById(db, worldId, messageId);
+      if (!account || !world || !message || !isWorldConversationModerationResolution(resolution)) {
+        return {
+          persist: false,
+          result: {
+            ok: false,
+            reason: "not_found"
+          }
+        };
+      }
+
+      if (!canAccountResolveWorldConversationModerationCase(account, world)) {
+        return {
+          persist: false,
+          result: {
+            ok: false,
+            reason: "forbidden"
+          }
+        };
+      }
+
+      applyWorldConversationModerationResolution(message, account.id, resolution);
+
+      return {
+        persist: true,
+        result: {
+          ok: true,
+          queue: buildWorldConversationModerationQueue(db, account, world.id)
         }
       };
     });

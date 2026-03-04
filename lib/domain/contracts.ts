@@ -88,6 +88,9 @@ export type WorldConversationVisibility = "visible" | "hidden" | "restricted" | 
 export type WorldConversationMessage = {
   id: string;
   worldId: string;
+  parentMessageId: string | null;
+  depth: number;
+  replyCount: number;
   authorHandle: string;
   body: string;
   createdAt: string;
@@ -95,6 +98,7 @@ export type WorldConversationMessage = {
   reportCount: number;
   canModerate: boolean;
   canReport: boolean;
+  canReply: boolean;
   canAppeal: boolean;
   appealRequested: boolean;
 };
@@ -110,6 +114,32 @@ export type WorldConversationModerationResolution =
   | "delete"
   | "restore"
   | "dismiss";
+
+export type WorldConversationModerationQueueItem = {
+  worldId: string;
+  worldTitle: string;
+  messageId: string;
+  parentMessageId: string | null;
+  authorHandle: string;
+  body: string;
+  visibility: WorldConversationVisibility;
+  reportCount: number;
+  reportedAt: string | null;
+  moderatedAt: string | null;
+  appealRequested: boolean;
+  appealRequestedAt: string | null;
+  createdAt: string;
+};
+
+export type WorldConversationModerationCaseResolveResult =
+  | {
+      ok: true;
+      queue: WorldConversationModerationQueueItem[];
+    }
+  | {
+      ok: false;
+      reason: "forbidden" | "not_found";
+    };
 
 export type LiveSessionEligibilityRule = "public" | "membership_active" | "drop_owner";
 

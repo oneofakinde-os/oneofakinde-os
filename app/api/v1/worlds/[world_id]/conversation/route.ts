@@ -2,6 +2,7 @@ import { requireRequestSession } from "@/lib/bff/auth";
 import {
   badRequest,
   forbidden,
+  getOptionalBodyString,
   getRequiredBodyString,
   getRequiredRouteParam,
   notFound,
@@ -17,6 +18,7 @@ type WorldConversationRouteParams = {
 
 type CreateWorldConversationMessageBody = {
   body?: string;
+  parentMessageId?: string;
 };
 
 export async function GET(
@@ -63,22 +65,25 @@ export async function POST(
   }
 
   const payload = await safeJson<CreateWorldConversationMessageBody>(request);
-  const body = getRequiredBodyString(payload as Record<string, unknown> | null, "body");
+  const payloadRecord = payload as Record<string, unknown> | null;
+  const body = getRequiredBodyString(payloadRecord, "body");
   if (!body) {
     return badRequest("message body is required");
   }
+  const parentMessageId = getOptionalBodyString(payloadRecord, "parentMessageId");
 
   const thread = await commerceBffService.addWorldConversationMessage(
     guard.session.accountId,
     worldId,
-    body
+    body,
+    parentMessageId
   );
   if (!thread.ok) {
     if (thread.reason === "not_found") {
       return notFound("world not found");
     }
     if (thread.reason === "invalid") {
-      return badRequest("message body is required");
+      return badRequest("message body or parentMessageId is invalid");
     }
     return forbidden("world membership or collect entitlement is required");
   }
@@ -87,4 +92,3 @@ export async function POST(
     thread: thread.thread
   }, 201);
 }
-

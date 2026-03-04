@@ -192,6 +192,7 @@ export type WorldConversationMessageRecord = {
   id: string;
   worldId: string;
   accountId: string;
+  parentMessageId: string | null;
   body: string;
   createdAt: string;
   visibility: WorldConversationVisibility;
@@ -1751,6 +1752,7 @@ function normalizeWorldConversationMessageRecords(
     const candidate = message as Partial<WorldConversationMessageRecord> & {
       worldId?: unknown;
       accountId?: unknown;
+      parentMessageId?: unknown;
       body?: unknown;
       createdAt?: unknown;
       visibility?: unknown;
@@ -1766,6 +1768,10 @@ function normalizeWorldConversationMessageRecords(
       id: typeof candidate.id === "string" && candidate.id.trim() ? candidate.id : `wcm_${randomUUID()}`,
       worldId: typeof candidate.worldId === "string" ? candidate.worldId : "",
       accountId: typeof candidate.accountId === "string" ? candidate.accountId : "",
+      parentMessageId:
+        typeof candidate.parentMessageId === "string" && candidate.parentMessageId.trim()
+          ? candidate.parentMessageId
+          : null,
       body: typeof candidate.body === "string" ? candidate.body : "",
       createdAt:
         typeof candidate.createdAt === "string" && candidate.createdAt.trim()
@@ -2246,6 +2252,7 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       id: string;
       worldId: string;
       accountId: string;
+      parentMessageId: string | null;
       body: string;
       createdAt: string;
       visibility: WorldConversationVisibility;
@@ -2256,7 +2263,7 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       appealRequestedAt: string | null;
       appealRequestedByAccountId: string | null;
     }>(
-      'SELECT id, world_id AS "worldId", account_id AS "accountId", body, created_at AS "createdAt", status AS "visibility", report_count AS "reportCount", reported_at AS "reportedAt", moderated_at AS "moderatedAt", moderated_by_account_id AS "moderatedByAccountId", appeal_requested_at AS "appealRequestedAt", appeal_requested_by_account_id AS "appealRequestedByAccountId" FROM bff_world_conversation_messages ORDER BY created_at DESC'
+      'SELECT id, world_id AS "worldId", account_id AS "accountId", parent_message_id AS "parentMessageId", body, created_at AS "createdAt", status AS "visibility", report_count AS "reportCount", reported_at AS "reportedAt", moderated_at AS "moderatedAt", moderated_by_account_id AS "moderatedByAccountId", appeal_requested_at AS "appealRequestedAt", appeal_requested_by_account_id AS "appealRequestedByAccountId" FROM bff_world_conversation_messages ORDER BY created_at DESC'
     ),
     client.query<{
       id: string;
@@ -2491,6 +2498,7 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
         id: row.id,
         worldId: row.worldId,
         accountId: row.accountId,
+        parentMessageId: row.parentMessageId,
         body: row.body,
         createdAt: row.createdAt,
         visibility: row.visibility,
@@ -2890,11 +2898,12 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
 
   for (const message of db.worldConversationMessages) {
     await client.query(
-      "INSERT INTO bff_world_conversation_messages (id, world_id, account_id, body, created_at, status, report_count, reported_at, moderated_at, moderated_by_account_id, appeal_requested_at, appeal_requested_by_account_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
+      "INSERT INTO bff_world_conversation_messages (id, world_id, account_id, parent_message_id, body, created_at, status, report_count, reported_at, moderated_at, moderated_by_account_id, appeal_requested_at, appeal_requested_by_account_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)",
       [
         message.id,
         message.worldId,
         message.accountId,
+        message.parentMessageId,
         message.body,
         message.createdAt,
         message.visibility,
