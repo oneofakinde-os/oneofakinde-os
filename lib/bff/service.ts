@@ -46,6 +46,9 @@ import type {
   WorldReleaseQueueItem,
   WorldReleaseQueuePacingMode,
   WorldReleaseQueueStatus,
+  WorldConversationMessage,
+  WorldConversationModerationResolution,
+  WorldConversationThread,
   WorldCollectBundleCollectResult,
   WorldCollectBundleSnapshot,
   WorldCollectBundleType,
@@ -77,6 +80,7 @@ import {
   type MembershipEntitlementRecord,
   type PatronCommitmentRecord,
   type PatronRecord,
+  type WorldConversationMessageRecord,
   type WorldReleaseQueueRecord,
   type WorldCollectOwnershipRecord,
   type WatchAccessGrantRecord,
@@ -98,6 +102,9 @@ const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 const STRIPE_WEBHOOK_EVENT_LOG_LIMIT = 1000;
 const TOWNHALL_COMMENT_MAX_LENGTH = 600;
 const TOWNHALL_COMMENTS_PREVIEW_LIMIT = 24;
+const WORLD_CONVERSATION_MESSAGE_MAX_LENGTH = 600;
+const WORLD_CONVERSATION_MESSAGES_PREVIEW_LIMIT = 200;
+const WORLD_CONVERSATION_MESSAGE_LOG_LIMIT = 50_000;
 const COLLECT_OFFERS_LOG_LIMIT = 50_000;
 const COLLECT_ENFORCEMENT_SIGNAL_LOG_LIMIT = 10_000;
 const COLLECT_INTEGRITY_RECENT_SIGNAL_LIMIT = 100;
@@ -140,6 +147,13 @@ const TOWNHALL_SHARE_CHANNEL_SET = new Set<TownhallShareChannel>([
   "telegram"
 ]);
 const TOWNHALL_MODERATION_RESOLUTION_SET = new Set<TownhallModerationCaseResolution>([
+  "hide",
+  "restrict",
+  "delete",
+  "restore",
+  "dismiss"
+]);
+const WORLD_CONVERSATION_MODERATION_RESOLUTION_SET = new Set<WorldConversationModerationResolution>([
   "hide",
   "restrict",
   "delete",
@@ -1110,6 +1124,156 @@ function applyTownhallModerationCaseResolution(
   comment.appealRequestedByAccountId = null;
 }
 
+function normalizeWorldConversationMessageBody(value: string): string {
+  return value.trim().slice(0, WORLD_CONVERSATION_MESSAGE_MAX_LENGTH);
+}
+
+function canAccountModerateWorldConversationMessage(
+  account: AccountRecord | null,
+  world: World,
+  message: WorldConversationMessageRecord
+): boolean {
+  if (!account) {
+    return false;
+  }
+
+  if (message.accountId === account.id) {
+    return false;
+  }
+
+  return account.roles.includes("creator") && account.handle === world.studioHandle;
+}
+
+function canAccountReportWorldConversationMessage(
+  account: AccountRecord | null,
+  message: WorldConversationMessageRecord
+): boolean {
+  if (!account) {
+    return false;
+  }
+
+  return message.accountId !== account.id && message.visibility === "visible";
+}
+
+function canAccountAppealWorldConversationMessage(
+  account: AccountRecord | null,
+  message: WorldConversationMessageRecord
+): boolean {
+  if (!account) {
+    return false;
+  }
+
+  if (message.accountId !== account.id) {
+    return false;
+  }
+
+  if (message.visibility !== "hidden" && message.visibility !== "restricted" && message.visibility !== "deleted") {
+    return false;
+  }
+
+  return !message.appealRequestedAt;
+}
+
+function isWorldConversationModerationResolution(
+  value: string
+): value is WorldConversationModerationResolution {
+  return WORLD_CONVERSATION_MODERATION_RESOLUTION_SET.has(value as WorldConversationModerationResolution);
+}
+
+function applyWorldConversationModerationResolution(
+  message: WorldConversationMessageRecord,
+  actorAccountId: string,
+  resolution: WorldConversationModerationResolution
+): void {
+  if (resolution === "dismiss") {
+    const nowIso = new Date().toISOString();
+    message.moderatedAt = nowIso;
+    message.moderatedByAccountId = actorAccountId;
+    message.reportCount = 0;
+    message.reportedAt = null;
+    message.appealRequestedAt = null;
+    message.appealRequestedByAccountId = null;
+    return;
+  }
+
+  if (resolution === "hide") {
+    message.visibility = "hidden";
+  } else if (resolution === "restrict") {
+    message.visibility = "restricted";
+  } else if (resolution === "delete") {
+    message.visibility = "deleted";
+  } else if (resolution === "restore") {
+    message.visibility = "visible";
+  }
+
+  const nowIso = new Date().toISOString();
+  message.moderatedAt = nowIso;
+  message.moderatedByAccountId = actorAccountId;
+  message.reportCount = 0;
+  message.reportedAt = null;
+  message.appealRequestedAt = null;
+  message.appealRequestedByAccountId = null;
+}
+
+function toWorldConversationMessage(
+  record: WorldConversationMessageRecord,
+  accountHandleById: Map<string, string>,
+  viewerAccount: AccountRecord | null,
+  world: World
+): WorldConversationMessage {
+  const canModerate = canAccountModerateWorldConversationMessage(viewerAccount, world, record);
+  const isAuthor = Boolean(viewerAccount && viewerAccount.id === record.accountId);
+  return {
+    id: record.id,
+    worldId: record.worldId,
+    authorHandle: accountHandleById.get(record.accountId) ?? "community",
+    body:
+      !canModerate && !isAuthor && record.visibility === "hidden"
+        ? "message hidden by moderation."
+        : !canModerate && !isAuthor && record.visibility === "restricted"
+          ? "message restricted by moderation."
+          : !canModerate && !isAuthor && record.visibility === "deleted"
+            ? "message deleted by moderation."
+            : record.body,
+    createdAt: record.createdAt,
+    visibility: record.visibility,
+    reportCount: record.reportCount,
+    canModerate,
+    canReport: canAccountReportWorldConversationMessage(viewerAccount, record),
+    canAppeal: canAccountAppealWorldConversationMessage(viewerAccount, record),
+    appealRequested: Boolean(record.appealRequestedAt)
+  };
+}
+
+function buildWorldConversationThread(
+  db: BffDatabase,
+  world: World,
+  viewerAccount: AccountRecord
+): WorldConversationThread {
+  const accountHandleById = new Map(db.accounts.map((entry) => [entry.id, entry.handle]));
+  const messages = db.worldConversationMessages
+    .filter((entry) => entry.worldId === world.id)
+    .filter((entry) => {
+      if (entry.visibility === "visible") {
+        return true;
+      }
+
+      if (entry.accountId === viewerAccount.id) {
+        return true;
+      }
+
+      return canAccountModerateWorldConversationMessage(viewerAccount, world, entry);
+    })
+    .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt))
+    .slice(-WORLD_CONVERSATION_MESSAGES_PREVIEW_LIMIT)
+    .map((entry) => toWorldConversationMessage(entry, accountHandleById, viewerAccount, world));
+
+  return {
+    worldId: world.id,
+    messages
+  };
+}
+
 function toTownhallComment(
   record: TownhallCommentRecord,
   accountHandleById: Map<string, string>,
@@ -1253,6 +1417,17 @@ function findTownhallCommentById(
 ): TownhallCommentRecord | null {
   return (
     db.townhallComments.find((entry) => entry.dropId === dropId && entry.id === commentId) ?? null
+  );
+}
+
+function findWorldConversationMessageById(
+  db: BffDatabase,
+  worldId: string,
+  messageId: string
+): WorldConversationMessageRecord | null {
+  return (
+    db.worldConversationMessages.find((entry) => entry.worldId === worldId && entry.id === messageId) ??
+    null
   );
 }
 
@@ -1726,6 +1901,12 @@ function trimPatronCommitments(db: BffDatabase): void {
   }
 }
 
+function trimWorldConversationMessages(db: BffDatabase): void {
+  if (db.worldConversationMessages.length > WORLD_CONVERSATION_MESSAGE_LOG_LIMIT) {
+    db.worldConversationMessages.length = WORLD_CONVERSATION_MESSAGE_LOG_LIMIT;
+  }
+}
+
 function hasActiveMembershipForWorld(
   db: BffDatabase,
   account: AccountRecord,
@@ -1779,6 +1960,18 @@ function canAccessWorldPatronRoster(
   world: World
 ): boolean {
   return hasActiveMembershipForWorld(db, account, world) || hasCollectEntitlementForWorld(db, account, world);
+}
+
+function canAccessWorldConversationThread(
+  db: BffDatabase,
+  account: AccountRecord,
+  world: World
+): boolean {
+  if (canAccessWorldPatronRoster(db, account, world)) {
+    return true;
+  }
+
+  return account.roles.includes("creator") && account.handle === world.studioHandle;
 }
 
 function toLiveSessionWhatYouGet(db: BffDatabase, liveSession: LiveSessionRecord): string {
@@ -3406,6 +3599,337 @@ export const commerceBffService = {
         result: {
           ok: true as const,
           patrons: roster
+        }
+      };
+    });
+  },
+
+  async getWorldConversationThread(
+    accountId: string,
+    worldId: string
+  ): Promise<
+    | {
+        ok: true;
+        thread: WorldConversationThread;
+      }
+    | { ok: false; reason: "not_found" | "forbidden" }
+  > {
+    return withDatabase<
+      | {
+          ok: true;
+          thread: WorldConversationThread;
+        }
+      | { ok: false; reason: "not_found" | "forbidden" }
+    >(async (db) => {
+      const account = findAccountById(db, accountId);
+      const world = findWorldById(db, worldId);
+      if (!account || !world) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "not_found" as const
+          }
+        };
+      }
+
+      if (!canAccessWorldConversationThread(db, account, world)) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "forbidden" as const
+          }
+        };
+      }
+
+      return {
+        persist: false,
+        result: {
+          ok: true as const,
+          thread: buildWorldConversationThread(db, world, account)
+        }
+      };
+    });
+  },
+
+  async addWorldConversationMessage(
+    accountId: string,
+    worldId: string,
+    body: string
+  ): Promise<
+    | {
+        ok: true;
+        thread: WorldConversationThread;
+      }
+    | { ok: false; reason: "not_found" | "forbidden" | "invalid" }
+  > {
+    return withDatabase<
+      | {
+          ok: true;
+          thread: WorldConversationThread;
+        }
+      | { ok: false; reason: "not_found" | "forbidden" | "invalid" }
+    >(async (db) => {
+      const account = findAccountById(db, accountId);
+      const world = findWorldById(db, worldId);
+      if (!account || !world) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "not_found" as const
+          }
+        };
+      }
+
+      if (!canAccessWorldConversationThread(db, account, world)) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "forbidden" as const
+          }
+        };
+      }
+
+      const normalizedBody = normalizeWorldConversationMessageBody(body);
+      if (!normalizedBody) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "invalid" as const
+          }
+        };
+      }
+
+      const nowIso = new Date().toISOString();
+      const message: WorldConversationMessageRecord = {
+        id: `wcm_${randomUUID()}`,
+        worldId: world.id,
+        accountId: account.id,
+        body: normalizedBody,
+        createdAt: nowIso,
+        visibility: "visible",
+        reportCount: 0,
+        reportedAt: null,
+        moderatedAt: null,
+        moderatedByAccountId: null,
+        appealRequestedAt: null,
+        appealRequestedByAccountId: null
+      };
+
+      db.worldConversationMessages.unshift(message);
+      trimWorldConversationMessages(db);
+
+      return {
+        persist: true,
+        result: {
+          ok: true as const,
+          thread: buildWorldConversationThread(db, world, account)
+        }
+      };
+    });
+  },
+
+  async reportWorldConversationMessage(
+    accountId: string,
+    worldId: string,
+    messageId: string
+  ): Promise<
+    | {
+        ok: true;
+        thread: WorldConversationThread;
+      }
+    | { ok: false; reason: "not_found" | "forbidden" }
+  > {
+    return withDatabase<
+      | {
+          ok: true;
+          thread: WorldConversationThread;
+        }
+      | { ok: false; reason: "not_found" | "forbidden" }
+    >(async (db) => {
+      const account = findAccountById(db, accountId);
+      const world = findWorldById(db, worldId);
+      const message = findWorldConversationMessageById(db, worldId, messageId);
+      if (!account || !world || !message) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "not_found" as const
+          }
+        };
+      }
+
+      if (!canAccessWorldConversationThread(db, account, world)) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "forbidden" as const
+          }
+        };
+      }
+
+      if (!canAccountReportWorldConversationMessage(account, message)) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "forbidden" as const
+          }
+        };
+      }
+
+      message.reportCount += 1;
+      message.reportedAt = new Date().toISOString();
+
+      return {
+        persist: true,
+        result: {
+          ok: true as const,
+          thread: buildWorldConversationThread(db, world, account)
+        }
+      };
+    });
+  },
+
+  async appealWorldConversationMessage(
+    accountId: string,
+    worldId: string,
+    messageId: string
+  ): Promise<
+    | {
+        ok: true;
+        thread: WorldConversationThread;
+      }
+    | { ok: false; reason: "not_found" | "forbidden" }
+  > {
+    return withDatabase<
+      | {
+          ok: true;
+          thread: WorldConversationThread;
+        }
+      | { ok: false; reason: "not_found" | "forbidden" }
+    >(async (db) => {
+      const account = findAccountById(db, accountId);
+      const world = findWorldById(db, worldId);
+      const message = findWorldConversationMessageById(db, worldId, messageId);
+      if (!account || !world || !message) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "not_found" as const
+          }
+        };
+      }
+
+      if (!canAccessWorldConversationThread(db, account, world)) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "forbidden" as const
+          }
+        };
+      }
+
+      if (!canAccountAppealWorldConversationMessage(account, message)) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "forbidden" as const
+          }
+        };
+      }
+
+      message.appealRequestedAt = new Date().toISOString();
+      message.appealRequestedByAccountId = account.id;
+
+      return {
+        persist: true,
+        result: {
+          ok: true as const,
+          thread: buildWorldConversationThread(db, world, account)
+        }
+      };
+    });
+  },
+
+  async resolveWorldConversationModeration(
+    accountId: string,
+    worldId: string,
+    messageId: string,
+    resolution: WorldConversationModerationResolution
+  ): Promise<
+    | {
+        ok: true;
+        thread: WorldConversationThread;
+      }
+    | { ok: false; reason: "not_found" | "forbidden" | "invalid" }
+  > {
+    return withDatabase<
+      | {
+          ok: true;
+          thread: WorldConversationThread;
+        }
+      | { ok: false; reason: "not_found" | "forbidden" | "invalid" }
+    >(async (db) => {
+      const account = findAccountById(db, accountId);
+      const world = findWorldById(db, worldId);
+      const message = findWorldConversationMessageById(db, worldId, messageId);
+      if (!account || !world || !message) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "not_found" as const
+          }
+        };
+      }
+
+      if (!canAccessWorldConversationThread(db, account, world)) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "forbidden" as const
+          }
+        };
+      }
+
+      if (!isWorldConversationModerationResolution(resolution)) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "invalid" as const
+          }
+        };
+      }
+
+      if (!canAccountModerateWorldConversationMessage(account, world, message)) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "forbidden" as const
+          }
+        };
+      }
+
+      applyWorldConversationModerationResolution(message, account.id, resolution);
+
+      return {
+        persist: true,
+        result: {
+          ok: true as const,
+          thread: buildWorldConversationThread(db, world, account)
         }
       };
     });

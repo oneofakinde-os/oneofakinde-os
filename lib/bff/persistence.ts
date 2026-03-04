@@ -18,6 +18,7 @@ import type {
   WorldCollectBundleType,
   WorldCollectOwnershipStatus,
   WorldCollectUpgradeProrationStrategy,
+  WorldConversationVisibility,
   TownhallCommentVisibility,
   TownhallShareChannel,
   TownhallTelemetryMetadata,
@@ -187,6 +188,21 @@ export type TownhallTelemetryEventRecord = {
   occurredAt: string;
 };
 
+export type WorldConversationMessageRecord = {
+  id: string;
+  worldId: string;
+  accountId: string;
+  body: string;
+  createdAt: string;
+  visibility: WorldConversationVisibility;
+  reportCount: number;
+  reportedAt: string | null;
+  moderatedAt: string | null;
+  moderatedByAccountId: string | null;
+  appealRequestedAt: string | null;
+  appealRequestedByAccountId: string | null;
+};
+
 export type CollectOfferRecord = {
   id: string;
   accountId: string;
@@ -270,6 +286,7 @@ export type BffDatabase = {
   townhallComments: TownhallCommentRecord[];
   townhallShares: TownhallShareRecord[];
   townhallTelemetryEvents: TownhallTelemetryEventRecord[];
+  worldConversationMessages: WorldConversationMessageRecord[];
   collectOffers: CollectOfferRecord[];
   collectEnforcementSignals: CollectEnforcementSignalRecord[];
   worldCollectOwnerships: WorldCollectOwnershipRecord[];
@@ -767,6 +784,7 @@ function createSeedDatabase(): BffDatabase {
         occurredAt: new Date(now.valueOf() - DAY_MS / 10).toISOString()
       }
     ],
+    worldConversationMessages: [],
     collectOffers: [
       {
         id: "offer_seed_voidrunner_resale_1",
@@ -855,6 +873,7 @@ function createCatalogSeedDatabase(): BffDatabase {
     townhallComments: [],
     townhallShares: [],
     townhallTelemetryEvents: [],
+    worldConversationMessages: [],
     collectOffers: [],
     collectEnforcementSignals: [],
     worldCollectOwnerships: [],
@@ -890,6 +909,7 @@ function createEmptyDatabase(): BffDatabase {
     townhallComments: [],
     townhallShares: [],
     townhallTelemetryEvents: [],
+    worldConversationMessages: [],
     collectOffers: [],
     collectEnforcementSignals: [],
     worldCollectOwnerships: [],
@@ -928,6 +948,7 @@ function isValidDb(input: unknown): input is BffDatabase {
     Array.isArray(candidate.townhallComments) &&
     Array.isArray(candidate.townhallShares) &&
     Array.isArray(candidate.townhallTelemetryEvents) &&
+    Array.isArray(candidate.worldConversationMessages) &&
     Array.isArray(candidate.collectOffers) &&
     Array.isArray(candidate.collectEnforcementSignals) &&
     Array.isArray(candidate.worldCollectOwnerships) &&
@@ -949,6 +970,7 @@ function hasLegacyBaseDbShape(input: unknown): input is Omit<
   | "townhallComments"
   | "townhallShares"
   | "townhallTelemetryEvents"
+  | "worldConversationMessages"
   | "collectOffers"
   | "collectEnforcementSignals"
   | "worldCollectOwnerships"
@@ -1714,6 +1736,71 @@ function normalizeTownhallCommentRecords(events: TownhallCommentRecord[]): Townh
   });
 }
 
+function normalizeWorldConversationVisibility(value: unknown): WorldConversationVisibility {
+  if (value === "hidden" || value === "restricted" || value === "deleted") {
+    return value;
+  }
+
+  return "visible";
+}
+
+function normalizeWorldConversationMessageRecords(
+  messages: WorldConversationMessageRecord[]
+): WorldConversationMessageRecord[] {
+  return messages.map((message) => {
+    const candidate = message as Partial<WorldConversationMessageRecord> & {
+      worldId?: unknown;
+      accountId?: unknown;
+      body?: unknown;
+      createdAt?: unknown;
+      visibility?: unknown;
+      reportCount?: unknown;
+      reportedAt?: unknown;
+      moderatedAt?: unknown;
+      moderatedByAccountId?: unknown;
+      appealRequestedAt?: unknown;
+      appealRequestedByAccountId?: unknown;
+    };
+
+    return {
+      id: typeof candidate.id === "string" && candidate.id.trim() ? candidate.id : `wcm_${randomUUID()}`,
+      worldId: typeof candidate.worldId === "string" ? candidate.worldId : "",
+      accountId: typeof candidate.accountId === "string" ? candidate.accountId : "",
+      body: typeof candidate.body === "string" ? candidate.body : "",
+      createdAt:
+        typeof candidate.createdAt === "string" && candidate.createdAt.trim()
+          ? candidate.createdAt
+          : new Date().toISOString(),
+      visibility: normalizeWorldConversationVisibility(candidate.visibility),
+      reportCount:
+        typeof candidate.reportCount === "number" && Number.isFinite(candidate.reportCount)
+          ? Math.max(0, Math.floor(candidate.reportCount))
+          : 0,
+      reportedAt:
+        typeof candidate.reportedAt === "string" && candidate.reportedAt.trim()
+          ? candidate.reportedAt
+          : null,
+      moderatedAt:
+        typeof candidate.moderatedAt === "string" && candidate.moderatedAt.trim()
+          ? candidate.moderatedAt
+          : null,
+      moderatedByAccountId:
+        typeof candidate.moderatedByAccountId === "string" && candidate.moderatedByAccountId.trim()
+          ? candidate.moderatedByAccountId
+          : null,
+      appealRequestedAt:
+        typeof candidate.appealRequestedAt === "string" && candidate.appealRequestedAt.trim()
+          ? candidate.appealRequestedAt
+          : null,
+      appealRequestedByAccountId:
+        typeof candidate.appealRequestedByAccountId === "string" &&
+        candidate.appealRequestedByAccountId.trim()
+          ? candidate.appealRequestedByAccountId
+          : null
+    };
+  });
+}
+
 function normalizeWatchAccessGrantRecords(records: WatchAccessGrantRecord[]): WatchAccessGrantRecord[] {
   return records.map((record) => {
     const candidate = record as Partial<WatchAccessGrantRecord>;
@@ -1778,6 +1865,9 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
       liveSessions: normalizeLiveSessionRecords(input.liveSessions),
       townhallComments: normalizeTownhallCommentRecords(input.townhallComments),
       townhallTelemetryEvents: normalizeTownhallTelemetryEvents(input.townhallTelemetryEvents),
+      worldConversationMessages: normalizeWorldConversationMessageRecords(
+        input.worldConversationMessages
+      ),
       payments: normalizePaymentRecords(input.payments),
       collectOffers: normalizeCollectOfferRecords(input.collectOffers),
       collectEnforcementSignals: normalizeCollectEnforcementSignalRecords(
@@ -1831,6 +1921,11 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
       townhallTelemetryEvents: Array.isArray(candidate.townhallTelemetryEvents)
         ? normalizeTownhallTelemetryEvents(
             candidate.townhallTelemetryEvents as TownhallTelemetryEventRecord[]
+          )
+        : [],
+      worldConversationMessages: Array.isArray(candidate.worldConversationMessages)
+        ? normalizeWorldConversationMessageRecords(
+            candidate.worldConversationMessages as WorldConversationMessageRecord[]
           )
         : [],
       payments: Array.isArray(candidate.payments)
@@ -2027,6 +2122,7 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     townhallCommentsResult,
     townhallSharesResult,
     townhallTelemetryEventsResult,
+    worldConversationMessagesResult,
     collectOffersResult,
     collectEnforcementSignalsResult,
     worldCollectOwnershipsResult,
@@ -2148,6 +2244,22 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     ),
     client.query<{
       id: string;
+      worldId: string;
+      accountId: string;
+      body: string;
+      createdAt: string;
+      visibility: WorldConversationVisibility;
+      reportCount: number | string;
+      reportedAt: string | null;
+      moderatedAt: string | null;
+      moderatedByAccountId: string | null;
+      appealRequestedAt: string | null;
+      appealRequestedByAccountId: string | null;
+    }>(
+      'SELECT id, world_id AS "worldId", account_id AS "accountId", body, created_at AS "createdAt", status AS "visibility", report_count AS "reportCount", reported_at AS "reportedAt", moderated_at AS "moderatedAt", moderated_by_account_id AS "moderatedByAccountId", appeal_requested_at AS "appealRequestedAt", appeal_requested_by_account_id AS "appealRequestedByAccountId" FROM bff_world_conversation_messages ORDER BY created_at DESC'
+    ),
+    client.query<{
+      id: string;
       accountId: string;
       dropId: string;
       listingType: CollectListingType;
@@ -2259,6 +2371,7 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     townhallCommentsResult.rowCount === 0 &&
     townhallSharesResult.rowCount === 0 &&
     townhallTelemetryEventsResult.rowCount === 0 &&
+    worldConversationMessagesResult.rowCount === 0 &&
     collectOffersResult.rowCount === 0 &&
     collectEnforcementSignalsResult.rowCount === 0 &&
     worldCollectOwnershipsResult.rowCount === 0 &&
@@ -2373,6 +2486,22 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       metadata: normalizeTownhallTelemetryMetadata(row.metadataJson),
       occurredAt: row.occurredAt
     })),
+    worldConversationMessages: normalizeWorldConversationMessageRecords(
+      worldConversationMessagesResult.rows.map((row) => ({
+        id: row.id,
+        worldId: row.worldId,
+        accountId: row.accountId,
+        body: row.body,
+        createdAt: row.createdAt,
+        visibility: row.visibility,
+        reportCount: Number(row.reportCount),
+        reportedAt: row.reportedAt,
+        moderatedAt: row.moderatedAt,
+        moderatedByAccountId: row.moderatedByAccountId,
+        appealRequestedAt: row.appealRequestedAt,
+        appealRequestedByAccountId: row.appealRequestedByAccountId
+      }))
+    ),
     collectOffers: normalizeCollectOfferRecords(
       collectOffersResult.rows.map((row) => ({
         id: row.id,
@@ -2465,6 +2594,7 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
       bff_ledger_line_items,
       bff_ledger_transactions,
       bff_townhall_telemetry_events,
+      bff_world_conversation_messages,
       bff_collect_enforcement_signals,
       bff_world_release_queue,
       bff_world_collect_ownerships,
@@ -2754,6 +2884,26 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
         event.completionPercent,
         JSON.stringify(event.metadata ?? {}),
         event.occurredAt
+      ]
+    );
+  }
+
+  for (const message of db.worldConversationMessages) {
+    await client.query(
+      "INSERT INTO bff_world_conversation_messages (id, world_id, account_id, body, created_at, status, report_count, reported_at, moderated_at, moderated_by_account_id, appeal_requested_at, appeal_requested_by_account_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
+      [
+        message.id,
+        message.worldId,
+        message.accountId,
+        message.body,
+        message.createdAt,
+        message.visibility,
+        message.reportCount,
+        message.reportedAt,
+        message.moderatedAt,
+        message.moderatedByAccountId,
+        message.appealRequestedAt,
+        message.appealRequestedByAccountId
       ]
     );
   }

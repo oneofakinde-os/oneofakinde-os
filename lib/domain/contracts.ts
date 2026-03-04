@@ -83,6 +83,34 @@ export type PatronRosterEntry = {
   committedAt: string;
 };
 
+export type WorldConversationVisibility = "visible" | "hidden" | "restricted" | "deleted";
+
+export type WorldConversationMessage = {
+  id: string;
+  worldId: string;
+  authorHandle: string;
+  body: string;
+  createdAt: string;
+  visibility: WorldConversationVisibility;
+  reportCount: number;
+  canModerate: boolean;
+  canReport: boolean;
+  canAppeal: boolean;
+  appealRequested: boolean;
+};
+
+export type WorldConversationThread = {
+  worldId: string;
+  messages: WorldConversationMessage[];
+};
+
+export type WorldConversationModerationResolution =
+  | "hide"
+  | "restrict"
+  | "delete"
+  | "restore"
+  | "dismiss";
+
 export type LiveSessionEligibilityRule = "public" | "membership_active" | "drop_owner";
 
 export type LiveSession = {
