@@ -19,6 +19,8 @@ const LIVE_ELIGIBILITY_RULES = new Set<LiveSessionEligibilityRule>([
 ]);
 const MODERATION_RESOLUTIONS = new Set<TownhallModerationCaseResolution>([
   "hide",
+  "restrict",
+  "delete",
   "restore",
   "dismiss"
 ]);

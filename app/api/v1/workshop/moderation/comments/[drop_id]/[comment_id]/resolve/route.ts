@@ -23,6 +23,8 @@ type ModerationResolveBody = {
 
 const VALID_RESOLUTIONS = new Set<TownhallModerationCaseResolution>([
   "hide",
+  "restrict",
+  "delete",
   "restore",
   "dismiss"
 ]);
@@ -49,7 +51,7 @@ export async function POST(
   const payload = await safeJson<ModerationResolveBody>(request);
   const resolutionInput = getRequiredBodyString(payload as Record<string, unknown> | null, "resolution");
   if (!resolutionInput || !VALID_RESOLUTIONS.has(resolutionInput as TownhallModerationCaseResolution)) {
-    return badRequest("resolution must be one of: hide, restore, dismiss");
+    return badRequest("resolution must be one of: hide, restrict, delete, restore, dismiss");
   }
 
   const result = await commerceBffService.resolveTownhallModerationCase(

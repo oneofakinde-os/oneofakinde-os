@@ -124,6 +124,8 @@ const TOWNHALL_SHARE_CHANNEL_SET = new Set<TownhallShareChannel>([
 ]);
 const TOWNHALL_MODERATION_RESOLUTION_SET = new Set<TownhallModerationCaseResolution>([
   "hide",
+  "restrict",
+  "delete",
   "restore",
   "dismiss"
 ]);
@@ -749,7 +751,7 @@ function canAccountReportTownhallComment(
     return false;
   }
 
-  return comment.accountId !== account.id;
+  return comment.accountId !== account.id && comment.visibility === "visible";
 }
 
 function canAccountAppealTownhallComment(
@@ -764,7 +766,7 @@ function canAccountAppealTownhallComment(
     return false;
   }
 
-  if (comment.visibility !== "hidden") {
+  if (comment.visibility !== "hidden" && comment.visibility !== "restricted") {
     return false;
   }
 
@@ -793,8 +795,23 @@ function applyTownhallModerationCaseResolution(
   actorAccountId: string,
   resolution: TownhallModerationCaseResolution
 ): void {
+  if (resolution === "dismiss") {
+    const nowIso = new Date().toISOString();
+    comment.moderatedAt = nowIso;
+    comment.moderatedByAccountId = actorAccountId;
+    comment.reportCount = 0;
+    comment.reportedAt = null;
+    comment.appealRequestedAt = null;
+    comment.appealRequestedByAccountId = null;
+    return;
+  }
+
   if (resolution === "hide") {
     comment.visibility = "hidden";
+  } else if (resolution === "restrict") {
+    comment.visibility = "restricted";
+  } else if (resolution === "delete") {
+    comment.visibility = "deleted";
   } else if (resolution === "restore") {
     comment.visibility = "visible";
   }
@@ -826,7 +843,14 @@ function toTownhallComment(
     depth: options.depth,
     replyCount: options.replyCount,
     authorHandle: accountHandleById.get(record.accountId) ?? "community",
-    body: record.visibility === "hidden" && !canModerate ? "comment hidden by moderation." : record.body,
+    body:
+      !canModerate && record.visibility === "hidden"
+        ? "comment hidden by moderation."
+        : !canModerate && record.visibility === "restricted"
+          ? "comment restricted by moderation."
+          : !canModerate && record.visibility === "deleted"
+            ? "comment deleted by moderation."
+            : record.body,
     createdAt: record.createdAt,
     visibility: record.visibility,
     reportCount: record.reportCount,
@@ -3965,6 +3989,100 @@ export const commerceBffService = {
 
       if (comment.visibility !== "hidden") {
         comment.visibility = "hidden";
+        comment.moderatedAt = new Date().toISOString();
+        comment.moderatedByAccountId = account.id;
+        comment.appealRequestedAt = null;
+        comment.appealRequestedByAccountId = null;
+      }
+
+      return {
+        persist: true,
+        result: {
+          ok: true,
+          social: buildTownhallDropSocialSnapshot(db, drop.id, account.id)!
+        }
+      };
+    });
+  },
+
+  async restrictTownhallComment(
+    accountId: string,
+    dropId: string,
+    commentId: string
+  ): Promise<TownhallCommentModerationResult> {
+    return withDatabase<TownhallCommentModerationResult>(async (db) => {
+      const account = findAccountById(db, accountId);
+      const drop = findDropById(db, dropId);
+      const comment = findTownhallCommentById(db, dropId, commentId);
+      if (!account || !drop || !comment) {
+        return {
+          persist: false,
+          result: {
+            ok: false,
+            reason: "not_found"
+          }
+        };
+      }
+
+      if (!canAccountModerateTownhallComment(account, drop, comment)) {
+        return {
+          persist: false,
+          result: {
+            ok: false,
+            reason: "forbidden"
+          }
+        };
+      }
+
+      if (comment.visibility !== "restricted") {
+        comment.visibility = "restricted";
+        comment.moderatedAt = new Date().toISOString();
+        comment.moderatedByAccountId = account.id;
+        comment.appealRequestedAt = null;
+        comment.appealRequestedByAccountId = null;
+      }
+
+      return {
+        persist: true,
+        result: {
+          ok: true,
+          social: buildTownhallDropSocialSnapshot(db, drop.id, account.id)!
+        }
+      };
+    });
+  },
+
+  async deleteTownhallComment(
+    accountId: string,
+    dropId: string,
+    commentId: string
+  ): Promise<TownhallCommentModerationResult> {
+    return withDatabase<TownhallCommentModerationResult>(async (db) => {
+      const account = findAccountById(db, accountId);
+      const drop = findDropById(db, dropId);
+      const comment = findTownhallCommentById(db, dropId, commentId);
+      if (!account || !drop || !comment) {
+        return {
+          persist: false,
+          result: {
+            ok: false,
+            reason: "not_found"
+          }
+        };
+      }
+
+      if (!canAccountModerateTownhallComment(account, drop, comment)) {
+        return {
+          persist: false,
+          result: {
+            ok: false,
+            reason: "forbidden"
+          }
+        };
+      }
+
+      if (comment.visibility !== "deleted") {
+        comment.visibility = "deleted";
         comment.moderatedAt = new Date().toISOString();
         comment.moderatedByAccountId = account.id;
         comment.appealRequestedAt = null;

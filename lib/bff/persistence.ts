@@ -1311,7 +1311,11 @@ function normalizeWorldReleaseQueueRecords(records: WorldReleaseQueueRecord[]): 
 }
 
 function normalizeTownhallCommentVisibility(value: unknown): TownhallCommentVisibility {
-  return value === "hidden" ? "hidden" : "visible";
+  if (value === "hidden" || value === "restricted" || value === "deleted") {
+    return value;
+  }
+
+  return "visible";
 }
 
 function normalizeTownhallCommentRecords(events: TownhallCommentRecord[]): TownhallCommentRecord[] {

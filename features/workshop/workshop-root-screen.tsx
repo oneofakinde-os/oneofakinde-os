@@ -325,7 +325,7 @@ export function WorkshopRootScreen({
                   {entry.appealRequested ? " · appeal requested" : ""}
                 </p>
                 <p className="slice-meta">
-                  {entry.visibility === "hidden" ? "hidden" : "visible"} · created{" "}
+                  {entry.visibility} · created{" "}
                   {new Date(entry.createdAt).toLocaleString()}
                 </p>
                 {entry.reportedAt ? (
@@ -339,15 +339,26 @@ export function WorkshopRootScreen({
                 <form action={resolveModerationAction} className="slice-button-row">
                   <input type="hidden" name="drop_id" value={entry.dropId} />
                   <input type="hidden" name="comment_id" value={entry.commentId} />
-                  {entry.visibility === "hidden" ? (
+                  {entry.visibility !== "visible" ? (
                     <button type="submit" name="resolution" value="restore" className="slice-button">
                       restore comment
                     </button>
-                  ) : (
+                  ) : null}
+                  {entry.visibility !== "hidden" ? (
                     <button type="submit" name="resolution" value="hide" className="slice-button">
                       hide comment
                     </button>
-                  )}
+                  ) : null}
+                  {entry.visibility !== "restricted" ? (
+                    <button type="submit" name="resolution" value="restrict" className="slice-button">
+                      restrict comment
+                    </button>
+                  ) : null}
+                  {entry.visibility !== "deleted" ? (
+                    <button type="submit" name="resolution" value="delete" className="slice-button">
+                      delete comment
+                    </button>
+                  ) : null}
                   <button type="submit" name="resolution" value="dismiss" className="slice-button ghost">
                     dismiss reports
                   </button>

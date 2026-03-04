@@ -1092,7 +1092,7 @@ export function TownhallFeedScreen({
   async function handleCommentModeration(
     dropId: string,
     commentId: string,
-    action: "hide" | "restore"
+    action: "hide" | "restrict" | "delete" | "restore"
   ) {
     if (!viewer) {
       redirectToSignInForInteraction();
@@ -1618,28 +1618,62 @@ export function TownhallFeedScreen({
                                   </button>
                                 ) : null}
                                 {comment.canModerate ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      void handleCommentModeration(
-                                        drop.id,
-                                        comment.id,
-                                        comment.visibility === "hidden" ? "restore" : "hide"
-                                      );
-                                    }}
-                                  >
-                                    {comment.visibility === "hidden" ? "restore" : "hide"}
-                                  </button>
+                                  <>
+                                    {comment.visibility !== "visible" ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          void handleCommentModeration(drop.id, comment.id, "restore");
+                                        }}
+                                      >
+                                        restore
+                                      </button>
+                                    ) : null}
+                                    {comment.visibility !== "hidden" ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          void handleCommentModeration(drop.id, comment.id, "hide");
+                                        }}
+                                      >
+                                        hide
+                                      </button>
+                                    ) : null}
+                                    {comment.visibility !== "restricted" ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          void handleCommentModeration(drop.id, comment.id, "restrict");
+                                        }}
+                                      >
+                                        restrict
+                                      </button>
+                                    ) : null}
+                                    {comment.visibility !== "deleted" ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          void handleCommentModeration(drop.id, comment.id, "delete");
+                                        }}
+                                      >
+                                        delete
+                                      </button>
+                                    ) : null}
+                                  </>
                                 ) : null}
                               </div>
                             </div>
                             {comment.replyCount > 0 ? (
                               <p className="townhall-comment-replies">{comment.replyCount} repl{comment.replyCount === 1 ? "y" : "ies"}</p>
                             ) : null}
-                            <p className={comment.visibility === "hidden" ? "townhall-comment-hidden" : undefined}>
+                            <p className={comment.visibility !== "visible" ? "townhall-comment-hidden" : undefined}>
                               {comment.visibility === "hidden"
                                 ? "comment hidden by moderation."
-                                : comment.body}
+                                : comment.visibility === "restricted"
+                                  ? "comment restricted by moderation."
+                                  : comment.visibility === "deleted"
+                                    ? "comment deleted by moderation."
+                                    : comment.body}
                             </p>
                             {comment.appealRequested ? (
                               <p className="townhall-comment-appeal-state">appeal pending review</p>

@@ -369,7 +369,7 @@ export type LibrarySnapshot = {
 
 export type TownhallShareChannel = "sms" | "internal_dm" | "whatsapp" | "telegram";
 
-export type TownhallCommentVisibility = "visible" | "hidden";
+export type TownhallCommentVisibility = "visible" | "hidden" | "restricted" | "deleted";
 
 export type TownhallComment = {
   id: string;
@@ -420,7 +420,7 @@ export type TownhallModerationQueueItem = {
   createdAt: string;
 };
 
-export type TownhallModerationCaseResolution = "hide" | "restore" | "dismiss";
+export type TownhallModerationCaseResolution = "hide" | "restrict" | "delete" | "restore" | "dismiss";
 
 export type TownhallModerationCaseResolveResult =
   | {

@@ -8,6 +8,8 @@ import { GET as getTownhallSocialRoute } from "../../app/api/v1/townhall/social/
 import { POST as postTownhallCommentRoute } from "../../app/api/v1/townhall/social/comments/[drop_id]/route";
 import { POST as postTownhallCommentAppealRoute } from "../../app/api/v1/townhall/social/comments/[drop_id]/[comment_id]/appeal/route";
 import { POST as postTownhallCommentHideRoute } from "../../app/api/v1/townhall/social/comments/[drop_id]/[comment_id]/hide/route";
+import { POST as postTownhallCommentRestrictRoute } from "../../app/api/v1/townhall/social/comments/[drop_id]/[comment_id]/restrict/route";
+import { POST as postTownhallCommentDeleteRoute } from "../../app/api/v1/townhall/social/comments/[drop_id]/[comment_id]/delete/route";
 import { POST as postTownhallCommentReportRoute } from "../../app/api/v1/townhall/social/comments/[drop_id]/[comment_id]/report/route";
 import { POST as postTownhallCommentRestoreRoute } from "../../app/api/v1/townhall/social/comments/[drop_id]/[comment_id]/restore/route";
 import { POST as postTownhallLikeRoute } from "../../app/api/v1/townhall/social/likes/[drop_id]/route";
@@ -327,6 +329,98 @@ test("proof: townhall social actions persist via bff routes", async (t) => {
   assert.equal(restoredComment?.visibility, "visible");
   assert.equal(restoredComment?.appealRequested, false);
 
+  const forbiddenRestrictResponse = await postTownhallCommentRestrictRoute(
+    new Request(
+      `http://127.0.0.1:3000/api/v1/townhall/social/comments/${drop.id}/${createdCommentId}/restrict`,
+      {
+        method: "POST",
+        headers: {
+          "x-ook-session-token": reporterSession.sessionToken
+        }
+      }
+    ),
+    withRouteParams({ drop_id: drop.id, comment_id: createdCommentId })
+  );
+  assert.equal(forbiddenRestrictResponse.status, 403);
+
+  const restrictResponse = await postTownhallCommentRestrictRoute(
+    new Request(
+      `http://127.0.0.1:3000/api/v1/townhall/social/comments/${drop.id}/${createdCommentId}/restrict`,
+      {
+        method: "POST",
+        headers: {
+          "x-ook-session-token": creatorSession.sessionToken
+        }
+      }
+    ),
+    withRouteParams({ drop_id: drop.id, comment_id: createdCommentId })
+  );
+  assert.equal(restrictResponse.status, 200);
+  const restrictPayload = await parseJson<{ social: TownhallDropSocialSnapshot }>(restrictResponse);
+  assert.equal(restrictPayload.social.commentCount, baseline.commentCount + 1);
+  const restrictedComment = restrictPayload.social.comments.find((entry) => entry.id === createdCommentId);
+  assert.ok(restrictedComment, "expected creator moderator view of restricted comment");
+  assert.equal(restrictedComment?.visibility, "restricted");
+
+  const restrictedAppealResponse = await postTownhallCommentAppealRoute(
+    new Request(
+      `http://127.0.0.1:3000/api/v1/townhall/social/comments/${drop.id}/${createdCommentId}/appeal`,
+      {
+        method: "POST",
+        headers: {
+          "x-ook-session-token": session.sessionToken
+        }
+      }
+    ),
+    withRouteParams({ drop_id: drop.id, comment_id: createdCommentId })
+  );
+  assert.equal(restrictedAppealResponse.status, 201);
+  const restrictedAppealPayload = await parseJson<{ social: TownhallDropSocialSnapshot }>(restrictedAppealResponse);
+  assert.equal(
+    restrictedAppealPayload.social.comments.find((entry) => entry.id === createdCommentId)?.appealRequested,
+    true
+  );
+
+  const deleteResponse = await postTownhallCommentDeleteRoute(
+    new Request(
+      `http://127.0.0.1:3000/api/v1/townhall/social/comments/${drop.id}/${createdCommentId}/delete`,
+      {
+        method: "POST",
+        headers: {
+          "x-ook-session-token": creatorSession.sessionToken
+        }
+      }
+    ),
+    withRouteParams({ drop_id: drop.id, comment_id: createdCommentId })
+  );
+  assert.equal(deleteResponse.status, 200);
+  const deletePayload = await parseJson<{ social: TownhallDropSocialSnapshot }>(deleteResponse);
+  assert.equal(deletePayload.social.commentCount, baseline.commentCount + 1);
+  const deletedComment = deletePayload.social.comments.find((entry) => entry.id === createdCommentId);
+  assert.ok(deletedComment, "expected creator moderator view of deleted comment");
+  assert.equal(deletedComment?.visibility, "deleted");
+  assert.equal(deletedComment?.appealRequested, false);
+
+  const restoreAfterDeleteResponse = await postTownhallCommentRestoreRoute(
+    new Request(
+      `http://127.0.0.1:3000/api/v1/townhall/social/comments/${drop.id}/${createdCommentId}/restore`,
+      {
+        method: "POST",
+        headers: {
+          "x-ook-session-token": creatorSession.sessionToken
+        }
+      }
+    ),
+    withRouteParams({ drop_id: drop.id, comment_id: createdCommentId })
+  );
+  assert.equal(restoreAfterDeleteResponse.status, 200);
+  const restoreAfterDeletePayload = await parseJson<{ social: TownhallDropSocialSnapshot }>(restoreAfterDeleteResponse);
+  assert.equal(restoreAfterDeletePayload.social.commentCount, baseline.commentCount + 2);
+  assert.equal(
+    restoreAfterDeletePayload.social.comments.find((entry) => entry.id === createdCommentId)?.visibility,
+    "visible"
+  );
+
   const saveResponse = await postTownhallSaveRoute(
     new Request(`http://127.0.0.1:3000/api/v1/townhall/social/saves/${drop.id}`, {
       method: "POST",
@@ -396,5 +490,136 @@ test("proof: townhall social actions persist via bff routes", async (t) => {
   assert.ok(
     libraryPayload.library.savedDrops.some((entry) => entry.drop.id === drop.id),
     "expected saved drop in persisted library snapshot"
+  );
+});
+
+test("proof: workshop moderation resolve accepts restrict and delete", async (t) => {
+  const dbPath = createIsolatedDbPath();
+  process.env.OOK_BFF_DB_PATH = dbPath;
+  process.env.OOK_BFF_PERSISTENCE_BACKEND = "file";
+
+  t.after(async () => {
+    delete process.env.OOK_BFF_DB_PATH;
+    delete process.env.OOK_BFF_PERSISTENCE_BACKEND;
+    await fs.rm(dbPath, { force: true });
+  });
+
+  const creatorSession = await commerceBffService.createSession({
+    email: "oneofakinde@oneofakinde.test",
+    role: "creator"
+  });
+  const authorSession = await commerceBffService.createSession({
+    email: `townhall-moderation-author-${randomUUID()}@oneofakinde.test`,
+    role: "collector"
+  });
+  const reporterSession = await commerceBffService.createSession({
+    email: `townhall-moderation-reporter-${randomUUID()}@oneofakinde.test`,
+    role: "collector"
+  });
+
+  const drop = (await commerceBffService.listDrops())[0];
+  assert.ok(drop, "expected at least one drop");
+
+  const commentResponse = await postTownhallCommentRoute(
+    new Request(`http://127.0.0.1:3000/api/v1/townhall/social/comments/${drop.id}`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-ook-session-token": authorSession.sessionToken
+      },
+      body: JSON.stringify({
+        body: "moderation resolve action matrix"
+      })
+    }),
+    withRouteParams({ drop_id: drop.id })
+  );
+  assert.equal(commentResponse.status, 201);
+  const createdComment = (await parseJson<{ social: TownhallDropSocialSnapshot }>(commentResponse)).social.comments[0];
+  assert.ok(createdComment?.id, "expected created comment id");
+
+  const reportResponse = await postTownhallCommentReportRoute(
+    new Request(
+      `http://127.0.0.1:3000/api/v1/townhall/social/comments/${drop.id}/${createdComment.id}/report`,
+      {
+        method: "POST",
+        headers: {
+          "x-ook-session-token": reporterSession.sessionToken
+        }
+      }
+    ),
+    withRouteParams({ drop_id: drop.id, comment_id: createdComment.id })
+  );
+  assert.equal(reportResponse.status, 201);
+
+  const restrictResolveResponse = await postWorkshopModerationResolveRoute(
+    new Request(
+      `http://127.0.0.1:3000/api/v1/workshop/moderation/comments/${drop.id}/${createdComment.id}/resolve`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-ook-session-token": creatorSession.sessionToken
+        },
+        body: JSON.stringify({
+          resolution: "restrict"
+        })
+      }
+    ),
+    withRouteParams({ drop_id: drop.id, comment_id: createdComment.id })
+  );
+  assert.equal(restrictResolveResponse.status, 200);
+
+  const creatorSocialAfterRestrictResponse = await getTownhallSocialRoute(
+    new Request(`http://127.0.0.1:3000/api/v1/townhall/social?drop_ids=${encodeURIComponent(drop.id)}`, {
+      headers: {
+        "x-ook-session-token": creatorSession.sessionToken
+      }
+    })
+  );
+  assert.equal(creatorSocialAfterRestrictResponse.status, 200);
+  const creatorSocialAfterRestrictPayload = await parseJson<{
+    social: { byDropId: Record<string, TownhallDropSocialSnapshot> };
+  }>(creatorSocialAfterRestrictResponse);
+  assert.equal(
+    socialForDrop(creatorSocialAfterRestrictPayload.social.byDropId, drop.id).comments.find(
+      (entry) => entry.id === createdComment.id
+    )?.visibility,
+    "restricted"
+  );
+
+  const deleteResolveResponse = await postWorkshopModerationResolveRoute(
+    new Request(
+      `http://127.0.0.1:3000/api/v1/workshop/moderation/comments/${drop.id}/${createdComment.id}/resolve`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-ook-session-token": creatorSession.sessionToken
+        },
+        body: JSON.stringify({
+          resolution: "delete"
+        })
+      }
+    ),
+    withRouteParams({ drop_id: drop.id, comment_id: createdComment.id })
+  );
+  assert.equal(deleteResolveResponse.status, 200);
+
+  const creatorSocialAfterDeleteResponse = await getTownhallSocialRoute(
+    new Request(`http://127.0.0.1:3000/api/v1/townhall/social?drop_ids=${encodeURIComponent(drop.id)}`, {
+      headers: {
+        "x-ook-session-token": creatorSession.sessionToken
+      }
+    })
+  );
+  assert.equal(creatorSocialAfterDeleteResponse.status, 200);
+  const creatorSocialAfterDeletePayload = await parseJson<{
+    social: { byDropId: Record<string, TownhallDropSocialSnapshot> };
+  }>(creatorSocialAfterDeleteResponse);
+  assert.equal(
+    socialForDrop(creatorSocialAfterDeletePayload.social.byDropId, drop.id).comments.find(
+      (entry) => entry.id === createdComment.id
+    )?.visibility,
+    "deleted"
   );
 });
