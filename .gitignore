@@ -20,3 +20,5 @@ tsconfig.tsbuildinfo
 
 # local release dry-run report output
 artifacts/
+playwright-report
+test-results

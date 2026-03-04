@@ -1177,8 +1177,8 @@ export function TownhallFeedScreen({
 
   if (!activeDrop) {
     return (
-      <main className="townhall-page">
-        <section className="townhall-phone-shell townhall-empty">
+      <main className="townhall-page" data-testid="showroom-page">
+        <section className="townhall-phone-shell townhall-empty" data-testid="showroom-shell-empty">
           <p className="townhall-brand">oneofakinde</p>
           <h1>townhall</h1>
           <p>no drops are available yet.</p>
@@ -1188,8 +1188,14 @@ export function TownhallFeedScreen({
   }
 
   return (
-    <main className="townhall-page">
-      <section className={`townhall-phone-shell townhall-phone-shell-feed ${isImmersive ? "immersive" : ""}`} aria-label="townhall feed shell">
+    <main className="townhall-page" data-testid="showroom-page">
+      <section
+        className={`townhall-phone-shell townhall-phone-shell-feed ${isImmersive ? "immersive" : ""}`}
+        aria-label="townhall feed shell"
+        data-testid="showroom-shell"
+        data-showroom-ordering={parsedShowroomOrdering}
+        data-showroom-media={effectiveShowroomMedia}
+      >
         <header className="townhall-header townhall-header-feed">
           <Link href={routes.studio(activeDrop.studioHandle)} className="townhall-avatar-link" aria-label="open creator studio">
             <span>{activeDrop.studioHandle.slice(0, 1).toUpperCase()}</span>
@@ -1262,6 +1268,7 @@ export function TownhallFeedScreen({
           onScroll={handleFeedScroll}
           onWheelCapture={markScrollIntent}
           onTouchMoveCapture={markScrollIntent}
+          data-testid="showroom-feed-viewport"
         >
           {feedDrops.map((drop, index) => {
             const isActive = index === activeIndex;
@@ -1334,6 +1341,8 @@ export function TownhallFeedScreen({
                 key={drop.id}
                 className={`townhall-feed-item ${isActive ? "active" : ""}`}
                 data-index={index}
+                data-drop-id={drop.id}
+                data-testid="showroom-drop-card"
                 ref={(element) => {
                   itemRefs.current[index] = element;
                 }}
@@ -1341,6 +1350,7 @@ export function TownhallFeedScreen({
                 <section
                   className="townhall-stage"
                   aria-label={`${drop.title} preview`}
+                  data-testid="showroom-drop-stage"
                   style={stageBackgroundStyle}
                   onPointerDownCapture={(event) => handleStagePointerDown(event, index)}
                   onPointerCancelCapture={handleStagePointerCancelOrUp}
