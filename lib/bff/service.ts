@@ -43,6 +43,8 @@ import type {
   TownhallTelemetryMetadata,
   TownhallTelemetryEventType,
   TownhallTelemetrySignals,
+  WatchTelemetryEventType,
+  WatchTelemetryLogEntry,
   WorldReleaseQueueItem,
   WorldReleaseQueuePacingMode,
   WorldReleaseQueueStatus,
@@ -122,6 +124,9 @@ const WATCH_ACCESS_TOKEN_VERSION = 1 as const;
 const WATCH_ACCESS_TOKEN_DEFAULT_TTL_SECONDS = 300;
 const WATCH_ACCESS_TOKEN_MIN_TTL_SECONDS = 1;
 const WATCH_ACCESS_TOKEN_MAX_TTL_SECONDS = 3600;
+const WATCH_TELEMETRY_LOG_LIMIT_DEFAULT = 50;
+const WATCH_TELEMETRY_LOG_LIMIT_MIN = 1;
+const WATCH_TELEMETRY_LOG_LIMIT_MAX = 200;
 
 const COLLECT_ENFORCEMENT_SIGNAL_TYPES: CollectEnforcementSignalType[] = [
   "invalid_listing_action_blocked",
@@ -181,6 +186,14 @@ const TOWNHALL_TELEMETRY_EVENT_SET = new Set<TownhallTelemetryEventType>([
   "interaction_comment",
   "interaction_share",
   "interaction_save"
+]);
+const WATCH_TELEMETRY_EVENT_SET = new Set<WatchTelemetryEventType>([
+  "watch_time",
+  "completion",
+  "access_start",
+  "access_complete",
+  "quality_change",
+  "rebuffer"
 ]);
 const TOWNHALL_TELEMETRY_EVENT_LOG_LIMIT = 100_000;
 const MAX_WATCH_TIME_SECONDS_PER_EVENT = 600;
@@ -902,6 +915,21 @@ function isTownhallTelemetryEventType(value: string): value is TownhallTelemetry
   return TOWNHALL_TELEMETRY_EVENT_SET.has(value as TownhallTelemetryEventType);
 }
 
+function isWatchTelemetryEventType(value: string): value is WatchTelemetryEventType {
+  return WATCH_TELEMETRY_EVENT_SET.has(value as WatchTelemetryEventType);
+}
+
+function normalizeWatchTelemetryLogLimit(limit: number | undefined): number {
+  if (!Number.isFinite(limit)) {
+    return WATCH_TELEMETRY_LOG_LIMIT_DEFAULT;
+  }
+
+  return Math.min(
+    WATCH_TELEMETRY_LOG_LIMIT_MAX,
+    Math.max(WATCH_TELEMETRY_LOG_LIMIT_MIN, Math.floor(Number(limit)))
+  );
+}
+
 function normalizeWatchTimeSeconds(value: number | undefined): number {
   if (!Number.isFinite(value)) {
     return 0;
@@ -1023,6 +1051,25 @@ function normalizeTownhallTelemetryMetadata(
   }
 
   return metadata;
+}
+
+function toWatchTelemetryLogEntry(record: TownhallTelemetryEventRecord): WatchTelemetryLogEntry | null {
+  if (!isWatchTelemetryEventType(record.eventType)) {
+    return null;
+  }
+
+  return {
+    id: record.id,
+    dropId: record.dropId,
+    eventType: record.eventType,
+    watchTimeSeconds: record.watchTimeSeconds,
+    completionPercent: record.completionPercent,
+    occurredAt: record.occurredAt,
+    qualityMode: record.metadata?.qualityMode ?? null,
+    qualityLevel: record.metadata?.qualityLevel ?? null,
+    qualityReason: record.metadata?.qualityReason ?? null,
+    rebufferReason: record.metadata?.rebufferReason ?? null
+  };
 }
 
 function normalizeTownhallCommentBody(value: string): string {
@@ -5136,6 +5183,39 @@ export const commerceBffService = {
       return {
         persist: false,
         result: buildTownhallTelemetrySignals(db, uniqueDropIds)
+      };
+    });
+  },
+
+  async listWatchTelemetryLogs(input: {
+    accountId: string;
+    dropId?: string | null;
+    limit?: number;
+  }): Promise<WatchTelemetryLogEntry[]> {
+    return withDatabase<WatchTelemetryLogEntry[]>(async (db) => {
+      const account = findAccountById(db, input.accountId);
+      if (!account) {
+        return {
+          persist: false,
+          result: []
+        };
+      }
+
+      const normalizedDropId = input.dropId?.trim() || null;
+      const normalizedLimit = normalizeWatchTelemetryLogLimit(input.limit);
+
+      const logs = db.townhallTelemetryEvents
+        .filter((entry) => entry.accountId === account.id)
+        .filter((entry) => (normalizedDropId ? entry.dropId === normalizedDropId : true))
+        .filter((entry) => entry.metadata?.surface === "watch")
+        .map((entry) => toWatchTelemetryLogEntry(entry))
+        .filter((entry): entry is WatchTelemetryLogEntry => entry !== null)
+        .sort((a, b) => Date.parse(b.occurredAt) - Date.parse(a.occurredAt))
+        .slice(0, normalizedLimit);
+
+      return {
+        persist: false,
+        result: logs
       };
     });
   },

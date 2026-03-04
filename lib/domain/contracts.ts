@@ -662,6 +662,27 @@ export type TownhallTelemetrySignals = {
   impressions: number;
 };
 
+export type WatchTelemetryEventType =
+  | "watch_time"
+  | "completion"
+  | "access_start"
+  | "access_complete"
+  | "quality_change"
+  | "rebuffer";
+
+export type WatchTelemetryLogEntry = {
+  id: string;
+  dropId: string;
+  eventType: WatchTelemetryEventType;
+  watchTimeSeconds: number;
+  completionPercent: number;
+  occurredAt: string;
+  qualityMode: WatchQualityMode | null;
+  qualityLevel: WatchQualityLevel | null;
+  qualityReason: TownhallTelemetryMetadata["qualityReason"] | null;
+  rebufferReason: TownhallTelemetryMetadata["rebufferReason"] | null;
+};
+
 export type CreateSessionInput = {
   email: string;
   role: AccountRole;
