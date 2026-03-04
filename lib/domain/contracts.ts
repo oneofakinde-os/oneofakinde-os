@@ -683,6 +683,32 @@ export type WatchTelemetryLogEntry = {
   rebufferReason: TownhallTelemetryMetadata["rebufferReason"] | null;
 };
 
+export type WatchSessionStatus = "active" | "ended";
+
+export type WatchSessionEndReason =
+  | "completed"
+  | "user_exit"
+  | "network_error"
+  | "stalled"
+  | "error";
+
+export type WatchSessionSnapshot = {
+  id: string;
+  dropId: string;
+  status: WatchSessionStatus;
+  startedAt: string;
+  lastHeartbeatAt: string;
+  endedAt: string | null;
+  endReason: WatchSessionEndReason | null;
+  heartbeatCount: number;
+  totalWatchTimeSeconds: number;
+  completionPercent: number;
+  rebufferCount: number;
+  qualityStepDownCount: number;
+  lastQualityMode: WatchQualityMode | null;
+  lastQualityLevel: WatchQualityLevel | null;
+};
+
 export type CreateSessionInput = {
   email: string;
   role: AccountRole;

@@ -13,6 +13,10 @@ import type {
   ReceiptBadge,
   SettlementLineItem,
   SettlementQuote,
+  WatchQualityLevel,
+  WatchQualityMode,
+  WatchSessionEndReason,
+  WatchSessionStatus,
   WorldReleaseQueuePacingMode,
   WorldReleaseQueueStatus,
   WorldCollectBundleType,
@@ -103,6 +107,24 @@ export type WatchAccessGrantRecord = {
   issuedAt: string;
   expiresAt: string;
   consumedAt: string | null;
+};
+
+export type WatchSessionRecord = {
+  id: string;
+  accountId: string;
+  dropId: string;
+  status: WatchSessionStatus;
+  startedAt: string;
+  lastHeartbeatAt: string;
+  endedAt: string | null;
+  endReason: WatchSessionEndReason | null;
+  heartbeatCount: number;
+  totalWatchTimeSeconds: number;
+  completionPercent: number;
+  rebufferCount: number;
+  qualityStepDownCount: number;
+  lastQualityMode: WatchQualityMode | null;
+  lastQualityLevel: WatchQualityLevel | null;
 };
 
 export type MembershipEntitlementRecord = {
@@ -279,6 +301,7 @@ export type BffDatabase = {
   payments: PaymentRecord[];
   stripeWebhookEvents: StripeWebhookEventRecord[];
   watchAccessGrants: WatchAccessGrantRecord[];
+  watchSessions: WatchSessionRecord[];
   membershipEntitlements: MembershipEntitlementRecord[];
   patrons: PatronRecord[];
   patronCommitments: PatronCommitmentRecord[];
@@ -669,6 +692,7 @@ function createSeedDatabase(): BffDatabase {
     payments: [],
     stripeWebhookEvents: [],
     watchAccessGrants: [],
+    watchSessions: [],
     membershipEntitlements: [
       {
         id: "mship_seed_dark_matter",
@@ -866,6 +890,7 @@ function createCatalogSeedDatabase(): BffDatabase {
     payments: [],
     stripeWebhookEvents: [],
     watchAccessGrants: [],
+    watchSessions: [],
     membershipEntitlements: [],
     patrons: [],
     patronCommitments: [],
@@ -902,6 +927,7 @@ function createEmptyDatabase(): BffDatabase {
     payments: [],
     stripeWebhookEvents: [],
     watchAccessGrants: [],
+    watchSessions: [],
     membershipEntitlements: [],
     patrons: [],
     patronCommitments: [],
@@ -941,6 +967,7 @@ function isValidDb(input: unknown): input is BffDatabase {
     Array.isArray(candidate.payments) &&
     Array.isArray(candidate.stripeWebhookEvents) &&
     Array.isArray(candidate.watchAccessGrants) &&
+    Array.isArray(candidate.watchSessions) &&
     Array.isArray(candidate.membershipEntitlements) &&
     Array.isArray(candidate.patrons) &&
     Array.isArray(candidate.patronCommitments) &&
@@ -963,6 +990,7 @@ function hasLegacyBaseDbShape(input: unknown): input is Omit<
   BffDatabase,
   | "stripeWebhookEvents"
   | "watchAccessGrants"
+  | "watchSessions"
   | "membershipEntitlements"
   | "patrons"
   | "patronCommitments"
@@ -1830,6 +1858,91 @@ function normalizeWatchAccessGrantRecords(records: WatchAccessGrantRecord[]): Wa
   });
 }
 
+function normalizeWatchSessionStatus(value: unknown): WatchSessionStatus {
+  return value === "ended" ? "ended" : "active";
+}
+
+function normalizeWatchSessionEndReason(value: unknown): WatchSessionEndReason | null {
+  if (
+    value === "completed" ||
+    value === "user_exit" ||
+    value === "network_error" ||
+    value === "stalled" ||
+    value === "error"
+  ) {
+    return value;
+  }
+
+  return null;
+}
+
+function normalizeWatchQualityMode(value: unknown): WatchQualityMode | null {
+  if (value === "auto" || value === "high" || value === "medium" || value === "low") {
+    return value;
+  }
+
+  return null;
+}
+
+function normalizeWatchQualityLevel(value: unknown): WatchQualityLevel | null {
+  if (value === "high" || value === "medium" || value === "low") {
+    return value;
+  }
+
+  return null;
+}
+
+function normalizeWatchSessionRecords(records: WatchSessionRecord[]): WatchSessionRecord[] {
+  return records.map((record) => {
+    const candidate = record as Partial<WatchSessionRecord>;
+    const status = normalizeWatchSessionStatus(candidate.status);
+    return {
+      id: typeof candidate.id === "string" && candidate.id.trim() ? candidate.id : `wss_${randomUUID()}`,
+      accountId: typeof candidate.accountId === "string" ? candidate.accountId : "",
+      dropId: typeof candidate.dropId === "string" ? candidate.dropId : "",
+      status,
+      startedAt:
+        typeof candidate.startedAt === "string" && candidate.startedAt.trim()
+          ? candidate.startedAt
+          : new Date().toISOString(),
+      lastHeartbeatAt:
+        typeof candidate.lastHeartbeatAt === "string" && candidate.lastHeartbeatAt.trim()
+          ? candidate.lastHeartbeatAt
+          : typeof candidate.startedAt === "string" && candidate.startedAt.trim()
+            ? candidate.startedAt
+            : new Date().toISOString(),
+      endedAt:
+        status === "ended" && typeof candidate.endedAt === "string" && candidate.endedAt.trim()
+          ? candidate.endedAt
+          : null,
+      endReason: status === "ended" ? normalizeWatchSessionEndReason(candidate.endReason) : null,
+      heartbeatCount:
+        typeof candidate.heartbeatCount === "number" && Number.isFinite(candidate.heartbeatCount)
+          ? Math.max(0, Math.floor(candidate.heartbeatCount))
+          : 0,
+      totalWatchTimeSeconds:
+        typeof candidate.totalWatchTimeSeconds === "number" && Number.isFinite(candidate.totalWatchTimeSeconds)
+          ? Number(Math.max(0, candidate.totalWatchTimeSeconds).toFixed(2))
+          : 0,
+      completionPercent:
+        typeof candidate.completionPercent === "number" && Number.isFinite(candidate.completionPercent)
+          ? Number(Math.min(100, Math.max(0, candidate.completionPercent)).toFixed(2))
+          : 0,
+      rebufferCount:
+        typeof candidate.rebufferCount === "number" && Number.isFinite(candidate.rebufferCount)
+          ? Math.max(0, Math.floor(candidate.rebufferCount))
+          : 0,
+      qualityStepDownCount:
+        typeof candidate.qualityStepDownCount === "number" &&
+        Number.isFinite(candidate.qualityStepDownCount)
+          ? Math.max(0, Math.floor(candidate.qualityStepDownCount))
+          : 0,
+      lastQualityMode: normalizeWatchQualityMode(candidate.lastQualityMode),
+      lastQualityLevel: normalizeWatchQualityLevel(candidate.lastQualityLevel)
+    };
+  });
+}
+
 function normalizeReceiptBadgeRecords(records: ReceiptBadgeRecord[]): ReceiptBadgeRecord[] {
   return records.map((record) => {
     const candidate = record as Partial<ReceiptBadgeRecord>;
@@ -1864,6 +1977,7 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
     return {
       ...input,
       watchAccessGrants: normalizeWatchAccessGrantRecords(input.watchAccessGrants),
+      watchSessions: normalizeWatchSessionRecords(input.watchSessions),
       receiptBadges: normalizeReceiptBadgeRecords(input.receiptBadges),
       membershipEntitlements: normalizeMembershipEntitlementRecords(input.membershipEntitlements),
       patrons: normalizePatronRecords(input.patrons),
@@ -1895,6 +2009,9 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         : [],
       watchAccessGrants: Array.isArray(candidate.watchAccessGrants)
         ? normalizeWatchAccessGrantRecords(candidate.watchAccessGrants as WatchAccessGrantRecord[])
+        : [],
+      watchSessions: Array.isArray(candidate.watchSessions)
+        ? normalizeWatchSessionRecords(candidate.watchSessions as WatchSessionRecord[])
         : [],
       receiptBadges: Array.isArray(candidate.receiptBadges)
         ? normalizeReceiptBadgeRecords(candidate.receiptBadges as ReceiptBadgeRecord[])
@@ -2120,6 +2237,7 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     paymentsResult,
     webhookEventsResult,
     watchAccessGrantsResult,
+    watchSessionsResult,
     membershipEntitlementsResult,
     patronsResult,
     patronCommitmentsResult,
@@ -2214,6 +2332,25 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     ),
     client.query<WatchAccessGrantRecord>(
       'SELECT token_id AS "tokenId", account_id AS "accountId", drop_id AS "dropId", issued_at AS "issuedAt", expires_at AS "expiresAt", consumed_at AS "consumedAt" FROM bff_watch_access_grants ORDER BY issued_at DESC'
+    ),
+    client.query<{
+      id: string;
+      accountId: string;
+      dropId: string;
+      status: WatchSessionStatus;
+      startedAt: string;
+      lastHeartbeatAt: string;
+      endedAt: string | null;
+      endReason: WatchSessionEndReason | null;
+      heartbeatCount: string | number;
+      totalWatchTimeSeconds: string | number;
+      completionPercent: string | number;
+      rebufferCount: string | number;
+      qualityStepDownCount: string | number;
+      lastQualityMode: WatchQualityMode | null;
+      lastQualityLevel: WatchQualityLevel | null;
+    }>(
+      'SELECT id, account_id AS "accountId", drop_id AS "dropId", status, started_at AS "startedAt", last_heartbeat_at AS "lastHeartbeatAt", ended_at AS "endedAt", end_reason AS "endReason", heartbeat_count AS "heartbeatCount", total_watch_time_seconds AS "totalWatchTimeSeconds", completion_percent AS "completionPercent", rebuffer_count AS "rebufferCount", quality_step_down_count AS "qualityStepDownCount", last_quality_mode AS "lastQualityMode", last_quality_level AS "lastQualityLevel" FROM bff_watch_sessions ORDER BY started_at DESC'
     ),
     client.query<MembershipEntitlementRecord>(
       'SELECT id, account_id AS "accountId", studio_handle AS "studioHandle", world_id AS "worldId", status, started_at AS "startedAt", ends_at AS "endsAt" FROM bff_membership_entitlements ORDER BY started_at DESC'
@@ -2370,6 +2507,7 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     paymentsResult.rowCount === 0 &&
     webhookEventsResult.rowCount === 0 &&
     watchAccessGrantsResult.rowCount === 0 &&
+    watchSessionsResult.rowCount === 0 &&
     membershipEntitlementsResult.rowCount === 0 &&
     patronsResult.rowCount === 0 &&
     patronCommitmentsResult.rowCount === 0 &&
@@ -2469,6 +2607,25 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     })),
     stripeWebhookEvents: webhookEventsResult.rows,
     watchAccessGrants: normalizeWatchAccessGrantRecords(watchAccessGrantsResult.rows),
+    watchSessions: normalizeWatchSessionRecords(
+      watchSessionsResult.rows.map((row) => ({
+        id: row.id,
+        accountId: row.accountId,
+        dropId: row.dropId,
+        status: row.status,
+        startedAt: row.startedAt,
+        lastHeartbeatAt: row.lastHeartbeatAt,
+        endedAt: row.endedAt,
+        endReason: row.endReason,
+        heartbeatCount: Number(row.heartbeatCount),
+        totalWatchTimeSeconds: Number(row.totalWatchTimeSeconds),
+        completionPercent: Number(row.completionPercent),
+        rebufferCount: Number(row.rebufferCount),
+        qualityStepDownCount: Number(row.qualityStepDownCount),
+        lastQualityMode: row.lastQualityMode,
+        lastQualityLevel: row.lastQualityLevel
+      }))
+    ),
     membershipEntitlements: normalizeMembershipEntitlementRecords(
       membershipEntitlementsResult.rows
     ),
@@ -2615,6 +2772,7 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
       bff_townhall_comments,
       bff_townhall_likes,
       bff_stripe_webhook_events,
+      bff_watch_sessions,
       bff_watch_access_grants,
       bff_payments,
       bff_receipt_badges,
@@ -2779,6 +2937,29 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
         grant.issuedAt,
         grant.expiresAt,
         grant.consumedAt
+      ]
+    );
+  }
+
+  for (const watchSession of db.watchSessions) {
+    await client.query(
+      "INSERT INTO bff_watch_sessions (id, account_id, drop_id, status, started_at, last_heartbeat_at, ended_at, end_reason, heartbeat_count, total_watch_time_seconds, completion_percent, rebuffer_count, quality_step_down_count, last_quality_mode, last_quality_level) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)",
+      [
+        watchSession.id,
+        watchSession.accountId,
+        watchSession.dropId,
+        watchSession.status,
+        watchSession.startedAt,
+        watchSession.lastHeartbeatAt,
+        watchSession.endedAt,
+        watchSession.endReason,
+        watchSession.heartbeatCount,
+        watchSession.totalWatchTimeSeconds,
+        watchSession.completionPercent,
+        watchSession.rebufferCount,
+        watchSession.qualityStepDownCount,
+        watchSession.lastQualityMode,
+        watchSession.lastQualityLevel
       ]
     );
   }

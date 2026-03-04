@@ -43,8 +43,12 @@ import type {
   TownhallTelemetryMetadata,
   TownhallTelemetryEventType,
   TownhallTelemetrySignals,
+  WatchQualityLevel,
+  WatchQualityMode,
   WatchTelemetryEventType,
   WatchTelemetryLogEntry,
+  WatchSessionEndReason,
+  WatchSessionSnapshot,
   WorldReleaseQueueItem,
   WorldReleaseQueuePacingMode,
   WorldReleaseQueueStatus,
@@ -88,6 +92,7 @@ import {
   type WorldReleaseQueueRecord,
   type WorldCollectOwnershipRecord,
   type WatchAccessGrantRecord,
+  type WatchSessionRecord,
   createAccountFromEmail,
   normalizeEmail,
   withDatabase,
@@ -116,6 +121,7 @@ const COLLECT_INTEGRITY_RECENT_SIGNAL_LIMIT = 100;
 const WORLD_COLLECT_OWNERSHIP_LOG_LIMIT = 20_000;
 const WORLD_RELEASE_QUEUE_LOG_LIMIT = 20_000;
 const WATCH_ACCESS_GRANTS_LOG_LIMIT = 20_000;
+const WATCH_SESSION_LOG_LIMIT = 50_000;
 const PATRON_ROSTER_LOG_LIMIT = 20_000;
 const PATRON_COMMITMENT_LOG_LIMIT = 50_000;
 const DEFAULT_PATRON_COMMITMENT_AMOUNT_CENTS = 500;
@@ -266,6 +272,41 @@ type WatchAccessTokenConsumeResult =
       reason: WatchAccessTokenConsumeReason;
     };
 
+type WatchSessionLifecycleFailureReason = "not_found" | "session_ended";
+
+type WatchSessionLifecycleMutationResult =
+  | {
+      ok: true;
+      session: WatchSessionSnapshot;
+    }
+  | {
+      ok: false;
+      reason: WatchSessionLifecycleFailureReason;
+    };
+
+type WatchSessionHeartbeatInput = {
+  accountId: string;
+  sessionId: string;
+  watchTimeSeconds?: number;
+  completionPercent?: number;
+  qualityMode?: WatchQualityMode;
+  qualityLevel?: WatchQualityLevel;
+  qualityReason?: TownhallTelemetryMetadata["qualityReason"];
+  rebufferReason?: TownhallTelemetryMetadata["rebufferReason"];
+};
+
+type WatchSessionEndInput = {
+  accountId: string;
+  sessionId: string;
+  watchTimeSeconds?: number;
+  completionPercent?: number;
+  qualityMode?: WatchQualityMode;
+  qualityLevel?: WatchQualityLevel;
+  qualityReason?: TownhallTelemetryMetadata["qualityReason"];
+  rebufferReason?: TownhallTelemetryMetadata["rebufferReason"];
+  endReason?: WatchSessionEndReason;
+};
+
 function isProductionRuntime(): boolean {
   const appEnv = process.env.OOK_APP_ENV?.trim().toLowerCase();
   const vercelEnv = process.env.VERCEL_ENV?.trim().toLowerCase();
@@ -393,6 +434,47 @@ function pruneExpiredWatchAccessGrants(db: BffDatabase, nowMs: number): void {
 
     return expiresAtMs >= nowMs;
   });
+}
+
+function trimWatchSessions(db: BffDatabase): void {
+  if (db.watchSessions.length > WATCH_SESSION_LOG_LIMIT) {
+    db.watchSessions.length = WATCH_SESSION_LOG_LIMIT;
+  }
+}
+
+function normalizeWatchSessionEndReason(
+  value: WatchSessionEndInput["endReason"]
+): WatchSessionEndReason | null {
+  if (
+    value === "completed" ||
+    value === "user_exit" ||
+    value === "network_error" ||
+    value === "stalled" ||
+    value === "error"
+  ) {
+    return value;
+  }
+
+  return null;
+}
+
+function toWatchSessionSnapshot(record: WatchSessionRecord): WatchSessionSnapshot {
+  return {
+    id: record.id,
+    dropId: record.dropId,
+    status: record.status,
+    startedAt: record.startedAt,
+    lastHeartbeatAt: record.lastHeartbeatAt,
+    endedAt: record.endedAt,
+    endReason: record.endReason,
+    heartbeatCount: record.heartbeatCount,
+    totalWatchTimeSeconds: Number(record.totalWatchTimeSeconds.toFixed(2)),
+    completionPercent: Number(record.completionPercent.toFixed(2)),
+    rebufferCount: record.rebufferCount,
+    qualityStepDownCount: record.qualityStepDownCount,
+    lastQualityMode: record.lastQualityMode,
+    lastQualityLevel: record.lastQualityLevel
+  };
 }
 
 function toSession(account: AccountRecord, sessionToken: string): Session {
@@ -1070,6 +1152,43 @@ function toWatchTelemetryLogEntry(record: TownhallTelemetryEventRecord): WatchTe
     qualityReason: record.metadata?.qualityReason ?? null,
     rebufferReason: record.metadata?.rebufferReason ?? null
   };
+}
+
+function appendTownhallTelemetryEvent(
+  db: BffDatabase,
+  input: {
+    accountId: string | null;
+    dropId: string;
+    eventType: TownhallTelemetryEventType;
+    watchTimeSeconds?: number;
+    completionPercent?: number;
+    metadata?: TownhallTelemetryMetadata;
+    occurredAt?: string;
+  }
+): void {
+  const normalizedWatchTime =
+    input.eventType === "watch_time" || input.eventType === "drop_dwell_time"
+      ? normalizeWatchTimeSeconds(input.watchTimeSeconds)
+      : 0;
+  const normalizedCompletion =
+    input.eventType === "completion"
+      ? normalizeCompletionPercent(input.completionPercent ?? 100)
+      : 0;
+
+  db.townhallTelemetryEvents.unshift({
+    id: `tel_${randomUUID()}`,
+    accountId: input.accountId,
+    dropId: input.dropId,
+    eventType: input.eventType,
+    watchTimeSeconds: normalizedWatchTime,
+    completionPercent: normalizedCompletion,
+    metadata: normalizeTownhallTelemetryMetadata(input.metadata),
+    occurredAt: input.occurredAt ?? new Date().toISOString()
+  } satisfies TownhallTelemetryEventRecord);
+
+  if (db.townhallTelemetryEvents.length > TOWNHALL_TELEMETRY_EVENT_LOG_LIMIT) {
+    db.townhallTelemetryEvents.length = TOWNHALL_TELEMETRY_EVENT_LOG_LIMIT;
+  }
 }
 
 function normalizeTownhallCommentBody(value: string): string {
@@ -4442,6 +4561,356 @@ export const commerceBffService = {
           granted: true,
           tokenId: grant.tokenId,
           expiresAt: grant.expiresAt
+        }
+      };
+    });
+  },
+
+  async startWatchSession(
+    accountId: string,
+    dropId: string
+  ): Promise<WatchSessionSnapshot | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      const drop = findDropById(db, dropId);
+      if (!account || !drop) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const entitlement = findOwnershipByDrop(db, account.id, drop.id);
+      if (!entitlement) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const nowIso = new Date().toISOString();
+      const record: WatchSessionRecord = {
+        id: `wss_${randomUUID()}`,
+        accountId: account.id,
+        dropId: drop.id,
+        status: "active",
+        startedAt: nowIso,
+        lastHeartbeatAt: nowIso,
+        endedAt: null,
+        endReason: null,
+        heartbeatCount: 0,
+        totalWatchTimeSeconds: 0,
+        completionPercent: 0,
+        rebufferCount: 0,
+        qualityStepDownCount: 0,
+        lastQualityMode: null,
+        lastQualityLevel: null
+      };
+
+      db.watchSessions.unshift(record);
+      trimWatchSessions(db);
+      appendTownhallTelemetryEvent(db, {
+        accountId: account.id,
+        dropId: drop.id,
+        eventType: "access_start",
+        metadata: {
+          source: "drop",
+          surface: "watch",
+          action: "start"
+        },
+        occurredAt: nowIso
+      });
+
+      return {
+        persist: true,
+        result: toWatchSessionSnapshot(record)
+      };
+    });
+  },
+
+  async heartbeatWatchSession(
+    input: WatchSessionHeartbeatInput
+  ): Promise<WatchSessionLifecycleMutationResult> {
+    return withDatabase<WatchSessionLifecycleMutationResult>(async (db) => {
+      const account = findAccountById(db, input.accountId);
+      if (!account) {
+        return {
+          persist: false,
+          result: {
+            ok: false,
+            reason: "not_found"
+          }
+        };
+      }
+
+      const session = db.watchSessions.find(
+        (entry) => entry.id === input.sessionId && entry.accountId === account.id
+      );
+      if (!session) {
+        return {
+          persist: false,
+          result: {
+            ok: false,
+            reason: "not_found"
+          }
+        };
+      }
+
+      if (session.status !== "active") {
+        return {
+          persist: false,
+          result: {
+            ok: false,
+            reason: "session_ended"
+          }
+        };
+      }
+
+      const nowIso = new Date().toISOString();
+      const normalizedWatchTime = normalizeWatchTimeSeconds(input.watchTimeSeconds);
+      const normalizedCompletion = normalizeCompletionPercent(input.completionPercent);
+      session.heartbeatCount += 1;
+      session.lastHeartbeatAt = nowIso;
+      session.totalWatchTimeSeconds = Number(
+        (session.totalWatchTimeSeconds + normalizedWatchTime).toFixed(2)
+      );
+      session.completionPercent = Number(
+        Math.max(session.completionPercent, normalizedCompletion).toFixed(2)
+      );
+
+      if (input.qualityMode) {
+        session.lastQualityMode = input.qualityMode;
+      }
+      if (input.qualityLevel) {
+        session.lastQualityLevel = input.qualityLevel;
+      }
+      if (input.rebufferReason) {
+        session.rebufferCount += 1;
+      }
+      if (
+        input.qualityReason === "auto_step_down_error" ||
+        input.qualityReason === "auto_step_down_stalled"
+      ) {
+        session.qualityStepDownCount += 1;
+      }
+
+      if (normalizedWatchTime > 0) {
+        appendTownhallTelemetryEvent(db, {
+          accountId: account.id,
+          dropId: session.dropId,
+          eventType: "watch_time",
+          watchTimeSeconds: normalizedWatchTime,
+          metadata: {
+            source: "drop",
+            surface: "watch",
+            qualityMode: input.qualityMode,
+            qualityLevel: input.qualityLevel
+          },
+          occurredAt: nowIso
+        });
+      }
+
+      if (input.qualityMode || input.qualityLevel || input.qualityReason) {
+        appendTownhallTelemetryEvent(db, {
+          accountId: account.id,
+          dropId: session.dropId,
+          eventType: "quality_change",
+          metadata: {
+            source: "drop",
+            surface: "watch",
+            action: "toggle",
+            qualityMode: input.qualityMode,
+            qualityLevel: input.qualityLevel,
+            qualityReason: input.qualityReason
+          },
+          occurredAt: nowIso
+        });
+      }
+
+      if (input.rebufferReason) {
+        appendTownhallTelemetryEvent(db, {
+          accountId: account.id,
+          dropId: session.dropId,
+          eventType: "rebuffer",
+          metadata: {
+            source: "drop",
+            surface: "watch",
+            action: "toggle",
+            qualityMode: input.qualityMode,
+            qualityLevel: input.qualityLevel,
+            rebufferReason: input.rebufferReason
+          },
+          occurredAt: nowIso
+        });
+      }
+
+      return {
+        persist: true,
+        result: {
+          ok: true,
+          session: toWatchSessionSnapshot(session)
+        }
+      };
+    });
+  },
+
+  async endWatchSession(input: WatchSessionEndInput): Promise<WatchSessionLifecycleMutationResult> {
+    return withDatabase<WatchSessionLifecycleMutationResult>(async (db) => {
+      const account = findAccountById(db, input.accountId);
+      if (!account) {
+        return {
+          persist: false,
+          result: {
+            ok: false,
+            reason: "not_found"
+          }
+        };
+      }
+
+      const session = db.watchSessions.find(
+        (entry) => entry.id === input.sessionId && entry.accountId === account.id
+      );
+      if (!session) {
+        return {
+          persist: false,
+          result: {
+            ok: false,
+            reason: "not_found"
+          }
+        };
+      }
+
+      if (session.status !== "active") {
+        return {
+          persist: false,
+          result: {
+            ok: false,
+            reason: "session_ended"
+          }
+        };
+      }
+
+      const nowIso = new Date().toISOString();
+      const normalizedWatchTime = normalizeWatchTimeSeconds(input.watchTimeSeconds);
+      const normalizedCompletion = normalizeCompletionPercent(input.completionPercent);
+      const normalizedEndReason = normalizeWatchSessionEndReason(input.endReason);
+
+      session.status = "ended";
+      session.endedAt = nowIso;
+      session.lastHeartbeatAt = nowIso;
+      session.totalWatchTimeSeconds = Number(
+        (session.totalWatchTimeSeconds + normalizedWatchTime).toFixed(2)
+      );
+      session.completionPercent = Number(
+        Math.max(session.completionPercent, normalizedCompletion).toFixed(2)
+      );
+      session.endReason =
+        normalizedEndReason ??
+        (session.completionPercent >= 100 ? "completed" : "user_exit");
+
+      if (input.qualityMode) {
+        session.lastQualityMode = input.qualityMode;
+      }
+      if (input.qualityLevel) {
+        session.lastQualityLevel = input.qualityLevel;
+      }
+      if (input.rebufferReason) {
+        session.rebufferCount += 1;
+      }
+      if (
+        input.qualityReason === "auto_step_down_error" ||
+        input.qualityReason === "auto_step_down_stalled"
+      ) {
+        session.qualityStepDownCount += 1;
+      }
+
+      if (normalizedWatchTime > 0) {
+        appendTownhallTelemetryEvent(db, {
+          accountId: account.id,
+          dropId: session.dropId,
+          eventType: "watch_time",
+          watchTimeSeconds: normalizedWatchTime,
+          metadata: {
+            source: "drop",
+            surface: "watch",
+            qualityMode: input.qualityMode,
+            qualityLevel: input.qualityLevel
+          },
+          occurredAt: nowIso
+        });
+      }
+
+      if (input.qualityMode || input.qualityLevel || input.qualityReason) {
+        appendTownhallTelemetryEvent(db, {
+          accountId: account.id,
+          dropId: session.dropId,
+          eventType: "quality_change",
+          metadata: {
+            source: "drop",
+            surface: "watch",
+            action: "toggle",
+            qualityMode: input.qualityMode,
+            qualityLevel: input.qualityLevel,
+            qualityReason: input.qualityReason
+          },
+          occurredAt: nowIso
+        });
+      }
+
+      if (input.rebufferReason) {
+        appendTownhallTelemetryEvent(db, {
+          accountId: account.id,
+          dropId: session.dropId,
+          eventType: "rebuffer",
+          metadata: {
+            source: "drop",
+            surface: "watch",
+            action: "toggle",
+            qualityMode: input.qualityMode,
+            qualityLevel: input.qualityLevel,
+            rebufferReason: input.rebufferReason
+          },
+          occurredAt: nowIso
+        });
+      }
+
+      if (session.completionPercent > 0) {
+        appendTownhallTelemetryEvent(db, {
+          accountId: account.id,
+          dropId: session.dropId,
+          eventType: "completion",
+          completionPercent: session.completionPercent,
+          metadata: {
+            source: "drop",
+            surface: "watch",
+            action: "complete",
+            qualityMode: session.lastQualityMode ?? undefined,
+            qualityLevel: session.lastQualityLevel ?? undefined
+          },
+          occurredAt: nowIso
+        });
+      }
+
+      appendTownhallTelemetryEvent(db, {
+        accountId: account.id,
+        dropId: session.dropId,
+        eventType: "access_complete",
+        completionPercent: session.completionPercent,
+        metadata: {
+          source: "drop",
+          surface: "watch",
+          action: "complete",
+          qualityMode: session.lastQualityMode ?? undefined,
+          qualityLevel: session.lastQualityLevel ?? undefined
+        },
+        occurredAt: nowIso
+      });
+
+      return {
+        persist: true,
+        result: {
+          ok: true,
+          session: toWatchSessionSnapshot(session)
         }
       };
     });
