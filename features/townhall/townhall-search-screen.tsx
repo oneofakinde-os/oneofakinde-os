@@ -1,124 +1,37 @@
 import { formatUsd } from "@/features/shared/format";
-import type { Drop, Session, Studio, World } from "@/lib/domain/contracts";
+import type { CatalogSearchResult } from "@/lib/catalog/search";
+import type { Session } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
 import Link from "next/link";
 import { TownhallBottomNav } from "./townhall-bottom-nav";
 import { ArrowLeftIcon, SearchIcon } from "./townhall-icons";
 
 type TownhallSearchScreenProps = {
-  query: string;
   session: Session | null;
-  drops: Drop[];
-  worlds: World[];
-  studios: Studio[];
+  search: CatalogSearchResult;
 };
 
-type SearchUser = {
-  handle: string;
-  title: string;
-  synopsis: string;
-};
-
-function normalize(value: string): string {
-  return value.trim().toLowerCase();
+function formatOfferState(value: string): string {
+  return value.replaceAll("_", " ");
 }
 
-function fieldScore(query: string, value: string): number {
-  const normalizedQuery = normalize(query);
-  const normalizedValue = normalize(value);
-
-  if (!normalizedQuery || !normalizedValue) return 0;
-  if (normalizedValue === normalizedQuery) return 400;
-  if (normalizedValue.startsWith(normalizedQuery)) return 250;
-
-  const index = normalizedValue.indexOf(normalizedQuery);
-  if (index < 0) return 0;
-
-  return 120 - Math.min(index, 100);
-}
-
-function scoreByFields(query: string, values: string[]): number {
-  return values.reduce((best, value) => Math.max(best, fieldScore(query, value)), 0);
-}
-
-function dedupeUsers(studios: Studio[], drops: Drop[], worlds: World[]): SearchUser[] {
-  const byHandle = new Map<string, SearchUser>();
-
-  for (const studio of studios) {
-    byHandle.set(studio.handle, {
-      handle: studio.handle,
-      title: studio.title,
-      synopsis: studio.synopsis
-    });
+export function TownhallSearchScreen({ session, search }: TownhallSearchScreenProps) {
+  const normalizedQuery = search.query.trim().toLowerCase();
+  const totalMatches = search.users.length + search.worlds.length + search.drops.length;
+  const scopeFilters: string[] = [];
+  if (search.lane !== "all") {
+    scopeFilters.push(`lane ${search.lane}`);
+  }
+  if (search.offerState) {
+    scopeFilters.push(`state ${formatOfferState(search.offerState)}`);
   }
 
-  for (const handle of [...drops.map((drop) => drop.studioHandle), ...worlds.map((world) => world.studioHandle)]) {
-    if (byHandle.has(handle)) continue;
-    byHandle.set(handle, {
-      handle,
-      title: handle,
-      synopsis: "creator identity publishing drops and worlds."
-    });
-  }
-
-  return [...byHandle.values()];
-}
-
-function sortByScore<T>(
-  items: T[],
-  query: string,
-  fields: (item: T) => string[],
-  getKey: (item: T) => string
-): T[] {
-  if (!query) {
-    return [...items].sort((a, b) => getKey(a).localeCompare(getKey(b)));
-  }
-
-  return items
-    .map((item) => ({
-      item,
-      score: scoreByFields(query, fields(item))
-    }))
-    .filter((entry) => entry.score > 0)
-    .sort((a, b) => b.score - a.score || getKey(a.item).localeCompare(getKey(b.item)))
-    .map((entry) => entry.item);
-}
-
-export function TownhallSearchScreen({ query, session, drops, worlds, studios }: TownhallSearchScreenProps) {
-  const normalizedQuery = normalize(query);
-  const users = dedupeUsers(studios, drops, worlds);
-
-  const matchedUsers = sortByScore(
-    users,
-    normalizedQuery,
-    (user) => [user.handle, user.title, user.synopsis],
-    (user) => user.handle
-  ).slice(0, 8);
-
-  const matchedWorlds = sortByScore(
-    worlds,
-    normalizedQuery,
-    (world) => [world.title, world.synopsis, world.studioHandle],
-    (world) => world.id
-  ).slice(0, 8);
-
-  const matchedDrops = sortByScore(
-    drops,
-    normalizedQuery,
-    (drop) => [drop.title, drop.synopsis, drop.worldLabel, drop.studioHandle],
-    (drop) => drop.id
-  ).slice(0, 8);
-
-  const usersToRender = normalizedQuery ? matchedUsers : matchedUsers.slice(0, 4);
-  const worldsToRender = normalizedQuery ? matchedWorlds : matchedWorlds.slice(0, 4);
-  const dropsToRender = normalizedQuery ? matchedDrops : matchedDrops.slice(0, 4);
-  const totalMatches = usersToRender.length + worldsToRender.length + dropsToRender.length;
-
+  const scopeSuffix = scopeFilters.length > 0 ? ` filters: ${scopeFilters.join(" · ")}.` : "";
   const summary = normalizedQuery
-    ? `${totalMatches} result${totalMatches === 1 ? "" : "s"} across users, worlds, and drops.`
-    : "discover users, worlds, and drops from the townhall catalog.";
+    ? `${totalMatches} result${totalMatches === 1 ? "" : "s"} across users, worlds, and drops.${scopeSuffix}`
+    : `discover users, worlds, and drops from the townhall catalog.${scopeSuffix}`;
 
-  const title = normalizedQuery ? `results for "${query}"` : "search users, worlds, and drops";
+  const title = normalizedQuery ? `results for "${search.query}"` : "search users, worlds, and drops";
 
   return (
     <main className="townhall-page">
@@ -142,7 +55,7 @@ export function TownhallSearchScreen({ query, session, drops, worlds, studios }:
               className="townhall-search-input"
               placeholder="search users, worlds, and drops"
               aria-label="search users, worlds, and drops"
-              defaultValue={query}
+              defaultValue={search.query}
               autoFocus
             />
           </form>
@@ -158,13 +71,13 @@ export function TownhallSearchScreen({ query, session, drops, worlds, studios }:
           <section className="townhall-search-section" aria-label="user search results">
             <div className="townhall-search-section-head">
               <h2>users</h2>
-              <span>{usersToRender.length}</span>
+              <span>{search.users.length}</span>
             </div>
-            {usersToRender.length === 0 ? (
+            {search.users.length === 0 ? (
               <p className="townhall-search-empty">no matching users.</p>
             ) : (
               <ul className="townhall-search-grid">
-                {usersToRender.map((user) => (
+                {search.users.map((user) => (
                   <li key={user.handle} className="townhall-search-card">
                     <p className="townhall-search-card-kicker">creator identity</p>
                     <h3>@{user.handle}</h3>
@@ -181,13 +94,13 @@ export function TownhallSearchScreen({ query, session, drops, worlds, studios }:
           <section className="townhall-search-section" aria-label="world search results">
             <div className="townhall-search-section-head">
               <h2>worlds</h2>
-              <span>{worldsToRender.length}</span>
+              <span>{search.worlds.length}</span>
             </div>
-            {worldsToRender.length === 0 ? (
+            {search.worlds.length === 0 ? (
               <p className="townhall-search-empty">no matching worlds.</p>
             ) : (
               <ul className="townhall-search-grid">
-                {worldsToRender.map((world) => (
+                {search.worlds.map((world) => (
                   <li key={world.id} className="townhall-search-card">
                     <p className="townhall-search-card-kicker">@{world.studioHandle}</p>
                     <h3>{world.title}</h3>
@@ -209,13 +122,13 @@ export function TownhallSearchScreen({ query, session, drops, worlds, studios }:
           <section className="townhall-search-section" aria-label="drop search results">
             <div className="townhall-search-section-head">
               <h2>drops</h2>
-              <span>{dropsToRender.length}</span>
+              <span>{search.drops.length}</span>
             </div>
-            {dropsToRender.length === 0 ? (
+            {search.drops.length === 0 ? (
               <p className="townhall-search-empty">no matching drops.</p>
             ) : (
               <ul className="townhall-search-grid">
-                {dropsToRender.map((drop) => {
+                {search.drops.map((drop) => {
                   const collectHref = session
                     ? routes.collectDrop(drop.id)
                     : routes.signIn(routes.collectDrop(drop.id));
@@ -227,12 +140,21 @@ export function TownhallSearchScreen({ query, session, drops, worlds, studios }:
                       </p>
                       <h3>{drop.title}</h3>
                       <p>{drop.synopsis}</p>
+                      {drop.collect ? (
+                        <p className="townhall-search-card-kicker">
+                          lane {drop.collect.lane} · state {formatOfferState(drop.collect.latestOfferState)} · offers{" "}
+                          {drop.collect.offerCount}
+                        </p>
+                      ) : null}
                       <div className="townhall-search-card-actions">
                         <Link href={routes.drop(drop.id)} className="townhall-search-card-link">
                           open drop
                         </Link>
                         <Link href={collectHref} className="townhall-search-card-link ghost">
-                          collect {formatUsd(drop.priceUsd)}
+                          collect {formatUsd(drop.collect?.listingPriceUsd ?? drop.priceUsd)}
+                        </Link>
+                        <Link href={routes.dropOffers(drop.id)} className="townhall-search-card-link ghost">
+                          offers
                         </Link>
                       </div>
                     </li>
@@ -249,7 +171,7 @@ export function TownhallSearchScreen({ query, session, drops, worlds, studios }:
       <aside className="townhall-side-notes" aria-label="townhall search notes">
         <h2>townhall search</h2>
         <p>dedicated discovery surface for users, worlds, and drops with a single query.</p>
-        <p>this keeps townhall as the primary shell while enabling direct deep-link search workflows.</p>
+        <p>drop search now includes collect lane and offer-state context for agora commerce discovery.</p>
       </aside>
     </main>
   );

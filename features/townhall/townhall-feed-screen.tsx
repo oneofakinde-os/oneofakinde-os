@@ -131,6 +131,7 @@ const LONG_PRESS_SUPPRESS_TAP_MS = 700;
 
 const SHOWROOM_MODE_OPTIONS: ShowroomModeOption[] = [
   { value: "all", label: "all" },
+  { value: "agora", label: "agora" },
   { value: "watch", label: "watch" },
   { value: "listen", label: "listen" },
   { value: "read", label: "read" },

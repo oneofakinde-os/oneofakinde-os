@@ -49,6 +49,7 @@ test("proof: townhall feed focus query parsing is strict and safe", () => {
 
 test("proof: townhall return href keeps mode lane, ordering, and feed focus", () => {
   assert.equal(routeForTownhallMediaFilter("watch"), "/showroom/watch");
+  assert.equal(routeForTownhallMediaFilter("agora"), "/showroom");
   assert.equal(routeForTownhallMediaFilter("all"), "/showroom");
 
   const href = buildTownhallFeedHrefWithFocus({

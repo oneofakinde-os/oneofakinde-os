@@ -22,6 +22,7 @@
     "required_search_placeholder": "search users, worlds, and drops",
     "required_showroom_modes": [
       "all",
+      "agora",
       "watch",
       "listen",
       "read",

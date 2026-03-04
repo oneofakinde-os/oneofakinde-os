@@ -5,6 +5,7 @@ import { DEFAULT_TOWNHALL_FEED_PAGE_SIZE, paginateTownhallFeed } from "@/lib/tow
 import { commerceBffService } from "@/lib/bff/service";
 import type { TownhallDropSocialSnapshot } from "@/lib/domain/contracts";
 import {
+  buildCollectListingsByDropId,
   filterDropsForShowroomMedia,
   parseTownhallShowroomMediaFilter,
   parseTownhallShowroomOrdering,
@@ -25,8 +26,14 @@ type LoadTownhallFeedContextOptions = {
 export async function loadTownhallFeedContext(options: LoadTownhallFeedContextOptions = {}) {
   const mediaFilter = parseTownhallShowroomMediaFilter(options.mediaFilter);
   const ordering = parseTownhallShowroomOrdering(options.ordering);
-  const [session, drops] = await Promise.all([getOptionalSession(), gateway.listDrops()]);
-  const filteredDrops = filterDropsForShowroomMedia(drops, mediaFilter);
+  const [session, drops, collectInventory] = await Promise.all([
+    getOptionalSession(),
+    gateway.listDrops(),
+    commerceBffService.getCollectInventory(null, "all")
+  ]);
+  const filteredDrops = filterDropsForShowroomMedia(drops, mediaFilter, {
+    collectListingsByDropId: buildCollectListingsByDropId(collectInventory.listings)
+  });
 
   const collection = session ? await gateway.getMyCollection(session.accountId) : null;
   const viewerHasTasteSignals = Boolean((collection?.ownedDrops ?? []).length);

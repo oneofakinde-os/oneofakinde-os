@@ -553,7 +553,7 @@ export type TownhallTelemetryEventType =
 export type TownhallTelemetryMetadata = {
   source?: "showroom" | "drop";
   surface?: "townhall" | "watch" | "listen" | "read" | "photos" | "live";
-  mediaFilter?: "all" | "watch" | "listen" | "read" | "photos" | "live";
+  mediaFilter?: "all" | "agora" | "watch" | "listen" | "read" | "photos" | "live";
   ordering?: "for_you" | "rising" | "newest" | "most_collected" | "new_voices" | "sustained_craft";
   position?: number;
   channel?: TownhallShareChannel;

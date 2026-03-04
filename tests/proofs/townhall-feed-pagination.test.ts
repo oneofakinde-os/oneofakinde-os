@@ -6,6 +6,7 @@ import test from "node:test";
 import { GET as getTownhallFeedRoute } from "../../app/api/v1/townhall/feed/route";
 import { commerceBffService } from "../../lib/bff/service";
 import { rankDropsForTownhall } from "../../lib/townhall/ranking";
+import { buildCollectListingsByDropId, filterDropsForShowroomMedia } from "../../lib/townhall/showroom-query";
 
 function createIsolatedDbPath(): string {
   return path.join("/tmp", `ook-bff-townhall-feed-${randomUUID()}.json`);
@@ -139,4 +140,34 @@ test("proof: townhall feed supports six-lane ordering via lane_key", async () =>
     new Request("http://127.0.0.1:3000/api/v1/townhall/feed?lane_key=for_you&limit=2")
   );
   assert.equal(forYouResponse.status, 200);
+});
+
+test("proof: townhall feed supports agora commerce lane filtering", async () => {
+  const response = await getTownhallFeedRoute(
+    new Request("http://127.0.0.1:3000/api/v1/townhall/feed?media=agora&limit=10")
+  );
+  assert.equal(response.status, 200);
+
+  const payload = await parseJson<FeedPayload>(response);
+  assert.ok(payload.feed.drops.length > 0);
+
+  const allDrops = await commerceBffService.listDrops();
+  const collectInventory = await commerceBffService.getCollectInventory(null, "all");
+  const telemetryByDropId = await commerceBffService.getTownhallTelemetrySignals(
+    allDrops.map((drop) => drop.id)
+  );
+  const expected = rankDropsForTownhall(
+    filterDropsForShowroomMedia(allDrops, "agora", {
+      collectListingsByDropId: buildCollectListingsByDropId(collectInventory.listings)
+    }),
+    {
+      telemetryByDropId,
+      laneKey: "rising"
+    }
+  );
+
+  assert.deepEqual(
+    payload.feed.drops.map((drop) => drop.id),
+    expected.slice(0, payload.feed.drops.length).map((drop) => drop.id)
+  );
 });

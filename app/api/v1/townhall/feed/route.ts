@@ -10,6 +10,7 @@ import {
 } from "@/lib/townhall/feed-pagination";
 import { rankDropsForTownhall } from "@/lib/townhall/ranking";
 import {
+  buildCollectListingsByDropId,
   filterDropsForShowroomMedia,
   parseTownhallShowroomMediaFilter,
   parseTownhallShowroomOrderingFromParams
@@ -22,8 +23,14 @@ export async function GET(request: Request) {
   const mediaFilter = parseTownhallShowroomMediaFilter(url.searchParams.get("media"));
   const ordering = parseTownhallShowroomOrderingFromParams(url.searchParams);
 
-  const [session, drops] = await Promise.all([getRequestSession(request), gateway.listDrops()]);
-  const filteredDrops = filterDropsForShowroomMedia(drops, mediaFilter);
+  const [session, drops, collectInventory] = await Promise.all([
+    getRequestSession(request),
+    gateway.listDrops(),
+    commerceBffService.getCollectInventory(null, "all")
+  ]);
+  const filteredDrops = filterDropsForShowroomMedia(drops, mediaFilter, {
+    collectListingsByDropId: buildCollectListingsByDropId(collectInventory.listings)
+  });
 
   const collection = session ? await gateway.getMyCollection(session.accountId) : null;
   const viewerHasTasteSignals = Boolean((collection?.ownedDrops ?? []).length);

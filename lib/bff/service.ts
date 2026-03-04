@@ -901,6 +901,7 @@ function normalizeTownhallTelemetryMetadata(
 
   if (
     value.mediaFilter === "all" ||
+    value.mediaFilter === "agora" ||
     value.mediaFilter === "watch" ||
     value.mediaFilter === "listen" ||
     value.mediaFilter === "read" ||

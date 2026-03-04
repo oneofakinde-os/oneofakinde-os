@@ -1,6 +1,6 @@
-import type { Drop, DropPreviewMode } from "@/lib/domain/contracts";
+import type { CollectInventoryListing, Drop, DropPreviewMode } from "@/lib/domain/contracts";
 
-export type TownhallShowroomMediaFilter = "all" | DropPreviewMode;
+export type TownhallShowroomMediaFilter = "all" | "agora" | DropPreviewMode;
 export type TownhallShowroomOrdering =
   | "for_you"
   | "rising"
@@ -11,6 +11,7 @@ export type TownhallShowroomOrdering =
 
 export const TOWNHALL_SHOWROOM_MEDIA_FILTERS: TownhallShowroomMediaFilter[] = [
   "all",
+  "agora",
   "watch",
   "listen",
   "read",
@@ -61,11 +62,45 @@ export function parseTownhallShowroomOrderingFromParams(params: URLSearchParams)
 
 export function filterDropsForShowroomMedia(
   drops: Drop[],
-  mediaFilter: TownhallShowroomMediaFilter
+  mediaFilter: TownhallShowroomMediaFilter,
+  options?: {
+    collectListingsByDropId?: Map<string, CollectInventoryListing>;
+  }
 ): Drop[] {
   if (mediaFilter === "all") {
     return drops;
   }
 
+  if (mediaFilter === "agora") {
+    const collectListingsByDropId = options?.collectListingsByDropId;
+    if (!collectListingsByDropId || collectListingsByDropId.size === 0) {
+      return [];
+    }
+
+    const marketActiveDrops = drops.filter((drop) => {
+      const listing = collectListingsByDropId.get(drop.id);
+      if (!listing) {
+        return false;
+      }
+
+      return (
+        listing.listingType === "auction" ||
+        listing.listingType === "resale" ||
+        listing.latestOfferState !== "listed"
+      );
+    });
+    if (marketActiveDrops.length > 0) {
+      return marketActiveDrops;
+    }
+
+    return drops.filter((drop) => collectListingsByDropId.has(drop.id));
+  }
+
   return drops.filter((drop) => Boolean(drop.previewMedia?.[mediaFilter]));
+}
+
+export function buildCollectListingsByDropId(
+  listings: CollectInventoryListing[]
+): Map<string, CollectInventoryListing> {
+  return new Map(listings.map((listing) => [listing.drop.id, listing]));
 }

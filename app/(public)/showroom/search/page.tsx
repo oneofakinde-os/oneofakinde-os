@@ -1,6 +1,5 @@
 import { TownhallSearchScreen } from "@/features/townhall/townhall-search-screen";
-import type { Studio } from "@/lib/domain/contracts";
-import { gateway } from "@/lib/gateway";
+import { executeCatalogSearch, parseCatalogSearchQuery } from "@/lib/catalog/search";
 import { getOptionalSession } from "@/lib/server/session";
 
 type TownhallSearchPageProps = {
@@ -17,19 +16,15 @@ function firstParam(value?: string | string[]): string {
   return value ?? "";
 }
 
-function normalizeQuery(value: string): string {
-  return value.trim().slice(0, 120);
-}
-
 export default async function TownhallSearchPage({ searchParams }: TownhallSearchPageProps) {
   const resolvedSearchParams = await searchParams;
-  const query = normalizeQuery(firstParam(resolvedSearchParams.q));
+  const query = parseCatalogSearchQuery(firstParam(resolvedSearchParams.q));
+  const [session, search] = await Promise.all([
+    getOptionalSession(),
+    executeCatalogSearch({
+      query
+    })
+  ]);
 
-  const [session, drops, worlds] = await Promise.all([getOptionalSession(), gateway.listDrops(), gateway.listWorlds()]);
-
-  const handles = Array.from(new Set([...drops.map((drop) => drop.studioHandle), ...worlds.map((world) => world.studioHandle)]));
-  const studioResults = await Promise.all(handles.map((handle) => gateway.getStudioByHandle(handle)));
-  const studios = studioResults.filter((studio): studio is Studio => studio !== null);
-
-  return <TownhallSearchScreen query={query} session={session} drops={drops} worlds={worlds} studios={studios} />;
+  return <TownhallSearchScreen session={session} search={search} />;
 }
