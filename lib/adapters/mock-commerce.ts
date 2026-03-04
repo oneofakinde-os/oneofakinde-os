@@ -29,6 +29,7 @@ import type {
 } from "@/lib/domain/contracts";
 import type { CommerceGateway } from "@/lib/domain/ports";
 import { sortDropsForStudioSurface, sortDropsForWorldSurface } from "@/lib/catalog/drop-curation";
+import { buildCollectSettlementQuote } from "@/lib/domain/quote-engine";
 import { seedPreviewMediaForDrop } from "@/lib/townhall/seed-preview-media";
 import { randomUUID } from "node:crypto";
 
@@ -947,15 +948,17 @@ export const commerceGateway: CommerceGateway = {
     if (!drop) return null;
 
     const ownedDrop = getOwnedDrops(accountId).find((entry) => entry.drop.id === dropId);
-    const subtotalUsd = ownedDrop ? 0 : drop.priceUsd;
-    const processingUsd = ownedDrop ? 0 : PROCESSING_FEE_USD;
+    const quote = ownedDrop
+      ? buildCollectSettlementQuote({ subtotalUsd: 0, processingUsd: 0 })
+      : buildCollectSettlementQuote({ subtotalUsd: drop.priceUsd, processingUsd: PROCESSING_FEE_USD });
 
     return {
       drop,
-      subtotalUsd,
-      processingUsd,
-      totalUsd: Number((subtotalUsd + processingUsd).toFixed(2)),
-      currency: "USD"
+      subtotalUsd: quote.subtotalUsd,
+      processingUsd: quote.processingUsd,
+      totalUsd: quote.totalUsd,
+      currency: "USD",
+      quote
     };
   },
 
@@ -981,6 +984,10 @@ export const commerceGateway: CommerceGateway = {
 
     const paymentId = `pay_${randomUUID()}`;
     const checkoutSessionId = `mock_session_${randomUUID()}`;
+    const quote = buildCollectSettlementQuote({
+      subtotalUsd: drop.priceUsd,
+      processingUsd: PROCESSING_FEE_USD
+    });
     store.pendingPayments.set(paymentId, {
       accountId,
       dropId
@@ -995,8 +1002,9 @@ export const commerceGateway: CommerceGateway = {
         options?.successUrl ??
         `/collect/${encodeURIComponent(dropId)}?payment=success&payment_id=${encodeURIComponent(paymentId)}`,
       drop,
-      amountUsd: Number((drop.priceUsd + PROCESSING_FEE_USD).toFixed(2)),
-      currency: "USD"
+      amountUsd: quote.totalUsd,
+      currency: "USD",
+      quote
     };
   },
 
@@ -1033,11 +1041,20 @@ export const commerceGateway: CommerceGateway = {
       };
     }
 
+    const quote = buildCollectSettlementQuote({
+      subtotalUsd: drop.priceUsd,
+      processingUsd: PROCESSING_FEE_USD
+    });
     const receipt: PurchaseReceipt = {
       id: `rcpt_${randomUUID()}`,
       accountId,
       dropId,
-      amountUsd: Number((drop.priceUsd + PROCESSING_FEE_USD).toFixed(2)),
+      amountUsd: quote.totalUsd,
+      subtotalUsd: quote.subtotalUsd,
+      processingUsd: quote.processingUsd,
+      commissionUsd: quote.commissionUsd,
+      payoutUsd: quote.payoutUsd,
+      quoteEngineVersion: quote.engineVersion,
       status: "completed",
       purchasedAt: new Date().toISOString()
     };

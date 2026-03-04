@@ -297,12 +297,75 @@ export type Studio = {
   worldIds: string[];
 };
 
+export type SettlementScope = "public" | "participant_private" | "internal";
+
+export type SettlementLineItemKind =
+  | "collect_subtotal"
+  | "collect_processing_fee"
+  | "platform_commission_collect"
+  | "artist_payout_collect"
+  | "membership_subtotal"
+  | "platform_commission_membership"
+  | "patron_subtotal"
+  | "platform_commission_patron";
+
+export type SettlementLineItem = {
+  id: string;
+  transactionId: string;
+  kind: SettlementLineItemKind;
+  scope: SettlementScope;
+  amountUsd: number;
+  currency: "USD";
+  recipientAccountId: string | null;
+  createdAt: string;
+};
+
+export type SettlementQuoteKind = "collect" | "membership" | "patron";
+
+export type SettlementQuote = {
+  engineVersion: "quote_engine_v1";
+  quoteKind: SettlementQuoteKind;
+  subtotalUsd: number;
+  processingUsd: number;
+  totalUsd: number;
+  commissionUsd: number;
+  payoutUsd: number;
+  currency: "USD";
+  lineItems: Array<{
+    kind: SettlementLineItemKind;
+    scope: SettlementScope;
+    amountUsd: number;
+    currency: "USD";
+    recipientAccountId: string | null;
+  }>;
+};
+
+export type LedgerTransactionKind = "collect" | "refund" | "membership" | "patron";
+
+export type LedgerTransaction = {
+  id: string;
+  kind: LedgerTransactionKind;
+  accountId: string;
+  dropId: string | null;
+  paymentId: string | null;
+  receiptId: string | null;
+  currency: "USD";
+  subtotalUsd: number;
+  processingUsd: number;
+  totalUsd: number;
+  commissionUsd: number;
+  payoutUsd: number;
+  reversalOfTransactionId: string | null;
+  createdAt: string;
+};
+
 export type CheckoutPreview = {
   drop: Drop;
   subtotalUsd: number;
   processingUsd: number;
   totalUsd: number;
   currency: "USD";
+  quote: SettlementQuote;
 };
 
 export type PaymentProvider = "manual" | "stripe";
@@ -321,6 +384,7 @@ export type CheckoutSession =
       drop: Drop;
       amountUsd: number;
       currency: "USD";
+      quote: SettlementQuote;
     };
 
 export type PurchaseStatus = "completed" | "already_owned" | "refunded";
@@ -330,6 +394,13 @@ export type PurchaseReceipt = {
   accountId: string;
   dropId: string;
   amountUsd: number;
+  subtotalUsd?: number;
+  processingUsd?: number;
+  commissionUsd?: number;
+  payoutUsd?: number;
+  quoteEngineVersion?: SettlementQuote["engineVersion"];
+  ledgerTransactionId?: string | null;
+  lineItems?: SettlementLineItem[];
   status: PurchaseStatus;
   purchasedAt: string;
 };

@@ -17,6 +17,7 @@ import type {
   Drop,
   LibraryDrop,
   LibrarySnapshot,
+  LedgerTransaction,
   LiveSession,
   LiveSessionEligibility,
   MyCollectionSnapshot,
@@ -24,6 +25,8 @@ import type {
   OwnedDrop,
   PurchaseReceipt,
   ReceiptBadge,
+  SettlementLineItem,
+  SettlementQuote,
   Session,
   Studio,
   TownhallModerationCaseResolution,
@@ -60,16 +63,18 @@ import {
 import { sortDropsForStudioSurface, sortDropsForWorldSurface } from "@/lib/catalog/drop-curation";
 import { applyCollectOfferAction, canApplyCollectOfferAction } from "@/lib/collect/offer-state-machine";
 import { createCheckoutSession, parseStripeWebhook, type ParsedStripeWebhookEvent } from "@/lib/bff/payments";
+import { buildCollectSettlementQuote } from "@/lib/domain/quote-engine";
 import {
   type CollectEnforcementSignalRecord,
   type CollectOfferRecord,
+  type LedgerLineItemRecord,
+  type LedgerTransactionRecord,
   type LiveSessionRecord,
   type MembershipEntitlementRecord,
   type WorldReleaseQueueRecord,
   type WorldCollectOwnershipRecord,
   type WatchAccessGrantRecord,
   createAccountFromEmail,
-  getDropPriceTotalUsd,
   normalizeEmail,
   withDatabase,
   type AccountRecord,
@@ -518,6 +523,13 @@ function clampCurrencyAmount(value: number): number {
   return Number(Math.max(0, value).toFixed(2));
 }
 
+function clampSignedCurrencyAmount(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Number(value.toFixed(2));
+}
+
 function trimWorldCollectOwnerships(db: BffDatabase): void {
   if (db.worldCollectOwnerships.length > WORLD_COLLECT_OWNERSHIP_LOG_LIMIT) {
     db.worldCollectOwnerships.length = WORLD_COLLECT_OWNERSHIP_LOG_LIMIT;
@@ -528,24 +540,126 @@ function findOwnershipByDrop(db: BffDatabase, accountId: string, dropId: string)
   return db.ownerships.find((entry) => entry.accountId === accountId && entry.dropId === dropId) ?? null;
 }
 
+function resolveCollectQuote(drop: Drop): SettlementQuote {
+  return buildCollectSettlementQuote({
+    subtotalUsd: clampCurrencyAmount(drop.priceUsd),
+    processingUsd: PROCESSING_FEE_USD
+  });
+}
+
+function appendLedgerEntries(
+  db: BffDatabase,
+  input: {
+    kind: LedgerTransaction["kind"];
+    accountId: string;
+    dropId: string | null;
+    paymentId: string | null;
+    receiptId: string | null;
+    quote: SettlementQuote;
+    createdAt: string;
+    reversalOfTransactionId?: string | null;
+    lineItems?: SettlementQuote["lineItems"];
+  }
+): {
+  transaction: LedgerTransactionRecord;
+  lineItems: LedgerLineItemRecord[];
+} {
+  const transactionId = `ltrx_${randomUUID()}`;
+  const transaction: LedgerTransactionRecord = {
+    id: transactionId,
+    kind: input.kind,
+    accountId: input.accountId,
+    dropId: input.dropId,
+    paymentId: input.paymentId,
+    receiptId: input.receiptId,
+    currency: input.quote.currency,
+    subtotalUsd: input.quote.subtotalUsd,
+    processingUsd: input.quote.processingUsd,
+    totalUsd: input.quote.totalUsd,
+    commissionUsd: input.quote.commissionUsd,
+    payoutUsd: input.quote.payoutUsd,
+    reversalOfTransactionId: input.reversalOfTransactionId ?? null,
+    createdAt: input.createdAt
+  };
+
+  const quoteLineItems = input.lineItems ?? input.quote.lineItems;
+  const lineItems: LedgerLineItemRecord[] = quoteLineItems.map((lineItem) => ({
+    id: `lli_${randomUUID()}`,
+    transactionId,
+    kind: lineItem.kind,
+    scope: lineItem.scope,
+    amountUsd: clampSignedCurrencyAmount(lineItem.amountUsd),
+    currency: lineItem.currency,
+    recipientAccountId: lineItem.recipientAccountId,
+    createdAt: input.createdAt
+  }));
+
+  db.ledgerTransactions.push(transaction);
+  db.ledgerLineItems.push(...lineItems);
+
+  return {
+    transaction,
+    lineItems
+  };
+}
+
+function resolveReceiptLineItems(db: BffDatabase, receiptId: string): SettlementLineItem[] {
+  const transactions = db.ledgerTransactions.filter((entry) => entry.receiptId === receiptId);
+  if (transactions.length === 0) {
+    return [];
+  }
+
+  const transactionIdSet = new Set(transactions.map((entry) => entry.id));
+  return db.ledgerLineItems
+    .filter((entry) => transactionIdSet.has(entry.transactionId))
+    .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
+}
+
+function buildReceiptWithSettlement(
+  db: BffDatabase,
+  receipt: PurchaseReceipt
+): PurchaseReceipt {
+  return {
+    ...receipt,
+    lineItems: resolveReceiptLineItems(db, receipt.id)
+  };
+}
+
 function issueOwnershipAndReceipt(
   db: BffDatabase,
   account: AccountRecord,
   drop: Drop,
   options: {
-    amountUsd: number;
+    quote: SettlementQuote;
     receiptId?: string;
     purchasedAt?: string;
+    paymentId?: string | null;
   }
 ): PurchaseReceipt {
   const purchasedAt = options.purchasedAt ?? new Date().toISOString();
   const receiptId = options.receiptId ?? `rcpt_${randomUUID()}`;
+  const ledger = appendLedgerEntries(db, {
+    kind: "collect",
+    accountId: account.id,
+    dropId: drop.id,
+    paymentId: options.paymentId ?? null,
+    receiptId,
+    quote: options.quote,
+    createdAt: purchasedAt
+  });
 
   const receipt: PurchaseReceipt = {
     id: receiptId,
     accountId: account.id,
     dropId: drop.id,
-    amountUsd: options.amountUsd,
+    amountUsd: options.quote.totalUsd,
+    subtotalUsd: options.quote.subtotalUsd,
+    processingUsd: options.quote.processingUsd,
+    commissionUsd: options.quote.commissionUsd,
+    payoutUsd: options.quote.payoutUsd,
+    quoteEngineVersion: options.quote.engineVersion,
+    ledgerTransactionId: ledger.transaction.id,
+    lineItems: ledger.lineItems,
     status: "completed",
     purchasedAt
   };
@@ -572,7 +686,7 @@ function issueOwnershipAndReceipt(
     acquiredAt: purchasedAt
   });
 
-  return receipt;
+  return buildReceiptWithSettlement(db, receipt);
 }
 
 function markRefundByReceipt(db: BffDatabase, accountId: string, receiptId: string): boolean {
@@ -595,6 +709,50 @@ function markRefundByReceipt(db: BffDatabase, accountId: string, receiptId: stri
   );
   if (certificate) {
     certificate.status = "revoked";
+  }
+
+  const originalTransaction = db.ledgerTransactions
+    .filter((entry) => entry.receiptId === receiptId && entry.kind === "collect")
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0];
+  const hasReversal = db.ledgerTransactions.some(
+    (entry) =>
+      entry.receiptId === receiptId &&
+      entry.kind === "refund" &&
+      entry.reversalOfTransactionId === originalTransaction?.id
+  );
+
+  if (originalTransaction && !hasReversal) {
+    const reversedLineItems = db.ledgerLineItems
+      .filter((entry) => entry.transactionId === originalTransaction.id)
+      .map((entry) => ({
+        kind: entry.kind,
+        scope: entry.scope,
+        amountUsd: clampSignedCurrencyAmount(-entry.amountUsd),
+        currency: entry.currency,
+        recipientAccountId: entry.recipientAccountId
+      }));
+
+    appendLedgerEntries(db, {
+      kind: "refund",
+      accountId,
+      dropId: originalTransaction.dropId,
+      paymentId: originalTransaction.paymentId,
+      receiptId,
+      quote: {
+        engineVersion: "quote_engine_v1",
+        quoteKind: "collect",
+        subtotalUsd: clampSignedCurrencyAmount(-originalTransaction.subtotalUsd),
+        processingUsd: clampSignedCurrencyAmount(-originalTransaction.processingUsd),
+        totalUsd: clampSignedCurrencyAmount(-originalTransaction.totalUsd),
+        commissionUsd: clampSignedCurrencyAmount(-originalTransaction.commissionUsd),
+        payoutUsd: clampSignedCurrencyAmount(-originalTransaction.payoutUsd),
+        currency: originalTransaction.currency,
+        lineItems: reversedLineItems
+      },
+      createdAt: new Date().toISOString(),
+      reversalOfTransactionId: originalTransaction.id,
+      lineItems: reversedLineItems
+    });
   }
 
   return true;
@@ -2056,17 +2214,19 @@ const gatewayMethods: CommerceGateway = {
       }
 
       const existing = findOwnershipByDrop(db, account.id, drop.id);
-      const subtotalUsd = existing ? 0 : drop.priceUsd;
-      const processingUsd = existing ? 0 : PROCESSING_FEE_USD;
+      const quote = existing
+        ? buildCollectSettlementQuote({ subtotalUsd: 0, processingUsd: 0 })
+        : resolveCollectQuote(drop);
 
       return {
         persist: false,
         result: {
           drop,
-          subtotalUsd,
-          processingUsd,
-          totalUsd: Number((subtotalUsd + processingUsd).toFixed(2)),
-          currency: "USD"
+          subtotalUsd: quote.subtotalUsd,
+          processingUsd: quote.processingUsd,
+          totalUsd: quote.totalUsd,
+          currency: "USD",
+          quote
         }
       };
     });
@@ -2107,22 +2267,32 @@ const gatewayMethods: CommerceGateway = {
 
       const existing = findOwnershipByDrop(db, account.id, drop.id);
       if (existing) {
+        const existingReceipt = db.receipts.find((entry) => entry.id === existing.receiptId) ?? null;
         return {
           persist: false,
-          result: {
-            id: existing.receiptId,
-            accountId: account.id,
-            dropId: drop.id,
-            amountUsd: 0,
-            status: "already_owned",
-            purchasedAt: existing.acquiredAt
-          }
+          result: existingReceipt
+            ? buildReceiptWithSettlement(db, existingReceipt)
+            : {
+                id: existing.receiptId,
+                accountId: account.id,
+                dropId: drop.id,
+                amountUsd: 0,
+                subtotalUsd: 0,
+                processingUsd: 0,
+                commissionUsd: 0,
+                payoutUsd: 0,
+                quoteEngineVersion: "quote_engine_v1",
+                ledgerTransactionId: null,
+                lineItems: [],
+                status: "already_owned",
+                purchasedAt: existing.acquiredAt
+              }
         };
       }
 
-      const amountUsd = getDropPriceTotalUsd(drop);
+      const quote = resolveCollectQuote(drop);
       const receipt = issueOwnershipAndReceipt(db, account, drop, {
-        amountUsd
+        quote
       });
 
       db.payments.unshift({
@@ -2131,7 +2301,8 @@ const gatewayMethods: CommerceGateway = {
         status: "succeeded",
         accountId: account.id,
         dropId: drop.id,
-        amountUsd,
+        amountUsd: quote.totalUsd,
+        quote,
         currency: "USD",
         receiptId: receipt.id,
         createdAt: receipt.purchasedAt,
@@ -2199,10 +2370,15 @@ const gatewayMethods: CommerceGateway = {
   },
 
   async getReceipt(accountId: string, receiptId: string): Promise<PurchaseReceipt | null> {
-    return withDatabase(async (db) => ({
-      persist: false,
-      result: db.receipts.find((receipt) => receipt.accountId === accountId && receipt.id === receiptId) ?? null
-    }));
+    return withDatabase(async (db) => {
+      const receipt = db.receipts.find(
+        (entry) => entry.accountId === accountId && entry.id === receiptId
+      );
+      return {
+        persist: false,
+        result: receipt ? buildReceiptWithSettlement(db, receipt) : null
+      };
+    });
   },
 
   async hasDropEntitlement(accountId: string, dropId: string): Promise<boolean> {
@@ -2576,7 +2752,8 @@ async function createCheckoutSessionForPayment(
       };
     }
 
-    const amountUsd = getDropPriceTotalUsd(drop);
+    const quote = resolveCollectQuote(drop);
+    const amountUsd = quote.totalUsd;
     const paymentId = `pay_${randomUUID()}`;
     const createdAt = new Date().toISOString();
     const successUrl = input.successUrl ?? "/my-collection?payment=success";
@@ -2597,6 +2774,7 @@ async function createCheckoutSessionForPayment(
       accountId: account.id,
       dropId: drop.id,
       amountUsd,
+      quote,
       currency: "USD",
       checkoutSessionId: checkout.sessionId,
       checkoutUrl: checkout.url,
@@ -2614,7 +2792,8 @@ async function createCheckoutSessionForPayment(
         checkoutUrl: checkout.url,
         drop,
         amountUsd,
-        currency: "USD"
+        currency: "USD",
+        quote
       }
     };
   });
@@ -2651,7 +2830,7 @@ async function completePendingPaymentById(
       const receipt = db.receipts.find((entry) => entry.id === payment.receiptId) ?? null;
       return {
         persist: false,
-        result: receipt
+        result: receipt ? buildReceiptWithSettlement(db, receipt) : null
       };
     }
 
@@ -2681,15 +2860,19 @@ async function completePendingPaymentById(
       const receipt = db.receipts.find((entry) => entry.id === existing.receiptId) ?? null;
       return {
         persist: true,
-        result: receipt
+        result: receipt ? buildReceiptWithSettlement(db, receipt) : null
       };
     }
 
+    const quote = payment.quote ?? resolveCollectQuote(drop);
     const receipt = issueOwnershipAndReceipt(db, account, drop, {
-      amountUsd: payment.amountUsd
+      quote,
+      paymentId: payment.id
     });
     payment.status = "succeeded";
     payment.receiptId = receipt.id;
+    payment.amountUsd = quote.totalUsd;
+    payment.quote = quote;
     payment.updatedAt = new Date().toISOString();
 
     return {
@@ -2763,11 +2946,15 @@ function completePaymentByLookupInDatabase(
     };
   }
 
+  const quote = payment.quote ?? resolveCollectQuote(drop);
   const receipt = issueOwnershipAndReceipt(db, account, drop, {
-    amountUsd: payment.amountUsd
+    quote,
+    paymentId: payment.id
   });
   payment.status = "succeeded";
   payment.receiptId = receipt.id;
+  payment.amountUsd = quote.totalUsd;
+  payment.quote = quote;
 
   return {
     persist: true,

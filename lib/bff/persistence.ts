@@ -5,10 +5,13 @@ import type {
   CollectListingType,
   CollectOfferState,
   Drop,
+  LedgerTransaction,
   LiveSessionEligibilityRule,
   MembershipEntitlementStatus,
   PurchaseReceipt,
   ReceiptBadge,
+  SettlementLineItem,
+  SettlementQuote,
   WorldReleaseQueuePacingMode,
   WorldReleaseQueueStatus,
   WorldCollectBundleType,
@@ -26,6 +29,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { Pool, type PoolClient } from "pg";
 import { seedPreviewMediaForDrop } from "@/lib/townhall/seed-preview-media";
+import { buildCollectSettlementQuote } from "@/lib/domain/quote-engine";
 
 export type AccountRecord = {
   id: string;
@@ -75,6 +79,7 @@ export type PaymentRecord = {
   accountId: string;
   dropId: string;
   amountUsd: number;
+  quote: SettlementQuote;
   currency: "USD";
   checkoutSessionId?: string;
   checkoutUrl?: string | null;
@@ -216,6 +221,10 @@ export type WorldReleaseQueueRecord = {
   canceledAt: string | null;
 };
 
+export type LedgerTransactionRecord = LedgerTransaction;
+
+export type LedgerLineItemRecord = SettlementLineItem;
+
 export type BffDatabase = {
   version: 1;
   catalog: {
@@ -243,6 +252,8 @@ export type BffDatabase = {
   collectEnforcementSignals: CollectEnforcementSignalRecord[];
   worldCollectOwnerships: WorldCollectOwnershipRecord[];
   worldReleaseQueue: WorldReleaseQueueRecord[];
+  ledgerTransactions: LedgerTransactionRecord[];
+  ledgerLineItems: LedgerLineItemRecord[];
 };
 
 type MutationResult<T> = {
@@ -792,7 +803,9 @@ function createSeedDatabase(): BffDatabase {
         publishedAt: null,
         canceledAt: null
       }
-    ]
+    ],
+    ledgerTransactions: [],
+    ledgerLineItems: []
   };
 }
 
@@ -819,7 +832,9 @@ function createCatalogSeedDatabase(): BffDatabase {
     collectOffers: [],
     collectEnforcementSignals: [],
     worldCollectOwnerships: [],
-    worldReleaseQueue: []
+    worldReleaseQueue: [],
+    ledgerTransactions: [],
+    ledgerLineItems: []
   };
 }
 
@@ -850,7 +865,9 @@ function createEmptyDatabase(): BffDatabase {
     collectOffers: [],
     collectEnforcementSignals: [],
     worldCollectOwnerships: [],
-    worldReleaseQueue: []
+    worldReleaseQueue: [],
+    ledgerTransactions: [],
+    ledgerLineItems: []
   };
 }
 
@@ -884,7 +901,9 @@ function isValidDb(input: unknown): input is BffDatabase {
     Array.isArray(candidate.collectOffers) &&
     Array.isArray(candidate.collectEnforcementSignals) &&
     Array.isArray(candidate.worldCollectOwnerships) &&
-    Array.isArray(candidate.worldReleaseQueue)
+    Array.isArray(candidate.worldReleaseQueue) &&
+    Array.isArray(candidate.ledgerTransactions) &&
+    Array.isArray(candidate.ledgerLineItems)
   );
 }
 
@@ -902,6 +921,8 @@ function hasLegacyBaseDbShape(input: unknown): input is Omit<
   | "collectEnforcementSignals"
   | "worldCollectOwnerships"
   | "worldReleaseQueue"
+  | "ledgerTransactions"
+  | "ledgerLineItems"
   | "receiptBadges"
 > {
   if (!input || typeof input !== "object") {
@@ -1322,6 +1343,235 @@ function normalizeWorldReleaseQueueRecords(records: WorldReleaseQueueRecord[]): 
   });
 }
 
+const SETTLEMENT_LINE_ITEM_KIND_SET = new Set<SettlementLineItem["kind"]>([
+  "collect_subtotal",
+  "collect_processing_fee",
+  "platform_commission_collect",
+  "artist_payout_collect",
+  "membership_subtotal",
+  "platform_commission_membership",
+  "patron_subtotal",
+  "platform_commission_patron"
+]);
+
+const SETTLEMENT_SCOPE_SET = new Set<SettlementLineItem["scope"]>([
+  "public",
+  "participant_private",
+  "internal"
+]);
+
+function normalizeSettlementLineItemKind(value: unknown): SettlementLineItem["kind"] {
+  if (typeof value === "string" && SETTLEMENT_LINE_ITEM_KIND_SET.has(value as SettlementLineItem["kind"])) {
+    return value as SettlementLineItem["kind"];
+  }
+  return "collect_subtotal";
+}
+
+function normalizeSettlementScope(value: unknown): SettlementLineItem["scope"] {
+  if (typeof value === "string" && SETTLEMENT_SCOPE_SET.has(value as SettlementLineItem["scope"])) {
+    return value as SettlementLineItem["scope"];
+  }
+  return "internal";
+}
+
+function normalizeSettlementQuote(
+  value: unknown,
+  fallbackTotalUsd: number
+): SettlementQuote {
+  const fallbackSubtotal = Math.max(0, Number((fallbackTotalUsd - PROCESSING_FEE_USD).toFixed(2)));
+  const fallback = buildCollectSettlementQuote({
+    subtotalUsd: fallbackSubtotal,
+    processingUsd: fallbackTotalUsd > 0 ? PROCESSING_FEE_USD : 0
+  });
+
+  if (!value || typeof value !== "object") {
+    return fallback;
+  }
+
+  const candidate = value as Partial<SettlementQuote> & {
+    lineItems?: Array<Partial<SettlementLineItem>>;
+  };
+  const normalizedLineItems = Array.isArray(candidate.lineItems)
+    ? candidate.lineItems.map((lineItem) => ({
+        kind: normalizeSettlementLineItemKind(lineItem.kind),
+        scope: normalizeSettlementScope(lineItem.scope),
+        amountUsd:
+          typeof lineItem.amountUsd === "number" && Number.isFinite(lineItem.amountUsd)
+            ? Number(lineItem.amountUsd.toFixed(2))
+            : 0,
+        currency: "USD" as const,
+        recipientAccountId:
+          typeof lineItem.recipientAccountId === "string" && lineItem.recipientAccountId.trim()
+            ? lineItem.recipientAccountId
+            : null
+      }))
+    : fallback.lineItems;
+
+  return {
+    engineVersion: "quote_engine_v1",
+    quoteKind:
+      candidate.quoteKind === "collect" ||
+      candidate.quoteKind === "membership" ||
+      candidate.quoteKind === "patron"
+        ? candidate.quoteKind
+        : "collect",
+    subtotalUsd:
+      typeof candidate.subtotalUsd === "number" && Number.isFinite(candidate.subtotalUsd)
+        ? Number(candidate.subtotalUsd.toFixed(2))
+        : fallback.subtotalUsd,
+    processingUsd:
+      typeof candidate.processingUsd === "number" && Number.isFinite(candidate.processingUsd)
+        ? Number(candidate.processingUsd.toFixed(2))
+        : fallback.processingUsd,
+    totalUsd:
+      typeof candidate.totalUsd === "number" && Number.isFinite(candidate.totalUsd)
+        ? Number(candidate.totalUsd.toFixed(2))
+        : fallback.totalUsd,
+    commissionUsd:
+      typeof candidate.commissionUsd === "number" && Number.isFinite(candidate.commissionUsd)
+        ? Number(candidate.commissionUsd.toFixed(2))
+        : fallback.commissionUsd,
+    payoutUsd:
+      typeof candidate.payoutUsd === "number" && Number.isFinite(candidate.payoutUsd)
+        ? Number(candidate.payoutUsd.toFixed(2))
+        : fallback.payoutUsd,
+    currency: "USD",
+    lineItems: normalizedLineItems
+  };
+}
+
+function normalizePaymentRecords(records: PaymentRecord[]): PaymentRecord[] {
+  return records.map((record) => {
+    const candidate = record as Partial<PaymentRecord> & {
+      quote?: unknown;
+    };
+    const amountUsd =
+      typeof candidate.amountUsd === "number" && Number.isFinite(candidate.amountUsd)
+        ? Number(candidate.amountUsd.toFixed(2))
+        : 0;
+
+    return {
+      id: typeof candidate.id === "string" ? candidate.id : `pay_${randomUUID()}`,
+      provider: candidate.provider === "stripe" ? "stripe" : "manual",
+      status:
+        candidate.status === "pending" ||
+        candidate.status === "succeeded" ||
+        candidate.status === "failed" ||
+        candidate.status === "refunded"
+          ? candidate.status
+          : "pending",
+      accountId: typeof candidate.accountId === "string" ? candidate.accountId : "",
+      dropId: typeof candidate.dropId === "string" ? candidate.dropId : "",
+      amountUsd,
+      quote: normalizeSettlementQuote(candidate.quote, amountUsd),
+      currency: "USD",
+      checkoutSessionId:
+        typeof candidate.checkoutSessionId === "string" && candidate.checkoutSessionId.trim()
+          ? candidate.checkoutSessionId
+          : undefined,
+      checkoutUrl:
+        candidate.checkoutUrl === null ||
+        (typeof candidate.checkoutUrl === "string" && candidate.checkoutUrl.trim().length > 0)
+          ? candidate.checkoutUrl
+          : undefined,
+      providerPaymentIntentId:
+        typeof candidate.providerPaymentIntentId === "string" && candidate.providerPaymentIntentId.trim()
+          ? candidate.providerPaymentIntentId
+          : undefined,
+      receiptId:
+        typeof candidate.receiptId === "string" && candidate.receiptId.trim()
+          ? candidate.receiptId
+          : undefined,
+      createdAt:
+        typeof candidate.createdAt === "string" && candidate.createdAt.trim()
+          ? candidate.createdAt
+          : new Date().toISOString(),
+      updatedAt:
+        typeof candidate.updatedAt === "string" && candidate.updatedAt.trim()
+          ? candidate.updatedAt
+          : new Date().toISOString()
+    };
+  });
+}
+
+function normalizeLedgerTransactionRecords(
+  records: LedgerTransactionRecord[]
+): LedgerTransactionRecord[] {
+  return records.map((record) => {
+    const candidate = record as Partial<LedgerTransactionRecord>;
+    return {
+      id: typeof candidate.id === "string" ? candidate.id : `ltrx_${randomUUID()}`,
+      kind:
+        candidate.kind === "collect" ||
+        candidate.kind === "refund" ||
+        candidate.kind === "membership" ||
+        candidate.kind === "patron"
+          ? candidate.kind
+          : "collect",
+      accountId: typeof candidate.accountId === "string" ? candidate.accountId : "",
+      dropId: typeof candidate.dropId === "string" && candidate.dropId.trim() ? candidate.dropId : null,
+      paymentId:
+        typeof candidate.paymentId === "string" && candidate.paymentId.trim() ? candidate.paymentId : null,
+      receiptId:
+        typeof candidate.receiptId === "string" && candidate.receiptId.trim() ? candidate.receiptId : null,
+      currency: "USD",
+      subtotalUsd:
+        typeof candidate.subtotalUsd === "number" && Number.isFinite(candidate.subtotalUsd)
+          ? Number(candidate.subtotalUsd.toFixed(2))
+          : 0,
+      processingUsd:
+        typeof candidate.processingUsd === "number" && Number.isFinite(candidate.processingUsd)
+          ? Number(candidate.processingUsd.toFixed(2))
+          : 0,
+      totalUsd:
+        typeof candidate.totalUsd === "number" && Number.isFinite(candidate.totalUsd)
+          ? Number(candidate.totalUsd.toFixed(2))
+          : 0,
+      commissionUsd:
+        typeof candidate.commissionUsd === "number" && Number.isFinite(candidate.commissionUsd)
+          ? Number(candidate.commissionUsd.toFixed(2))
+          : 0,
+      payoutUsd:
+        typeof candidate.payoutUsd === "number" && Number.isFinite(candidate.payoutUsd)
+          ? Number(candidate.payoutUsd.toFixed(2))
+          : 0,
+      reversalOfTransactionId:
+        typeof candidate.reversalOfTransactionId === "string" && candidate.reversalOfTransactionId.trim()
+          ? candidate.reversalOfTransactionId
+          : null,
+      createdAt:
+        typeof candidate.createdAt === "string" && candidate.createdAt.trim()
+          ? candidate.createdAt
+          : new Date().toISOString()
+    };
+  });
+}
+
+function normalizeLedgerLineItemRecords(records: LedgerLineItemRecord[]): LedgerLineItemRecord[] {
+  return records.map((record) => {
+    const candidate = record as Partial<LedgerLineItemRecord>;
+    return {
+      id: typeof candidate.id === "string" ? candidate.id : `lli_${randomUUID()}`,
+      transactionId: typeof candidate.transactionId === "string" ? candidate.transactionId : "",
+      kind: normalizeSettlementLineItemKind(candidate.kind),
+      scope: normalizeSettlementScope(candidate.scope),
+      amountUsd:
+        typeof candidate.amountUsd === "number" && Number.isFinite(candidate.amountUsd)
+          ? Number(candidate.amountUsd.toFixed(2))
+          : 0,
+      currency: "USD",
+      recipientAccountId:
+        typeof candidate.recipientAccountId === "string" && candidate.recipientAccountId.trim()
+          ? candidate.recipientAccountId
+          : null,
+      createdAt:
+        typeof candidate.createdAt === "string" && candidate.createdAt.trim()
+          ? candidate.createdAt
+          : new Date().toISOString()
+    };
+  });
+}
+
 function normalizeTownhallCommentVisibility(value: unknown): TownhallCommentVisibility {
   if (value === "hidden" || value === "restricted" || value === "deleted") {
     return value;
@@ -1438,12 +1688,15 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
       liveSessions: normalizeLiveSessionRecords(input.liveSessions),
       townhallComments: normalizeTownhallCommentRecords(input.townhallComments),
       townhallTelemetryEvents: normalizeTownhallTelemetryEvents(input.townhallTelemetryEvents),
+      payments: normalizePaymentRecords(input.payments),
       collectOffers: normalizeCollectOfferRecords(input.collectOffers),
       collectEnforcementSignals: normalizeCollectEnforcementSignalRecords(
         input.collectEnforcementSignals
       ),
       worldCollectOwnerships: normalizeWorldCollectOwnershipRecords(input.worldCollectOwnerships),
-      worldReleaseQueue: normalizeWorldReleaseQueueRecords(input.worldReleaseQueue)
+      worldReleaseQueue: normalizeWorldReleaseQueueRecords(input.worldReleaseQueue),
+      ledgerTransactions: normalizeLedgerTransactionRecords(input.ledgerTransactions),
+      ledgerLineItems: normalizeLedgerLineItemRecords(input.ledgerLineItems)
     };
   }
 
@@ -1482,6 +1735,9 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
             candidate.townhallTelemetryEvents as TownhallTelemetryEventRecord[]
           )
         : [],
+      payments: Array.isArray(candidate.payments)
+        ? normalizePaymentRecords(candidate.payments as PaymentRecord[])
+        : [],
       collectOffers: Array.isArray(candidate.collectOffers)
         ? normalizeCollectOfferRecords(candidate.collectOffers as CollectOfferRecord[])
         : [],
@@ -1497,6 +1753,12 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         : [],
       worldReleaseQueue: Array.isArray(candidate.worldReleaseQueue)
         ? normalizeWorldReleaseQueueRecords(candidate.worldReleaseQueue as WorldReleaseQueueRecord[])
+        : [],
+      ledgerTransactions: Array.isArray(candidate.ledgerTransactions)
+        ? normalizeLedgerTransactionRecords(candidate.ledgerTransactions as LedgerTransactionRecord[])
+        : [],
+      ledgerLineItems: Array.isArray(candidate.ledgerLineItems)
+        ? normalizeLedgerLineItemRecords(candidate.ledgerLineItems as LedgerLineItemRecord[])
         : []
     };
   }
@@ -1668,7 +1930,9 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     collectOffersResult,
     collectEnforcementSignalsResult,
     worldCollectOwnershipsResult,
-    worldReleaseQueueResult
+    worldReleaseQueueResult,
+    ledgerTransactionsResult,
+    ledgerLineItemsResult
   ] = await Promise.all([
     client.query<{ key: string; value: string }>("SELECT key, value FROM bff_meta"),
     client.query<{ data: unknown }>("SELECT data FROM bff_catalog_drops ORDER BY id ASC"),
@@ -1698,10 +1962,16 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       accountId: string;
       dropId: string;
       amountUsd: string | number;
+      subtotalUsd: string | number | null;
+      processingUsd: string | number | null;
+      commissionUsd: string | number | null;
+      payoutUsd: string | number | null;
+      quoteEngineVersion: string | null;
+      ledgerTransactionId: string | null;
       status: PurchaseReceipt["status"];
       purchasedAt: string;
     }>(
-      'SELECT id, account_id AS "accountId", drop_id AS "dropId", amount_usd AS "amountUsd", status, purchased_at AS "purchasedAt" FROM bff_receipts ORDER BY purchased_at DESC'
+      'SELECT id, account_id AS "accountId", drop_id AS "dropId", amount_usd AS "amountUsd", subtotal_usd AS "subtotalUsd", processing_usd AS "processingUsd", commission_usd AS "commissionUsd", payout_usd AS "payoutUsd", quote_engine_version AS "quoteEngineVersion", ledger_transaction_id AS "ledgerTransactionId", status, purchased_at AS "purchasedAt" FROM bff_receipts ORDER BY purchased_at DESC'
     ),
     client.query<CertificateRecord>(
       'SELECT id, drop_id AS "dropId", drop_title AS "dropTitle", owner_handle AS "ownerHandle", issued_at AS "issuedAt", receipt_id AS "receiptId", status, owner_account_id AS "ownerAccountId" FROM bff_certificates ORDER BY issued_at DESC'
@@ -1731,10 +2001,11 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       checkoutUrl: string | null;
       providerPaymentIntentId: string | null;
       receiptId: string | null;
+      quoteJson: unknown;
       createdAt: string;
       updatedAt: string;
     }>(
-      'SELECT id, provider, status, account_id AS "accountId", drop_id AS "dropId", amount_usd AS "amountUsd", currency, checkout_session_id AS "checkoutSessionId", checkout_url AS "checkoutUrl", provider_payment_intent_id AS "providerPaymentIntentId", receipt_id AS "receiptId", created_at AS "createdAt", updated_at AS "updatedAt" FROM bff_payments ORDER BY created_at DESC'
+      'SELECT id, provider, status, account_id AS "accountId", drop_id AS "dropId", amount_usd AS "amountUsd", currency, checkout_session_id AS "checkoutSessionId", checkout_url AS "checkoutUrl", provider_payment_intent_id AS "providerPaymentIntentId", receipt_id AS "receiptId", quote_json AS "quoteJson", created_at AS "createdAt", updated_at AS "updatedAt" FROM bff_payments ORDER BY created_at DESC'
     ),
     client.query<StripeWebhookEventRecord>(
       'SELECT event_id AS "eventId", processed_at AS "processedAt" FROM bff_stripe_webhook_events ORDER BY processed_at DESC'
@@ -1826,6 +2097,36 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       canceledAt: string | null;
     }>(
       'SELECT id, studio_handle AS "studioHandle", world_id AS "worldId", drop_id AS "dropId", scheduled_for AS "scheduledFor", pacing_mode AS "pacingMode", pacing_window_hours AS "pacingWindowHours", status, created_by_account_id AS "createdByAccountId", created_at AS "createdAt", updated_at AS "updatedAt", published_at AS "publishedAt", canceled_at AS "canceledAt" FROM bff_world_release_queue ORDER BY scheduled_for ASC, created_at ASC'
+    ),
+    client.query<{
+      id: string;
+      kind: LedgerTransactionRecord["kind"];
+      accountId: string;
+      dropId: string | null;
+      paymentId: string | null;
+      receiptId: string | null;
+      currency: "USD";
+      subtotalUsd: string | number;
+      processingUsd: string | number;
+      totalUsd: string | number;
+      commissionUsd: string | number;
+      payoutUsd: string | number;
+      reversalOfTransactionId: string | null;
+      createdAt: string;
+    }>(
+      'SELECT id, kind, account_id AS "accountId", drop_id AS "dropId", payment_id AS "paymentId", receipt_id AS "receiptId", currency, subtotal_usd AS "subtotalUsd", processing_usd AS "processingUsd", total_usd AS "totalUsd", commission_usd AS "commissionUsd", payout_usd AS "payoutUsd", reversal_of_transaction_id AS "reversalOfTransactionId", created_at AS "createdAt" FROM bff_ledger_transactions ORDER BY created_at ASC'
+    ),
+    client.query<{
+      id: string;
+      transactionId: string;
+      kind: SettlementLineItem["kind"];
+      scope: SettlementLineItem["scope"];
+      amountUsd: string | number;
+      currency: "USD";
+      recipientAccountId: string | null;
+      createdAt: string;
+    }>(
+      'SELECT id, transaction_id AS "transactionId", kind, scope, amount_usd AS "amountUsd", currency, recipient_account_id AS "recipientAccountId", created_at AS "createdAt" FROM bff_ledger_line_items ORDER BY created_at ASC'
     )
   ]);
 
@@ -1853,7 +2154,9 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     collectOffersResult.rowCount === 0 &&
     collectEnforcementSignalsResult.rowCount === 0 &&
     worldCollectOwnershipsResult.rowCount === 0 &&
-    worldReleaseQueueResult.rowCount === 0;
+    worldReleaseQueueResult.rowCount === 0 &&
+    ledgerTransactionsResult.rowCount === 0 &&
+    ledgerLineItemsResult.rowCount === 0;
 
   if (isEmpty) {
     return null;
@@ -1888,6 +2191,21 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       accountId: row.accountId,
       dropId: row.dropId,
       amountUsd: Number(row.amountUsd),
+      subtotalUsd:
+        row.subtotalUsd === null || row.subtotalUsd === undefined ? undefined : Number(row.subtotalUsd),
+      processingUsd:
+        row.processingUsd === null || row.processingUsd === undefined
+          ? undefined
+          : Number(row.processingUsd),
+      commissionUsd:
+        row.commissionUsd === null || row.commissionUsd === undefined
+          ? undefined
+          : Number(row.commissionUsd),
+      payoutUsd:
+        row.payoutUsd === null || row.payoutUsd === undefined ? undefined : Number(row.payoutUsd),
+      quoteEngineVersion:
+        row.quoteEngineVersion === "quote_engine_v1" ? row.quoteEngineVersion : undefined,
+      ledgerTransactionId: row.ledgerTransactionId ?? undefined,
       status: row.status,
       purchasedAt: row.purchasedAt
     })),
@@ -1912,6 +2230,7 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       accountId: row.accountId,
       dropId: row.dropId,
       amountUsd: Number(row.amountUsd),
+      quote: normalizeSettlementQuote(row.quoteJson, Number(row.amountUsd)),
       currency: row.currency,
       checkoutSessionId: row.checkoutSessionId ?? undefined,
       checkoutUrl: row.checkoutUrl,
@@ -1991,6 +2310,36 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
         publishedAt: row.publishedAt,
         canceledAt: row.canceledAt
       }))
+    ),
+    ledgerTransactions: normalizeLedgerTransactionRecords(
+      ledgerTransactionsResult.rows.map((row) => ({
+        id: row.id,
+        kind: row.kind,
+        accountId: row.accountId,
+        dropId: row.dropId,
+        paymentId: row.paymentId,
+        receiptId: row.receiptId,
+        currency: row.currency,
+        subtotalUsd: Number(row.subtotalUsd),
+        processingUsd: Number(row.processingUsd),
+        totalUsd: Number(row.totalUsd),
+        commissionUsd: Number(row.commissionUsd),
+        payoutUsd: Number(row.payoutUsd),
+        reversalOfTransactionId: row.reversalOfTransactionId,
+        createdAt: row.createdAt
+      }))
+    ),
+    ledgerLineItems: normalizeLedgerLineItemRecords(
+      ledgerLineItemsResult.rows.map((row) => ({
+        id: row.id,
+        transactionId: row.transactionId,
+        kind: row.kind,
+        scope: row.scope,
+        amountUsd: Number(row.amountUsd),
+        currency: row.currency,
+        recipientAccountId: row.recipientAccountId,
+        createdAt: row.createdAt
+      }))
     )
   };
 }
@@ -1998,6 +2347,8 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
 async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<void> {
   await client.query(`
     TRUNCATE TABLE
+      bff_ledger_line_items,
+      bff_ledger_transactions,
       bff_townhall_telemetry_events,
       bff_collect_enforcement_signals,
       bff_world_release_queue,
@@ -2083,12 +2434,18 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
 
   for (const receipt of db.receipts) {
     await client.query(
-      "INSERT INTO bff_receipts (id, account_id, drop_id, amount_usd, status, purchased_at) VALUES ($1, $2, $3, $4, $5, $6)",
+      "INSERT INTO bff_receipts (id, account_id, drop_id, amount_usd, subtotal_usd, processing_usd, commission_usd, payout_usd, quote_engine_version, ledger_transaction_id, status, purchased_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
       [
         receipt.id,
         receipt.accountId,
         receipt.dropId,
         receipt.amountUsd,
+        receipt.subtotalUsd ?? null,
+        receipt.processingUsd ?? null,
+        receipt.commissionUsd ?? null,
+        receipt.payoutUsd ?? null,
+        receipt.quoteEngineVersion ?? null,
+        receipt.ledgerTransactionId ?? null,
         receipt.status,
         receipt.purchasedAt
       ]
@@ -2130,7 +2487,7 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
 
   for (const payment of db.payments) {
     await client.query(
-      "INSERT INTO bff_payments (id, provider, status, account_id, drop_id, amount_usd, currency, checkout_session_id, checkout_url, provider_payment_intent_id, receipt_id, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)",
+      "INSERT INTO bff_payments (id, provider, status, account_id, drop_id, amount_usd, currency, checkout_session_id, checkout_url, provider_payment_intent_id, receipt_id, quote_json, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, $13, $14)",
       [
         payment.id,
         payment.provider,
@@ -2143,6 +2500,7 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
         payment.checkoutUrl ?? null,
         payment.providerPaymentIntentId ?? null,
         payment.receiptId ?? null,
+        JSON.stringify(payment.quote),
         payment.createdAt,
         payment.updatedAt
       ]
@@ -2324,6 +2682,44 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
         release.updatedAt,
         release.publishedAt,
         release.canceledAt
+      ]
+    );
+  }
+
+  for (const transaction of db.ledgerTransactions) {
+    await client.query(
+      "INSERT INTO bff_ledger_transactions (id, kind, account_id, drop_id, payment_id, receipt_id, currency, subtotal_usd, processing_usd, total_usd, commission_usd, payout_usd, reversal_of_transaction_id, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)",
+      [
+        transaction.id,
+        transaction.kind,
+        transaction.accountId,
+        transaction.dropId,
+        transaction.paymentId,
+        transaction.receiptId,
+        transaction.currency,
+        transaction.subtotalUsd,
+        transaction.processingUsd,
+        transaction.totalUsd,
+        transaction.commissionUsd,
+        transaction.payoutUsd,
+        transaction.reversalOfTransactionId,
+        transaction.createdAt
+      ]
+    );
+  }
+
+  for (const lineItem of db.ledgerLineItems) {
+    await client.query(
+      "INSERT INTO bff_ledger_line_items (id, transaction_id, kind, scope, amount_usd, currency, recipient_account_id, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+      [
+        lineItem.id,
+        lineItem.transactionId,
+        lineItem.kind,
+        lineItem.scope,
+        lineItem.amountUsd,
+        lineItem.currency,
+        lineItem.recipientAccountId,
+        lineItem.createdAt
       ]
     );
   }
