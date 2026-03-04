@@ -1,6 +1,8 @@
 import { formatUsd } from "@/features/shared/format";
+import { buildCatalogSearchHref } from "@/lib/catalog/search-ui-state";
 import type { CatalogSearchResult } from "@/lib/catalog/search";
-import type { Session } from "@/lib/domain/contracts";
+import type { CollectMarketLane, CollectOfferState, Session } from "@/lib/domain/contracts";
+import type { Route } from "next";
 import { routes } from "@/lib/routes";
 import Link from "next/link";
 import { TownhallBottomNav } from "./townhall-bottom-nav";
@@ -9,13 +11,32 @@ import { ArrowLeftIcon, SearchIcon } from "./townhall-icons";
 type TownhallSearchScreenProps = {
   session: Session | null;
   search: CatalogSearchResult;
+  basePath?: Route;
 };
+
+const LANE_FILTERS: Array<{ value: CollectMarketLane; label: string }> = [
+  { value: "all", label: "all lanes" },
+  { value: "sale", label: "sale lane" },
+  { value: "auction", label: "auction lane" },
+  { value: "resale", label: "resale lane" }
+];
+
+const OFFER_STATE_FILTERS: Array<{ value: CollectOfferState | null; label: string }> = [
+  { value: null, label: "all states" },
+  { value: "listed", label: "listed" },
+  { value: "offer_submitted", label: "offer submitted" },
+  { value: "countered", label: "countered" },
+  { value: "accepted", label: "accepted" },
+  { value: "settled", label: "settled" },
+  { value: "expired", label: "expired" },
+  { value: "withdrawn", label: "withdrawn" }
+];
 
 function formatOfferState(value: string): string {
   return value.replaceAll("_", " ");
 }
 
-export function TownhallSearchScreen({ session, search }: TownhallSearchScreenProps) {
+export function TownhallSearchScreen({ session, search, basePath = routes.townhallSearch() }: TownhallSearchScreenProps) {
   const normalizedQuery = search.query.trim().toLowerCase();
   const totalMatches = search.users.length + search.worlds.length + search.drops.length;
   const scopeFilters: string[] = [];
@@ -32,6 +53,18 @@ export function TownhallSearchScreen({ session, search }: TownhallSearchScreenPr
     : `discover users, worlds, and drops from the townhall catalog.${scopeSuffix}`;
 
   const title = normalizedQuery ? `results for "${search.query}"` : "search users, worlds, and drops";
+  const laneFilterHref = (lane: CollectMarketLane): Route =>
+    buildCatalogSearchHref(basePath, {
+      query: search.query,
+      lane,
+      offerState: search.offerState
+    }) as Route;
+  const offerStateFilterHref = (offerState: CollectOfferState | null): Route =>
+    buildCatalogSearchHref(basePath, {
+      query: search.query,
+      lane: search.lane,
+      offerState
+    }) as Route;
 
   return (
     <main className="townhall-page">
@@ -42,7 +75,7 @@ export function TownhallSearchScreen({ session, search }: TownhallSearchScreenPr
           </Link>
           <p className="townhall-brand">oneofakinde</p>
           <form
-            action={routes.townhallSearch()}
+            action={basePath}
             method="get"
             className="townhall-search-form"
             role="search"
@@ -58,6 +91,8 @@ export function TownhallSearchScreen({ session, search }: TownhallSearchScreenPr
               defaultValue={search.query}
               autoFocus
             />
+            {search.lane !== "all" ? <input type="hidden" name="lane" value={search.lane} /> : null}
+            {search.offerState ? <input type="hidden" name="offer_state" value={search.offerState} /> : null}
           </form>
         </header>
 
@@ -67,6 +102,37 @@ export function TownhallSearchScreen({ session, search }: TownhallSearchScreenPr
             <h1 className="townhall-search-title">{title}</h1>
             <p className="townhall-meta">{summary}</p>
           </div>
+
+          <section className="townhall-search-filters" aria-label="catalog lane and offer-state filters">
+            <div className="townhall-search-filter-group">
+              <p className="townhall-search-filter-label">lane</p>
+              <div className="townhall-search-filter-pills">
+                {LANE_FILTERS.map((lane) => (
+                  <Link
+                    key={lane.value}
+                    href={laneFilterHref(lane.value)}
+                    className={`townhall-search-filter-pill ${search.lane === lane.value ? "active" : ""}`}
+                  >
+                    {lane.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+            <div className="townhall-search-filter-group">
+              <p className="townhall-search-filter-label">offer state</p>
+              <div className="townhall-search-filter-pills">
+                {OFFER_STATE_FILTERS.map((offerState) => (
+                  <Link
+                    key={offerState.value ?? "all"}
+                    href={offerStateFilterHref(offerState.value)}
+                    className={`townhall-search-filter-pill ${search.offerState === offerState.value ? "active" : ""}`}
+                  >
+                    {offerState.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </section>
 
           <section className="townhall-search-section" aria-label="user search results">
             <div className="townhall-search-section-head">
