@@ -214,6 +214,12 @@ export type CollectLiveSessionSnapshot = {
   eligibility: LiveSessionEligibility;
 };
 
+export type LiveSessionJoinSnapshot = {
+  sessionId: string;
+  joinToken: string;
+  expiresAt: string;
+};
+
 export type CollectMarketLane = "all" | "sale" | "auction" | "resale";
 export type CollectListingType = Exclude<CollectMarketLane, "all">;
 

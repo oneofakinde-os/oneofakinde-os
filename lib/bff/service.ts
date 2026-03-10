@@ -20,6 +20,7 @@ import type {
   LedgerTransaction,
   LiveSession,
   LiveSessionEligibility,
+  LiveSessionJoinSnapshot,
   DropOwnershipHistory,
   MyCollectionSnapshot,
   MembershipEntitlement,
@@ -130,6 +131,13 @@ const WATCH_ACCESS_TOKEN_VERSION = 1 as const;
 const WATCH_ACCESS_TOKEN_DEFAULT_TTL_SECONDS = 300;
 const WATCH_ACCESS_TOKEN_MIN_TTL_SECONDS = 1;
 const WATCH_ACCESS_TOKEN_MAX_TTL_SECONDS = 3600;
+const LIVE_SESSION_JOIN_TOKEN_VERSION = 1 as const;
+const LIVE_SESSION_JOIN_TOKEN_DEFAULT_TTL_SECONDS = 1800;
+const LIVE_SESSION_JOIN_TOKEN_MIN_TTL_SECONDS = 60;
+const LIVE_SESSION_JOIN_TOKEN_MAX_TTL_SECONDS = 86_400;
+const LIVE_SESSION_EXCLUSIVE_WINDOW_HOURS_DEFAULT = 2;
+const LIVE_SESSION_EXCLUSIVE_WINDOW_HOURS_MIN = 1;
+const LIVE_SESSION_EXCLUSIVE_WINDOW_HOURS_MAX = 48;
 const WATCH_TELEMETRY_LOG_LIMIT_DEFAULT = 50;
 const WATCH_TELEMETRY_LOG_LIMIT_MIN = 1;
 const WATCH_TELEMETRY_LOG_LIMIT_MAX = 200;
@@ -272,6 +280,35 @@ type WatchAccessTokenConsumeResult =
       reason: WatchAccessTokenConsumeReason;
     };
 
+type LiveSessionJoinTokenClaims = {
+  v: typeof LIVE_SESSION_JOIN_TOKEN_VERSION;
+  jti: string;
+  accountId: string;
+  sessionId: string;
+  dropId: string;
+  exp: number;
+};
+
+type LiveSessionJoinIssueResult =
+  | {
+      ok: true;
+      result: LiveSessionJoinSnapshot;
+    }
+  | {
+      ok: false;
+      reason: "not_found" | "not_eligible" | "window_closed" | "drop_unavailable";
+    };
+
+type LiveSessionJoinConsumeResult =
+  | {
+      granted: true;
+      liveSession: LiveSession;
+    }
+  | {
+      granted: false;
+      reason: "invalid_token" | "expired" | "binding_mismatch" | "window_closed" | "not_found";
+    };
+
 type WatchSessionLifecycleFailureReason = "not_found" | "session_ended";
 
 type WatchSessionLifecycleMutationResult =
@@ -336,6 +373,43 @@ function resolveWatchAccessTokenTtlSeconds(): number {
   }
 
   return WATCH_ACCESS_TOKEN_DEFAULT_TTL_SECONDS;
+}
+
+function resolveLiveSessionJoinSecret(): string {
+  const explicit = process.env.OOK_LIVE_SESSION_JOIN_SECRET?.trim();
+  if (explicit) {
+    return explicit;
+  }
+
+  if (isProductionRuntime()) {
+    throw new Error("OOK_LIVE_SESSION_JOIN_SECRET is required in production");
+  }
+
+  return "ook_live_session_join_dev_secret";
+}
+
+function resolveLiveSessionJoinTokenTtlSeconds(): number {
+  const configured = Number(process.env.OOK_LIVE_SESSION_JOIN_TOKEN_TTL_SECONDS ?? "");
+  if (Number.isFinite(configured)) {
+    return Math.min(
+      LIVE_SESSION_JOIN_TOKEN_MAX_TTL_SECONDS,
+      Math.max(LIVE_SESSION_JOIN_TOKEN_MIN_TTL_SECONDS, Math.floor(configured))
+    );
+  }
+
+  return LIVE_SESSION_JOIN_TOKEN_DEFAULT_TTL_SECONDS;
+}
+
+function resolveLiveSessionExclusiveWindowHours(): number {
+  const configured = Number(process.env.OOK_LIVE_SESSION_EXCLUSIVE_WINDOW_HOURS ?? "");
+  if (Number.isFinite(configured)) {
+    return Math.min(
+      LIVE_SESSION_EXCLUSIVE_WINDOW_HOURS_MAX,
+      Math.max(LIVE_SESSION_EXCLUSIVE_WINDOW_HOURS_MIN, Math.floor(configured))
+    );
+  }
+
+  return LIVE_SESSION_EXCLUSIVE_WINDOW_HOURS_DEFAULT;
 }
 
 function resolvePatronCommitmentAmountCents(): number {
@@ -417,6 +491,95 @@ function decodeWatchAccessToken(token: string): WatchAccessTokenClaims | null {
     dropId: candidate.dropId,
     exp: Math.floor(candidate.exp)
   };
+}
+
+function createLiveSessionJoinSignature(payloadEncoded: string, secret: string): string {
+  return createHmac("sha256", secret).update(payloadEncoded, "utf8").digest("base64url");
+}
+
+function encodeLiveSessionJoinToken(claims: LiveSessionJoinTokenClaims): string {
+  const payloadEncoded = Buffer.from(JSON.stringify(claims), "utf8").toString("base64url");
+  const signature = createLiveSessionJoinSignature(payloadEncoded, resolveLiveSessionJoinSecret());
+  return `${payloadEncoded}.${signature}`;
+}
+
+function decodeLiveSessionJoinToken(token: string): LiveSessionJoinTokenClaims | null {
+  const normalized = token.trim();
+  const [payloadEncoded, signature] = normalized.split(".");
+  if (!payloadEncoded || !signature) {
+    return null;
+  }
+
+  const expected = createLiveSessionJoinSignature(payloadEncoded, resolveLiveSessionJoinSecret());
+  const expectedBuffer = Buffer.from(expected);
+  const providedBuffer = Buffer.from(signature);
+  if (expectedBuffer.length !== providedBuffer.length) {
+    return null;
+  }
+
+  if (!timingSafeEqual(expectedBuffer, providedBuffer)) {
+    return null;
+  }
+
+  let payload: unknown;
+  try {
+    payload = JSON.parse(Buffer.from(payloadEncoded, "base64url").toString("utf8")) as unknown;
+  } catch {
+    return null;
+  }
+
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+
+  const candidate = payload as Partial<LiveSessionJoinTokenClaims>;
+  if (
+    candidate.v !== LIVE_SESSION_JOIN_TOKEN_VERSION ||
+    typeof candidate.jti !== "string" ||
+    !candidate.jti.trim() ||
+    typeof candidate.accountId !== "string" ||
+    !candidate.accountId.trim() ||
+    typeof candidate.sessionId !== "string" ||
+    !candidate.sessionId.trim() ||
+    typeof candidate.dropId !== "string" ||
+    !candidate.dropId.trim() ||
+    typeof candidate.exp !== "number" ||
+    !Number.isFinite(candidate.exp)
+  ) {
+    return null;
+  }
+
+  return {
+    v: LIVE_SESSION_JOIN_TOKEN_VERSION,
+    jti: candidate.jti,
+    accountId: candidate.accountId,
+    sessionId: candidate.sessionId,
+    dropId: candidate.dropId,
+    exp: Math.floor(candidate.exp)
+  };
+}
+
+function getLiveSessionExclusiveWindowEndMs(liveSession: LiveSessionRecord): number {
+  const explicitEndsAtMs = liveSession.endsAt ? Date.parse(liveSession.endsAt) : Number.NaN;
+  if (Number.isFinite(explicitEndsAtMs)) {
+    return explicitEndsAtMs;
+  }
+
+  const startsAtMs = Date.parse(liveSession.startsAt);
+  if (!Number.isFinite(startsAtMs)) {
+    return Number.NaN;
+  }
+
+  return startsAtMs + resolveLiveSessionExclusiveWindowHours() * 60 * 60 * 1000;
+}
+
+function isLiveSessionExclusiveWindowClosed(liveSession: LiveSessionRecord, nowMs: number): boolean {
+  const windowEndMs = getLiveSessionExclusiveWindowEndMs(liveSession);
+  if (!Number.isFinite(windowEndMs)) {
+    return true;
+  }
+
+  return nowMs > windowEndMs;
 }
 
 function trimWatchAccessGrants(db: BffDatabase): void {
@@ -3719,6 +3882,184 @@ export const commerceBffService = {
     return completePendingPaymentById(paymentId, {
       expectedAccountId: accountId,
       allowedProviders: ["manual"]
+    });
+  },
+
+  async issueLiveSessionJoinToken(
+    accountId: string,
+    liveSessionId: string
+  ): Promise<LiveSessionJoinIssueResult> {
+    return withDatabase<LiveSessionJoinIssueResult>(async (db) => {
+      const account = findAccountById(db, accountId);
+      const liveSession = db.liveSessions.find((entry) => entry.id === liveSessionId) ?? null;
+      if (!account || !liveSession) {
+        return {
+          persist: false,
+          result: {
+            ok: false,
+            reason: "not_found"
+          }
+        };
+      }
+
+      const nowMs = Date.now();
+      if (isLiveSessionExclusiveWindowClosed(liveSession, nowMs)) {
+        return {
+          persist: false,
+          result: {
+            ok: false,
+            reason: "window_closed"
+          }
+        };
+      }
+
+      const dropId = liveSession.dropId;
+      if (!dropId || !findDropById(db, dropId)) {
+        return {
+          persist: false,
+          result: {
+            ok: false,
+            reason: "drop_unavailable"
+          }
+        };
+      }
+
+      const eligibility = resolveLiveSessionEligibilityInDatabase(db, account.id, liveSession);
+      if (!eligibility.eligible) {
+        return {
+          persist: false,
+          result: {
+            ok: false,
+            reason: "not_eligible"
+          }
+        };
+      }
+
+      const exclusiveWindowEndMs = getLiveSessionExclusiveWindowEndMs(liveSession);
+      const tokenTtlMs = resolveLiveSessionJoinTokenTtlSeconds() * 1000;
+      const expiresAtMs = Math.min(exclusiveWindowEndMs, nowMs + tokenTtlMs);
+      if (!Number.isFinite(expiresAtMs) || expiresAtMs <= nowMs) {
+        return {
+          persist: false,
+          result: {
+            ok: false,
+            reason: "window_closed"
+          }
+        };
+      }
+
+      const expiresAt = new Date(expiresAtMs).toISOString();
+      const claims: LiveSessionJoinTokenClaims = {
+        v: LIVE_SESSION_JOIN_TOKEN_VERSION,
+        jti: `lsj_${randomUUID()}`,
+        accountId: account.id,
+        sessionId: liveSession.id,
+        dropId,
+        exp: Math.floor(expiresAtMs / 1000)
+      };
+
+      return {
+        persist: false,
+        result: {
+          ok: true,
+          result: {
+            sessionId: liveSession.id,
+            joinToken: encodeLiveSessionJoinToken(claims),
+            expiresAt
+          }
+        }
+      };
+    });
+  },
+
+  async consumeLiveSessionJoinToken(input: {
+    accountId: string;
+    liveSessionId: string;
+    dropId: string;
+    joinToken: string;
+  }): Promise<LiveSessionJoinConsumeResult> {
+    const claims = decodeLiveSessionJoinToken(input.joinToken);
+    if (!claims) {
+      return {
+        granted: false,
+        reason: "invalid_token"
+      };
+    }
+
+    if (
+      claims.accountId !== input.accountId ||
+      claims.sessionId !== input.liveSessionId ||
+      claims.dropId !== input.dropId
+    ) {
+      return {
+        granted: false,
+        reason: "binding_mismatch"
+      };
+    }
+
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    if (claims.exp <= nowSeconds) {
+      return {
+        granted: false,
+        reason: "expired"
+      };
+    }
+
+    return withDatabase<LiveSessionJoinConsumeResult>(async (db) => {
+      const liveSession = db.liveSessions.find((entry) => entry.id === input.liveSessionId) ?? null;
+      if (!liveSession) {
+        return {
+          persist: false,
+          result: {
+            granted: false,
+            reason: "not_found"
+          }
+        };
+      }
+
+      const nowMs = Date.now();
+      if (isLiveSessionExclusiveWindowClosed(liveSession, nowMs)) {
+        return {
+          persist: false,
+          result: {
+            granted: false,
+            reason: "window_closed"
+          }
+        };
+      }
+
+      if (liveSession.dropId !== input.dropId) {
+        return {
+          persist: false,
+          result: {
+            granted: false,
+            reason: "binding_mismatch"
+          }
+        };
+      }
+
+      const eligibility = resolveLiveSessionEligibilityInDatabase(
+        db,
+        input.accountId,
+        liveSession
+      );
+      if (!eligibility.eligible) {
+        return {
+          persist: false,
+          result: {
+            granted: false,
+            reason: "binding_mismatch"
+          }
+        };
+      }
+
+      return {
+        persist: false,
+        result: {
+          granted: true,
+          liveSession: toLiveSession(db, liveSession)
+        }
+      };
     });
   },
 
