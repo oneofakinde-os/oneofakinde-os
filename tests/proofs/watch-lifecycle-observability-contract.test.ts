@@ -9,9 +9,9 @@ async function readSource(parts: string[]): Promise<string> {
 
 test("proof: watch lifecycle API routes emit operational lifecycle events", async () => {
   const [startRoute, heartbeatRoute, endRoute] = await Promise.all([
-    readSource(["app", "api", "v1", "watch", "sessions", "[drop_id]", "start", "route.ts"]),
-    readSource(["app", "api", "v1", "watch", "sessions", "[session_id]", "heartbeat", "route.ts"]),
-    readSource(["app", "api", "v1", "watch", "sessions", "[session_id]", "end", "route.ts"])
+    readSource(["app", "api", "v1", "watch", "sessions", "[id]", "start", "route.ts"]),
+    readSource(["app", "api", "v1", "watch", "sessions", "[id]", "heartbeat", "route.ts"]),
+    readSource(["app", "api", "v1", "watch", "sessions", "[id]", "end", "route.ts"])
   ]);
 
   assert.match(startRoute, /emitOperationalEvent\("watch_session_started"/);

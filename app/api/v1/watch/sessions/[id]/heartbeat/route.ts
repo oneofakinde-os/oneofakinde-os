@@ -12,23 +12,21 @@ import {
 import {
   type TownhallTelemetryMetadata,
   type WatchQualityLevel,
-  type WatchQualityMode,
-  type WatchSessionEndReason
+  type WatchQualityMode
 } from "@/lib/domain/contracts";
 import { emitOperationalEvent } from "@/lib/ops/observability";
 
 type Params = {
-  session_id: string;
+  id: string;
 };
 
-type EndBody = {
+type HeartbeatBody = {
   watchTimeSeconds?: number;
   completionPercent?: number;
   qualityMode?: WatchQualityMode;
   qualityLevel?: WatchQualityLevel;
   qualityReason?: TownhallTelemetryMetadata["qualityReason"];
   rebufferReason?: TownhallTelemetryMetadata["rebufferReason"];
-  endReason?: WatchSessionEndReason;
 };
 
 function parseOptionalBodyNumber(
@@ -66,7 +64,7 @@ function parseOptionalBodyEnum<T extends string>(
 }
 
 export async function POST(request: Request, context: RouteContext<Params>) {
-  const sessionId = await getRequiredRouteParam(context, "session_id");
+  const sessionId = await getRequiredRouteParam(context, "id");
   if (!sessionId) {
     return badRequest("session_id is required");
   }
@@ -76,7 +74,7 @@ export async function POST(request: Request, context: RouteContext<Params>) {
     return guard.response;
   }
 
-  const payload = await safeJson<EndBody>(request);
+  const payload = await safeJson<HeartbeatBody>(request);
   const payloadRecord = payload as Record<string, unknown> | null;
   const watchTimeSeconds = parseOptionalBodyNumber(payloadRecord, "watchTimeSeconds");
   if (watchTimeSeconds === null) {
@@ -127,20 +125,7 @@ export async function POST(request: Request, context: RouteContext<Params>) {
     return badRequest("rebufferReason must be one of: waiting, stalled, error");
   }
 
-  const endReason = parseOptionalBodyEnum(payloadRecord, "endReason", [
-    "completed",
-    "user_exit",
-    "network_error",
-    "stalled",
-    "error"
-  ] as const);
-  if (endReason === null) {
-    return badRequest(
-      "endReason must be one of: completed, user_exit, network_error, stalled, error"
-    );
-  }
-
-  const ended = await commerceBffService.endWatchSession({
+  const heartbeat = await commerceBffService.heartbeatWatchSession({
     accountId: guard.session.accountId,
     sessionId,
     watchTimeSeconds,
@@ -148,28 +133,26 @@ export async function POST(request: Request, context: RouteContext<Params>) {
     qualityMode,
     qualityLevel,
     qualityReason,
-    rebufferReason,
-    endReason
+    rebufferReason
   });
 
-  if (!ended.ok) {
-    emitOperationalEvent("watch_session_end_denied", {
+  if (!heartbeat.ok) {
+    emitOperationalEvent("watch_session_heartbeat_denied", {
       accountId: guard.session.accountId,
       watchSessionId: sessionId,
-      reason: ended.reason
+      reason: heartbeat.reason
     });
-    if (ended.reason === "session_ended") {
+    if (heartbeat.reason === "session_ended") {
       return conflict("watch session already ended");
     }
     return notFound("watch session not found");
   }
 
-  emitOperationalEvent("watch_session_ended", {
+  emitOperationalEvent("watch_session_heartbeat_recorded", {
     accountId: guard.session.accountId,
     watchSessionId: sessionId,
-    dropId: ended.session.dropId,
-    endReason: ended.session.endReason
+    dropId: heartbeat.session.dropId
   });
 
-  return ok({ watchSession: ended.session });
+  return ok({ watchSession: heartbeat.session });
 }

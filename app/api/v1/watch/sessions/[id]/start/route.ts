@@ -10,11 +10,11 @@ import {
 import { emitOperationalEvent } from "@/lib/ops/observability";
 
 type Params = {
-  drop_id: string;
+  id: string;
 };
 
 export async function POST(request: Request, context: RouteContext<Params>) {
-  const dropId = await getRequiredRouteParam(context, "drop_id");
+  const dropId = await getRequiredRouteParam(context, "id");
   if (!dropId) {
     return badRequest("drop_id is required");
   }

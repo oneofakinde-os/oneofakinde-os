@@ -3,9 +3,9 @@ import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { POST as postWatchSessionStartRoute } from "../../app/api/v1/watch/sessions/[drop_id]/start/route";
-import { POST as postWatchSessionHeartbeatRoute } from "../../app/api/v1/watch/sessions/[session_id]/heartbeat/route";
-import { POST as postWatchSessionEndRoute } from "../../app/api/v1/watch/sessions/[session_id]/end/route";
+import { POST as postWatchSessionStartRoute } from "../../app/api/v1/watch/sessions/[id]/start/route";
+import { POST as postWatchSessionHeartbeatRoute } from "../../app/api/v1/watch/sessions/[id]/heartbeat/route";
+import { POST as postWatchSessionEndRoute } from "../../app/api/v1/watch/sessions/[id]/end/route";
 import { GET as getWatchLogsRoute } from "../../app/api/v1/watch/logs/route";
 import { commerceBffService } from "../../lib/bff/service";
 
@@ -53,7 +53,7 @@ test("proof: watch session lifecycle rails persist counters and enforce no-leak 
         "x-ook-session-token": owner.sessionToken
       }
     }),
-    withRouteParams({ drop_id: "voidrunner" })
+    withRouteParams({ id: "voidrunner" })
   );
   assert.equal(startResponse.status, 201);
   const startPayload = await parseJson<{
@@ -99,7 +99,7 @@ test("proof: watch session lifecycle rails persist counters and enforce no-leak 
         })
       }
     ),
-    withRouteParams({ session_id: startPayload.watchSession.id })
+    withRouteParams({ id: startPayload.watchSession.id })
   );
   assert.equal(outsiderHeartbeatResponse.status, 404, "cross-account access must not leak session existence");
 
@@ -122,7 +122,7 @@ test("proof: watch session lifecycle rails persist counters and enforce no-leak 
         })
       }
     ),
-    withRouteParams({ session_id: startPayload.watchSession.id })
+    withRouteParams({ id: startPayload.watchSession.id })
   );
   assert.equal(heartbeatResponse.status, 200);
 
@@ -163,7 +163,7 @@ test("proof: watch session lifecycle rails persist counters and enforce no-leak 
         })
       }
     ),
-    withRouteParams({ session_id: startPayload.watchSession.id })
+    withRouteParams({ id: startPayload.watchSession.id })
   );
   assert.equal(secondHeartbeatResponse.status, 200);
   const secondHeartbeatPayload = await parseJson<{
@@ -201,7 +201,7 @@ test("proof: watch session lifecycle rails persist counters and enforce no-leak 
         })
       }
     ),
-    withRouteParams({ session_id: startPayload.watchSession.id })
+    withRouteParams({ id: startPayload.watchSession.id })
   );
   assert.equal(endResponse.status, 200);
   const endPayload = await parseJson<{
@@ -233,7 +233,7 @@ test("proof: watch session lifecycle rails persist counters and enforce no-leak 
         })
       }
     ),
-    withRouteParams({ session_id: startPayload.watchSession.id })
+    withRouteParams({ id: startPayload.watchSession.id })
   );
   assert.equal(heartbeatAfterEndResponse.status, 409, "heartbeat after end must be rejected");
 
