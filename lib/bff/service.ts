@@ -3077,6 +3077,26 @@ const gatewayMethods: CommerceGateway = {
     }));
   },
 
+  async getDropLineage(dropId: string): Promise<DropLineageSnapshot | null> {
+    return commerceBffService.getDropLineage(dropId);
+  },
+
+  async createDropVersion(
+    accountId: string,
+    dropId: string,
+    input: CreateDropVersionInput
+  ): Promise<DropVersion | null> {
+    return commerceBffService.createDropVersion(accountId, dropId, input);
+  },
+
+  async createAuthorizedDerivative(
+    accountId: string,
+    sourceDropId: string,
+    input: CreateAuthorizedDerivativeInput
+  ): Promise<AuthorizedDerivative | null> {
+    return commerceBffService.createAuthorizedDerivative(accountId, sourceDropId, input);
+  },
+
   async getCheckoutPreview(accountId: string, dropId: string): Promise<CheckoutPreview | null> {
     return withDatabase(async (db) => {
       const account = findAccountById(db, accountId);

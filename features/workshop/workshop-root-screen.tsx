@@ -2,6 +2,7 @@ import { AppShell } from "@/features/shell/app-shell";
 import { formatUsd } from "@/features/shared/format";
 import type {
   Drop,
+  DropLineageSnapshot,
   LiveSession,
   Session,
   TownhallModerationQueueItem,
@@ -22,12 +23,25 @@ type WorkshopRootScreenProps = {
   moderationQueue: TownhallModerationQueueItem[];
   eventNotice: string | null;
   releaseNotice: string | null;
+  versionNotice: string | null;
+  derivativeNotice: string | null;
   moderationNotice: string | null;
   createLiveSessionAction: (formData: FormData) => Promise<void>;
   createWorldReleaseAction: (formData: FormData) => Promise<void>;
   updateWorldReleaseStatusAction: (formData: FormData) => Promise<void>;
+  createDropVersionAction: (formData: FormData) => Promise<void>;
+  createAuthorizedDerivativeAction: (formData: FormData) => Promise<void>;
   resolveModerationAction: (formData: FormData) => Promise<void>;
+  dropLineageByDropId: Record<string, DropLineageSnapshot>;
 };
+
+const DROP_VERSION_OPTIONS = ["v1", "v2", "v3", "director_cut", "remaster"] as const;
+const DERIVATIVE_KIND_OPTIONS = [
+  "remix",
+  "translation",
+  "anthology_world",
+  "collaborative_season"
+] as const;
 
 export function WorkshopRootScreen({
   session,
@@ -40,10 +54,15 @@ export function WorkshopRootScreen({
   moderationQueue,
   eventNotice,
   releaseNotice,
+  versionNotice,
+  derivativeNotice,
   moderationNotice,
   createLiveSessionAction,
   createWorldReleaseAction,
   updateWorldReleaseStatusAction,
+  createDropVersionAction,
+  createAuthorizedDerivativeAction,
+  dropLineageByDropId,
   resolveModerationAction
 }: WorkshopRootScreenProps) {
   const worldTitleById = new Map(worlds.map((world) => [world.id, world.title]));
@@ -397,29 +416,180 @@ export function WorkshopRootScreen({
 
       <section className="slice-panel">
         <p className="slice-label">drops</p>
+        {versionNotice ? (
+          <p className="slice-banner" role="status" aria-live="polite">
+            {versionNotice}
+          </p>
+        ) : null}
+        {derivativeNotice ? (
+          <p className="slice-banner" role="status" aria-live="polite">
+            {derivativeNotice}
+          </p>
+        ) : null}
         {drops.length === 0 ? (
           <p className="slice-copy">
             no drops have been published yet for this creator account.
           </p>
         ) : (
-          <ul className="slice-grid" aria-label="workshop drop list">
+          <ul className="slice-grid" aria-label="workshop drop list" data-testid="workshop-lineage-panel">
             {drops.map((drop) => (
-              <li key={drop.id} className="slice-drop-card">
-                <p className="slice-label">{drop.worldLabel}</p>
-                <h2 className="slice-title">{drop.title}</h2>
-                <p className="slice-copy">{drop.synopsis}</p>
-                <p className="slice-meta">{formatUsd(drop.priceUsd)}</p>
-                <div className="slice-button-row">
-                  <Link href={routes.drop(drop.id)} className="slice-button ghost">
-                    open drop
-                  </Link>
-                  <Link href={routes.dropDetails(drop.id)} className="slice-button alt">
-                    details
-                  </Link>
-                  <Link href={routes.dropActivity(drop.id)} className="slice-button alt">
-                    activity
-                  </Link>
-                </div>
+              <li key={drop.id} className="slice-drop-card" data-testid={`workshop-drop-lineage-${drop.id}`}>
+                {(() => {
+                  const lineage = dropLineageByDropId[drop.id] ?? {
+                    dropId: drop.id,
+                    versions: [],
+                    derivatives: []
+                  };
+                  const derivativeTargets = drops.filter((candidate) => candidate.id !== drop.id);
+
+                  return (
+                    <>
+                      <p className="slice-label">{drop.worldLabel}</p>
+                      <h2 className="slice-title">{drop.title}</h2>
+                      <p className="slice-copy">{drop.synopsis}</p>
+                      <p className="slice-meta">{formatUsd(drop.priceUsd)}</p>
+                      <p className="slice-meta">
+                        versions {lineage.versions.length} · derivatives {lineage.derivatives.length}
+                      </p>
+                      <div className="slice-button-row">
+                        <Link href={routes.drop(drop.id)} className="slice-button ghost">
+                          open drop
+                        </Link>
+                        <Link href={routes.dropDetails(drop.id)} className="slice-button alt">
+                          details
+                        </Link>
+                        <Link href={routes.dropActivity(drop.id)} className="slice-button alt">
+                          activity
+                        </Link>
+                      </div>
+
+                      <details>
+                        <summary className="slice-meta">create version</summary>
+                        <form action={createDropVersionAction} className="slice-form">
+                          <input type="hidden" name="drop_id" value={drop.id} />
+                          <label className="slice-field">
+                            version label
+                            <select name="label" className="slice-select" defaultValue="v2" required>
+                              {DROP_VERSION_OPTIONS.map((label) => (
+                                <option key={label} value={label}>
+                                  {label.replaceAll("_", " ")}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className="slice-field">
+                            notes
+                            <input
+                              name="notes"
+                              className="slice-input"
+                              placeholder="change log for this version"
+                            />
+                          </label>
+                          <label className="slice-field">
+                            released at (optional)
+                            <input name="released_at" className="slice-input" placeholder="2026-03-10T20:00:00Z" />
+                          </label>
+                          <div className="slice-button-row">
+                            <button type="submit" className="slice-button">
+                              create version
+                            </button>
+                          </div>
+                        </form>
+                      </details>
+
+                      <details>
+                        <summary className="slice-meta">authorize derivative</summary>
+                        <form action={createAuthorizedDerivativeAction} className="slice-form">
+                          <input type="hidden" name="source_drop_id" value={drop.id} />
+                          <label className="slice-field">
+                            derivative target
+                            <select name="derivative_drop_id" className="slice-select" defaultValue="" required>
+                              <option value="" disabled>
+                                choose target drop
+                              </option>
+                              {derivativeTargets.map((candidate) => (
+                                <option key={candidate.id} value={candidate.id}>
+                                  {candidate.title}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className="slice-field">
+                            derivative kind
+                            <select name="kind" className="slice-select" defaultValue="remix" required>
+                              {DERIVATIVE_KIND_OPTIONS.map((kind) => (
+                                <option key={kind} value={kind}>
+                                  {kind.replaceAll("_", " ")}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className="slice-field">
+                            attribution
+                            <input
+                              name="attribution"
+                              className="slice-input"
+                              required
+                              placeholder="credited derivative lineage statement"
+                            />
+                          </label>
+                          <label className="slice-field">
+                            revenue splits
+                            <input
+                              name="revenue_splits"
+                              className="slice-input"
+                              required
+                              placeholder="oneofakinde:70, collaborator:30"
+                            />
+                          </label>
+                          <div className="slice-button-row">
+                            <button type="submit" className="slice-button">
+                              authorize derivative
+                            </button>
+                          </div>
+                        </form>
+                      </details>
+
+                      <details open={lineage.versions.length > 0}>
+                        <summary className="slice-meta">version timeline</summary>
+                        {lineage.versions.length === 0 ? (
+                          <p className="slice-meta">no versions recorded yet.</p>
+                        ) : (
+                          <ul className="slice-list" aria-label={`${drop.title} versions`}>
+                            {lineage.versions.map((version) => (
+                              <li key={version.id}>
+                                <span>{version.label.replaceAll("_", " ")}</span>
+                                <span>{new Date(version.createdAt).toLocaleString()}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </details>
+
+                      <details open={lineage.derivatives.length > 0}>
+                        <summary className="slice-meta">authorized derivatives</summary>
+                        {lineage.derivatives.length === 0 ? (
+                          <p className="slice-meta">no derivatives authorized yet.</p>
+                        ) : (
+                          <ul className="slice-list" aria-label={`${drop.title} derivatives`}>
+                            {lineage.derivatives.map((derivative) => (
+                              <li key={derivative.id}>
+                                <span>
+                                  {derivative.kind.replaceAll("_", " ")} · {dropTitleById.get(derivative.derivativeDropId) ?? derivative.derivativeDropId}
+                                </span>
+                                <span>
+                                  {derivative.revenueSplits
+                                    .map((entry) => `${entry.recipientHandle}:${entry.sharePercent}%`)
+                                    .join(" · ")}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </details>
+                    </>
+                  );
+                })()}
               </li>
             ))}
           </ul>

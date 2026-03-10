@@ -39,14 +39,22 @@ export default async function DropDetailPage({ params, searchParams }: DropDetai
   const resolvedSearchParams = (await searchParams) ?? {};
   const returnTo = normalizeReturnTo(firstQueryValue(resolvedSearchParams.returnTo), routes.townhall());
 
-  const [drop, session] = await Promise.all([
+  const [drop, session, lineage] = await Promise.all([
     gateway.getDropById(id),
-    getOptionalSession()
+    getOptionalSession(),
+    gateway.getDropLineage(id)
   ]);
 
   if (!drop) {
     notFound();
   }
 
-  return <DropDetailScreen drop={drop} session={session} backHref={toHrefObject(returnTo)} />;
+  return (
+    <DropDetailScreen
+      drop={drop}
+      lineage={lineage}
+      session={session}
+      backHref={toHrefObject(returnTo)}
+    />
+  );
 }

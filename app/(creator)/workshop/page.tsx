@@ -2,6 +2,8 @@ import { WorkshopRootScreen } from "@/features/workshop/workshop-root-screen";
 import { requireSessionRoles } from "@/lib/server/session";
 import { loadWorkshopContext } from "@/lib/server/workshop";
 import {
+  createAuthorizedDerivativeAction,
+  createDropVersionAction,
   createWorkshopWorldReleaseAction,
   createWorkshopLiveSessionAction,
   updateWorkshopWorldReleaseStatusAction,
@@ -14,6 +16,10 @@ type WorkshopPageProps = {
     event_id?: string | string[];
     release_status?: string | string[];
     release_id?: string | string[];
+    version_status?: string | string[];
+    version_id?: string | string[];
+    derivative_status?: string | string[];
+    derivative_id?: string | string[];
     moderation_status?: string | string[];
     moderation_comment_id?: string | string[];
   }>;
@@ -78,6 +84,51 @@ function toModerationNotice(
   return "workshop moderation status updated.";
 }
 
+function toVersionNotice(versionStatus: string | null, versionId: string | null): string | null {
+  if (!versionStatus) {
+    return null;
+  }
+
+  if (versionStatus === "created") {
+    return versionId ? `drop version created: ${versionId}.` : "drop version created.";
+  }
+
+  if (versionStatus === "invalid_input") {
+    return "drop version create failed: check drop, label, and release timestamp.";
+  }
+
+  if (versionStatus === "create_failed") {
+    return "drop version create failed: verify creator scope and lineage policy constraints.";
+  }
+
+  return "drop version status updated.";
+}
+
+function toDerivativeNotice(
+  derivativeStatus: string | null,
+  derivativeId: string | null
+): string | null {
+  if (!derivativeStatus) {
+    return null;
+  }
+
+  if (derivativeStatus === "created") {
+    return derivativeId
+      ? `authorized derivative created: ${derivativeId}.`
+      : "authorized derivative created.";
+  }
+
+  if (derivativeStatus === "invalid_input") {
+    return "authorized derivative create failed: check source, target, kind, attribution, and split format.";
+  }
+
+  if (derivativeStatus === "create_failed") {
+    return "authorized derivative create failed: verify creator scope, uniqueness, and split policy.";
+  }
+
+  return "authorized derivative status updated.";
+}
+
 function toReleaseNotice(releaseStatus: string | null, releaseId: string | null): string | null {
   if (!releaseStatus) {
     return null;
@@ -119,6 +170,10 @@ export default async function WorkshopPage({ searchParams }: WorkshopPageProps) 
   const eventId = firstParam(resolvedSearchParams.event_id);
   const releaseStatus = firstParam(resolvedSearchParams.release_status);
   const releaseId = firstParam(resolvedSearchParams.release_id);
+  const versionStatus = firstParam(resolvedSearchParams.version_status);
+  const versionId = firstParam(resolvedSearchParams.version_id);
+  const derivativeStatus = firstParam(resolvedSearchParams.derivative_status);
+  const derivativeId = firstParam(resolvedSearchParams.derivative_id);
   const moderationStatus = firstParam(resolvedSearchParams.moderation_status);
   const moderationCommentId = firstParam(resolvedSearchParams.moderation_comment_id);
   const context = await loadWorkshopContext(session);
@@ -128,10 +183,14 @@ export default async function WorkshopPage({ searchParams }: WorkshopPageProps) 
       session={session}
       eventNotice={toEventNotice(eventStatus, eventId)}
       releaseNotice={toReleaseNotice(releaseStatus, releaseId)}
+      versionNotice={toVersionNotice(versionStatus, versionId)}
+      derivativeNotice={toDerivativeNotice(derivativeStatus, derivativeId)}
       moderationNotice={toModerationNotice(moderationStatus, moderationCommentId)}
       createLiveSessionAction={createWorkshopLiveSessionAction}
       createWorldReleaseAction={createWorkshopWorldReleaseAction}
       updateWorldReleaseStatusAction={updateWorkshopWorldReleaseStatusAction}
+      createDropVersionAction={createDropVersionAction}
+      createAuthorizedDerivativeAction={createAuthorizedDerivativeAction}
       resolveModerationAction={resolveWorkshopModerationCaseAction}
       {...context}
     />

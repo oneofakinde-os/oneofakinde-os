@@ -1,12 +1,17 @@
 import type {
+  AuthorizedDerivative,
   Certificate,
   CollectLiveSessionSnapshot,
   CheckoutSession,
   CheckoutPreview,
+  CreateAuthorizedDerivativeInput,
+  CreateDropVersionInput,
   CreateWorkshopWorldReleaseInput,
   CreateWorkshopLiveSessionInput,
   CreateSessionInput,
   Drop,
+  DropLineageSnapshot,
+  DropVersion,
   LibrarySnapshot,
   LiveSession,
   LiveSessionEligibility,
@@ -186,6 +191,51 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
       );
       if (!response.ok || !response.payload) return null;
       return response.payload.drop;
+    },
+
+    async getDropLineage(dropId: string): Promise<DropLineageSnapshot | null> {
+      const response = await requestJson<{ lineage: DropLineageSnapshot }>(
+        options,
+        `/api/v1/drops/${encodeURIComponent(dropId)}/lineage`
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.lineage;
+    },
+
+    async createDropVersion(
+      _accountId: string,
+      dropId: string,
+      input: CreateDropVersionInput
+    ): Promise<DropVersion | null> {
+      void _accountId;
+      const response = await requestJson<{ version: DropVersion }>(
+        options,
+        `/api/v1/workshop/drops/${encodeURIComponent(dropId)}/versions`,
+        {
+          method: "POST",
+          body: JSON.stringify(input)
+        }
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.version;
+    },
+
+    async createAuthorizedDerivative(
+      _accountId: string,
+      sourceDropId: string,
+      input: CreateAuthorizedDerivativeInput
+    ): Promise<AuthorizedDerivative | null> {
+      void _accountId;
+      const response = await requestJson<{ derivative: AuthorizedDerivative }>(
+        options,
+        `/api/v1/workshop/drops/${encodeURIComponent(sourceDropId)}/derivatives`,
+        {
+          method: "POST",
+          body: JSON.stringify(input)
+        }
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.derivative;
     },
 
     async getCheckoutPreview(_accountId: string, dropId: string): Promise<CheckoutPreview | null> {

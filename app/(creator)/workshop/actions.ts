@@ -1,6 +1,10 @@
 "use server";
 
 import type {
+  AuthorizedDerivativeKind,
+  CreateAuthorizedDerivativeInput,
+  CreateDropVersionInput,
+  DropVersionLabel,
   CreateWorkshopWorldReleaseInput,
   CreateWorkshopLiveSessionInput,
   LiveSessionEligibilityRule,
@@ -16,6 +20,19 @@ const LIVE_ELIGIBILITY_RULES = new Set<LiveSessionEligibilityRule>([
   "public",
   "membership_active",
   "drop_owner"
+]);
+const DROP_VERSION_LABELS = new Set<DropVersionLabel>([
+  "v1",
+  "v2",
+  "v3",
+  "director_cut",
+  "remaster"
+]);
+const AUTHORIZED_DERIVATIVE_KINDS = new Set<AuthorizedDerivativeKind>([
+  "remix",
+  "translation",
+  "anthology_world",
+  "collaborative_season"
 ]);
 const MODERATION_RESOLUTIONS = new Set<TownhallModerationCaseResolution>([
   "hide",
@@ -116,6 +133,107 @@ function parseCreateWorldReleaseInput(formData: FormData): CreateWorkshopWorldRe
   };
 }
 
+function parseCreateDropVersionInput(formData: FormData): {
+  dropId: string;
+  input: CreateDropVersionInput;
+} | null {
+  const dropId = getRequiredFormString(formData, "drop_id");
+  const label = getRequiredFormString(formData, "label");
+
+  if (!dropId || !label) {
+    return null;
+  }
+
+  if (!DROP_VERSION_LABELS.has(label as DropVersionLabel)) {
+    return null;
+  }
+
+  const releasedAt = getOptionalFormString(formData, "released_at");
+  if (releasedAt && !Number.isFinite(Date.parse(releasedAt))) {
+    return null;
+  }
+
+  return {
+    dropId,
+    input: {
+      label: label as DropVersionLabel,
+      notes: getOptionalFormString(formData, "notes"),
+      releasedAt: releasedAt ? new Date(Date.parse(releasedAt)).toISOString() : null
+    }
+  };
+}
+
+function parseRevenueSplits(raw: string): CreateAuthorizedDerivativeInput["revenueSplits"] | null {
+  const entries = raw
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => {
+      const [recipientHandleRaw, sharePercentRaw] = entry.split(":").map((part) => part.trim());
+      if (!recipientHandleRaw || !sharePercentRaw) {
+        return null;
+      }
+
+      const sharePercent = Number(sharePercentRaw);
+      if (!Number.isFinite(sharePercent) || sharePercent <= 0 || sharePercent > 100) {
+        return null;
+      }
+
+      return {
+        recipientHandle: recipientHandleRaw,
+        sharePercent: Number(sharePercent.toFixed(2))
+      };
+    })
+    .filter(
+      (entry): entry is { recipientHandle: string; sharePercent: number } => entry !== null
+    );
+
+  if (entries.length === 0) {
+    return null;
+  }
+
+  const total = Number(entries.reduce((sum, entry) => sum + entry.sharePercent, 0).toFixed(2));
+  if (total !== 100) {
+    return null;
+  }
+
+  return entries;
+}
+
+function parseCreateDerivativeInput(formData: FormData): {
+  sourceDropId: string;
+  input: CreateAuthorizedDerivativeInput;
+} | null {
+  const sourceDropId = getRequiredFormString(formData, "source_drop_id");
+  const derivativeDropId = getRequiredFormString(formData, "derivative_drop_id");
+  const kind = getRequiredFormString(formData, "kind");
+  const attribution = getRequiredFormString(formData, "attribution");
+  const revenueSplitsRaw = getRequiredFormString(formData, "revenue_splits");
+
+  if (!sourceDropId || !derivativeDropId || !kind || !attribution || !revenueSplitsRaw) {
+    return null;
+  }
+
+  if (!AUTHORIZED_DERIVATIVE_KINDS.has(kind as AuthorizedDerivativeKind)) {
+    return null;
+  }
+
+  const revenueSplits = parseRevenueSplits(revenueSplitsRaw);
+  if (!revenueSplits) {
+    return null;
+  }
+
+  return {
+    sourceDropId,
+    input: {
+      derivativeDropId,
+      kind: kind as AuthorizedDerivativeKind,
+      attribution,
+      revenueSplits
+    }
+  };
+}
+
 function parseWorldReleaseStatus(
   value: FormDataEntryValue | null
 ): Exclude<WorldReleaseQueueStatus, "scheduled"> | null {
@@ -178,6 +296,44 @@ export async function updateWorkshopWorldReleaseStatusAction(formData: FormData)
 
   redirect(
     `/workshop?release_status=${encodeURIComponent(updated.status)}&release_id=${encodeURIComponent(updated.id)}`
+  );
+}
+
+export async function createDropVersionAction(formData: FormData): Promise<void> {
+  const session = await requireSessionRoles("/workshop", ["creator"]);
+  const parsed = parseCreateDropVersionInput(formData);
+  if (!parsed) {
+    redirect("/workshop?version_status=invalid_input");
+  }
+
+  const created = await gateway.createDropVersion(session.accountId, parsed.dropId, parsed.input);
+  if (!created) {
+    redirect("/workshop?version_status=create_failed");
+  }
+
+  redirect(
+    `/workshop?version_status=created&version_id=${encodeURIComponent(created.id)}`
+  );
+}
+
+export async function createAuthorizedDerivativeAction(formData: FormData): Promise<void> {
+  const session = await requireSessionRoles("/workshop", ["creator"]);
+  const parsed = parseCreateDerivativeInput(formData);
+  if (!parsed) {
+    redirect("/workshop?derivative_status=invalid_input");
+  }
+
+  const created = await gateway.createAuthorizedDerivative(
+    session.accountId,
+    parsed.sourceDropId,
+    parsed.input
+  );
+  if (!created) {
+    redirect("/workshop?derivative_status=create_failed");
+  }
+
+  redirect(
+    `/workshop?derivative_status=created&derivative_id=${encodeURIComponent(created.id)}`
   );
 }
 

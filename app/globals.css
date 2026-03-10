@@ -222,6 +222,21 @@ a {
   padding-bottom: 8px;
 }
 
+.slice-list li {
+  list-style: none;
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: rgba(8, 12, 16, 0.5);
+}
+
+.slice-list li span {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
 .slice-list dt {
   color: var(--text-muted);
 }
@@ -2334,6 +2349,38 @@ a {
   margin: 4px 0 0;
   color: #e1e8ed;
   font-size: 0.75rem;
+}
+
+.dropflow-lineage-block {
+  display: grid;
+  gap: 6px;
+}
+
+.dropflow-lineage-list {
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.dropflow-lineage-list li {
+  list-style: none;
+  display: grid;
+  gap: 2px;
+  border: 1px solid #2e404d;
+  border-radius: 10px;
+  padding: 8px;
+  background: rgba(8, 12, 16, 0.52);
+}
+
+.dropflow-lineage-list strong {
+  color: #e3edf4;
+  font-size: 0.74rem;
+}
+
+.dropflow-lineage-list span {
+  color: #9fb4c3;
+  font-size: 0.69rem;
 }
 
 .dropflow-bullet-list {

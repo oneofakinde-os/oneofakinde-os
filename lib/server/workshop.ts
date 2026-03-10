@@ -1,5 +1,6 @@
 import type {
   Drop,
+  DropLineageSnapshot,
   LiveSession,
   Session,
   TownhallModerationQueueItem,
@@ -16,6 +17,7 @@ export type WorkshopContext = {
   liveSessions: LiveSession[];
   worldReleaseQueue: WorldReleaseQueueItem[];
   moderationQueue: TownhallModerationQueueItem[];
+  dropLineageByDropId: Record<string, DropLineageSnapshot>;
 };
 
 export async function loadWorkshopContext(session: Session): Promise<WorkshopContext> {
@@ -26,6 +28,14 @@ export async function loadWorkshopContext(session: Session): Promise<WorkshopCon
     gateway.listWorkshopWorldReleaseQueue(session.accountId),
     gateway.listTownhallModerationQueue(session.accountId)
   ]);
+  const lineageSnapshots = await Promise.all(drops.map((drop) => gateway.getDropLineage(drop.id)));
+  const dropLineageByDropId = drops.reduce<Record<string, DropLineageSnapshot>>((acc, drop, index) => {
+    const snapshot = lineageSnapshots[index];
+    if (snapshot) {
+      acc[drop.id] = snapshot;
+    }
+    return acc;
+  }, {});
 
   if (!creatorSpace) {
     return {
@@ -35,7 +45,8 @@ export async function loadWorkshopContext(session: Session): Promise<WorkshopCon
       drops,
       liveSessions,
       worldReleaseQueue,
-      moderationQueue
+      moderationQueue,
+      dropLineageByDropId
     };
   }
 
@@ -50,6 +61,7 @@ export async function loadWorkshopContext(session: Session): Promise<WorkshopCon
     drops,
     liveSessions,
     worldReleaseQueue,
-    moderationQueue
+    moderationQueue,
+    dropLineageByDropId
   };
 }

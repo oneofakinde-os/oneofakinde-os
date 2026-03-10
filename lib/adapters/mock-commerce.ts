@@ -1,13 +1,20 @@
 import type {
   AccountRole,
+  AuthorizedDerivative,
+  AuthorizedDerivativeKind,
   Certificate,
   CollectLiveSessionSnapshot,
   CheckoutSession,
   CheckoutPreview,
+  CreateAuthorizedDerivativeInput,
+  CreateDropVersionInput,
   CreateWorkshopWorldReleaseInput,
   CreateWorkshopLiveSessionInput,
   CreateSessionInput,
   Drop,
+  DropLineageSnapshot,
+  DropVersion,
+  DropVersionLabel,
   LibraryDrop,
   LibrarySnapshot,
   LiveSession,
@@ -80,6 +87,8 @@ type MockStore = {
   membershipEntitlements: MembershipEntitlementRecord[];
   liveSessions: LiveSessionRecord[];
   worldReleaseQueue: WorldReleaseQueueRecord[];
+  dropVersions: DropVersion[];
+  authorizedDerivatives: AuthorizedDerivative[];
 };
 
 const PROCESSING_FEE_USD = 1.99;
@@ -88,6 +97,19 @@ const WORLD_RELEASE_PACING_WINDOW_HOURS: Record<WorldReleaseQueuePacingMode, num
   daily: 24,
   weekly: 168
 };
+const DROP_VERSION_LABELS = new Set<DropVersionLabel>([
+  "v1",
+  "v2",
+  "v3",
+  "director_cut",
+  "remaster"
+]);
+const AUTHORIZED_DERIVATIVE_KINDS = new Set<AuthorizedDerivativeKind>([
+  "remix",
+  "translation",
+  "anthology_world",
+  "collaborative_season"
+]);
 
 function toHandle(email: string): string {
   const base = email.split("@")[0] ?? "collector";
@@ -112,6 +134,15 @@ function toPublicCertificate(record: CertificateRecord): Certificate {
     receiptId: record.receiptId,
     status: record.status
   };
+}
+
+function hasValidRevenueSplitTotal(
+  revenueSplits: Array<{ recipientHandle: string; sharePercent: number }>
+): boolean {
+  const total = Number(
+    revenueSplits.reduce((sum, entry) => sum + entry.sharePercent, 0).toFixed(2)
+  );
+  return total === 100;
 }
 
 function createInitialStore(): MockStore {
@@ -345,6 +376,47 @@ function createInitialStore(): MockStore {
       canceledAt: null
     }
   ];
+  const dropVersions: DropVersion[] = [
+    {
+      id: "dver_seed_stardust_v1",
+      dropId: "stardust",
+      label: "v1",
+      notes: "original cut",
+      createdByHandle: "oneofakinde",
+      createdAt: "2026-02-16T12:00:00.000Z",
+      releasedAt: "2026-02-16T12:00:00.000Z"
+    },
+    {
+      id: "dver_seed_through_lens_v1",
+      dropId: "through-the-lens",
+      label: "v1",
+      notes: "launch edit",
+      createdByHandle: "oneofakinde",
+      createdAt: "2026-02-14T12:00:00.000Z",
+      releasedAt: "2026-02-14T12:00:00.000Z"
+    }
+  ];
+  const authorizedDerivatives: AuthorizedDerivative[] = [
+    {
+      id: "ader_seed_stardust_voidrunner",
+      sourceDropId: "stardust",
+      derivativeDropId: "voidrunner",
+      kind: "remix",
+      attribution: "voidrunner remix from stardust",
+      revenueSplits: [
+        {
+          recipientHandle: "oneofakinde",
+          sharePercent: 70
+        },
+        {
+          recipientHandle: "collector_demo",
+          sharePercent: 30
+        }
+      ],
+      authorizedByHandle: "oneofakinde",
+      createdAt: "2026-02-18T12:00:00.000Z"
+    }
+  ];
 
   const accountId = "acct_collector_demo";
   const account: AccountRecord = {
@@ -416,7 +488,9 @@ function createInitialStore(): MockStore {
     pendingPayments,
     membershipEntitlements,
     liveSessions,
-    worldReleaseQueue
+    worldReleaseQueue,
+    dropVersions,
+    authorizedDerivatives
   };
 }
 
@@ -495,6 +569,21 @@ function getSavedDrops(accountId: string): LibraryDrop[] {
       } satisfies LibraryDrop;
     })
     .filter((entry): entry is LibraryDrop => entry !== null);
+}
+
+function buildDropLineageSnapshot(dropId: string): DropLineageSnapshot {
+  const versions = store.dropVersions
+    .filter((version) => version.dropId === dropId)
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+  const derivatives = store.authorizedDerivatives
+    .filter((entry) => entry.sourceDropId === dropId)
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+
+  return {
+    dropId,
+    versions,
+    derivatives
+  };
 }
 
 function grantOwnership({
@@ -941,6 +1030,122 @@ export const commerceGateway: CommerceGateway = {
 
   async getDropById(dropId: string): Promise<Drop | null> {
     return store.drops.get(dropId) ?? null;
+  },
+
+  async getDropLineage(dropId: string): Promise<DropLineageSnapshot | null> {
+    if (!store.drops.has(dropId)) {
+      return null;
+    }
+
+    return buildDropLineageSnapshot(dropId);
+  },
+
+  async createDropVersion(
+    accountId: string,
+    dropId: string,
+    input: CreateDropVersionInput
+  ): Promise<DropVersion | null> {
+    const account = store.accounts.get(accountId);
+    const drop = store.drops.get(dropId);
+    if (!account || !drop || !account.roles.includes("creator")) {
+      return null;
+    }
+
+    if (account.handle !== drop.studioHandle) {
+      return null;
+    }
+
+    if (!DROP_VERSION_LABELS.has(input.label)) {
+      return null;
+    }
+
+    const notes = input.notes?.trim() || null;
+    const releasedAtRaw = input.releasedAt?.trim() || null;
+    if (releasedAtRaw && parseIsoTimestamp(releasedAtRaw) === null) {
+      return null;
+    }
+
+    const version: DropVersion = {
+      id: `dver_${randomUUID()}`,
+      dropId: drop.id,
+      label: input.label,
+      notes,
+      createdByHandle: account.handle,
+      createdAt: new Date().toISOString(),
+      releasedAt: releasedAtRaw
+    };
+    store.dropVersions.unshift(version);
+    return version;
+  },
+
+  async createAuthorizedDerivative(
+    accountId: string,
+    sourceDropId: string,
+    input: CreateAuthorizedDerivativeInput
+  ): Promise<AuthorizedDerivative | null> {
+    const account = store.accounts.get(accountId);
+    const sourceDrop = store.drops.get(sourceDropId);
+    const derivativeDrop = store.drops.get(input.derivativeDropId);
+    if (!account || !sourceDrop || !derivativeDrop || !account.roles.includes("creator")) {
+      return null;
+    }
+
+    if (account.handle !== sourceDrop.studioHandle || sourceDrop.id === derivativeDrop.id) {
+      return null;
+    }
+
+    if (!AUTHORIZED_DERIVATIVE_KINDS.has(input.kind)) {
+      return null;
+    }
+
+    const attribution = input.attribution.trim();
+    if (!attribution) {
+      return null;
+    }
+
+    if (!Array.isArray(input.revenueSplits) || input.revenueSplits.length === 0) {
+      return null;
+    }
+
+    const revenueSplits = input.revenueSplits
+      .map((entry) => {
+        const recipientHandle = entry.recipientHandle.trim();
+        const sharePercent = Number(entry.sharePercent.toFixed(2));
+        if (!recipientHandle || !Number.isFinite(sharePercent) || sharePercent <= 0 || sharePercent > 100) {
+          return null;
+        }
+        return {
+          recipientHandle,
+          sharePercent
+        };
+      })
+      .filter((entry): entry is { recipientHandle: string; sharePercent: number } => entry !== null);
+    if (revenueSplits.length !== input.revenueSplits.length || !hasValidRevenueSplitTotal(revenueSplits)) {
+      return null;
+    }
+
+    const duplicate = store.authorizedDerivatives.find(
+      (entry) =>
+        entry.sourceDropId === sourceDrop.id &&
+        entry.derivativeDropId === derivativeDrop.id &&
+        entry.kind === input.kind
+    );
+    if (duplicate) {
+      return null;
+    }
+
+    const derivative: AuthorizedDerivative = {
+      id: `ader_${randomUUID()}`,
+      sourceDropId: sourceDrop.id,
+      derivativeDropId: derivativeDrop.id,
+      kind: input.kind,
+      attribution,
+      revenueSplits,
+      authorizedByHandle: account.handle,
+      createdAt: new Date().toISOString()
+    };
+    store.authorizedDerivatives.unshift(derivative);
+    return derivative;
   },
 
   async getCheckoutPreview(accountId: string, dropId: string): Promise<CheckoutPreview | null> {

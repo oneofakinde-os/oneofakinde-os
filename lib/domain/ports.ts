@@ -1,12 +1,17 @@
 import type {
+  AuthorizedDerivative,
   Certificate,
   CollectLiveSessionSnapshot,
   CheckoutSession,
   CheckoutPreview,
+  CreateAuthorizedDerivativeInput,
+  CreateDropVersionInput,
   CreateWorkshopWorldReleaseInput,
   CreateWorkshopLiveSessionInput,
   CreateSessionInput,
   Drop,
+  DropLineageSnapshot,
+  DropVersion,
   LibrarySnapshot,
   LiveSession,
   LiveSessionEligibility,
@@ -33,6 +38,17 @@ export interface CommerceGateway {
   listDropsByStudioHandle(handle: string): Promise<Drop[]>;
 
   getDropById(dropId: string): Promise<Drop | null>;
+  getDropLineage(dropId: string): Promise<DropLineageSnapshot | null>;
+  createDropVersion(
+    accountId: string,
+    dropId: string,
+    input: CreateDropVersionInput
+  ): Promise<DropVersion | null>;
+  createAuthorizedDerivative(
+    accountId: string,
+    sourceDropId: string,
+    input: CreateAuthorizedDerivativeInput
+  ): Promise<AuthorizedDerivative | null>;
   getCheckoutPreview(accountId: string, dropId: string): Promise<CheckoutPreview | null>;
   createCheckoutSession(
     accountId: string,
