@@ -1,33 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
 
 async function signInAsCreator(page: Page) {
-  const response = await page.request.post("/api/v1/session/create", {
-    data: {
-      email: "oneofakinde@oneofakinde.com",
-      role: "creator"
-    }
-  });
-  expect(response.ok()).toBeTruthy();
-
-  const payload = (await response.json()) as {
-    session?: {
-      sessionToken?: string;
-    };
-  };
-
-  const sessionToken = payload.session?.sessionToken;
-  expect(sessionToken).toBeTruthy();
-
-  const baseUrl = process.env.SMOKE_BASE_URL ?? "http://127.0.0.1:4300";
-  await page.context().addCookies([
-    {
-      name: "ook_session",
-      value: sessionToken ?? "",
-      url: baseUrl,
-      httpOnly: true,
-      sameSite: "Lax"
-    }
-  ]);
+  await page.goto("/auth/sign-in?returnTo=%2Fworkshop", { waitUntil: "domcontentloaded" });
+  await page.getByLabel("what's your email?").fill("oneofakinde@oneofakinde.com");
+  await page.getByLabel("enter your password").fill("smoke-password");
+  await page.getByRole("radio", { name: "creator" }).check();
+  await page.getByRole("button", { name: "let's go" }).click();
+  await page.waitForURL("**/workshop", { timeout: 12000 });
 }
 
 test.describe("lineage smoke", () => {
@@ -40,7 +19,6 @@ test.describe("lineage smoke", () => {
 
   test("workshop shows lineage create/list surfaces for creators", async ({ page }) => {
     await signInAsCreator(page);
-    await page.goto("/workshop", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByTestId("workshop-lineage-panel")).toBeVisible();
     await expect(page.getByTestId("workshop-drop-lineage-stardust")).toBeVisible();
