@@ -32,6 +32,7 @@ export default async function MyCollectionPage({ searchParams }: MyCollectionPag
     receiptId ? gateway.getReceipt(session.accountId, receiptId) : Promise.resolve(null),
     receiptId ? gateway.getCertificateByReceipt(session.accountId, receiptId) : Promise.resolve(null)
   ]);
+  const analyticsPanel = await gateway.getMyCollectionAnalyticsPanel(session.accountId);
 
   return (
     <MyCollectionScreen
@@ -40,6 +41,7 @@ export default async function MyCollectionPage({ searchParams }: MyCollectionPag
       status={status}
       receipt={receipt}
       certificate={certificate}
+      analyticsPanel={analyticsPanel}
     />
   );
 }

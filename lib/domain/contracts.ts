@@ -623,6 +623,58 @@ export type MyCollectionSnapshot = {
   totalSpentUsd: number;
 };
 
+export type WorkshopAnalyticsPanel = {
+  studioHandle: string;
+  dropsPublished: number;
+  discoveryImpressions: number;
+  previewStarts: number;
+  accessStarts: number;
+  completions: number;
+  collectIntents: number;
+  completedCollects: number;
+  collectConversionRate: number;
+  updatedAt: string;
+};
+
+export type MyCollectionAnalyticsPanel = {
+  accountHandle: string;
+  holdingsCount: number;
+  worldCount: number;
+  totalSpentUsd: number;
+  averageCollectPriceUsd: number;
+  recentCollectCount30d: number;
+  participation: {
+    likes: number;
+    comments: number;
+    shares: number;
+    saves: number;
+  };
+  updatedAt: string;
+};
+
+export type OpsAnalyticsPanel = {
+  settlement: {
+    completedReceipts: number;
+    refundedReceipts: number;
+    ledgerTransactions: number;
+    ledgerLineItems: number;
+    missingLedgerLinks: number;
+  };
+  webhooks: {
+    processedEvents: number;
+    pendingPayments: number;
+    failedPayments: number;
+    refundedPayments: number;
+  };
+  reliability: {
+    watchSessionErrors: number;
+    watchSessionStalls: number;
+    rebufferEvents: number;
+    qualityStepDowns: number;
+  };
+  updatedAt: string;
+};
+
 export type LibraryDrop = {
   drop: Drop;
   savedAt: string;

@@ -7,6 +7,7 @@ import type {
   PatronTierConfig,
   Session,
   TownhallModerationQueueItem,
+  WorkshopAnalyticsPanel,
   WorldReleaseQueueItem,
   World
 } from "@/lib/domain/contracts";
@@ -29,6 +30,7 @@ type WorkshopRootScreenProps = {
   versionNotice: string | null;
   derivativeNotice: string | null;
   moderationNotice: string | null;
+  analyticsPanel: WorkshopAnalyticsPanel | null;
   createLiveSessionAction: (formData: FormData) => Promise<void>;
   upsertPatronTierConfigAction: (formData: FormData) => Promise<void>;
   createWorldReleaseAction: (formData: FormData) => Promise<void>;
@@ -63,6 +65,7 @@ export function WorkshopRootScreen({
   versionNotice,
   derivativeNotice,
   moderationNotice,
+  analyticsPanel,
   createLiveSessionAction,
   upsertPatronTierConfigAction,
   createWorldReleaseAction,
@@ -107,6 +110,39 @@ export function WorkshopRootScreen({
           </Link>
         </div>
       </section>
+
+      {analyticsPanel ? (
+        <section className="slice-panel">
+          <p className="slice-label">workshop analytics v0</p>
+          <div className="ops-kpi-grid">
+            <article className="ops-kpi">
+              <h3>{analyticsPanel.discoveryImpressions}</h3>
+              <p>discovery impressions</p>
+            </article>
+            <article className="ops-kpi">
+              <h3>{analyticsPanel.previewStarts}</h3>
+              <p>preview starts</p>
+            </article>
+            <article className="ops-kpi">
+              <h3>{analyticsPanel.accessStarts}</h3>
+              <p>access starts</p>
+            </article>
+            <article className="ops-kpi">
+              <h3>{analyticsPanel.collectIntents}</h3>
+              <p>collect intent</p>
+            </article>
+            <article className="ops-kpi">
+              <h3>{analyticsPanel.completedCollects}</h3>
+              <p>completed collects</p>
+            </article>
+            <article className="ops-kpi">
+              <h3>{(analyticsPanel.collectConversionRate * 100).toFixed(1)}%</h3>
+              <p>collect conversion</p>
+            </article>
+          </div>
+          <p className="slice-meta">updated {new Date(analyticsPanel.updatedAt).toLocaleString()}</p>
+        </section>
+      ) : null}
 
       <section className="slice-panel">
         <p className="slice-label">patron tier configuration</p>

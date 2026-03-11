@@ -16,12 +16,15 @@ import type {
   LiveSession,
   LiveSessionEligibility,
   MembershipEntitlement,
+  MyCollectionAnalyticsPanel,
   MyCollectionSnapshot,
+  OpsAnalyticsPanel,
   PurchaseReceipt,
   TownhallModerationCaseResolution,
   TownhallModerationCaseResolveResult,
   TownhallDropSocialSnapshot,
   TownhallModerationQueueItem,
+  WorkshopAnalyticsPanel,
   PatronTierConfig,
   UpsertWorkshopPatronTierConfigInput,
   WorldReleaseQueueItem,
@@ -63,7 +66,10 @@ export interface CommerceGateway {
   completePendingPayment(paymentId: string): Promise<PurchaseReceipt | null>;
   purchaseDrop(accountId: string, dropId: string): Promise<PurchaseReceipt | null>;
   getMyCollection(accountId: string): Promise<MyCollectionSnapshot | null>;
+  getMyCollectionAnalyticsPanel(accountId: string): Promise<MyCollectionAnalyticsPanel | null>;
   getLibrary(accountId: string): Promise<LibrarySnapshot | null>;
+  getWorkshopAnalyticsPanel(accountId: string): Promise<WorkshopAnalyticsPanel | null>;
+  getOpsAnalyticsPanel(accountId: string): Promise<OpsAnalyticsPanel | null>;
   getReceipt(accountId: string, receiptId: string): Promise<PurchaseReceipt | null>;
   hasDropEntitlement(accountId: string, dropId: string): Promise<boolean>;
   listMembershipEntitlements(accountId: string): Promise<MembershipEntitlement[]>;

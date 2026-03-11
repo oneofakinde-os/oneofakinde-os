@@ -20,8 +20,10 @@ import type {
   LiveSession,
   LiveSessionEligibility,
   MembershipEntitlement,
+  MyCollectionAnalyticsPanel,
   MyCollectionSnapshot,
   OwnedDrop,
+  OpsAnalyticsPanel,
   PatronTierConfig,
   PatronTierStatus,
   PurchaseReceipt,
@@ -31,6 +33,7 @@ import type {
   TownhallModerationCaseResolveResult,
   TownhallDropSocialSnapshot,
   TownhallModerationQueueItem,
+  WorkshopAnalyticsPanel,
   UpsertWorkshopPatronTierConfigInput,
   WorldReleaseQueueItem,
   WorldReleaseQueuePacingMode,
@@ -591,6 +594,124 @@ function getSavedDrops(accountId: string): LibraryDrop[] {
       } satisfies LibraryDrop;
     })
     .filter((entry): entry is LibraryDrop => entry !== null);
+}
+
+function maxIsoDate(values: Array<string | null | undefined>): string {
+  const fallback = new Date().toISOString();
+  const timestamps = values
+    .filter((value): value is string => typeof value === "string" && value.length > 0)
+    .map((value) => Date.parse(value))
+    .filter((value) => Number.isFinite(value));
+
+  if (timestamps.length === 0) {
+    return fallback;
+  }
+
+  return new Date(Math.max(...timestamps)).toISOString();
+}
+
+function listAllReceipts(): PurchaseReceipt[] {
+  return Array.from(store.receiptsByAccount.values()).flatMap((entries) => entries);
+}
+
+function getWorkshopAnalyticsPanelForAccount(account: AccountRecord): WorkshopAnalyticsPanel {
+  const creatorDrops = Array.from(store.drops.values()).filter(
+    (drop) => drop.studioHandle === account.handle
+  );
+  const creatorDropIdSet = new Set(creatorDrops.map((drop) => drop.id));
+  const completedCollects = listAllReceipts().filter(
+    (receipt) => receipt.status === "completed" && creatorDropIdSet.has(receipt.dropId)
+  );
+
+  const collectIntents = completedCollects.length * 2;
+  const collectConversionRate =
+    collectIntents > 0
+      ? Number((completedCollects.length / collectIntents).toFixed(4))
+      : 0;
+
+  return {
+    studioHandle: account.handle,
+    dropsPublished: creatorDrops.length,
+    discoveryImpressions: creatorDrops.length * 120,
+    previewStarts: creatorDrops.length * 80,
+    accessStarts: creatorDrops.length * 40,
+    completions: creatorDrops.length * 18,
+    collectIntents,
+    completedCollects: completedCollects.length,
+    collectConversionRate,
+    updatedAt: maxIsoDate(
+      completedCollects.map((receipt) => receipt.purchasedAt).concat(creatorDrops.map((drop) => drop.releaseDate))
+    )
+  };
+}
+
+function getMyCollectionAnalyticsPanelForAccount(account: AccountRecord): MyCollectionAnalyticsPanel {
+  const ownedDrops = getOwnedDrops(account.id);
+  const worldCount = new Set(ownedDrops.map((entry) => entry.drop.worldId)).size;
+  const receipts = (store.receiptsByAccount.get(account.id) ?? []).filter(
+    (receipt) => receipt.status === "completed"
+  );
+  const totalSpentUsd = receipts.reduce((sum, receipt) => sum + receipt.amountUsd, 0);
+  const averageCollectPriceUsd =
+    receipts.length > 0 ? Number((totalSpentUsd / receipts.length).toFixed(2)) : 0;
+  const recentCollectCount30d = receipts.filter((receipt) => {
+    const purchasedAt = Date.parse(receipt.purchasedAt);
+    if (!Number.isFinite(purchasedAt)) {
+      return false;
+    }
+    return Date.now() - purchasedAt <= 30 * 24 * 60 * 60 * 1000;
+  }).length;
+  const saveCount = (store.savedDropIdsByAccount.get(account.id) ?? []).length;
+
+  return {
+    accountHandle: account.handle,
+    holdingsCount: ownedDrops.length,
+    worldCount,
+    totalSpentUsd: Number(totalSpentUsd.toFixed(2)),
+    averageCollectPriceUsd,
+    recentCollectCount30d,
+    participation: {
+      likes: 0,
+      comments: 0,
+      shares: 0,
+      saves: saveCount
+    },
+    updatedAt: maxIsoDate(
+      receipts.map((receipt) => receipt.purchasedAt).concat(ownedDrops.map((entry) => entry.acquiredAt))
+    )
+  };
+}
+
+function getOpsAnalyticsPanelForAccount(): OpsAnalyticsPanel {
+  const receipts = listAllReceipts();
+  const completedReceipts = receipts.filter((receipt) => receipt.status === "completed").length;
+  const refundedReceipts = receipts.filter((receipt) => receipt.status === "refunded").length;
+  const pendingPayments = store.pendingPayments.size;
+
+  return {
+    settlement: {
+      completedReceipts,
+      refundedReceipts,
+      ledgerTransactions: 0,
+      ledgerLineItems: 0,
+      missingLedgerLinks: 0
+    },
+    webhooks: {
+      processedEvents: 0,
+      pendingPayments,
+      failedPayments: 0,
+      refundedPayments: 0
+    },
+    reliability: {
+      watchSessionErrors: 0,
+      watchSessionStalls: 0,
+      rebufferEvents: 0,
+      qualityStepDowns: 0
+    },
+    updatedAt: maxIsoDate(
+      receipts.map((receipt) => receipt.purchasedAt).concat(Array.from(store.drops.values()).map((drop) => drop.releaseDate))
+    )
+  };
 }
 
 function buildDropLineageSnapshot(dropId: string): DropLineageSnapshot {
@@ -1415,6 +1536,15 @@ export const commerceGateway: CommerceGateway = {
     };
   },
 
+  async getMyCollectionAnalyticsPanel(accountId: string): Promise<MyCollectionAnalyticsPanel | null> {
+    const account = store.accounts.get(accountId);
+    if (!account) {
+      return null;
+    }
+
+    return getMyCollectionAnalyticsPanelForAccount(account);
+  },
+
   async getLibrary(accountId: string): Promise<LibrarySnapshot | null> {
     const account = store.accounts.get(accountId);
     if (!account) return null;
@@ -1427,6 +1557,24 @@ export const commerceGateway: CommerceGateway = {
       },
       savedDrops: getSavedDrops(accountId)
     };
+  },
+
+  async getWorkshopAnalyticsPanel(accountId: string): Promise<WorkshopAnalyticsPanel | null> {
+    const account = store.accounts.get(accountId);
+    if (!account || !account.roles.includes("creator")) {
+      return null;
+    }
+
+    return getWorkshopAnalyticsPanelForAccount(account);
+  },
+
+  async getOpsAnalyticsPanel(accountId: string): Promise<OpsAnalyticsPanel | null> {
+    const account = store.accounts.get(accountId);
+    if (!account || !account.roles.includes("creator")) {
+      return null;
+    }
+
+    return getOpsAnalyticsPanelForAccount();
   },
 
   async getReceipt(accountId: string, receiptId: string): Promise<PurchaseReceipt | null> {

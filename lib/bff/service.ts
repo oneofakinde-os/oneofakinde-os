@@ -28,9 +28,11 @@ import type {
   LiveSession,
   LiveSessionEligibility,
   LiveSessionJoinSnapshot,
+  MyCollectionAnalyticsPanel,
   DropOwnershipHistory,
   MyCollectionSnapshot,
   MembershipEntitlement,
+  OpsAnalyticsPanel,
   OwnedDrop,
   OwnershipHistoryEntry,
   Patron,
@@ -53,6 +55,7 @@ import type {
   TownhallTelemetryMetadata,
   TownhallTelemetryEventType,
   TownhallTelemetrySignals,
+  WorkshopAnalyticsPanel,
   WatchQualityLevel,
   WatchQualityMode,
   WatchTelemetryEventType,
@@ -786,6 +789,170 @@ function getSavedDrops(db: BffDatabase, accountId: string): LibraryDrop[] {
     })
     .filter((entry): entry is LibraryDrop => entry !== null)
     .sort((a, b) => Date.parse(b.savedAt) - Date.parse(a.savedAt));
+}
+
+function toLatestTimestamp(values: Array<string | null | undefined>): string {
+  const parsed = values
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .map((value) => Date.parse(value))
+    .filter((value) => Number.isFinite(value));
+
+  if (parsed.length === 0) {
+    return new Date().toISOString();
+  }
+
+  return new Date(Math.max(...parsed)).toISOString();
+}
+
+function toWorkshopAnalyticsPanel(db: BffDatabase, account: AccountRecord): WorkshopAnalyticsPanel {
+  const studioDrops = db.catalog.drops.filter((drop) => drop.studioHandle === account.handle);
+  const studioDropIds = new Set(studioDrops.map((drop) => drop.id));
+  const telemetry = db.townhallTelemetryEvents.filter((entry) => studioDropIds.has(entry.dropId));
+  const discoveryImpressions = telemetry.filter(
+    (entry) => entry.eventType === "impression" || entry.eventType === "showroom_impression"
+  ).length;
+  const previewStarts = telemetry.filter((entry) => entry.eventType === "preview_start").length;
+  const accessStarts = telemetry.filter((entry) => entry.eventType === "access_start").length;
+  const completions = telemetry.filter((entry) => entry.eventType === "completion").length;
+  const collectIntents = telemetry.filter((entry) => entry.eventType === "collect_intent").length;
+  const completedCollects = db.receipts.filter(
+    (receipt) => receipt.status === "completed" && studioDropIds.has(receipt.dropId)
+  ).length;
+  const collectConversionRate =
+    collectIntents > 0 ? Number((completedCollects / collectIntents).toFixed(4)) : 0;
+
+  return {
+    studioHandle: account.handle,
+    dropsPublished: studioDrops.length,
+    discoveryImpressions,
+    previewStarts,
+    accessStarts,
+    completions,
+    collectIntents,
+    completedCollects,
+    collectConversionRate,
+    updatedAt: toLatestTimestamp(
+      telemetry.map((entry) => entry.occurredAt).concat(
+        db.receipts
+          .filter((receipt) => studioDropIds.has(receipt.dropId))
+          .map((receipt) => receipt.purchasedAt),
+        studioDrops.map((drop) => drop.releaseDate)
+      )
+    )
+  };
+}
+
+function toMyCollectionAnalyticsPanel(
+  db: BffDatabase,
+  account: AccountRecord
+): MyCollectionAnalyticsPanel {
+  const ownedDrops = getOwnedDrops(db, account.id);
+  const completedReceipts = db.receipts.filter(
+    (receipt) => receipt.accountId === account.id && receipt.status === "completed"
+  );
+  const totalSpentUsd = completedReceipts.reduce((sum, receipt) => sum + receipt.amountUsd, 0);
+  const averageCollectPriceUsd =
+    completedReceipts.length > 0 ? Number((totalSpentUsd / completedReceipts.length).toFixed(2)) : 0;
+  const nowMs = Date.now();
+  const recentCollectCount30d = completedReceipts.filter((receipt) => {
+    const purchasedAt = parseIsoTime(receipt.purchasedAt);
+    if (purchasedAt <= 0) {
+      return false;
+    }
+
+    return nowMs - purchasedAt <= 30 * 24 * 60 * 60 * 1000;
+  }).length;
+  const worldCount = new Set(ownedDrops.map((entry) => entry.drop.worldId)).size;
+  const likes = db.townhallLikes.filter((entry) => entry.accountId === account.id).length;
+  const comments = db.townhallComments.filter((entry) => entry.accountId === account.id).length;
+  const shares = db.townhallShares.filter((entry) => entry.accountId === account.id).length;
+  const saves = db.savedDrops.filter((entry) => entry.accountId === account.id).length;
+
+  return {
+    accountHandle: account.handle,
+    holdingsCount: ownedDrops.length,
+    worldCount,
+    totalSpentUsd: Number(totalSpentUsd.toFixed(2)),
+    averageCollectPriceUsd,
+    recentCollectCount30d,
+    participation: {
+      likes,
+      comments,
+      shares,
+      saves
+    },
+    updatedAt: toLatestTimestamp(
+      completedReceipts
+        .map((receipt) => receipt.purchasedAt)
+        .concat(
+          ownedDrops.map((entry) => entry.acquiredAt),
+          db.townhallLikes.filter((entry) => entry.accountId === account.id).map((entry) => entry.likedAt),
+          db.townhallComments
+            .filter((entry) => entry.accountId === account.id)
+            .map((entry) => entry.createdAt),
+          db.townhallShares.filter((entry) => entry.accountId === account.id).map((entry) => entry.sharedAt),
+          db.savedDrops.filter((entry) => entry.accountId === account.id).map((entry) => entry.savedAt)
+        )
+    )
+  };
+}
+
+function toOpsAnalyticsPanel(db: BffDatabase): OpsAnalyticsPanel {
+  const completedReceipts = db.receipts.filter((receipt) => receipt.status === "completed");
+  const refundedReceipts = db.receipts.filter((receipt) => receipt.status === "refunded");
+  const missingLedgerLinks = completedReceipts.filter((receipt) => {
+    const ledgerTransactionId = receipt.ledgerTransactionId ?? null;
+    if (!ledgerTransactionId) {
+      return true;
+    }
+
+    return !db.ledgerTransactions.some((entry) => entry.id === ledgerTransactionId);
+  }).length;
+  const pendingPayments = db.payments.filter((payment) => payment.status === "pending").length;
+  const failedPayments = db.payments.filter((payment) => payment.status === "failed").length;
+  const refundedPayments = db.payments.filter((payment) => payment.status === "refunded").length;
+  const watchSessionErrors = db.watchSessions.filter(
+    (entry) => entry.endReason === "network_error" || entry.endReason === "error"
+  ).length;
+  const watchSessionStalls = db.watchSessions.filter((entry) => entry.endReason === "stalled").length;
+  const rebufferEvents = db.townhallTelemetryEvents.filter((entry) => entry.eventType === "rebuffer").length;
+  const qualityStepDowns = db.watchSessions.reduce(
+    (sum, entry) => sum + Math.max(0, entry.qualityStepDownCount),
+    0
+  );
+
+  return {
+    settlement: {
+      completedReceipts: completedReceipts.length,
+      refundedReceipts: refundedReceipts.length,
+      ledgerTransactions: db.ledgerTransactions.length,
+      ledgerLineItems: db.ledgerLineItems.length,
+      missingLedgerLinks
+    },
+    webhooks: {
+      processedEvents: db.stripeWebhookEvents.length,
+      pendingPayments,
+      failedPayments,
+      refundedPayments
+    },
+    reliability: {
+      watchSessionErrors,
+      watchSessionStalls,
+      rebufferEvents,
+      qualityStepDowns
+    },
+    updatedAt: toLatestTimestamp(
+      db.receipts
+        .map((receipt) => receipt.purchasedAt)
+        .concat(
+          db.payments.map((payment) => payment.updatedAt),
+          db.stripeWebhookEvents.map((event) => event.processedAt),
+          db.watchSessions.map((session) => session.lastHeartbeatAt),
+          db.townhallTelemetryEvents.map((entry) => entry.occurredAt),
+          db.ledgerTransactions.map((entry) => entry.createdAt)
+        )
+    )
+  };
 }
 
 function findAccountById(db: BffDatabase, accountId: string): AccountRecord | null {
@@ -3317,6 +3484,23 @@ const gatewayMethods: CommerceGateway = {
     });
   },
 
+  async getMyCollectionAnalyticsPanel(accountId: string): Promise<MyCollectionAnalyticsPanel | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      return {
+        persist: false,
+        result: toMyCollectionAnalyticsPanel(db, account)
+      };
+    });
+  },
+
   async getLibrary(accountId: string): Promise<LibrarySnapshot | null> {
     return withDatabase(async (db) => {
       const account = findAccountById(db, accountId);
@@ -3337,6 +3521,40 @@ const gatewayMethods: CommerceGateway = {
           },
           savedDrops: getSavedDrops(db, account.id)
         }
+      };
+    });
+  },
+
+  async getWorkshopAnalyticsPanel(accountId: string): Promise<WorkshopAnalyticsPanel | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account || !account.roles.includes("creator")) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      return {
+        persist: false,
+        result: toWorkshopAnalyticsPanel(db, account)
+      };
+    });
+  },
+
+  async getOpsAnalyticsPanel(accountId: string): Promise<OpsAnalyticsPanel | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account || !account.roles.includes("creator")) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      return {
+        persist: false,
+        result: toOpsAnalyticsPanel(db)
       };
     });
   },

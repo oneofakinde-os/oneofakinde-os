@@ -2,6 +2,7 @@ import { AppShell } from "@/features/shell/app-shell";
 import { formatUsd } from "@/features/shared/format";
 import type {
   Certificate,
+  MyCollectionAnalyticsPanel,
   MyCollectionSnapshot,
   PurchaseReceipt,
   Session
@@ -15,6 +16,7 @@ type MyCollectionScreenProps = {
   status: string | null;
   receipt: PurchaseReceipt | null;
   certificate: Certificate | null;
+  analyticsPanel: MyCollectionAnalyticsPanel | null;
 };
 
 export function MyCollectionScreen({
@@ -22,7 +24,8 @@ export function MyCollectionScreen({
   collection,
   status,
   receipt,
-  certificate
+  certificate,
+  analyticsPanel
 }: MyCollectionScreenProps) {
   return (
     <AppShell
@@ -78,6 +81,49 @@ export function MyCollectionScreen({
               </Link>
             </div>
           ) : null}
+        </section>
+      ) : null}
+
+      {analyticsPanel ? (
+        <section className="slice-panel">
+          <p className="slice-label">my collection analytics v0</p>
+          <div className="ops-kpi-grid">
+            <article className="ops-kpi">
+              <h3>{analyticsPanel.holdingsCount}</h3>
+              <p>holdings</p>
+            </article>
+            <article className="ops-kpi">
+              <h3>{analyticsPanel.worldCount}</h3>
+              <p>worlds held</p>
+            </article>
+            <article className="ops-kpi">
+              <h3>{formatUsd(analyticsPanel.averageCollectPriceUsd)}</h3>
+              <p>avg collect price</p>
+            </article>
+            <article className="ops-kpi">
+              <h3>{analyticsPanel.recentCollectCount30d}</h3>
+              <p>collects in 30d</p>
+            </article>
+          </div>
+          <dl className="slice-list">
+            <div>
+              <dt>likes</dt>
+              <dd>{analyticsPanel.participation.likes}</dd>
+            </div>
+            <div>
+              <dt>comments</dt>
+              <dd>{analyticsPanel.participation.comments}</dd>
+            </div>
+            <div>
+              <dt>shares</dt>
+              <dd>{analyticsPanel.participation.shares}</dd>
+            </div>
+            <div>
+              <dt>saves</dt>
+              <dd>{analyticsPanel.participation.saves}</dd>
+            </div>
+          </dl>
+          <p className="slice-meta">updated {new Date(analyticsPanel.updatedAt).toLocaleString()}</p>
         </section>
       ) : null}
 

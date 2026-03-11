@@ -16,13 +16,16 @@ import type {
   LiveSession,
   LiveSessionEligibility,
   MembershipEntitlement,
+  MyCollectionAnalyticsPanel,
   MyCollectionSnapshot,
+  OpsAnalyticsPanel,
   PatronTierConfig,
   PurchaseReceipt,
   TownhallModerationCaseResolution,
   TownhallModerationCaseResolveResult,
   TownhallDropSocialSnapshot,
   TownhallModerationQueueItem,
+  WorkshopAnalyticsPanel,
   UpsertWorkshopPatronTierConfigInput,
   WorldReleaseQueueItem,
   WorldReleaseQueueStatus,
@@ -316,11 +319,40 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
       return response.payload.collection;
     },
 
+    async getMyCollectionAnalyticsPanel(
+      _accountId: string
+    ): Promise<MyCollectionAnalyticsPanel | null> {
+      void _accountId;
+      const response = await requestJson<{ panel: MyCollectionAnalyticsPanel }>(
+        options,
+        "/api/v1/analytics/my-collection"
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.panel;
+    },
+
     async getLibrary(_accountId: string): Promise<LibrarySnapshot | null> {
       void _accountId;
       const response = await requestJson<{ library: LibrarySnapshot }>(options, "/api/v1/library");
       if (!response.ok || !response.payload) return null;
       return response.payload.library;
+    },
+
+    async getWorkshopAnalyticsPanel(_accountId: string): Promise<WorkshopAnalyticsPanel | null> {
+      void _accountId;
+      const response = await requestJson<{ panel: WorkshopAnalyticsPanel }>(
+        options,
+        "/api/v1/analytics/workshop"
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.panel;
+    },
+
+    async getOpsAnalyticsPanel(_accountId: string): Promise<OpsAnalyticsPanel | null> {
+      void _accountId;
+      const response = await requestJson<{ panel: OpsAnalyticsPanel }>(options, "/api/v1/analytics/ops");
+      if (!response.ok || !response.payload) return null;
+      return response.payload.panel;
     },
 
     async getReceipt(_accountId: string, receiptId: string): Promise<PurchaseReceipt | null> {

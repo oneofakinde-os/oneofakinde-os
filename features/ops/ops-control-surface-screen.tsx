@@ -1,6 +1,6 @@
 import { AppShell } from "@/features/shell/app-shell";
 import { formatUsd } from "@/features/shared/format";
-import type { Drop, Session } from "@/lib/domain/contracts";
+import type { Drop, OpsAnalyticsPanel, Session } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
 import Link from "next/link";
 
@@ -21,6 +21,7 @@ type OpsControlSurfaceScreenProps = {
   surface: OpsSurface;
   session: Session | null;
   drops?: Drop[];
+  opsAnalyticsPanel?: OpsAnalyticsPanel | null;
 };
 
 type SurfaceMeta = {
@@ -331,8 +332,31 @@ function renderCreateBody(session: Session, drops: Drop[]) {
   );
 }
 
-function renderDashboardBody(drops: Drop[]) {
+function renderDashboardBody(drops: Drop[], opsAnalyticsPanel: OpsAnalyticsPanel | null) {
   const listedValue = firstDrops(drops).reduce((sum, drop) => sum + drop.priceUsd, 0);
+  const grossSales = opsAnalyticsPanel
+    ? opsAnalyticsPanel.settlement.completedReceipts * 3.25
+    : listedValue * 1.8;
+  const conversion = opsAnalyticsPanel
+    ? opsAnalyticsPanel.settlement.completedReceipts > 0
+      ? Math.min(
+          100,
+          Number(
+            (
+              ((opsAnalyticsPanel.settlement.completedReceipts - opsAnalyticsPanel.settlement.refundedReceipts) /
+                opsAnalyticsPanel.settlement.completedReceipts) *
+              100
+            ).toFixed(1)
+          )
+        )
+      : 0
+    : 6.3;
+  const impressions = opsAnalyticsPanel
+    ? opsAnalyticsPanel.reliability.rebufferEvents + opsAnalyticsPanel.reliability.qualityStepDowns
+    : 18400;
+  const settlementHealth = opsAnalyticsPanel
+    ? `${Math.max(0, 100 - opsAnalyticsPanel.settlement.missingLedgerLinks * 5)}%`
+    : "41%";
 
   return (
     <>
@@ -341,23 +365,48 @@ function renderDashboardBody(drops: Drop[]) {
         <h2 className="slice-title">creator analytics snapshot</h2>
         <div className="ops-kpi-grid">
           <article className="ops-kpi">
-            <h3>{formatUsd(listedValue * 1.8)}</h3>
+            <h3>{formatUsd(grossSales)}</h3>
             <p>gross sales this cycle</p>
           </article>
           <article className="ops-kpi">
-            <h3>6.3%</h3>
+            <h3>{conversion}%</h3>
             <p>store conversion</p>
           </article>
           <article className="ops-kpi">
-            <h3>18.4k</h3>
-            <p>watch impressions</p>
+            <h3>{impressions.toLocaleString()}</h3>
+            <p>quality + rebuffer events</p>
           </article>
           <article className="ops-kpi">
-            <h3>41%</h3>
-            <p>collector return rate</p>
+            <h3>{settlementHealth}</h3>
+            <p>settlement health</p>
           </article>
         </div>
       </section>
+
+      {opsAnalyticsPanel ? (
+        <section className="slice-panel">
+          <p className="slice-label">ops analytics v0</p>
+          <dl className="slice-list">
+            <div>
+              <dt>ledger transactions</dt>
+              <dd>{opsAnalyticsPanel.settlement.ledgerTransactions}</dd>
+            </div>
+            <div>
+              <dt>ledger line items</dt>
+              <dd>{opsAnalyticsPanel.settlement.ledgerLineItems}</dd>
+            </div>
+            <div>
+              <dt>webhooks processed</dt>
+              <dd>{opsAnalyticsPanel.webhooks.processedEvents}</dd>
+            </div>
+            <div>
+              <dt>failed payments</dt>
+              <dd>{opsAnalyticsPanel.webhooks.failedPayments}</dd>
+            </div>
+          </dl>
+          <p className="slice-meta">updated {new Date(opsAnalyticsPanel.updatedAt).toLocaleString()}</p>
+        </section>
+      ) : null}
 
       <section className="slice-panel">
         <p className="slice-label">quick links</p>
@@ -563,12 +612,17 @@ function renderSettingsNotificationsBody() {
   );
 }
 
-function renderBody(surface: OpsSurface, session: Session | null, drops: Drop[]) {
+function renderBody(
+  surface: OpsSurface,
+  session: Session | null,
+  drops: Drop[],
+  opsAnalyticsPanel: OpsAnalyticsPanel | null
+) {
   if (surface === "auctions") return renderAuctionBody(session, drops);
   if (surface === "invest" && session) return renderInvestBody(session, drops);
   if (surface === "following" && session) return renderFollowingBody(session, drops);
   if (surface === "create" && session) return renderCreateBody(session, drops);
-  if (surface === "dashboard") return renderDashboardBody(drops);
+  if (surface === "dashboard") return renderDashboardBody(drops, opsAnalyticsPanel);
   if (surface === "campaigns") return renderCampaignsBody();
   if (surface === "payouts") return renderPayoutsBody();
   if (surface === "settings_account" && session) return renderSettingsAccountBody(session);
@@ -587,13 +641,14 @@ function renderBody(surface: OpsSurface, session: Session | null, drops: Drop[])
 export function OpsControlSurfaceScreen({
   surface,
   session,
-  drops = []
+  drops = [],
+  opsAnalyticsPanel = null
 }: OpsControlSurfaceScreenProps) {
   const meta = SURFACE_META[surface];
 
   return (
     <AppShell title={meta.title} subtitle={meta.subtitle} session={session} activeNav={meta.activeNav}>
-      {renderBody(surface, session, drops)}
+      {renderBody(surface, session, drops, opsAnalyticsPanel)}
     </AppShell>
   );
 }
