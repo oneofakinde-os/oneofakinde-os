@@ -17,6 +17,14 @@ Run a strict launch dry run against a deployed environment and fail fast if any 
 OOK_RC_BASE_URL=https://oneofakinde-os.vercel.app npm run rc:dry-run
 ```
 
+## One-Click Full RC Verification
+
+```bash
+OOK_RC_BASE_URL=https://oneofakinde-os.vercel.app npm run rc:verify
+```
+
+`rc:verify` runs full release gating + this dry run in one command. See `RC_VERIFICATION_RUNBOOK.md`.
+
 If `OOK_RC_BASE_URL` is omitted, the script defaults to:
 
 ```text

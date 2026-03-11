@@ -24,6 +24,7 @@ Required jobs:
 - `release-governance`
   - `npm run release:governance`
   - includes `npm run check:feature-flags`
+  - includes `npm run check:freeze-checklist`
 
 The required check list is source-controlled in:
 - `config/release-required-checks.json`
@@ -36,8 +37,12 @@ Release candidate dry run workflow:
 - `.github/pull_request_template.md`
 - `config/release-required-checks.json`
 - `config/feature-flags.contract.json`
+- `config/rc-freeze-checklist.json`
 - `scripts/check-release-governance.ts`
 - `scripts/check-feature-flags-contract.ts`
+- `scripts/check-rc-freeze-checklist.ts`
+- `scripts/rc-verify.ts`
+- `.github/workflows/release-candidate-dry-run.yml`
 
 ## Branch Protection (Repository Setting)
 Protect `main` with:

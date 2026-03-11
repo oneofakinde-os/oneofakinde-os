@@ -10,8 +10,14 @@ const REQUIRED_FILES = [
   ".github/pull_request_template.md",
   "config/release-required-checks.json",
   "config/feature-flags.contract.json",
+  "config/rc-freeze-checklist.json",
   "docs/architecture/FEATURE_FLAGS.md",
+  "docs/architecture/ROLL_OUT_PLAYBOOK.md",
+  "docs/architecture/RC_VERIFICATION_RUNBOOK.md",
   "scripts/check-feature-flags-contract.ts",
+  "scripts/check-rc-freeze-checklist.ts",
+  "scripts/rc-verify.ts",
+  ".github/workflows/release-candidate-dry-run.yml",
   ".github/workflows/ci.yml"
 ];
 
@@ -67,11 +73,23 @@ const scripts = packageJson.scripts ?? {};
 if (!scripts["check:feature-flags"]) {
   fail('package.json scripts must include "check:feature-flags"');
 }
+if (!scripts["check:freeze-checklist"]) {
+  fail('package.json scripts must include "check:freeze-checklist"');
+}
+if (!scripts["rc:verify"]) {
+  fail('package.json scripts must include "rc:verify"');
+}
 if (!scripts["release:governance"]?.includes("check:feature-flags")) {
   fail('package.json "release:governance" must execute check:feature-flags');
 }
+if (!scripts["release:governance"]?.includes("check:freeze-checklist")) {
+  fail('package.json "release:governance" must execute check:freeze-checklist');
+}
 if (!scripts["prepare:architecture"]?.includes("check:feature-flags")) {
   fail('package.json "prepare:architecture" must execute check:feature-flags');
+}
+if (!scripts["prepare:architecture"]?.includes("check:freeze-checklist")) {
+  fail('package.json "prepare:architecture" must execute check:freeze-checklist');
 }
 
 if (!workflow.includes("pull_request:")) {

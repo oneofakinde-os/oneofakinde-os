@@ -24,6 +24,10 @@ This package defines the target software architecture for oneofakinde OS using t
   - Workshop, my collection, and ops panel contracts + source streams.
 - `FEATURE_FLAGS.md`
   - Runtime feature-flag contract, defaults, overrides, and governance gates.
+- `ROLL_OUT_PLAYBOOK.md`
+  - Release promotion stages, abort conditions, and rollback rules.
+- `RC_VERIFICATION_RUNBOOK.md`
+  - One-click release-candidate verification flow and freeze decision protocol.
 - `release-candidate-dry-run.md`
   - Strict pass/fail launch dry run checklist and execution command.
 

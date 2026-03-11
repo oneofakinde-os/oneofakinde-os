@@ -72,6 +72,7 @@ Release is blocked if any of the following fail:
 - payment or entitlement proof tests
 - accessibility threshold checks
 - feature-flag contract validation and rollout defaults check
+- RC freeze checklist contract validation (`config/rc-freeze-checklist.json`)
 
 Manual review required for:
 

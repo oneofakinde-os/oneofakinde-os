@@ -1,0 +1,35 @@
+{
+  "version": "train7-m3",
+  "required_ci_checks": [
+    "quality-gates",
+    "security-audit",
+    "secret-scan",
+    "release-governance"
+  ],
+  "required_rc_checks": [
+    "rc-01",
+    "rc-02",
+    "rc-03",
+    "rc-04",
+    "rc-05",
+    "rc-06",
+    "rc-07",
+    "rc-08",
+    "rc-09",
+    "rc-10",
+    "rc-11"
+  ],
+  "required_docs": [
+    "docs/architecture/release-candidate-dry-run.md",
+    "docs/architecture/townhall-immersive-qa-matrix.md",
+    "docs/architecture/ROLL_OUT_PLAYBOOK.md",
+    "docs/architecture/RC_VERIFICATION_RUNBOOK.md"
+  ],
+  "workflow": ".github/workflows/release-candidate-dry-run.yml",
+  "policy": {
+    "fail_on_any_rc_check_failure": true,
+    "fail_on_any_manual_matrix_non_pass": true,
+    "require_postgres_health_backend": true,
+    "require_release_governance_gate": true
+  }
+}
