@@ -34,6 +34,8 @@ import type {
   OwnedDrop,
   OwnershipHistoryEntry,
   Patron,
+  PatronTierConfig,
+  PatronTierStatus,
   PatronRosterEntry,
   PurchaseReceipt,
   ReceiptBadge,
@@ -70,6 +72,7 @@ import type {
   WorldCollectBundleType,
   WorldCollectOwnership,
   WorldCollectUpgradePreview,
+  UpsertWorkshopPatronTierConfigInput,
   World
 } from "@/lib/domain/contracts";
 import type { CommerceGateway } from "@/lib/domain/ports";
@@ -98,6 +101,7 @@ import {
   type MembershipEntitlementRecord,
   type PatronCommitmentRecord,
   type PatronRecord,
+  type PatronTierConfigRecord,
   type WorldConversationMessageRecord,
   type WorldReleaseQueueRecord,
   type WorldCollectOwnershipRecord,
@@ -134,8 +138,10 @@ const WATCH_ACCESS_GRANTS_LOG_LIMIT = 20_000;
 const WATCH_SESSION_LOG_LIMIT = 50_000;
 const PATRON_ROSTER_LOG_LIMIT = 20_000;
 const PATRON_COMMITMENT_LOG_LIMIT = 50_000;
+const PATRON_TIER_CONFIG_LOG_LIMIT = 2_000;
 const DEFAULT_PATRON_COMMITMENT_AMOUNT_CENTS = 500;
 const DEFAULT_PATRON_COMMITMENT_PERIOD_DAYS = 30;
+const DEFAULT_PATRON_TIER_TITLE = "studio patron";
 const WATCH_ACCESS_TOKEN_VERSION = 1 as const;
 const WATCH_ACCESS_TOKEN_DEFAULT_TTL_SECONDS = 300;
 const WATCH_ACCESS_TOKEN_MIN_TTL_SECONDS = 1;
@@ -450,6 +456,10 @@ function resolvePatronCommitmentPeriodDays(): number {
   }
 
   return DEFAULT_PATRON_COMMITMENT_PERIOD_DAYS;
+}
+
+function isPatronTierStatus(value: unknown): value is PatronTierStatus {
+  return value === "active" || value === "disabled";
 }
 
 function createWatchAccessSignature(payloadEncoded: string, secret: string): string {
@@ -2403,6 +2413,52 @@ function toPublicPatron(patron: PatronRecord): Pick<Patron, "handle" | "studioHa
   };
 }
 
+function toPatronTierConfig(config: PatronTierConfigRecord): PatronTierConfig {
+  return {
+    id: config.id,
+    studioHandle: config.studioHandle,
+    worldId: config.worldId,
+    title: config.title,
+    amountCents: config.amountCents,
+    periodDays: config.periodDays,
+    benefitsSummary: config.benefitsSummary,
+    status: config.status,
+    updatedAt: config.updatedAt,
+    updatedByHandle: config.updatedByHandle
+  };
+}
+
+function trimPatronTierConfigs(db: BffDatabase): void {
+  if (db.patronTierConfigs.length > PATRON_TIER_CONFIG_LOG_LIMIT) {
+    db.patronTierConfigs.length = PATRON_TIER_CONFIG_LOG_LIMIT;
+  }
+}
+
+function findEffectivePatronTierConfig(
+  db: BffDatabase,
+  studioHandle: string,
+  worldId: string | null
+): PatronTierConfigRecord | null {
+  if (worldId) {
+    const worldScoped =
+      db.patronTierConfigs.find(
+        (entry) =>
+          entry.studioHandle === studioHandle &&
+          entry.worldId === worldId &&
+          entry.status === "active"
+      ) ?? null;
+    if (worldScoped) {
+      return worldScoped;
+    }
+  }
+
+  return (
+    db.patronTierConfigs.find(
+      (entry) => entry.studioHandle === studioHandle && entry.worldId === null && entry.status === "active"
+    ) ?? null
+  );
+}
+
 function toPatronRosterEntry(patron: PatronRecord): PatronRosterEntry {
   return {
     handle: patron.handle,
@@ -3375,6 +3431,125 @@ const gatewayMethods: CommerceGateway = {
     });
   },
 
+  async listWorkshopPatronTierConfigs(accountId: string): Promise<PatronTierConfig[]> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account || !account.roles.includes("creator")) {
+        return {
+          persist: false,
+          result: []
+        };
+      }
+
+      const configs = db.patronTierConfigs
+        .filter((entry) => entry.studioHandle === account.handle)
+        .slice()
+        .sort((a, b) => {
+          if (a.worldId === null && b.worldId !== null) return -1;
+          if (a.worldId !== null && b.worldId === null) return 1;
+          if (a.worldId !== null && b.worldId !== null) {
+            const worldDelta = a.worldId.localeCompare(b.worldId);
+            if (worldDelta !== 0) {
+              return worldDelta;
+            }
+          }
+          return Date.parse(b.updatedAt) - Date.parse(a.updatedAt);
+        })
+        .map((entry) => toPatronTierConfig(entry));
+
+      return {
+        persist: false,
+        result: configs
+      };
+    });
+  },
+
+  async upsertWorkshopPatronTierConfig(
+    accountId: string,
+    input: UpsertWorkshopPatronTierConfigInput
+  ): Promise<PatronTierConfig | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account || !account.roles.includes("creator")) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const worldId = input.worldId?.trim() || null;
+      if (worldId) {
+        const world = findWorldById(db, worldId);
+        if (!world || world.studioHandle !== account.handle) {
+          return {
+            persist: false,
+            result: null
+          };
+        }
+      }
+
+      const amountCents = Math.floor(input.amountCents);
+      const periodDays = Math.floor(input.periodDays);
+      const title = input.title.trim() || DEFAULT_PATRON_TIER_TITLE;
+      const benefitsSummary = input.benefitsSummary.trim();
+      if (!Number.isFinite(amountCents) || amountCents <= 0) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+      if (!Number.isFinite(periodDays) || periodDays <= 0) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+      if (!isPatronTierStatus(input.status)) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const nowIso = new Date().toISOString();
+      const existing =
+        db.patronTierConfigs.find(
+          (entry) => entry.studioHandle === account.handle && entry.worldId === worldId
+        ) ?? null;
+      const config: PatronTierConfigRecord = existing ?? {
+        id: `ptier_${randomUUID()}`,
+        studioHandle: account.handle,
+        worldId,
+        title,
+        amountCents,
+        periodDays,
+        benefitsSummary,
+        status: input.status,
+        updatedAt: nowIso,
+        updatedByHandle: account.handle
+      };
+
+      config.title = title;
+      config.amountCents = amountCents;
+      config.periodDays = periodDays;
+      config.benefitsSummary = benefitsSummary;
+      config.status = input.status;
+      config.updatedAt = nowIso;
+      config.updatedByHandle = account.handle;
+
+      if (!existing) {
+        db.patronTierConfigs.unshift(config);
+      }
+
+      trimPatronTierConfigs(db);
+
+      return {
+        persist: true,
+        result: toPatronTierConfig(config)
+      };
+    });
+  },
+
   async createWorkshopLiveSession(
     accountId: string,
     input: CreateWorkshopLiveSessionInput
@@ -4162,7 +4337,8 @@ export const commerceBffService = {
 
   async commitPatron(
     accountId: string,
-    studioHandle: string
+    studioHandle: string,
+    worldId?: string | null
   ): Promise<
     | {
         ok: true;
@@ -4199,6 +4375,20 @@ export const commerceBffService = {
         };
       }
 
+      const normalizedWorldId = worldId?.trim() || null;
+      if (normalizedWorldId) {
+        const world = findWorldById(db, normalizedWorldId);
+        if (!world || world.studioHandle !== studio.handle) {
+          return {
+            persist: false,
+            result: {
+              ok: false as const,
+              reason: "not_found" as const
+            }
+          };
+        }
+      }
+
       const nowIso = new Date().toISOString();
       const existingPatron =
         db.patrons.find(
@@ -4227,10 +4417,12 @@ export const commerceBffService = {
 
       trimPatrons(db);
 
-      const amountCents = resolvePatronCommitmentAmountCents();
+      const configuredTier = findEffectivePatronTierConfig(db, studio.handle, normalizedWorldId);
+      const amountCents = configuredTier?.amountCents ?? resolvePatronCommitmentAmountCents();
+      const periodDays = configuredTier?.periodDays ?? resolvePatronCommitmentPeriodDays();
       const periodStart = nowIso;
       const periodEnd = new Date(
-        Date.parse(periodStart) + resolvePatronCommitmentPeriodDays() * 24 * 60 * 60 * 1000
+        Date.parse(periodStart) + periodDays * 24 * 60 * 60 * 1000
       ).toISOString();
       const quote = buildPatronSettlementQuote(amountCents / 100);
       const ledger = appendLedgerEntries(db, {

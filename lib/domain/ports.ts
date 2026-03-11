@@ -22,6 +22,8 @@ import type {
   TownhallModerationCaseResolveResult,
   TownhallDropSocialSnapshot,
   TownhallModerationQueueItem,
+  PatronTierConfig,
+  UpsertWorkshopPatronTierConfigInput,
   WorldReleaseQueueItem,
   WorldReleaseQueueStatus,
   Session,
@@ -75,6 +77,11 @@ export interface CommerceGateway {
     accountId: string,
     input: CreateWorkshopLiveSessionInput
   ): Promise<LiveSession | null>;
+  listWorkshopPatronTierConfigs(accountId: string): Promise<PatronTierConfig[]>;
+  upsertWorkshopPatronTierConfig(
+    accountId: string,
+    input: UpsertWorkshopPatronTierConfigInput
+  ): Promise<PatronTierConfig | null>;
   listWorkshopWorldReleaseQueue(
     accountId: string,
     worldId?: string | null

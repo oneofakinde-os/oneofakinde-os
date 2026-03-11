@@ -2,6 +2,7 @@ import type {
   Drop,
   DropLineageSnapshot,
   LiveSession,
+  PatronTierConfig,
   Session,
   TownhallModerationQueueItem,
   WorldReleaseQueueItem,
@@ -15,19 +16,22 @@ export type WorkshopContext = {
   worlds: World[];
   drops: Drop[];
   liveSessions: LiveSession[];
+  patronTierConfigs: PatronTierConfig[];
   worldReleaseQueue: WorldReleaseQueueItem[];
   moderationQueue: TownhallModerationQueueItem[];
   dropLineageByDropId: Record<string, DropLineageSnapshot>;
 };
 
 export async function loadWorkshopContext(session: Session): Promise<WorkshopContext> {
-  const [creatorSpace, drops, liveSessions, worldReleaseQueue, moderationQueue] = await Promise.all([
-    gateway.getStudioByHandle(session.handle),
-    gateway.listDropsByStudioHandle(session.handle),
-    gateway.listWorkshopLiveSessions(session.accountId),
-    gateway.listWorkshopWorldReleaseQueue(session.accountId),
-    gateway.listTownhallModerationQueue(session.accountId)
-  ]);
+  const [creatorSpace, drops, liveSessions, patronTierConfigs, worldReleaseQueue, moderationQueue] =
+    await Promise.all([
+      gateway.getStudioByHandle(session.handle),
+      gateway.listDropsByStudioHandle(session.handle),
+      gateway.listWorkshopLiveSessions(session.accountId),
+      gateway.listWorkshopPatronTierConfigs(session.accountId),
+      gateway.listWorkshopWorldReleaseQueue(session.accountId),
+      gateway.listTownhallModerationQueue(session.accountId)
+    ]);
   const lineageSnapshots = await Promise.all(drops.map((drop) => gateway.getDropLineage(drop.id)));
   const dropLineageByDropId = drops.reduce<Record<string, DropLineageSnapshot>>((acc, drop, index) => {
     const snapshot = lineageSnapshots[index];
@@ -44,6 +48,7 @@ export async function loadWorkshopContext(session: Session): Promise<WorkshopCon
       worlds: [],
       drops,
       liveSessions,
+      patronTierConfigs,
       worldReleaseQueue,
       moderationQueue,
       dropLineageByDropId
@@ -60,6 +65,7 @@ export async function loadWorkshopContext(session: Session): Promise<WorkshopCon
     worlds,
     drops,
     liveSessions,
+    patronTierConfigs,
     worldReleaseQueue,
     moderationQueue,
     dropLineageByDropId

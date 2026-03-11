@@ -22,6 +22,8 @@ import type {
   MembershipEntitlement,
   MyCollectionSnapshot,
   OwnedDrop,
+  PatronTierConfig,
+  PatronTierStatus,
   PurchaseReceipt,
   Session,
   Studio,
@@ -29,6 +31,7 @@ import type {
   TownhallModerationCaseResolveResult,
   TownhallDropSocialSnapshot,
   TownhallModerationQueueItem,
+  UpsertWorkshopPatronTierConfigInput,
   WorldReleaseQueueItem,
   WorldReleaseQueuePacingMode,
   WorldReleaseQueueStatus,
@@ -53,6 +56,8 @@ type CertificateRecord = Certificate & {
 };
 
 type MembershipEntitlementRecord = Omit<MembershipEntitlement, "whatYouGet" | "isActive">;
+
+type PatronTierConfigRecord = PatronTierConfig;
 
 type LiveSessionRecord = Omit<LiveSession, "whatYouGet">;
 
@@ -85,6 +90,7 @@ type MockStore = {
   certificatesById: Map<string, CertificateRecord>;
   pendingPayments: Map<string, { accountId: string; dropId: string }>;
   membershipEntitlements: MembershipEntitlementRecord[];
+  patronTierConfigs: PatronTierConfigRecord[];
   liveSessions: LiveSessionRecord[];
   worldReleaseQueue: WorldReleaseQueueRecord[];
   dropVersions: DropVersion[];
@@ -110,6 +116,7 @@ const AUTHORIZED_DERIVATIVE_KINDS = new Set<AuthorizedDerivativeKind>([
   "anthology_world",
   "collaborative_season"
 ]);
+const PATRON_TIER_STATUS_SET = new Set<PatronTierStatus>(["active", "disabled"]);
 
 function toHandle(email: string): string {
   const base = email.split("@")[0] ?? "collector";
@@ -320,6 +327,20 @@ function createInitialStore(): MockStore {
   const certificatesById = new Map<string, CertificateRecord>();
   const pendingPayments = new Map<string, { accountId: string; dropId: string }>();
   const membershipEntitlements: MembershipEntitlementRecord[] = [];
+  const patronTierConfigs: PatronTierConfigRecord[] = [
+    {
+      id: "ptier_seed_oneofakinde_studio",
+      studioHandle: "oneofakinde",
+      worldId: null,
+      title: "studio patron",
+      amountCents: 500,
+      periodDays: 30,
+      benefitsSummary: "studio patron support lane with world-level visibility.",
+      status: "active",
+      updatedAt: "2026-02-10T12:00:00.000Z",
+      updatedByHandle: "oneofakinde"
+    }
+  ];
   const liveSessions: LiveSessionRecord[] = [
     {
       id: "live_dark_matter_open_studio",
@@ -487,6 +508,7 @@ function createInitialStore(): MockStore {
     certificatesById,
     pendingPayments,
     membershipEntitlements,
+    patronTierConfigs,
     liveSessions,
     worldReleaseQueue,
     dropVersions,
@@ -663,6 +685,107 @@ function toMembershipEntitlement(entitlement: MembershipEntitlementRecord): Memb
     whatYouGet: toMembershipWhatYouGet(entitlement),
     isActive: isMembershipActive(entitlement)
   };
+}
+
+function toPatronTierConfig(config: PatronTierConfigRecord): PatronTierConfig {
+  return {
+    id: config.id,
+    studioHandle: config.studioHandle,
+    worldId: config.worldId,
+    title: config.title,
+    amountCents: config.amountCents,
+    periodDays: config.periodDays,
+    benefitsSummary: config.benefitsSummary,
+    status: config.status,
+    updatedAt: config.updatedAt,
+    updatedByHandle: config.updatedByHandle
+  };
+}
+
+function listWorkshopPatronTierConfigsByAccount(account: AccountRecord): PatronTierConfig[] {
+  return store.patronTierConfigs
+    .filter((entry) => entry.studioHandle === account.handle)
+    .slice()
+    .sort((a, b) => {
+      if (a.worldId === null && b.worldId !== null) return -1;
+      if (a.worldId !== null && b.worldId === null) return 1;
+      if (a.worldId !== null && b.worldId !== null) {
+        const worldDelta = a.worldId.localeCompare(b.worldId);
+        if (worldDelta !== 0) {
+          return worldDelta;
+        }
+      }
+      return Date.parse(b.updatedAt) - Date.parse(a.updatedAt);
+    })
+    .map((entry) => toPatronTierConfig(entry));
+}
+
+function upsertWorkshopPatronTierConfigRecord(
+  accountId: string,
+  input: UpsertWorkshopPatronTierConfigInput
+): PatronTierConfigRecord | null {
+  const account = store.accounts.get(accountId);
+  if (!account || !account.roles.includes("creator")) {
+    return null;
+  }
+
+  const worldId = input.worldId?.trim() || null;
+  if (worldId) {
+    const world = store.worlds.get(worldId);
+    if (!world || world.studioHandle !== account.handle) {
+      return null;
+    }
+  }
+
+  if (!PATRON_TIER_STATUS_SET.has(input.status)) {
+    return null;
+  }
+
+  const amountCents = Math.floor(input.amountCents);
+  const periodDays = Math.floor(input.periodDays);
+  if (!Number.isFinite(amountCents) || amountCents <= 0) {
+    return null;
+  }
+  if (!Number.isFinite(periodDays) || periodDays <= 0) {
+    return null;
+  }
+
+  const title = input.title.trim();
+  if (!title) {
+    return null;
+  }
+
+  const nowIso = new Date().toISOString();
+  const existing =
+    store.patronTierConfigs.find(
+      (entry) => entry.studioHandle === account.handle && entry.worldId === worldId
+    ) ?? null;
+  const record: PatronTierConfigRecord = existing ?? {
+    id: `ptier_${randomUUID()}`,
+    studioHandle: account.handle,
+    worldId,
+    title,
+    amountCents,
+    periodDays,
+    benefitsSummary: input.benefitsSummary.trim(),
+    status: input.status,
+    updatedAt: nowIso,
+    updatedByHandle: account.handle
+  };
+
+  record.title = title;
+  record.amountCents = amountCents;
+  record.periodDays = periodDays;
+  record.benefitsSummary = input.benefitsSummary.trim();
+  record.status = input.status;
+  record.updatedAt = nowIso;
+  record.updatedByHandle = account.handle;
+
+  if (!existing) {
+    store.patronTierConfigs.unshift(record);
+  }
+
+  return record;
 }
 
 function toLiveSessionWhatYouGet(liveSession: LiveSessionRecord): string {
@@ -1354,6 +1477,27 @@ export const commerceGateway: CommerceGateway = {
       .filter((liveSession) => liveSession.studioHandle === account.handle)
       .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt))
       .map(toLiveSession);
+  },
+
+  async listWorkshopPatronTierConfigs(accountId: string): Promise<PatronTierConfig[]> {
+    const account = store.accounts.get(accountId);
+    if (!account || !account.roles.includes("creator")) {
+      return [];
+    }
+
+    return listWorkshopPatronTierConfigsByAccount(account);
+  },
+
+  async upsertWorkshopPatronTierConfig(
+    accountId: string,
+    input: UpsertWorkshopPatronTierConfigInput
+  ): Promise<PatronTierConfig | null> {
+    const updated = upsertWorkshopPatronTierConfigRecord(accountId, input);
+    if (!updated) {
+      return null;
+    }
+
+    return toPatronTierConfig(updated);
   },
 
   async createWorkshopLiveSession(

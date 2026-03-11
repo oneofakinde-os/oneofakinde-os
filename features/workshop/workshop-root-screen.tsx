@@ -4,6 +4,7 @@ import type {
   Drop,
   DropLineageSnapshot,
   LiveSession,
+  PatronTierConfig,
   Session,
   TownhallModerationQueueItem,
   WorldReleaseQueueItem,
@@ -19,14 +20,17 @@ type WorkshopRootScreenProps = {
   worlds: World[];
   drops: Drop[];
   liveSessions: LiveSession[];
+  patronTierConfigs: PatronTierConfig[];
   worldReleaseQueue: WorldReleaseQueueItem[];
   moderationQueue: TownhallModerationQueueItem[];
   eventNotice: string | null;
+  patronNotice: string | null;
   releaseNotice: string | null;
   versionNotice: string | null;
   derivativeNotice: string | null;
   moderationNotice: string | null;
   createLiveSessionAction: (formData: FormData) => Promise<void>;
+  upsertPatronTierConfigAction: (formData: FormData) => Promise<void>;
   createWorldReleaseAction: (formData: FormData) => Promise<void>;
   updateWorldReleaseStatusAction: (formData: FormData) => Promise<void>;
   createDropVersionAction: (formData: FormData) => Promise<void>;
@@ -50,14 +54,17 @@ export function WorkshopRootScreen({
   worlds,
   drops,
   liveSessions,
+  patronTierConfigs,
   worldReleaseQueue,
   moderationQueue,
   eventNotice,
+  patronNotice,
   releaseNotice,
   versionNotice,
   derivativeNotice,
   moderationNotice,
   createLiveSessionAction,
+  upsertPatronTierConfigAction,
   createWorldReleaseAction,
   updateWorldReleaseStatusAction,
   createDropVersionAction,
@@ -99,6 +106,112 @@ export function WorkshopRootScreen({
             open townhall
           </Link>
         </div>
+      </section>
+
+      <section className="slice-panel">
+        <p className="slice-label">patron tier configuration</p>
+        <p className="slice-copy">
+          set studio and world patron terms. active configs are used for patron commitment settlement rails.
+        </p>
+        {patronNotice ? (
+          <p className="slice-banner" role="status" aria-live="polite">
+            {patronNotice}
+          </p>
+        ) : null}
+
+        <form action={upsertPatronTierConfigAction} className="slice-form">
+          <label className="slice-field">
+            scope
+            <select name="patron_world_id" className="slice-select" defaultValue="">
+              <option value="">studio-wide</option>
+              {worlds.map((world) => (
+                <option key={world.id} value={world.id}>
+                  {world.title}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="slice-field">
+            tier title
+            <input
+              name="patron_title"
+              className="slice-input"
+              required
+              placeholder="studio patron"
+              defaultValue="studio patron"
+            />
+          </label>
+
+          <label className="slice-field">
+            amount (cents)
+            <input
+              name="patron_amount_cents"
+              className="slice-input"
+              required
+              inputMode="numeric"
+              pattern="[0-9]+"
+              defaultValue="500"
+            />
+          </label>
+
+          <label className="slice-field">
+            period (days)
+            <input
+              name="patron_period_days"
+              className="slice-input"
+              required
+              inputMode="numeric"
+              pattern="[0-9]+"
+              defaultValue="30"
+            />
+          </label>
+
+          <label className="slice-field">
+            benefits summary
+            <input
+              name="patron_benefits_summary"
+              className="slice-input"
+              placeholder="support lane with visibility and event access."
+            />
+          </label>
+
+          <label className="slice-field">
+            status
+            <select name="patron_status" className="slice-select" defaultValue="active">
+              <option value="active">active</option>
+              <option value="disabled">disabled</option>
+            </select>
+          </label>
+
+          <div className="slice-button-row">
+            <button type="submit" className="slice-button">
+              save patron tier
+            </button>
+          </div>
+        </form>
+
+        {patronTierConfigs.length === 0 ? (
+          <p className="slice-meta">no patron tiers configured yet.</p>
+        ) : (
+          <ul className="slice-grid" aria-label="patron tiers">
+            {patronTierConfigs.map((config) => (
+              <li key={config.id} className="slice-drop-card">
+                <p className="slice-label">
+                  {config.worldId ? worldTitleById.get(config.worldId) ?? config.worldId : "studio-wide"}
+                </p>
+                <h2 className="slice-title">{config.title}</h2>
+                <p className="slice-copy">{config.benefitsSummary || "no summary provided."}</p>
+                <p className="slice-meta">
+                  {formatUsd(config.amountCents / 100)} every {config.periodDays} days
+                </p>
+                <p className="slice-meta">
+                  status: {config.status} · updated {new Date(config.updatedAt).toLocaleString()}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <section className="slice-panel">

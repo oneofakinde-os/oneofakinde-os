@@ -17,11 +17,13 @@ import type {
   LiveSessionEligibility,
   MembershipEntitlement,
   MyCollectionSnapshot,
+  PatronTierConfig,
   PurchaseReceipt,
   TownhallModerationCaseResolution,
   TownhallModerationCaseResolveResult,
   TownhallDropSocialSnapshot,
   TownhallModerationQueueItem,
+  UpsertWorkshopPatronTierConfigInput,
   WorldReleaseQueueItem,
   WorldReleaseQueueStatus,
   Session,
@@ -379,6 +381,33 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
       );
       if (!response.ok || !response.payload) return [];
       return response.payload.liveSessions;
+    },
+
+    async listWorkshopPatronTierConfigs(_accountId: string): Promise<PatronTierConfig[]> {
+      void _accountId;
+      const response = await requestJson<{ configs: PatronTierConfig[] }>(
+        options,
+        "/api/v1/workshop/patron-config"
+      );
+      if (!response.ok || !response.payload) return [];
+      return response.payload.configs;
+    },
+
+    async upsertWorkshopPatronTierConfig(
+      _accountId: string,
+      input: UpsertWorkshopPatronTierConfigInput
+    ): Promise<PatronTierConfig | null> {
+      void _accountId;
+      const response = await requestJson<{ config: PatronTierConfig }>(
+        options,
+        "/api/v1/workshop/patron-config",
+        {
+          method: "POST",
+          body: JSON.stringify(input)
+        }
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.config;
     },
 
     async createWorkshopLiveSession(

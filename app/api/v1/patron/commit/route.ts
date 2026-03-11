@@ -4,7 +4,17 @@ import { commerceBffService } from "@/lib/bff/service";
 
 type PatronCommitBody = {
   studioHandle?: string;
+  worldId?: string | null;
 };
+
+function getOptionalBodyString(body: Record<string, unknown> | null, key: string): string | null {
+  const value = body?.[key];
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
 
 export async function POST(request: Request) {
   const guard = await requireRequestSession(request);
@@ -18,13 +28,15 @@ export async function POST(request: Request) {
 
   const body = (await safeJson<PatronCommitBody>(request)) as Record<string, unknown> | null;
   const studioHandle = getRequiredBodyString(body, "studioHandle");
+  const worldId = getOptionalBodyString(body, "worldId");
   if (!studioHandle) {
     return badRequest("studioHandle is required");
   }
 
   const committed = await commerceBffService.commitPatron(
     guard.session.accountId,
-    studioHandle
+    studioHandle,
+    worldId
   );
 
   if (!committed.ok) {

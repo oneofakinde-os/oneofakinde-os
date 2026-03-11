@@ -83,6 +83,30 @@ export type PatronRosterEntry = {
   committedAt: string;
 };
 
+export type PatronTierStatus = "active" | "disabled";
+
+export type PatronTierConfig = {
+  id: string;
+  studioHandle: string;
+  worldId: string | null;
+  title: string;
+  amountCents: number;
+  periodDays: number;
+  benefitsSummary: string;
+  status: PatronTierStatus;
+  updatedAt: string;
+  updatedByHandle: string;
+};
+
+export type UpsertWorkshopPatronTierConfigInput = {
+  worldId: string | null;
+  title: string;
+  amountCents: number;
+  periodDays: number;
+  benefitsSummary: string;
+  status: PatronTierStatus;
+};
+
 export type WorldConversationVisibility = "visible" | "hidden" | "restricted" | "deleted";
 
 export type WorldConversationMessage = {

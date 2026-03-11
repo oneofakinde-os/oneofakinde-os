@@ -8,7 +8,9 @@ import type {
   CreateWorkshopWorldReleaseInput,
   CreateWorkshopLiveSessionInput,
   LiveSessionEligibilityRule,
+  PatronTierStatus,
   TownhallModerationCaseResolution,
+  UpsertWorkshopPatronTierConfigInput,
   WorldReleaseQueuePacingMode,
   WorldReleaseQueueStatus
 } from "@/lib/domain/contracts";
@@ -50,6 +52,7 @@ const WORLD_RELEASE_STATUS_ACTIONS = new Set<Exclude<WorldReleaseQueueStatus, "s
   "published",
   "canceled"
 ]);
+const PATRON_TIER_STATUSES = new Set<PatronTierStatus>(["active", "disabled"]);
 
 function getRequiredFormString(formData: FormData, key: string): string | null {
   const value = String(formData.get(key) ?? "").trim();
@@ -103,6 +106,45 @@ function parseCreateLiveSessionInput(formData: FormData): CreateWorkshopLiveSess
     startsAt: new Date(startsAtMs).toISOString(),
     endsAt: endsAtRaw ? new Date(Date.parse(endsAtRaw)).toISOString() : null,
     eligibilityRule: eligibilityRule as LiveSessionEligibilityRule
+  };
+}
+
+function parsePositiveInteger(input: string): number | null {
+  const parsed = Number.parseInt(input, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return null;
+  }
+  return parsed;
+}
+
+function parseUpsertPatronTierConfigInput(
+  formData: FormData
+): UpsertWorkshopPatronTierConfigInput | null {
+  const title = getRequiredFormString(formData, "patron_title");
+  const amountCentsRaw = getRequiredFormString(formData, "patron_amount_cents");
+  const periodDaysRaw = getRequiredFormString(formData, "patron_period_days");
+  const status = getRequiredFormString(formData, "patron_status");
+  if (!title || !amountCentsRaw || !periodDaysRaw || !status) {
+    return null;
+  }
+
+  if (!PATRON_TIER_STATUSES.has(status as PatronTierStatus)) {
+    return null;
+  }
+
+  const amountCents = parsePositiveInteger(amountCentsRaw);
+  const periodDays = parsePositiveInteger(periodDaysRaw);
+  if (!amountCents || !periodDays) {
+    return null;
+  }
+
+  return {
+    worldId: getOptionalFormString(formData, "patron_world_id"),
+    title,
+    amountCents,
+    periodDays,
+    benefitsSummary: getOptionalFormString(formData, "patron_benefits_summary") ?? "",
+    status: status as PatronTierStatus
   };
 }
 
@@ -263,6 +305,23 @@ export async function createWorkshopLiveSessionAction(formData: FormData): Promi
 
   redirect(
     `/workshop?event_status=created&event_id=${encodeURIComponent(created.id)}`
+  );
+}
+
+export async function upsertWorkshopPatronTierConfigAction(formData: FormData): Promise<void> {
+  const session = await requireSessionRoles("/workshop", ["creator"]);
+  const input = parseUpsertPatronTierConfigInput(formData);
+  if (!input) {
+    redirect("/workshop?patron_status=invalid_input");
+  }
+
+  const config = await gateway.upsertWorkshopPatronTierConfig(session.accountId, input);
+  if (!config) {
+    redirect("/workshop?patron_status=save_failed");
+  }
+
+  redirect(
+    `/workshop?patron_status=saved&patron_config_id=${encodeURIComponent(config.id)}`
   );
 }
 

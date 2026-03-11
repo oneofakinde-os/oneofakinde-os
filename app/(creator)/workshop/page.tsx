@@ -4,6 +4,7 @@ import { loadWorkshopContext } from "@/lib/server/workshop";
 import {
   createAuthorizedDerivativeAction,
   createDropVersionAction,
+  upsertWorkshopPatronTierConfigAction,
   createWorkshopWorldReleaseAction,
   createWorkshopLiveSessionAction,
   updateWorkshopWorldReleaseStatusAction,
@@ -20,6 +21,8 @@ type WorkshopPageProps = {
     version_id?: string | string[];
     derivative_status?: string | string[];
     derivative_id?: string | string[];
+    patron_status?: string | string[];
+    patron_config_id?: string | string[];
     moderation_status?: string | string[];
     moderation_comment_id?: string | string[];
   }>;
@@ -163,6 +166,28 @@ function toReleaseNotice(releaseStatus: string | null, releaseId: string | null)
   return "workshop world release queue updated.";
 }
 
+function toPatronNotice(patronStatus: string | null, patronConfigId: string | null): string | null {
+  if (!patronStatus) {
+    return null;
+  }
+
+  if (patronStatus === "saved") {
+    return patronConfigId
+      ? `patron tier config saved: ${patronConfigId}.`
+      : "patron tier config saved.";
+  }
+
+  if (patronStatus === "invalid_input") {
+    return "patron tier config failed: check title, amount, period, and status.";
+  }
+
+  if (patronStatus === "save_failed") {
+    return "patron tier config failed: verify creator scope and world ownership.";
+  }
+
+  return "patron tier config updated.";
+}
+
 export default async function WorkshopPage({ searchParams }: WorkshopPageProps) {
   const session = await requireSessionRoles("/workshop", ["creator"]);
   const resolvedSearchParams = await searchParams;
@@ -174,6 +199,8 @@ export default async function WorkshopPage({ searchParams }: WorkshopPageProps) 
   const versionId = firstParam(resolvedSearchParams.version_id);
   const derivativeStatus = firstParam(resolvedSearchParams.derivative_status);
   const derivativeId = firstParam(resolvedSearchParams.derivative_id);
+  const patronStatus = firstParam(resolvedSearchParams.patron_status);
+  const patronConfigId = firstParam(resolvedSearchParams.patron_config_id);
   const moderationStatus = firstParam(resolvedSearchParams.moderation_status);
   const moderationCommentId = firstParam(resolvedSearchParams.moderation_comment_id);
   const context = await loadWorkshopContext(session);
@@ -185,8 +212,10 @@ export default async function WorkshopPage({ searchParams }: WorkshopPageProps) 
       releaseNotice={toReleaseNotice(releaseStatus, releaseId)}
       versionNotice={toVersionNotice(versionStatus, versionId)}
       derivativeNotice={toDerivativeNotice(derivativeStatus, derivativeId)}
+      patronNotice={toPatronNotice(patronStatus, patronConfigId)}
       moderationNotice={toModerationNotice(moderationStatus, moderationCommentId)}
       createLiveSessionAction={createWorkshopLiveSessionAction}
+      upsertPatronTierConfigAction={upsertWorkshopPatronTierConfigAction}
       createWorldReleaseAction={createWorkshopWorldReleaseAction}
       updateWorldReleaseStatusAction={updateWorkshopWorldReleaseStatusAction}
       createDropVersionAction={createDropVersionAction}
