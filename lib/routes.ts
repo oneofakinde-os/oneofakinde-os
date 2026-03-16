@@ -8,32 +8,21 @@ export const routes = {
   home: (): Route => asRoute("/"),
   explore: (): Route => asRoute("/explore"),
   collect: (): Route => asRoute("/collect"),
+  invest: (): Route => asRoute("/invest"),
   auctions: (): Route => asRoute("/auctions"),
   create: (): Route => asRoute("/create"),
 
-  showroom: (): Route => asRoute("/showroom"),
-  showroomSearch: (query?: string): Route =>
-    query
-      ? asRoute(`/showroom/search?q=${encodeURIComponent(query)}`)
-      : asRoute("/showroom/search"),
-  showroomFeatured: (): Route => asRoute("/showroom?lane_key=featured"),
-  showroomWatch: (): Route => asRoute("/showroom/watch"),
-  showroomListen: (): Route => asRoute("/showroom/listen"),
-  showroomRead: (): Route => asRoute("/showroom/read"),
-  showroomPhotos: (): Route => asRoute("/showroom/photos"),
-  showroomLive: (): Route => asRoute("/showroom/live"),
-  townhall: (): Route => asRoute("/showroom"),
+  townhall: (): Route => asRoute("/townhall"),
   townhallSearch: (query?: string): Route =>
     query
-      ? asRoute(`/showroom/search?q=${encodeURIComponent(query)}`)
-      : asRoute("/showroom/search"),
-  townhallFeatured: (): Route => asRoute("/showroom?lane_key=featured"),
-  townhallWatch: (): Route => asRoute("/showroom/watch"),
-  townhallListen: (): Route => asRoute("/showroom/listen"),
-  townhallRead: (): Route => asRoute("/showroom/read"),
-  townhallPhotos: (): Route => asRoute("/showroom/photos"),
-  townhallGallery: (): Route => asRoute("/showroom/photos"),
-  townhallLive: (): Route => asRoute("/showroom/live"),
+      ? asRoute(`/townhall/search?q=${encodeURIComponent(query)}`)
+      : asRoute("/townhall/search"),
+  townhallWatch: (): Route => asRoute("/townhall/watch"),
+  townhallListen: (): Route => asRoute("/townhall/listen"),
+  townhallRead: (): Route => asRoute("/townhall/read"),
+  townhallPhotos: (): Route => asRoute("/townhall/photos"),
+  townhallGallery: (): Route => asRoute("/townhall/photos"),
+  townhallLive: (): Route => asRoute("/townhall/live"),
 
   watchHub: (): Route => asRoute("/watch"),
   listenHub: (): Route => asRoute("/listen"),
@@ -62,8 +51,8 @@ export const routes = {
   dropPhotos: (dropId: string): Route => asRoute(`/drops/${dropId}/photos`),
   dropGallery: (dropId: string): Route => asRoute(`/drops/${dropId}/photos`),
 
-  collectDrop: (dropId: string): Route => asRoute(`/collect/${dropId}`),
-  buyDrop: (dropId: string): Route => asRoute(`/collect/${dropId}`),
+  collectDrop: (dropId: string): Route => asRoute(`/pay/buy/${dropId}`),
+  buyDrop: (dropId: string): Route => asRoute(`/pay/buy/${dropId}`),
   myCollection: (): Route => asRoute("/my-collection"),
   favorites: (): Route => asRoute("/favorites"),
   library: (): Route => asRoute("/library"),

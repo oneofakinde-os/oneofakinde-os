@@ -1,70 +1,124 @@
 import { formatUsd } from "@/features/shared/format";
-import { buildCatalogSearchHref } from "@/lib/catalog/search-ui-state";
-import type { CatalogSearchResult } from "@/lib/catalog/search";
-import type { CollectMarketLane, CollectOfferState, Session } from "@/lib/domain/contracts";
-import type { Route } from "next";
+import type { Drop, Session, Studio, World } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
 import Link from "next/link";
 import { TownhallBottomNav } from "./townhall-bottom-nav";
 import { ArrowLeftIcon, SearchIcon } from "./townhall-icons";
 
 type TownhallSearchScreenProps = {
+  query: string;
   session: Session | null;
-  search: CatalogSearchResult;
-  basePath?: Route;
+  drops: Drop[];
+  worlds: World[];
+  studios: Studio[];
 };
 
-const LANE_FILTERS: Array<{ value: CollectMarketLane; label: string }> = [
-  { value: "all", label: "all lanes" },
-  { value: "sale", label: "sale lane" },
-  { value: "auction", label: "auction lane" },
-  { value: "resale", label: "resale lane" }
-];
+type SearchUser = {
+  handle: string;
+  title: string;
+  synopsis: string;
+};
 
-const OFFER_STATE_FILTERS: Array<{ value: CollectOfferState | null; label: string }> = [
-  { value: null, label: "all states" },
-  { value: "listed", label: "listed" },
-  { value: "offer_submitted", label: "offer submitted" },
-  { value: "countered", label: "countered" },
-  { value: "accepted", label: "accepted" },
-  { value: "settled", label: "settled" },
-  { value: "expired", label: "expired" },
-  { value: "withdrawn", label: "withdrawn" }
-];
-
-function formatOfferState(value: string): string {
-  return value.replaceAll("_", " ");
+function normalize(value: string): string {
+  return value.trim().toLowerCase();
 }
 
-export function TownhallSearchScreen({ session, search, basePath = routes.townhallSearch() }: TownhallSearchScreenProps) {
-  const normalizedQuery = search.query.trim().toLowerCase();
-  const totalMatches = search.users.length + search.worlds.length + search.drops.length;
-  const scopeFilters: string[] = [];
-  if (search.lane !== "all") {
-    scopeFilters.push(`lane ${search.lane}`);
-  }
-  if (search.offerState) {
-    scopeFilters.push(`state ${formatOfferState(search.offerState)}`);
+function fieldScore(query: string, value: string): number {
+  const normalizedQuery = normalize(query);
+  const normalizedValue = normalize(value);
+
+  if (!normalizedQuery || !normalizedValue) return 0;
+  if (normalizedValue === normalizedQuery) return 400;
+  if (normalizedValue.startsWith(normalizedQuery)) return 250;
+
+  const index = normalizedValue.indexOf(normalizedQuery);
+  if (index < 0) return 0;
+
+  return 120 - Math.min(index, 100);
+}
+
+function scoreByFields(query: string, values: string[]): number {
+  return values.reduce((best, value) => Math.max(best, fieldScore(query, value)), 0);
+}
+
+function dedupeUsers(studios: Studio[], drops: Drop[], worlds: World[]): SearchUser[] {
+  const byHandle = new Map<string, SearchUser>();
+
+  for (const studio of studios) {
+    byHandle.set(studio.handle, {
+      handle: studio.handle,
+      title: studio.title,
+      synopsis: studio.synopsis
+    });
   }
 
-  const scopeSuffix = scopeFilters.length > 0 ? ` filters: ${scopeFilters.join(" · ")}.` : "";
+  for (const handle of [...drops.map((drop) => drop.studioHandle), ...worlds.map((world) => world.studioHandle)]) {
+    if (byHandle.has(handle)) continue;
+    byHandle.set(handle, {
+      handle,
+      title: handle,
+      synopsis: "creator identity publishing drops and worlds."
+    });
+  }
+
+  return [...byHandle.values()];
+}
+
+function sortByScore<T>(
+  items: T[],
+  query: string,
+  fields: (item: T) => string[],
+  getKey: (item: T) => string
+): T[] {
+  if (!query) {
+    return [...items].sort((a, b) => getKey(a).localeCompare(getKey(b)));
+  }
+
+  return items
+    .map((item) => ({
+      item,
+      score: scoreByFields(query, fields(item))
+    }))
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => b.score - a.score || getKey(a.item).localeCompare(getKey(b.item)))
+    .map((entry) => entry.item);
+}
+
+export function TownhallSearchScreen({ query, session, drops, worlds, studios }: TownhallSearchScreenProps) {
+  const normalizedQuery = normalize(query);
+  const users = dedupeUsers(studios, drops, worlds);
+
+  const matchedUsers = sortByScore(
+    users,
+    normalizedQuery,
+    (user) => [user.handle, user.title, user.synopsis],
+    (user) => user.handle
+  ).slice(0, 8);
+
+  const matchedWorlds = sortByScore(
+    worlds,
+    normalizedQuery,
+    (world) => [world.title, world.synopsis, world.studioHandle],
+    (world) => world.id
+  ).slice(0, 8);
+
+  const matchedDrops = sortByScore(
+    drops,
+    normalizedQuery,
+    (drop) => [drop.title, drop.synopsis, drop.worldLabel, drop.studioHandle],
+    (drop) => drop.id
+  ).slice(0, 8);
+
+  const usersToRender = normalizedQuery ? matchedUsers : matchedUsers.slice(0, 4);
+  const worldsToRender = normalizedQuery ? matchedWorlds : matchedWorlds.slice(0, 4);
+  const dropsToRender = normalizedQuery ? matchedDrops : matchedDrops.slice(0, 4);
+  const totalMatches = usersToRender.length + worldsToRender.length + dropsToRender.length;
+
   const summary = normalizedQuery
-    ? `${totalMatches} result${totalMatches === 1 ? "" : "s"} across users, worlds, and drops.${scopeSuffix}`
-    : `discover users, worlds, and drops from the townhall catalog.${scopeSuffix}`;
+    ? `${totalMatches} result${totalMatches === 1 ? "" : "s"} across users, worlds, and drops.`
+    : "discover users, worlds, and drops from the townhall catalog.";
 
-  const title = normalizedQuery ? `results for "${search.query}"` : "search users, worlds, and drops";
-  const laneFilterHref = (lane: CollectMarketLane): Route =>
-    buildCatalogSearchHref(basePath, {
-      query: search.query,
-      lane,
-      offerState: search.offerState
-    }) as Route;
-  const offerStateFilterHref = (offerState: CollectOfferState | null): Route =>
-    buildCatalogSearchHref(basePath, {
-      query: search.query,
-      lane: search.lane,
-      offerState
-    }) as Route;
+  const title = normalizedQuery ? `results for "${query}"` : "search users, worlds, and drops";
 
   return (
     <main className="townhall-page">
@@ -75,7 +129,7 @@ export function TownhallSearchScreen({ session, search, basePath = routes.townha
           </Link>
           <p className="townhall-brand">oneofakinde</p>
           <form
-            action={basePath}
+            action={routes.townhallSearch()}
             method="get"
             className="townhall-search-form"
             role="search"
@@ -88,11 +142,9 @@ export function TownhallSearchScreen({ session, search, basePath = routes.townha
               className="townhall-search-input"
               placeholder="search users, worlds, and drops"
               aria-label="search users, worlds, and drops"
-              defaultValue={search.query}
+              defaultValue={query}
               autoFocus
             />
-            {search.lane !== "all" ? <input type="hidden" name="lane" value={search.lane} /> : null}
-            {search.offerState ? <input type="hidden" name="offer_state" value={search.offerState} /> : null}
           </form>
         </header>
 
@@ -103,47 +155,16 @@ export function TownhallSearchScreen({ session, search, basePath = routes.townha
             <p className="townhall-meta">{summary}</p>
           </div>
 
-          <section className="townhall-search-filters" aria-label="catalog lane and offer-state filters">
-            <div className="townhall-search-filter-group">
-              <p className="townhall-search-filter-label">lane</p>
-              <div className="townhall-search-filter-pills">
-                {LANE_FILTERS.map((lane) => (
-                  <Link
-                    key={lane.value}
-                    href={laneFilterHref(lane.value)}
-                    className={`townhall-search-filter-pill ${search.lane === lane.value ? "active" : ""}`}
-                  >
-                    {lane.label}
-                  </Link>
-                ))}
-              </div>
-            </div>
-            <div className="townhall-search-filter-group">
-              <p className="townhall-search-filter-label">offer state</p>
-              <div className="townhall-search-filter-pills">
-                {OFFER_STATE_FILTERS.map((offerState) => (
-                  <Link
-                    key={offerState.value ?? "all"}
-                    href={offerStateFilterHref(offerState.value)}
-                    className={`townhall-search-filter-pill ${search.offerState === offerState.value ? "active" : ""}`}
-                  >
-                    {offerState.label}
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </section>
-
           <section className="townhall-search-section" aria-label="user search results">
             <div className="townhall-search-section-head">
               <h2>users</h2>
-              <span>{search.users.length}</span>
+              <span>{usersToRender.length}</span>
             </div>
-            {search.users.length === 0 ? (
+            {usersToRender.length === 0 ? (
               <p className="townhall-search-empty">no matching users.</p>
             ) : (
               <ul className="townhall-search-grid">
-                {search.users.map((user) => (
+                {usersToRender.map((user) => (
                   <li key={user.handle} className="townhall-search-card">
                     <p className="townhall-search-card-kicker">creator identity</p>
                     <h3>@{user.handle}</h3>
@@ -160,13 +181,13 @@ export function TownhallSearchScreen({ session, search, basePath = routes.townha
           <section className="townhall-search-section" aria-label="world search results">
             <div className="townhall-search-section-head">
               <h2>worlds</h2>
-              <span>{search.worlds.length}</span>
+              <span>{worldsToRender.length}</span>
             </div>
-            {search.worlds.length === 0 ? (
+            {worldsToRender.length === 0 ? (
               <p className="townhall-search-empty">no matching worlds.</p>
             ) : (
               <ul className="townhall-search-grid">
-                {search.worlds.map((world) => (
+                {worldsToRender.map((world) => (
                   <li key={world.id} className="townhall-search-card">
                     <p className="townhall-search-card-kicker">@{world.studioHandle}</p>
                     <h3>{world.title}</h3>
@@ -188,13 +209,13 @@ export function TownhallSearchScreen({ session, search, basePath = routes.townha
           <section className="townhall-search-section" aria-label="drop search results">
             <div className="townhall-search-section-head">
               <h2>drops</h2>
-              <span>{search.drops.length}</span>
+              <span>{dropsToRender.length}</span>
             </div>
-            {search.drops.length === 0 ? (
+            {dropsToRender.length === 0 ? (
               <p className="townhall-search-empty">no matching drops.</p>
             ) : (
               <ul className="townhall-search-grid">
-                {search.drops.map((drop) => {
+                {dropsToRender.map((drop) => {
                   const collectHref = session
                     ? routes.collectDrop(drop.id)
                     : routes.signIn(routes.collectDrop(drop.id));
@@ -206,21 +227,12 @@ export function TownhallSearchScreen({ session, search, basePath = routes.townha
                       </p>
                       <h3>{drop.title}</h3>
                       <p>{drop.synopsis}</p>
-                      {drop.collect ? (
-                        <p className="townhall-search-card-kicker">
-                          lane {drop.collect.lane} · state {formatOfferState(drop.collect.latestOfferState)} · offers{" "}
-                          {drop.collect.offerCount}
-                        </p>
-                      ) : null}
                       <div className="townhall-search-card-actions">
                         <Link href={routes.drop(drop.id)} className="townhall-search-card-link">
                           open drop
                         </Link>
                         <Link href={collectHref} className="townhall-search-card-link ghost">
-                          collect {formatUsd(drop.collect?.listingPriceUsd ?? drop.priceUsd)}
-                        </Link>
-                        <Link href={routes.dropOffers(drop.id)} className="townhall-search-card-link ghost">
-                          offers
+                          collect {formatUsd(drop.priceUsd)}
                         </Link>
                       </div>
                     </li>
@@ -237,7 +249,7 @@ export function TownhallSearchScreen({ session, search, basePath = routes.townha
       <aside className="townhall-side-notes" aria-label="townhall search notes">
         <h2>townhall search</h2>
         <p>dedicated discovery surface for users, worlds, and drops with a single query.</p>
-        <p>drop search now includes collect lane and offer-state context for agora commerce discovery.</p>
+        <p>this keeps townhall as the primary shell while enabling direct deep-link search workflows.</p>
       </aside>
     </main>
   );

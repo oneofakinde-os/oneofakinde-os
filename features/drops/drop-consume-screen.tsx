@@ -2,9 +2,6 @@ import { formatUsd } from "@/features/shared/format";
 import type { Certificate, Drop, PurchaseReceipt, Session } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
 import Link from "next/link";
-import { DropListenMode } from "./drop-listen-mode";
-import { DropReadMode } from "./drop-read-mode";
-import { DropWatchMode } from "./drop-watch-mode";
 
 type ConsumeMode = "watch" | "listen" | "read" | "photos";
 
@@ -12,7 +9,6 @@ type DropConsumeScreenProps = {
   mode: ConsumeMode;
   session: Session;
   drop: Drop;
-  worldDrops?: Drop[];
   hasEntitlement: boolean;
   receipt: PurchaseReceipt | null;
   certificate: Certificate | null;
@@ -56,7 +52,6 @@ export function DropConsumeScreen({
   mode,
   session,
   drop,
-  worldDrops = [],
   hasEntitlement,
   receipt,
   certificate
@@ -94,108 +89,84 @@ export function DropConsumeScreen({
             </div>
           </section>
         ) : (
-          mode === "watch" ? (
-            <DropWatchMode
-              session={session}
-              drop={drop}
-              receipt={receipt}
-              certificate={certificate}
-            />
-          ) : mode === "listen" ? (
-            <DropListenMode
-              session={session}
-              drop={drop}
-              receipt={receipt}
-              certificate={certificate}
-            />
-          ) : mode === "read" ? (
-            <DropReadMode
-              session={session}
-              drop={drop}
-              worldDrops={worldDrops}
-              receipt={receipt}
-              certificate={certificate}
-            />
-          ) : (
-            <>
-              <section className="dropmedia-stage" aria-label="active consume stage">
-                <div className="dropmedia-backdrop" />
-                <div className="dropmedia-overlay" />
+          <>
+            <section className="dropmedia-stage" aria-label="active consume stage">
+              <div className="dropmedia-backdrop" />
+              <div className="dropmedia-overlay" />
 
-                <aside className="dropmedia-social-rail" aria-label="social interactions">
-                  <button type="button" className="dropmedia-social-action" disabled>
-                    ♡
-                  </button>
-                  <button type="button" className="dropmedia-social-action" disabled>
-                    ◈
-                  </button>
-                  <button type="button" className="dropmedia-social-action" disabled>
-                    ➤
-                  </button>
-                  <button type="button" className="dropmedia-social-action" disabled>
-                    +
-                  </button>
-                </aside>
+              <aside className="dropmedia-social-rail" aria-label="social interactions">
+                <button type="button" className="dropmedia-social-action" disabled>
+                  ♡
+                </button>
+                <button type="button" className="dropmedia-social-action" disabled>
+                  ◈
+                </button>
+                <button type="button" className="dropmedia-social-action" disabled>
+                  ➤
+                </button>
+                <button type="button" className="dropmedia-social-action" disabled>
+                  +
+                </button>
+              </aside>
 
-                <div className="dropmedia-content">
-                  <p className="dropmedia-meta">@{drop.studioHandle} · {formatUsd(drop.priceUsd)}</p>
-                  <h1 className="dropmedia-title">{drop.title}</h1>
-                  <p className="dropmedia-subtitle">
-                    {drop.seasonLabel} · {drop.episodeLabel}
-                  </p>
-                  <p className="dropmedia-copy">
-                    {copy.active} {drop.title}
-                  </p>
-                  <p className="dropmedia-copy">{copy.intro}</p>
+              <div className="dropmedia-content">
+                <p className="dropmedia-meta">@{drop.studioHandle} · {formatUsd(drop.priceUsd)}</p>
+                <h1 className="dropmedia-title">{drop.title}</h1>
+                <p className="dropmedia-subtitle">
+                  {drop.seasonLabel} · {drop.episodeLabel}
+                </p>
+                <p className="dropmedia-copy">
+                  {copy.active} {drop.title}
+                </p>
+                <p className="dropmedia-copy">{copy.intro}</p>
 
-                  <div className="dropmedia-mode-row" aria-label="consume mode switcher">
-                    <Link href={modeHref("watch", drop.id)} className={modeClass(false)}>
-                      watch
-                    </Link>
-                    <Link href={modeHref("listen", drop.id)} className={modeClass(false)}>
-                      listen
-                    </Link>
-                    <Link href={modeHref("read", drop.id)} className={modeClass(false)}>
-                      read
-                    </Link>
-                    <Link href={modeHref("photos", drop.id)} className={modeClass(true)}>
-                      photos
-                    </Link>
-                  </div>
+                <div className="dropmedia-mode-row" aria-label="consume mode switcher">
+                  <Link href={modeHref("watch", drop.id)} className={modeClass(mode === "watch")}>
+                    watch
+                  </Link>
+                  <Link href={modeHref("listen", drop.id)} className={modeClass(mode === "listen")}>
+                    listen
+                  </Link>
+                  <Link href={modeHref("read", drop.id)} className={modeClass(mode === "read")}>
+                    read
+                  </Link>
+                  <Link href={modeHref("photos", drop.id)} className={modeClass(mode === "photos")}>
+                    photos
+                  </Link>
+                </div>
 
-                  <div className="dropmedia-actions">
-                    <Link href={routes.myCollection()} className="dropmedia-secondary-cta">
-                      my collection
+                <div className="dropmedia-actions">
+                  <Link href={routes.myCollection()} className="dropmedia-secondary-cta">
+                    my collection
+                  </Link>
+                  {certificate ? (
+                    <Link href={routes.certificate(certificate.id)} className="dropmedia-secondary-cta">
+                      certificate
                     </Link>
-                    {certificate ? (
-                      <Link href={routes.certificate(certificate.id)} className="dropmedia-secondary-cta">
-                        certificate
-                      </Link>
-                    ) : null}
-                  </div>
+                  ) : null}
                 </div>
-              </section>
+              </div>
+            </section>
 
-              <dl className="dropmedia-panel" aria-label="entitlement metadata">
-                <div>
-                  <dt>world</dt>
-                  <dd>{drop.worldLabel}</dd>
-                </div>
-                <div>
-                  <dt>receipt</dt>
-                  <dd>{receipt?.id ?? "n/a"}</dd>
-                </div>
-                <div>
-                  <dt>certificate</dt>
-                  <dd>{certificate?.id ?? "n/a"}</dd>
-                </div>
-                <div>
-                  <dt>session</dt>
-                  <dd>@{session.handle}</dd>
-                </div>
-              </dl>
-            </>
-          )
+            <dl className="dropmedia-panel" aria-label="entitlement metadata">
+              <div>
+                <dt>world</dt>
+                <dd>{drop.worldLabel}</dd>
+              </div>
+              <div>
+                <dt>receipt</dt>
+                <dd>{receipt?.id ?? "n/a"}</dd>
+              </div>
+              <div>
+                <dt>certificate</dt>
+                <dd>{certificate?.id ?? "n/a"}</dd>
+              </div>
+              <div>
+                <dt>session</dt>
+                <dd>@{session.handle}</dd>
+              </div>
+            </dl>
+          </>
         )}
       </section>
 

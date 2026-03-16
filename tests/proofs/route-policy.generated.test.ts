@@ -17,11 +17,11 @@ const redirectCases = [
   },
   {
     "sourcePathname": "/creators/handle-sample",
-    "targetPathname": "/studio/handle-sample"
+    "targetPathname": "/studios/handle-sample"
   },
   {
-    "sourcePathname": "/studios/handle-sample",
-    "targetPathname": "/studio/handle-sample"
+    "sourcePathname": "/studio/handle-sample",
+    "targetPathname": "/studios/handle-sample"
   },
   {
     "sourcePathname": "/collections/id-sample",
@@ -84,14 +84,6 @@ const redirectCases = [
     "targetPathname": "/drops/id-sample/photos"
   },
   {
-    "sourcePathname": "/pay/buy/drop_id-sample",
-    "targetPathname": "/collect/drop_id-sample"
-  },
-  {
-    "sourcePathname": "/pay/buy/asset_id-sample",
-    "targetPathname": "/collect/asset_id-sample"
-  },
-  {
     "sourcePathname": "/my-assets",
     "targetPathname": "/my-collection"
   },
@@ -116,44 +108,12 @@ const redirectCases = [
     "targetPathname": "/workshop"
   },
   {
-    "sourcePathname": "/invest",
-    "targetPathname": "/collect"
-  },
-  {
     "sourcePathname": "/gallery",
     "targetPathname": "/photos"
   },
   {
-    "sourcePathname": "/townhall",
-    "targetPathname": "/showroom"
-  },
-  {
-    "sourcePathname": "/townhall/watch",
-    "targetPathname": "/showroom/watch"
-  },
-  {
-    "sourcePathname": "/townhall/listen",
-    "targetPathname": "/showroom/listen"
-  },
-  {
-    "sourcePathname": "/townhall/read",
-    "targetPathname": "/showroom/read"
-  },
-  {
-    "sourcePathname": "/townhall/photos",
-    "targetPathname": "/showroom/photos"
-  },
-  {
     "sourcePathname": "/townhall/gallery",
-    "targetPathname": "/showroom/photos"
-  },
-  {
-    "sourcePathname": "/townhall/live",
-    "targetPathname": "/showroom/live"
-  },
-  {
-    "sourcePathname": "/townhall/search",
-    "targetPathname": "/showroom/search"
+    "targetPathname": "/townhall/photos"
   }
 ] as const;
 const metadataCases = [
@@ -239,7 +199,7 @@ const metadataCases = [
     ]
   },
   {
-    "pathname": "/studio/handle-sample",
+    "pathname": "/studios/handle-sample",
     "surfaceKey": "studio_public",
     "publicSafe": "true",
     "hasSession": false,
@@ -345,8 +305,8 @@ const metadataCases = [
     ]
   },
   {
-    "pathname": "/collect/drop_id-sample",
-    "surfaceKey": "collect_drop",
+    "pathname": "/pay/buy/drop_id-sample",
+    "surfaceKey": "pay_buy_drop",
     "publicSafe": "false",
     "hasSession": true,
     "sessionRoles": [
@@ -447,6 +407,15 @@ const metadataCases = [
     ]
   },
   {
+    "pathname": "/invest",
+    "surfaceKey": "invest",
+    "publicSafe": "false",
+    "hasSession": true,
+    "sessionRoles": [
+      "collector"
+    ]
+  },
+  {
     "pathname": "/settings/account",
     "surfaceKey": "settings_account",
     "publicSafe": "false",
@@ -526,50 +495,50 @@ const metadataCases = [
     "sessionRoles": []
   },
   {
-    "pathname": "/showroom",
-    "surfaceKey": "showroom",
+    "pathname": "/townhall",
+    "surfaceKey": "townhall",
     "publicSafe": "true",
     "hasSession": false,
     "sessionRoles": []
   },
   {
-    "pathname": "/showroom/watch",
-    "surfaceKey": "showroom_watch",
+    "pathname": "/townhall/watch",
+    "surfaceKey": "townhall_watch",
     "publicSafe": "true",
     "hasSession": false,
     "sessionRoles": []
   },
   {
-    "pathname": "/showroom/listen",
-    "surfaceKey": "showroom_listen",
+    "pathname": "/townhall/listen",
+    "surfaceKey": "townhall_listen",
     "publicSafe": "true",
     "hasSession": false,
     "sessionRoles": []
   },
   {
-    "pathname": "/showroom/read",
-    "surfaceKey": "showroom_read",
+    "pathname": "/townhall/read",
+    "surfaceKey": "townhall_read",
     "publicSafe": "true",
     "hasSession": false,
     "sessionRoles": []
   },
   {
-    "pathname": "/showroom/photos",
-    "surfaceKey": "showroom_photos",
+    "pathname": "/townhall/photos",
+    "surfaceKey": "townhall_photos",
     "publicSafe": "true",
     "hasSession": false,
     "sessionRoles": []
   },
   {
-    "pathname": "/showroom/live",
-    "surfaceKey": "showroom_live",
+    "pathname": "/townhall/live",
+    "surfaceKey": "townhall_live",
     "publicSafe": "true",
     "hasSession": false,
     "sessionRoles": []
   },
   {
-    "pathname": "/showroom/search",
-    "surfaceKey": "showroom_search",
+    "pathname": "/townhall/search",
+    "surfaceKey": "townhall_search",
     "publicSafe": "true",
     "hasSession": false,
     "sessionRoles": []
@@ -595,7 +564,7 @@ const sessionCases = [
     "pathname": "/drops/id-sample/photos"
   },
   {
-    "pathname": "/collect/drop_id-sample"
+    "pathname": "/pay/buy/drop_id-sample"
   },
   {
     "pathname": "/my-collection"
@@ -620,6 +589,9 @@ const sessionCases = [
   },
   {
     "pathname": "/following"
+  },
+  {
+    "pathname": "/invest"
   },
   {
     "pathname": "/settings/account"
@@ -696,7 +668,7 @@ const roleRequiredCases = [
     "disallowedRole": null
   },
   {
-    "pathname": "/collect/drop_id-sample",
+    "pathname": "/pay/buy/drop_id-sample",
     "allowedRoles": [
       "collector",
       "creator"
@@ -760,6 +732,14 @@ const roleRequiredCases = [
   },
   {
     "pathname": "/following",
+    "allowedRoles": [
+      "collector",
+      "creator"
+    ],
+    "disallowedRole": null
+  },
+  {
+    "pathname": "/invest",
     "allowedRoles": [
       "collector",
       "creator"
@@ -847,7 +827,7 @@ const proofSessionCases = [
     "pathname": "/drops/id-sample/photos"
   },
   {
-    "pathname": "/collect/drop_id-sample"
+    "pathname": "/pay/buy/drop_id-sample"
   },
   {
     "pathname": "/my-collection"
@@ -872,6 +852,9 @@ const proofSessionCases = [
   },
   {
     "pathname": "/following"
+  },
+  {
+    "pathname": "/invest"
   },
   {
     "pathname": "/settings/account"
@@ -921,7 +904,7 @@ const proofPublicSafeCases = [
     "pathname": "/certificates/cert_id-sample"
   },
   {
-    "pathname": "/showroom"
+    "pathname": "/townhall"
   }
 ] as const;
 

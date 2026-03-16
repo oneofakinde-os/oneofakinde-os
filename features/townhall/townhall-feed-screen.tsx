@@ -5,30 +5,13 @@ import type {
   Drop,
   TownhallDropSocialSnapshot,
   TownhallShareChannel,
-  TownhallTelemetryMetadata,
   TownhallTelemetryEventType
 } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
-import { DEFAULT_TOWNHALL_FEED_PAGE_SIZE } from "@/lib/townhall/feed-pagination";
 import { resolveDropModeForTownhallSurface, type TownhallSurfaceMode } from "@/lib/townhall/feed-mode";
 import { resolveDropPreview } from "@/lib/townhall/preview-media";
-import {
-  DEFAULT_TOWNHALL_SHOWROOM_ORDERING,
-  DEFAULT_TOWNHALL_SHOWROOM_MEDIA_FILTER,
-  parseTownhallShowroomMediaFilter,
-  parseTownhallShowroomOrdering,
-  type TownhallShowroomMediaFilter,
-  type TownhallShowroomOrdering
-} from "@/lib/townhall/showroom-query";
-import {
-  buildTownhallFeedHrefWithFocus,
-  resolveTownhallFeedActiveIndex,
-  routeForTownhallMediaFilter,
-  type TownhallFeedFocus
-} from "@/lib/townhall/feed-focus";
 import Link from "next/link";
-import type { UrlObject } from "node:url";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { TownhallBottomNav } from "./townhall-bottom-nav";
 import {
   BookmarkIcon,
@@ -49,13 +32,6 @@ type TownhallFeedScreenProps = {
   drops: Drop[];
   ownedDropIds?: string[];
   initialSocialByDropId?: Record<string, TownhallDropSocialSnapshot>;
-  initialNextCursor?: string | null;
-  initialHasMore?: boolean;
-  pageSize?: number;
-  showroomMedia?: TownhallShowroomMediaFilter | string;
-  showroomOrdering?: TownhallShowroomOrdering | string;
-  initialFocusDropId?: string | null;
-  initialFocusPosition?: number | null;
 };
 
 type TownhallPanel = "comments" | "collect" | "share";
@@ -97,57 +73,11 @@ type TouchPoint = {
   startedAtMs: number;
 };
 
-type FeedPagePayload = {
-  feed?: {
-    drops?: Drop[];
-    nextCursor?: string | null;
-    hasMore?: boolean;
-    pageSize?: number;
-    totalCount?: number;
-  };
-  showroom?: {
-    mediaFilter?: TownhallShowroomMediaFilter;
-    ordering?: TownhallShowroomOrdering;
-  };
-  ownedDropIds?: string[];
-  socialByDropId?: Record<string, TownhallDropSocialSnapshot>;
-};
-
-type ShowroomModeOption = {
-  value: TownhallShowroomMediaFilter;
-  label: string;
-};
-
-type ShowroomOrderingOption = {
-  value: TownhallShowroomOrdering;
-  label: string;
-};
-
 const LONG_PRESS_CONTROLS_MS = 420;
 const SWIPE_EXIT_DELTA_PX = 82;
 const SWIPE_EXIT_MAX_DURATION_MS = 920;
 const SWIPE_VERTICAL_BIAS = 1.15;
 const LONG_PRESS_SUPPRESS_TAP_MS = 700;
-
-const SHOWROOM_MODE_OPTIONS: ShowroomModeOption[] = [
-  { value: "all", label: "all" },
-  { value: "agora", label: "agora" },
-  { value: "watch", label: "watch" },
-  { value: "listen", label: "listen" },
-  { value: "read", label: "read" },
-  { value: "photos", label: "photos" },
-  { value: "live", label: "live" }
-];
-
-const SHOWROOM_ORDERING_OPTIONS: ShowroomOrderingOption[] = [
-  { value: "featured", label: "featured" },
-  { value: "for_you", label: "for you" },
-  { value: "rising", label: "rising" },
-  { value: "newest", label: "newest" },
-  { value: "most_collected", label: "most collected" },
-  { value: "new_voices", label: "new voices" },
-  { value: "sustained_craft", label: "sustained craft" }
-];
 
 const MODE_COPY: Record<Exclude<TownhallSurfaceMode, "townhall">, ModeCopy> = {
   watch: {
@@ -273,57 +203,26 @@ export function TownhallFeedScreen({
   viewer,
   drops,
   ownedDropIds = [],
-  initialSocialByDropId = {},
-  initialNextCursor = null,
-  initialHasMore = false,
-  pageSize = DEFAULT_TOWNHALL_FEED_PAGE_SIZE,
-  showroomMedia = DEFAULT_TOWNHALL_SHOWROOM_MEDIA_FILTER,
-  showroomOrdering = DEFAULT_TOWNHALL_SHOWROOM_ORDERING,
-  initialFocusDropId = null,
-  initialFocusPosition = null
+  initialSocialByDropId = {}
 }: TownhallFeedScreenProps) {
-  const parsedShowroomOrdering = parseTownhallShowroomOrdering(showroomOrdering);
-  const parsedShowroomMedia = parseTownhallShowroomMediaFilter(showroomMedia);
-  const effectiveShowroomMedia = mode === "townhall" ? parsedShowroomMedia : mode;
-  const initialFocus = useMemo<TownhallFeedFocus>(
-    () => ({
-      dropId: initialFocusDropId ?? null,
-      position:
-        typeof initialFocusPosition === "number" && Number.isFinite(initialFocusPosition)
-          ? Math.max(1, Math.floor(initialFocusPosition))
-          : null
-    }),
-    [initialFocusDropId, initialFocusPosition]
-  );
-
-  const [feedDrops, setFeedDrops] = useState<Drop[]>(drops);
-  const [activeIndex, setActiveIndex] = useState(() =>
-    resolveTownhallFeedActiveIndex(drops, initialFocus)
-  );
+  const [activeIndex, setActiveIndex] = useState(0);
   const [isImmersive, setIsImmersive] = useState(false);
   const [showControls, setShowControls] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [volume, setVolume] = useState(0.7);
   const [isPlaying, setIsPlaying] = useState(true);
-  const [nextCursor, setNextCursor] = useState<string | null>(initialNextCursor);
-  const [hasMore, setHasMore] = useState<boolean>(initialHasMore);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [loadMoreError, setLoadMoreError] = useState("");
-  const [ownedDropState, setOwnedDropState] = useState<string[]>(ownedDropIds);
   const [socialByDrop, setSocialByDrop] = useState<Record<string, TownhallDropSocialSnapshot>>(() =>
-    createInitialSocialMap(feedDrops, initialSocialByDropId)
+    createInitialSocialMap(drops, initialSocialByDropId)
   );
   const [openPanel, setOpenPanel] = useState<TownhallPanel | null>(null);
   const [panelDropId, setPanelDropId] = useState<string | null>(null);
   const [commentDraft, setCommentDraft] = useState("");
-  const [replyToCommentId, setReplyToCommentId] = useState<string | null>(null);
   const [shareNotice, setShareNotice] = useState("");
   const [shareOrigin, setShareOrigin] = useState("https://oneofakinde-os.vercel.app");
   const [failedPreviewAssetKeys, setFailedPreviewAssetKeys] = useState<string[]>([]);
   const [revealedVideoDropIds, setRevealedVideoDropIds] = useState<string[]>([]);
 
   const viewportRef = useRef<HTMLDivElement | null>(null);
-  const commentInputRef = useRef<HTMLInputElement | null>(null);
   const itemRefs = useRef<Array<HTMLElement | null>>([]);
   const mediaRefs = useRef<Array<HTMLMediaElement | null>>([]);
   const lastScrollTopRef = useRef(0);
@@ -337,21 +236,14 @@ export function TownhallFeedScreen({
   const showControlsLongPressTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const suppressStageTapUntilMsRef = useRef(0);
   const touchStartPointRef = useRef<TouchPoint | null>(null);
-  const isLoadingMoreRef = useRef(false);
-  const impressionLoggedDropIdsRef = useRef<Set<string>>(new Set());
-  const openedDropIdsRef = useRef<Set<string>>(new Set());
-  const previewStartedDropIdsRef = useRef<Set<string>>(new Set());
-  const accessStartedDropIdsRef = useRef<Set<string>>(new Set());
-  const watchTimeDropPositionRef = useRef<number>(0);
-  const appliedInitialFocusRef = useRef(false);
 
   const failedPreviewAssetKeySet = useMemo(
     () => new Set(failedPreviewAssetKeys),
     [failedPreviewAssetKeys]
   );
-  const ownedSet = useMemo(() => new Set(ownedDropState), [ownedDropState]);
+  const ownedSet = useMemo(() => new Set(ownedDropIds), [ownedDropIds]);
 
-  const activeDrop = feedDrops[activeIndex] ?? feedDrops[0] ?? null;
+  const activeDrop = drops[activeIndex] ?? drops[0] ?? null;
 
   async function postTelemetryEvent(
     dropId: string,
@@ -359,7 +251,6 @@ export function TownhallFeedScreen({
     payload?: {
       watchTimeSeconds?: number;
       completionPercent?: number;
-      metadata?: TownhallTelemetryMetadata;
     }
   ) {
     try {
@@ -371,9 +262,7 @@ export function TownhallFeedScreen({
         body: JSON.stringify({
           dropId,
           eventType,
-          metadata: payload?.metadata,
-          watchTimeSeconds: payload?.watchTimeSeconds,
-          completionPercent: payload?.completionPercent,
+          ...(payload ?? {})
         })
       });
     } catch {
@@ -381,30 +270,9 @@ export function TownhallFeedScreen({
     }
   }
 
-  function telemetryMetadata(
-    options?: {
-      position?: number;
-      source?: TownhallTelemetryMetadata["source"];
-      action?: TownhallTelemetryMetadata["action"];
-      channel?: TownhallTelemetryMetadata["channel"];
-      surface?: TownhallTelemetryMetadata["surface"];
-    }
-  ): TownhallTelemetryMetadata {
-    return {
-      source: options?.source ?? "showroom",
-      surface: options?.surface ?? mode,
-      mediaFilter: effectiveShowroomMedia,
-      ordering: parsedShowroomOrdering,
-      position: options?.position,
-      action: options?.action,
-      channel: options?.channel
-    };
-  }
-
   function flushWatchTimeTelemetry(nextStartMs: number) {
     const previousDropId = watchTimeDropIdRef.current;
     const previousStartedAtMs = watchTimeStartedAtMsRef.current;
-    const previousPosition = watchTimeDropPositionRef.current;
     if (!previousDropId || previousStartedAtMs <= 0) {
       return;
     }
@@ -415,21 +283,11 @@ export function TownhallFeedScreen({
     }
 
     void postTelemetryEvent(previousDropId, "watch_time", {
-      watchTimeSeconds: elapsedSeconds,
-      metadata: telemetryMetadata({
-        position: previousPosition || undefined
-      })
-    });
-    void postTelemetryEvent(previousDropId, "drop_dwell_time", {
-      watchTimeSeconds: elapsedSeconds,
-      metadata: telemetryMetadata({
-        position: previousPosition || undefined,
-        action: "complete"
-      })
+      watchTimeSeconds: elapsedSeconds
     });
   }
 
-  function recordCompletionTelemetry(dropId: string, media: HTMLMediaElement, isLocked: boolean) {
+  function recordCompletionTelemetry(dropId: string, media: HTMLMediaElement) {
     if (completionRecordedDropIdsRef.current.has(dropId)) {
       return;
     }
@@ -449,144 +307,21 @@ export function TownhallFeedScreen({
     }
 
     completionRecordedDropIdsRef.current.add(dropId);
-    const position = watchTimeDropPositionRef.current || activeIndex + 1;
     void postTelemetryEvent(dropId, "completion", {
-      completionPercent: roundTelemetryMetric(Math.min(100, completionPercent)),
-      metadata: telemetryMetadata({ position })
+      completionPercent: roundTelemetryMetric(Math.min(100, completionPercent))
     });
-    void postTelemetryEvent(dropId, "preview_complete", {
-      completionPercent: roundTelemetryMetric(Math.min(100, completionPercent)),
-      metadata: telemetryMetadata({
-        position,
-        action: "complete"
-      })
-    });
-
-    if (!isLocked) {
-      void postTelemetryEvent(dropId, "access_complete", {
-        completionPercent: roundTelemetryMetric(Math.min(100, completionPercent)),
-        metadata: telemetryMetadata({
-          source: "drop",
-          position,
-          action: "complete"
-        })
-      });
-    }
   }
 
   useEffect(() => {
-    setFeedDrops(drops);
-    setOwnedDropState(ownedDropIds);
-    setNextCursor(initialNextCursor);
-    setHasMore(initialHasMore);
-    setIsLoadingMore(false);
-    setLoadMoreError("");
-    setActiveIndex(0);
-    impressionLoggedDropIdsRef.current.clear();
-    openedDropIdsRef.current.clear();
-    previewStartedDropIdsRef.current.clear();
-    accessStartedDropIdsRef.current.clear();
-    appliedInitialFocusRef.current = false;
-    setActiveIndex(resolveTownhallFeedActiveIndex(drops, initialFocus));
-  }, [drops, ownedDropIds, initialNextCursor, initialHasMore, initialFocus]);
-
-  useEffect(() => {
-    setSocialByDrop((current) => {
-      const seeded = createInitialSocialMap(feedDrops, initialSocialByDropId);
-      const merged: Record<string, TownhallDropSocialSnapshot> = { ...seeded };
-      for (const [dropId, snapshot] of Object.entries(current)) {
-        merged[dropId] = {
-          ...snapshot,
-          comments: [...snapshot.comments]
-        };
-      }
-      return upsertSocialMap(merged, feedDrops);
-    });
-  }, [feedDrops, initialSocialByDropId]);
-
-  useEffect(() => {
-    if (appliedInitialFocusRef.current) {
-      return;
-    }
-
-    if (activeIndex <= 0) {
-      appliedInitialFocusRef.current = true;
-      return;
-    }
-
-    const target = itemRefs.current[activeIndex];
-    if (!target) {
-      return;
-    }
-
-    appliedInitialFocusRef.current = true;
-    requestAnimationFrame(() => {
-      target.scrollIntoView({ behavior: "auto", block: "start" });
-    });
-  }, [activeIndex, feedDrops.length]);
+    setSocialByDrop((current) => upsertSocialMap(current, drops));
+  }, [drops]);
 
   useEffect(() => {
     const nowMs = Date.now();
     flushWatchTimeTelemetry(nowMs);
     watchTimeDropIdRef.current = activeDrop?.id ?? null;
     watchTimeStartedAtMsRef.current = nowMs;
-    watchTimeDropPositionRef.current = activeIndex + 1;
   }, [activeDrop?.id]);
-
-  useEffect(() => {
-    if (!activeDrop?.id) {
-      return;
-    }
-
-    if (impressionLoggedDropIdsRef.current.has(activeDrop.id)) {
-      return;
-    }
-
-    impressionLoggedDropIdsRef.current.add(activeDrop.id);
-    const position = activeIndex + 1;
-    void postTelemetryEvent(activeDrop.id, "impression", {
-      metadata: telemetryMetadata({ position })
-    });
-    void postTelemetryEvent(activeDrop.id, "showroom_impression", {
-      metadata: telemetryMetadata({
-        position,
-        action: "start"
-      })
-    });
-
-    if (!openedDropIdsRef.current.has(activeDrop.id)) {
-      openedDropIdsRef.current.add(activeDrop.id);
-      void postTelemetryEvent(activeDrop.id, "drop_opened", {
-        metadata: telemetryMetadata({
-          position,
-          action: "open"
-        })
-      });
-    }
-
-    if (!previewStartedDropIdsRef.current.has(activeDrop.id)) {
-      previewStartedDropIdsRef.current.add(activeDrop.id);
-      void postTelemetryEvent(activeDrop.id, "preview_start", {
-        metadata: telemetryMetadata({
-          position,
-          action: "start"
-        })
-      });
-    }
-
-    if (!ownedSet.has(activeDrop.id) || accessStartedDropIdsRef.current.has(activeDrop.id)) {
-      return;
-    }
-
-    accessStartedDropIdsRef.current.add(activeDrop.id);
-    void postTelemetryEvent(activeDrop.id, "access_start", {
-      metadata: telemetryMetadata({
-        source: "drop",
-        position,
-        action: "start"
-      })
-    });
-  }, [activeDrop?.id, activeIndex, ownedSet]);
 
   useEffect(() => {
     return () => {
@@ -650,28 +385,16 @@ export function TownhallFeedScreen({
     }
 
     return () => observer.disconnect();
-  }, [activeIndex, feedDrops.length, isImmersive]);
+  }, [activeIndex, drops.length, isImmersive]);
 
   useEffect(() => {
     setShowControls(false);
     setOpenPanel(null);
     setPanelDropId(null);
     setCommentDraft("");
-    setReplyToCommentId(null);
     setShareNotice("");
     setIsPlaying(true);
   }, [activeIndex]);
-
-  useEffect(() => {
-    if (openPanel !== "comments" || !panelDropId || !replyToCommentId) {
-      return;
-    }
-
-    const panelComments = socialByDrop[panelDropId]?.comments ?? [];
-    if (!panelComments.some((entry) => entry.id === replyToCommentId && entry.visibility === "visible")) {
-      setReplyToCommentId(null);
-    }
-  }, [openPanel, panelDropId, replyToCommentId, socialByDrop]);
 
   useEffect(() => {
     for (const [index, media] of mediaRefs.current.entries()) {
@@ -689,11 +412,22 @@ export function TownhallFeedScreen({
     }
   }, [activeIndex, isMuted, volume, isPlaying]);
 
+  if (!activeDrop) {
+    return (
+      <main className="townhall-page">
+        <section className="townhall-phone-shell townhall-empty">
+          <p className="townhall-brand">oneofakinde</p>
+          <h1>townhall</h1>
+          <p>no drops are available yet.</p>
+        </section>
+      </main>
+    );
+  }
+
   function togglePanel(panel: TownhallPanel, dropId: string) {
     if (openPanel === panel && panelDropId === dropId) {
       setOpenPanel(null);
       setPanelDropId(null);
-      setReplyToCommentId(null);
       return;
     }
 
@@ -702,18 +436,9 @@ export function TownhallFeedScreen({
     setOpenPanel(panel);
     setPanelDropId(dropId);
     setShareNotice("");
-    if (panel !== "comments") {
-      setReplyToCommentId(null);
-    }
 
     if (panel === "collect") {
-      void postTelemetryEvent(dropId, "collect_intent", {
-        metadata: telemetryMetadata({
-          source: "drop",
-          action: "open",
-          position: activeIndex + 1
-        })
-      });
+      void postTelemetryEvent(dropId, "collect_intent");
     }
   }
 
@@ -828,50 +553,13 @@ export function TownhallFeedScreen({
     return `${shareOrigin}${routes.drop(dropId)}`;
   }
 
-  function showroomHref(mediaFilter: TownhallShowroomMediaFilter, ordering: TownhallShowroomOrdering): UrlObject {
-    const pathname = routeForTownhallMediaFilter(mediaFilter);
-    if (ordering !== DEFAULT_TOWNHALL_SHOWROOM_ORDERING) {
-      return {
-        pathname,
-        query: {
-          lane_key: ordering
-        }
-      };
-    }
-
-    return { pathname };
-  }
-
-  function showroomHrefString(
-    mediaFilter: TownhallShowroomMediaFilter,
-    ordering: TownhallShowroomOrdering
-  ): string {
-    const pathname = routeForTownhallMediaFilter(mediaFilter);
-    if (ordering === DEFAULT_TOWNHALL_SHOWROOM_ORDERING) {
-      return pathname;
-    }
-
-    return `${pathname}?lane_key=${encodeURIComponent(ordering)}`;
-  }
-
   function currentFeedHref(): string {
-    return showroomHrefString(effectiveShowroomMedia, parsedShowroomOrdering);
-  }
-
-  function dropOpenHref(dropId: string, position: number): UrlObject {
-    const returnTo = buildTownhallFeedHrefWithFocus({
-      mediaFilter: effectiveShowroomMedia,
-      ordering: parsedShowroomOrdering,
-      focusDropId: dropId,
-      focusPosition: position
-    });
-
-    return {
-      pathname: routes.drop(dropId),
-      query: {
-        returnTo
-      }
-    };
+    if (mode === "townhall") return routes.townhall();
+    if (mode === "watch") return routes.townhallWatch();
+    if (mode === "listen") return routes.townhallListen();
+    if (mode === "read") return routes.townhallRead();
+    if (mode === "photos") return routes.townhallGallery();
+    return routes.townhallLive();
   }
 
   function redirectToSignInForInteraction() {
@@ -881,92 +569,6 @@ export function TownhallFeedScreen({
 
     window.location.href = routes.signIn(currentFeedHref());
   }
-
-  const loadNextFeedPage = useCallback(async () => {
-    if (!hasMore || !nextCursor || isLoadingMoreRef.current) {
-      return;
-    }
-
-    isLoadingMoreRef.current = true;
-    setIsLoadingMore(true);
-    setLoadMoreError("");
-
-    try {
-      const params = new URLSearchParams();
-      params.set("cursor", nextCursor);
-      params.set("limit", String(pageSize));
-      params.set("media", effectiveShowroomMedia);
-      params.set("lane_key", parsedShowroomOrdering);
-      const response = await fetch(`/api/v1/townhall/feed?${params.toString()}`, {
-        method: "GET",
-        cache: "no-store"
-      });
-
-      if (!response.ok) {
-        throw new Error(`failed to load feed page (${response.status})`);
-      }
-
-      const payload = (await response.json()) as FeedPagePayload;
-      const incomingDrops = payload.feed?.drops ?? [];
-      const incomingSocialByDropId = payload.socialByDropId ?? {};
-
-      setFeedDrops((current) => {
-        if (!incomingDrops.length) {
-          return current;
-        }
-
-        const seen = new Set(current.map((drop) => drop.id));
-        const append = incomingDrops.filter((drop) => !seen.has(drop.id));
-        if (!append.length) {
-          return current;
-        }
-
-        return [...current, ...append];
-      });
-
-      setSocialByDrop((current) => {
-        const merged = { ...current };
-        for (const [dropId, snapshot] of Object.entries(incomingSocialByDropId)) {
-          merged[dropId] = {
-            ...snapshot,
-            comments: [...snapshot.comments]
-          };
-        }
-        return merged;
-      });
-
-      if (payload.ownedDropIds?.length) {
-        setOwnedDropState((current) => {
-          const seen = new Set(current);
-          for (const dropId of payload.ownedDropIds ?? []) {
-            seen.add(dropId);
-          }
-          return Array.from(seen);
-        });
-      }
-
-      setNextCursor(payload.feed?.nextCursor ?? null);
-      setHasMore(Boolean(payload.feed?.hasMore));
-    } catch {
-      setLoadMoreError("feed loading paused. pull to retry.");
-    } finally {
-      isLoadingMoreRef.current = false;
-      setIsLoadingMore(false);
-    }
-  }, [hasMore, nextCursor, pageSize, effectiveShowroomMedia, parsedShowroomOrdering]);
-
-  useEffect(() => {
-    if (!hasMore || !nextCursor || isLoadingMoreRef.current) {
-      return;
-    }
-
-    const remaining = feedDrops.length - activeIndex - 1;
-    if (remaining > 1) {
-      return;
-    }
-
-    void loadNextFeedPage();
-  }, [activeIndex, feedDrops.length, hasMore, nextCursor, loadNextFeedPage]);
 
   function applySocialSnapshot(snapshot: TownhallDropSocialSnapshot) {
     setSocialByDrop((current) => ({
@@ -1007,13 +609,6 @@ export function TownhallFeedScreen({
     );
     if (social) {
       applySocialSnapshot(social);
-      void postTelemetryEvent(dropId, "interaction_like", {
-        metadata: telemetryMetadata({
-          source: "drop",
-          action: "toggle",
-          position: activeIndex + 1
-        })
-      });
     }
   }
 
@@ -1028,13 +623,6 @@ export function TownhallFeedScreen({
     );
     if (social) {
       applySocialSnapshot(social);
-      void postTelemetryEvent(dropId, "interaction_save", {
-        metadata: telemetryMetadata({
-          source: "drop",
-          action: "toggle",
-          position: activeIndex + 1
-        })
-      });
     }
   }
 
@@ -1049,78 +637,14 @@ export function TownhallFeedScreen({
 
     const social = await postSocialMutation(
       `/api/v1/townhall/social/comments/${encodeURIComponent(dropId)}`,
-      {
-        body,
-        ...(replyToCommentId ? { parentCommentId: replyToCommentId } : {})
-      }
+      { body }
     );
 
     if (social) {
       applySocialSnapshot(social);
-      void postTelemetryEvent(dropId, "interaction_comment", {
-        metadata: telemetryMetadata({
-          source: "drop",
-          action: "submit",
-          position: activeIndex + 1
-        })
-      });
     }
 
     setCommentDraft("");
-    setReplyToCommentId(null);
-  }
-
-  function handleCommentReply(commentId: string) {
-    setReplyToCommentId(commentId);
-    requestAnimationFrame(() => {
-      commentInputRef.current?.focus();
-    });
-  }
-
-  async function handleCommentReport(dropId: string, commentId: string) {
-    if (!viewer) {
-      redirectToSignInForInteraction();
-      return;
-    }
-
-    const social = await postSocialMutation(
-      `/api/v1/townhall/social/comments/${encodeURIComponent(dropId)}/${encodeURIComponent(commentId)}/report`
-    );
-    if (social) {
-      applySocialSnapshot(social);
-    }
-  }
-
-  async function handleCommentModeration(
-    dropId: string,
-    commentId: string,
-    action: "hide" | "restrict" | "delete" | "restore"
-  ) {
-    if (!viewer) {
-      redirectToSignInForInteraction();
-      return;
-    }
-
-    const social = await postSocialMutation(
-      `/api/v1/townhall/social/comments/${encodeURIComponent(dropId)}/${encodeURIComponent(commentId)}/${action}`
-    );
-    if (social) {
-      applySocialSnapshot(social);
-    }
-  }
-
-  async function handleCommentAppeal(dropId: string, commentId: string) {
-    if (!viewer) {
-      redirectToSignInForInteraction();
-      return;
-    }
-
-    const social = await postSocialMutation(
-      `/api/v1/townhall/social/comments/${encodeURIComponent(dropId)}/${encodeURIComponent(commentId)}/appeal`
-    );
-    if (social) {
-      applySocialSnapshot(social);
-    }
   }
 
   async function recordShare(dropId: string, channel: TownhallShareChannel) {
@@ -1136,14 +660,6 @@ export function TownhallFeedScreen({
 
     if (social) {
       applySocialSnapshot(social);
-      void postTelemetryEvent(dropId, "interaction_share", {
-        metadata: telemetryMetadata({
-          source: "drop",
-          channel,
-          action: "submit",
-          position: activeIndex + 1
-        })
-      });
     }
   }
 
@@ -1177,27 +693,9 @@ export function TownhallFeedScreen({
     });
   }
 
-  if (!activeDrop) {
-    return (
-      <main className="townhall-page" data-testid="showroom-page">
-        <section className="townhall-phone-shell townhall-empty" data-testid="showroom-shell-empty">
-          <p className="townhall-brand">oneofakinde</p>
-          <h1>townhall</h1>
-          <p>no drops are available yet.</p>
-        </section>
-      </main>
-    );
-  }
-
   return (
-    <main className="townhall-page" data-testid="showroom-page">
-      <section
-        className={`townhall-phone-shell townhall-phone-shell-feed ${isImmersive ? "immersive" : ""}`}
-        aria-label="townhall feed shell"
-        data-testid="showroom-shell"
-        data-showroom-ordering={parsedShowroomOrdering}
-        data-showroom-media={effectiveShowroomMedia}
-      >
+    <main className="townhall-page">
+      <section className={`townhall-phone-shell townhall-phone-shell-feed ${isImmersive ? "immersive" : ""}`} aria-label="townhall feed shell">
         <header className="townhall-header townhall-header-feed">
           <Link href={routes.studio(activeDrop.studioHandle)} className="townhall-avatar-link" aria-label="open creator studio">
             <span>{activeDrop.studioHandle.slice(0, 1).toUpperCase()}</span>
@@ -1228,40 +726,6 @@ export function TownhallFeedScreen({
               aria-label="search users, worlds, and drops"
             />
           </form>
-
-          {mode === "townhall" ? (
-            <div className="townhall-showroom-row" data-no-immersive-toggle="true">
-              {SHOWROOM_MODE_OPTIONS.map((option) => {
-                const active = effectiveShowroomMedia === option.value;
-                return (
-                  <Link
-                    key={option.value}
-                    href={showroomHref(option.value, parsedShowroomOrdering)}
-                    className={`townhall-showroom-chip ${active ? "active" : ""}`}
-                    aria-current={active ? "page" : undefined}
-                  >
-                    {option.label}
-                  </Link>
-                );
-              })}
-            </div>
-          ) : null}
-
-          <div className="townhall-showroom-row townhall-showroom-row-ordering" data-no-immersive-toggle="true">
-            {SHOWROOM_ORDERING_OPTIONS.map((option) => {
-              const active = parsedShowroomOrdering === option.value;
-              return (
-                <Link
-                  key={option.value}
-                  href={showroomHref(effectiveShowroomMedia, option.value)}
-                  className={`townhall-showroom-chip ${active ? "active" : ""}`}
-                  aria-current={active ? "page" : undefined}
-                >
-                  {option.label}
-                </Link>
-              );
-            })}
-          </div>
         </header>
 
         <div
@@ -1270,17 +734,13 @@ export function TownhallFeedScreen({
           onScroll={handleFeedScroll}
           onWheelCapture={markScrollIntent}
           onTouchMoveCapture={markScrollIntent}
-          data-testid="showroom-feed-viewport"
         >
-          {feedDrops.map((drop, index) => {
+          {drops.map((drop, index) => {
             const isActive = index === activeIndex;
             const isPaywalled = !ownedSet.has(drop.id);
             const openCurrentPanel = isActive && panelDropId === drop.id ? openPanel : null;
             const social = socialByDrop[drop.id] ?? defaultDropSocialSnapshot(drop.id);
             const comments = social.comments;
-            const replyingToComment = replyToCommentId
-              ? comments.find((entry) => entry.id === replyToCommentId) ?? null
-              : null;
             const commentCount = social.commentCount;
             const collectStats = buildCollectStats(drop, index);
             const likeCount = social.likeCount;
@@ -1343,8 +803,6 @@ export function TownhallFeedScreen({
                 key={drop.id}
                 className={`townhall-feed-item ${isActive ? "active" : ""}`}
                 data-index={index}
-                data-drop-id={drop.id}
-                data-testid="showroom-drop-card"
                 ref={(element) => {
                   itemRefs.current[index] = element;
                 }}
@@ -1352,7 +810,6 @@ export function TownhallFeedScreen({
                 <section
                   className="townhall-stage"
                   aria-label={`${drop.title} preview`}
-                  data-testid="showroom-drop-stage"
                   style={stageBackgroundStyle}
                   onPointerDownCapture={(event) => handleStagePointerDown(event, index)}
                   onPointerCancelCapture={handleStagePointerCancelOrUp}
@@ -1399,7 +856,7 @@ export function TownhallFeedScreen({
                           if (media.currentTime >= 0.35) {
                             revealVideoDrop(drop.id);
                           }
-                          recordCompletionTelemetry(drop.id, media, isLocked);
+                          recordCompletionTelemetry(drop.id, media);
                         }}
                       />
                     </>
@@ -1427,7 +884,7 @@ export function TownhallFeedScreen({
                           markPreviewAssetFailure(resolvedPreview.assetKey);
                         }}
                         onTimeUpdate={(event) => {
-                          recordCompletionTelemetry(drop.id, event.currentTarget, isLocked);
+                          recordCompletionTelemetry(drop.id, event.currentTarget);
                         }}
                       />
                     </>
@@ -1589,129 +1046,19 @@ export function TownhallFeedScreen({
                       </div>
                       <ul className="townhall-comment-list">
                         {comments.map((comment) => (
-                          <li
-                            key={comment.id}
-                            className="townhall-comment-item"
-                            style={{ marginLeft: `${Math.min(comment.depth, 3) * 14}px` }}
-                          >
-                            <div className="townhall-comment-head">
-                              <p>
-                                <strong>@{comment.authorHandle}</strong> · {formatRelativeAge(comment.createdAt)}
-                              </p>
-                              <div className="townhall-comment-actions">
-                                {comment.canReply && comment.visibility === "visible" ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      handleCommentReply(comment.id);
-                                    }}
-                                  >
-                                    reply
-                                  </button>
-                                ) : null}
-                                {comment.canReport ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      void handleCommentReport(drop.id, comment.id);
-                                    }}
-                                  >
-                                    report
-                                  </button>
-                                ) : null}
-                                {comment.canAppeal ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      void handleCommentAppeal(drop.id, comment.id);
-                                    }}
-                                  >
-                                    appeal
-                                  </button>
-                                ) : null}
-                                {comment.canModerate ? (
-                                  <>
-                                    {comment.visibility !== "visible" ? (
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          void handleCommentModeration(drop.id, comment.id, "restore");
-                                        }}
-                                      >
-                                        restore
-                                      </button>
-                                    ) : null}
-                                    {comment.visibility !== "hidden" ? (
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          void handleCommentModeration(drop.id, comment.id, "hide");
-                                        }}
-                                      >
-                                        hide
-                                      </button>
-                                    ) : null}
-                                    {comment.visibility !== "restricted" ? (
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          void handleCommentModeration(drop.id, comment.id, "restrict");
-                                        }}
-                                      >
-                                        restrict
-                                      </button>
-                                    ) : null}
-                                    {comment.visibility !== "deleted" ? (
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          void handleCommentModeration(drop.id, comment.id, "delete");
-                                        }}
-                                      >
-                                        delete
-                                      </button>
-                                    ) : null}
-                                  </>
-                                ) : null}
-                              </div>
-                            </div>
-                            {comment.replyCount > 0 ? (
-                              <p className="townhall-comment-replies">{comment.replyCount} repl{comment.replyCount === 1 ? "y" : "ies"}</p>
-                            ) : null}
-                            <p className={comment.visibility !== "visible" ? "townhall-comment-hidden" : undefined}>
-                              {comment.visibility === "hidden"
-                                ? "comment hidden by moderation."
-                                : comment.visibility === "restricted"
-                                  ? "comment restricted by moderation."
-                                  : comment.visibility === "deleted"
-                                    ? "comment deleted by moderation."
-                                    : comment.body}
+                          <li key={comment.id}>
+                            <p>
+                              <strong>@{comment.authorHandle}</strong> · {formatRelativeAge(comment.createdAt)}
                             </p>
-                            {comment.appealRequested ? (
-                              <p className="townhall-comment-appeal-state">appeal pending review</p>
-                            ) : null}
+                            <p>{comment.body}</p>
                           </li>
                         ))}
                       </ul>
-                      {replyingToComment ? (
-                        <p className="townhall-comment-reply-target">
-                          replying to @{replyingToComment.authorHandle}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setReplyToCommentId(null);
-                            }}
-                          >
-                            cancel
-                          </button>
-                        </p>
-                      ) : null}
                       <div className="townhall-comment-form">
                         <input
-                          ref={commentInputRef}
                           value={commentDraft}
                           onChange={(event) => setCommentDraft(event.target.value)}
-                          placeholder={replyingToComment ? "write a reply" : "write a comment"}
+                          placeholder="write a comment"
                           aria-label="write comment"
                         />
                         <button
@@ -1720,7 +1067,7 @@ export function TownhallFeedScreen({
                             void handleCommentSubmit(drop.id);
                           }}
                         >
-                          {replyingToComment ? "reply" : "send"}
+                          send
                         </button>
                       </div>
                     </section>
@@ -1757,20 +1104,7 @@ export function TownhallFeedScreen({
                         </div>
                       </dl>
                       <div className="townhall-overlay-actions">
-                        <Link
-                          href={dropOpenHref(drop.id, index + 1)}
-                          onClick={() => {
-                            void postTelemetryEvent(drop.id, "access_start", {
-                              metadata: telemetryMetadata({
-                                source: "drop",
-                                position: activeIndex + 1,
-                                action: "start"
-                              })
-                            });
-                          }}
-                        >
-                          open drop
-                        </Link>
+                        <Link href={routes.drop(drop.id)}>open drop</Link>
                         <Link href={paywallHref}>collect</Link>
                       </div>
                     </section>
@@ -1832,24 +1166,6 @@ export function TownhallFeedScreen({
               </article>
             );
           })}
-
-          {isLoadingMore ? (
-            <div className="townhall-feed-load-state" aria-live="polite">
-              loading more drops...
-            </div>
-          ) : null}
-
-          {loadMoreError ? (
-            <button
-              type="button"
-              className="townhall-feed-load-state townhall-feed-load-retry"
-              onClick={() => {
-                void loadNextFeedPage();
-              }}
-            >
-              {loadMoreError}
-            </button>
-          ) : null}
         </div>
 
         <TownhallBottomNav activeMode={modeNav(mode)} noImmersiveToggle />

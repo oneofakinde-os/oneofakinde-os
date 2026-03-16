@@ -1,19 +1,16 @@
 import { formatUsd } from "@/features/shared/format";
-import type { Drop, DropLineageSnapshot, Session } from "@/lib/domain/contracts";
+import type { Drop, Session } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
 import Link from "next/link";
-import type { UrlObject } from "node:url";
 
 type DropDetailScreenProps = {
   drop: Drop;
-  lineage: DropLineageSnapshot | null;
   session: Session | null;
-  backHref: UrlObject;
 };
 
 const PRICE_HISTORY = [18, 22, 19, 24, 26, 28, 31, 29, 34, 36, 39, 42];
 
-export function DropDetailScreen({ drop, lineage, session, backHref }: DropDetailScreenProps) {
+export function DropDetailScreen({ drop, session }: DropDetailScreenProps) {
   const collectHref = session
     ? routes.collectDrop(drop.id)
     : routes.signIn(routes.collectDrop(drop.id));
@@ -24,7 +21,7 @@ export function DropDetailScreen({ drop, lineage, session, backHref }: DropDetai
     <main className="dropflow-page">
       <section className="dropflow-phone-shell" aria-label="drop detail surface">
         <header className="dropflow-header">
-          <Link href={backHref} className="dropflow-icon-link" aria-label="back to townhall">
+          <Link href={routes.townhall()} className="dropflow-icon-link" aria-label="back to townhall">
             ←
           </Link>
           <p className="dropflow-brand">oneofakinde</p>
@@ -120,53 +117,6 @@ export function DropDetailScreen({ drop, lineage, session, backHref }: DropDetai
               <dd>issued on purchase</dd>
             </div>
           </dl>
-
-          <div className="dropflow-panel-head" data-testid="drop-lineage-panel">
-            <p>lineage</p>
-            <span>
-              {lineage?.versions.length ?? 0} versions · {lineage?.derivatives.length ?? 0} derivatives
-            </span>
-          </div>
-
-          {lineage && (lineage.versions.length > 0 || lineage.derivatives.length > 0) ? (
-            <>
-              {lineage.versions.length > 0 ? (
-                <div className="dropflow-lineage-block">
-                  <p className="dropflow-meta">versions</p>
-                  <ul className="dropflow-lineage-list" aria-label="drop versions">
-                    {lineage.versions.map((version) => (
-                      <li key={version.id}>
-                        <strong>{version.label.replaceAll("_", " ")}</strong>
-                        <span>
-                          {new Date(version.createdAt).toLocaleDateString()} · by @{version.createdByHandle}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-
-              {lineage.derivatives.length > 0 ? (
-                <div className="dropflow-lineage-block">
-                  <p className="dropflow-meta">authorized derivatives</p>
-                  <ul className="dropflow-lineage-list" aria-label="authorized derivatives">
-                    {lineage.derivatives.map((derivative) => (
-                      <li key={derivative.id}>
-                        <strong>{derivative.kind.replaceAll("_", " ")}</strong>
-                        <span>
-                          target {derivative.derivativeDropId} · {derivative.revenueSplits
-                            .map((entry) => `${entry.recipientHandle}:${entry.sharePercent}%`)
-                            .join(" · ")}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-            </>
-          ) : (
-            <p className="dropflow-meta">no lineage events published yet.</p>
-          )}
         </section>
       </section>
 
