@@ -1,4 +1,5 @@
 "use client";
+
 import { formatUsd } from "@/features/shared/format";
 import type {
   Drop,
@@ -12,9 +13,9 @@ import {
   type TownhallShowroomOrdering
 } from "@/lib/townhall/showroom-query";
 import {
-  DEFAULT_TOWNHALL_SHOWROOM_ORDERING,
-  type TownhallShowroomOrdering
-import { resolveDropModeForTownhallSurface, type TownhallSurfaceMode } from "@/lib/townhall/feed-mode";
+  resolveDropModeForTownhallSurface,
+  type TownhallSurfaceMode
+} from "@/lib/townhall/feed-mode";
 import { resolveDropPreview } from "@/lib/townhall/preview-media";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
