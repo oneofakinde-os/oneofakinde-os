@@ -1,5 +1,4 @@
 "use client";
-
 import { formatUsd } from "@/features/shared/format";
 import type {
   Drop,
@@ -8,6 +7,13 @@ import type {
   TownhallTelemetryEventType
 } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
+import {
+  DEFAULT_TOWNHALL_SHOWROOM_ORDERING,
+  type TownhallShowroomOrdering
+} from "@/lib/townhall/showroom-query";
+import {
+  DEFAULT_TOWNHALL_SHOWROOM_ORDERING,
+  type TownhallShowroomOrdering
 import { resolveDropModeForTownhallSurface, type TownhallSurfaceMode } from "@/lib/townhall/feed-mode";
 import { resolveDropPreview } from "@/lib/townhall/preview-media";
 import Link from "next/link";
@@ -24,6 +30,13 @@ import {
 } from "./townhall-icons";
 
 type TownhallFeedScreenProps = {
+  showroomOrdering?: TownhallShowroomOrdering;
+  showroomMedia?: string;
+  pageSize?: number;
+  initialHasMore?: boolean;
+  initialNextCursor?: string | null;
+  initialFocusDropId?: string | null;
+  initialFocusPosition?: number | null;
   mode: TownhallSurfaceMode;
   viewer: {
     accountId: string;
@@ -78,6 +91,87 @@ const SWIPE_EXIT_DELTA_PX = 82;
 const SWIPE_EXIT_MAX_DURATION_MS = 920;
 const SWIPE_VERTICAL_BIAS = 1.15;
 const LONG_PRESS_SUPPRESS_TAP_MS = 700;
+
+const SHOWROOM_MODES = [
+  { value: "all", label: "all", href: routes.townhall() },
+  { value: "agora", label: "agora", href: `${routes.townhall()}?media=agora` },
+  { value: "watch", label: "watch", href: routes.townhallWatch() },
+  { value: "listen", label: "listen", href: routes.townhallListen() },
+  { value: "read", label: "read", href: routes.townhallRead() },
+  { value: "photos", label: "photos", href: routes.townhallGallery() },
+  { value: "live", label: "live", href: routes.townhallLive() }
+] as const;
+
+const SHOWROOM_ORDERING_OPTIONS = [
+  { value: "featured", label: "featured" },
+  { value: "for_you", label: "for you" },
+  { value: "rising", label: "rising" },
+  { value: "newest", label: "newest" },
+  { value: "most_collected", label: "most collected" },
+  { value: "new_voices", label: "new voices" },
+  { value: "sustained_craft", label: "sustained craft" }
+] as const;
+
+const SHOWROOM_ORDERING_OPTIONS = [
+  { value: "featured", label: "featured" },
+  { value: "for_you", label: "for you" },
+  { value: "rising", label: "rising" },
+  { value: "newest", label: "newest" },
+  { value: "most_collected", label: "most collected" },
+  { value: "new_voices", label: "new voices" },
+  { value: "sustained_craft", label: "sustained craft" }
+] as const;
+
+const SHOWROOM_ORDERING_OPTIONS = [
+  { value: "featured", label: "featured" },
+  { value: "for_you", label: "for you" },
+  { value: "rising", label: "rising" },
+  { value: "newest", label: "newest" },
+  { value: "most_collected", label: "most collected" },
+  { value: "new_voices", label: "new voices" },
+  { value: "sustained_craft", label: "sustained craft" }
+] as const;
+
+const SHOWROOM_ORDERING_OPTIONS = [
+  { value: "featured", label: "featured" },
+  { value: "for_you", label: "for you" },
+  { value: "rising", label: "rising" },
+  { value: "newest", label: "newest" },
+  { value: "most_collected", label: "most collected" },
+  { value: "new_voices", label: "new voices" },
+  { value: "sustained_craft", label: "sustained craft" }
+] as const;
+
+const SHOWROOM_ORDERING_OPTIONS = [
+  { value: "featured", label: "featured" },
+  { value: "for_you", label: "for you" },
+  { value: "rising", label: "rising" },
+  { value: "newest", label: "newest" },
+  { value: "most_collected", label: "most collected" },
+  { value: "new_voices", label: "new voices" },
+  { value: "sustained_craft", label: "sustained craft" }
+] as const;
+
+const SHOWROOM_ORDERING_OPTIONS = [
+  { value: "featured", label: "featured" },
+  { value: "for_you", label: "for you" },
+  { value: "rising", label: "rising" },
+  { value: "newest", label: "newest" },
+  { value: "most_collected", label: "most collected" },
+  { value: "new_voices", label: "new voices" },
+  { value: "sustained_craft", label: "sustained craft" }
+] as const;
+
+const SHOWROOM_ORDERING_OPTIONS = [
+  { value: "featured", label: "featured" },
+  { value: "for_you", label: "for you" },
+  { value: "rising", label: "rising" },
+  { value: "newest", label: "newest" },
+  { value: "most_collected", label: "most collected" },
+  { value: "new_voices", label: "new voices" },
+  { value: "sustained_craft", label: "sustained craft" }
+] as const;
+
 
 const MODE_COPY: Record<Exclude<TownhallSurfaceMode, "townhall">, ModeCopy> = {
   watch: {
@@ -202,9 +296,11 @@ export function TownhallFeedScreen({
   mode,
   viewer,
   drops,
+  showroomOrdering = DEFAULT_TOWNHALL_SHOWROOM_ORDERING,
   ownedDropIds = [],
   initialSocialByDropId = {}
 }: TownhallFeedScreenProps) {
+  void showroomOrdering;
   const [activeIndex, setActiveIndex] = useState(0);
   const [isImmersive, setIsImmersive] = useState(false);
   const [showControls, setShowControls] = useState(false);
@@ -244,6 +340,10 @@ export function TownhallFeedScreen({
   const ownedSet = useMemo(() => new Set(ownedDropIds), [ownedDropIds]);
 
   const activeDrop = drops[activeIndex] ?? drops[0] ?? null;
+
+  void showroomOrdering;
+  void showroomMedia;
+  void SHOWROOM_ORDERING_OPTIONS;
 
   async function postTelemetryEvent(
     dropId: string,
@@ -726,6 +826,19 @@ export function TownhallFeedScreen({
               aria-label="search users, worlds, and drops"
             />
           </form>
+
+          <nav className="townhall-showroom-modes" aria-label="showroom modes">
+            {SHOWROOM_MODES.map((item) => (
+              <Link
+                key={item.value}
+                href={item.href}
+                className="townhall-showroom-mode-link"
+                data-no-immersive-toggle="true"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
         </header>
 
         <div
