@@ -136,7 +136,7 @@ export function DropDetailScreen({
               <dl className="dropflow-metadata-grid">
                 <div>
                   <dt>root drop</dt>
-                  <dd>{(lineage as { rootDropTitle?: string }).rootDropTitle ?? lineage.rootDropId ?? "—"}</dd>
+                  <dd>{(lineage as { rootDropTitle?: string; rootDropId?: string }).rootDropTitle ?? (lineage as { rootDropId?: string }).rootDropId ?? "—"}</dd>
                 </div>
                 <div>
                   <dt>parent drop</dt>
