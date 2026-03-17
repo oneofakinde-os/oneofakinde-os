@@ -1,5 +1,5 @@
-version: v2.1
-date: 2026-02-24
+version: v3.1
+date: 2026-03-01
 
 - surface map: naming + routes + glossary + linter authority
 - public surfaces + economic rails: build contract authority
@@ -11,7 +11,7 @@ date: 2026-02-24
 
 oneofakinde os — 2026 surface map (source of truth)
 format: lintable_txt_v1
-last_updated: 2026-02-23
+last_updated: 2026-03-01
 notes: this file is machine-lintable; no free-text notes. everything is structured.
 
 # =====================================================================
@@ -25,8 +25,8 @@ locked_glossary:
     library: "saved/curation bucket (pinterest-style saves)"
     studio: "public-facing creator presence (creator identity surface)"
     workshop: "creator back-office (making suite; formerly studio when meaning the suite)"
-    townhall: "showroom + collect surface (community + marketplace)"
-  watch: "video consumable mode"
+    showroom: "primary feed + discovery shell (community + marketplace)"
+    watch: "video consumable mode"
     listen: "audio consumable mode"
     read: "text consumable mode"
     live: "happening now consumable mode"
@@ -37,6 +37,8 @@ locked_glossary:
     collection_place: { term: "collection", meaning: "place", replace_with: "world" }
     collections_place: { term: "collections", meaning: "places", replace_with: "worlds" }
     gallery: { replace_with: "photos" }
+    townhall: { replace_with: "showroom" }
+    invest: { replace_with: "collect" }
     profile: { replace_with: "studio" } # when meaning public creator presence
     studio_making_suite: { term: "studio", meaning: "creator back-office", replace_with: "workshop" }
   allowed_ui_phrases:
@@ -237,8 +239,8 @@ surfaces:
   # -------------------------------------------------------------------
   # 4) studio (public creator presence)
   # -------------------------------------------------------------------
-  - route: "/studios/:handle"
-    legacy_routes: ["/creators/:handle", "/studio/:handle"]
+  - route: "/studio/:handle"
+    legacy_routes: ["/creators/:handle", "/studios/:handle"]
     surface_key: "studio_public"
     ui_title: "studio"
     ui_nouns: ["studio", "drop", "world"]
@@ -416,9 +418,9 @@ surfaces:
   # -------------------------------------------------------------------
   # 8) money moments (hosted checkout; webhook-only mint trigger)
   # -------------------------------------------------------------------
-  - route: "/pay/buy/:drop_id"
-    legacy_routes: ["/pay/buy/:asset_id"]
-    surface_key: "pay_buy_drop"
+  - route: "/collect/:drop_id"
+    legacy_routes: ["/pay/buy/:drop_id", "/pay/buy/:asset_id"]
+    surface_key: "collect_drop"
     ui_title: "collect"
     ui_nouns: ["drop"]
     lint_targets: ["cta", "metadata_labels"]
@@ -538,7 +540,7 @@ surfaces:
     proof_ids: ["p_first_run_destination", "p_session_required"]
 
   - route: "/collect"
-    legacy_routes: []
+    legacy_routes: ["/invest"]
     surface_key: "collect_market"
     ui_title: "collect"
     ui_nouns: ["collect", "drop", "world"]
@@ -579,17 +581,6 @@ surfaces:
     roles: ["collector", "creator"]
     public_safe: false
     contract_deps: ["openapi_v1.social", "schema_v1.social"]
-    proof_ids: ["p_session_required"]
-
-  - route: "/invest"
-    legacy_routes: []
-    surface_key: "invest"
-    ui_title: "invest"
-    ui_nouns: ["collect", "drop"]
-    lint_targets: ["h1", "metadata_labels"]
-    roles: ["collector", "creator"]
-    public_safe: false
-    contract_deps: ["openapi_v1.catalog", "schema_v1.catalog"]
     proof_ids: ["p_session_required"]
 
   - route: "/settings/account"
@@ -691,77 +682,77 @@ surfaces:
     contract_deps: ["openapi_v1.catalog", "schema_v1.catalog", "canon_no_leaks_scan"]
     proof_ids: ["p_no_leaks_ci"]
 
-  - route: "/townhall"
-    legacy_routes: []
-    surface_key: "townhall"
-    ui_title: "townhall"
-    ui_nouns: ["townhall", "drop"]
+  - route: "/showroom"
+    legacy_routes: ["/townhall"]
+    surface_key: "showroom"
+    ui_title: "showroom"
+    ui_nouns: ["showroom", "drop"]
     lint_targets: ["nav", "h1", "cta", "metadata_labels"]
     roles: ["public", "collector", "creator"]
     public_safe: true
     contract_deps: ["openapi_v1.catalog", "schema_v1.catalog", "canon_no_leaks_scan"]
     proof_ids: ["p_public_safe_render", "p_no_leaks_ci"]
 
-  - route: "/townhall/watch"
-    legacy_routes: []
-    surface_key: "townhall_watch"
-    ui_title: "townhall watch"
-    ui_nouns: ["townhall", "watch", "drop"]
+  - route: "/showroom/watch"
+    legacy_routes: ["/townhall/watch"]
+    surface_key: "showroom_watch"
+    ui_title: "showroom watch"
+    ui_nouns: ["showroom", "watch", "drop"]
     lint_targets: ["nav", "h1", "metadata_labels"]
     roles: ["public", "collector", "creator"]
     public_safe: true
     contract_deps: ["openapi_v1.catalog", "schema_v1.catalog", "canon_no_leaks_scan"]
     proof_ids: ["p_no_leaks_ci"]
 
-  - route: "/townhall/listen"
-    legacy_routes: []
-    surface_key: "townhall_listen"
-    ui_title: "townhall listen"
-    ui_nouns: ["townhall", "listen", "drop"]
+  - route: "/showroom/listen"
+    legacy_routes: ["/townhall/listen"]
+    surface_key: "showroom_listen"
+    ui_title: "showroom listen"
+    ui_nouns: ["showroom", "listen", "drop"]
     lint_targets: ["nav", "h1", "metadata_labels"]
     roles: ["public", "collector", "creator"]
     public_safe: true
     contract_deps: ["openapi_v1.catalog", "schema_v1.catalog", "canon_no_leaks_scan"]
     proof_ids: ["p_no_leaks_ci"]
 
-  - route: "/townhall/read"
-    legacy_routes: []
-    surface_key: "townhall_read"
-    ui_title: "townhall read"
-    ui_nouns: ["townhall", "read", "drop"]
+  - route: "/showroom/read"
+    legacy_routes: ["/townhall/read"]
+    surface_key: "showroom_read"
+    ui_title: "showroom read"
+    ui_nouns: ["showroom", "read", "drop"]
     lint_targets: ["nav", "h1", "metadata_labels"]
     roles: ["public", "collector", "creator"]
     public_safe: true
     contract_deps: ["openapi_v1.catalog", "schema_v1.catalog", "canon_no_leaks_scan"]
     proof_ids: ["p_no_leaks_ci"]
 
-  - route: "/townhall/photos"
-    legacy_routes: ["/townhall/gallery"]
-    surface_key: "townhall_photos"
-    ui_title: "townhall photos"
-    ui_nouns: ["townhall", "photos", "drop"]
+  - route: "/showroom/photos"
+    legacy_routes: ["/townhall/photos", "/townhall/gallery"]
+    surface_key: "showroom_photos"
+    ui_title: "showroom photos"
+    ui_nouns: ["showroom", "photos", "drop"]
     lint_targets: ["nav", "h1", "metadata_labels"]
     roles: ["public", "collector", "creator"]
     public_safe: true
     contract_deps: ["openapi_v1.catalog", "schema_v1.catalog", "canon_no_leaks_scan"]
     proof_ids: ["p_no_leaks_ci"]
 
-  - route: "/townhall/live"
-    legacy_routes: []
-    surface_key: "townhall_live"
-    ui_title: "townhall live"
-    ui_nouns: ["townhall", "live", "drop"]
+  - route: "/showroom/live"
+    legacy_routes: ["/townhall/live"]
+    surface_key: "showroom_live"
+    ui_title: "showroom live"
+    ui_nouns: ["showroom", "live", "drop"]
     lint_targets: ["nav", "h1", "metadata_labels"]
     roles: ["public", "collector", "creator"]
     public_safe: true
     contract_deps: ["openapi_v1.catalog", "schema_v1.catalog", "canon_no_leaks_scan"]
     proof_ids: ["p_no_leaks_ci"]
 
-  - route: "/townhall/search"
-    legacy_routes: []
-    surface_key: "townhall_search"
-    ui_title: "townhall search"
-    ui_nouns: ["townhall", "drop", "world", "studio"]
+  - route: "/showroom/search"
+    legacy_routes: ["/townhall/search"]
+    surface_key: "showroom_search"
+    ui_title: "showroom search"
+    ui_nouns: ["showroom", "drop", "world", "studio"]
     lint_targets: ["h1", "metadata_labels", "empty_state"]
     roles: ["public", "collector", "creator"]
     public_safe: true
@@ -816,6 +807,7 @@ surfaces (v2.0 additions)
 internal config (v2.1)
 
 showroom_lanes:
+- for_you
 - newest
 - rising
 - most_collected
