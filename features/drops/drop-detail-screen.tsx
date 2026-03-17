@@ -1,16 +1,24 @@
+import type { UrlObject } from "url";
 import { formatUsd } from "@/features/shared/format";
-import type { Drop, Session } from "@/lib/domain/contracts";
+import type { DropLineageSnapshot, Drop, Session } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
 import Link from "next/link";
 
 type DropDetailScreenProps = {
+  backHref?: UrlObject;
+  lineage?: DropLineageSnapshot | null;
   drop: Drop;
   session: Session | null;
 };
 
 const PRICE_HISTORY = [18, 22, 19, 24, 26, 28, 31, 29, 34, 36, 39, 42];
 
-export function DropDetailScreen({ drop, session }: DropDetailScreenProps) {
+export function DropDetailScreen({
+  drop,
+  session,
+  backHref,
+  lineage
+}: DropDetailScreenProps) {
   const collectHref = session
     ? routes.collectDrop(drop.id)
     : routes.signIn(routes.collectDrop(drop.id));
@@ -21,7 +29,7 @@ export function DropDetailScreen({ drop, session }: DropDetailScreenProps) {
     <main className="dropflow-page">
       <section className="dropflow-phone-shell" aria-label="drop detail surface">
         <header className="dropflow-header">
-          <Link href={routes.townhall()} className="dropflow-icon-link" aria-label="back to townhall">
+          <Link href={backHref ?? routes.townhall()} className="dropflow-icon-link" aria-label="back to townhall">
             ←
           </Link>
           <p className="dropflow-brand">oneofakinde</p>
@@ -117,6 +125,34 @@ export function DropDetailScreen({ drop, session }: DropDetailScreenProps) {
               <dd>issued on purchase</dd>
             </div>
           </dl>
+
+          {lineage ? (
+            <section className="dropflow-lineage-panel" aria-label="drop lineage panel">
+              <div className="dropflow-panel-head">
+                <p>lineage</p>
+                <span>public record</span>
+              </div>
+
+              <dl className="dropflow-metadata-grid">
+                <div>
+                  <dt>root drop</dt>
+                  <dd>{(lineage as { rootDropTitle?: string }).rootDropTitle ?? lineage.rootDropId ?? "—"}</dd>
+                </div>
+                <div>
+                  <dt>parent drop</dt>
+                  <dd>{lineage.parentDropTitle ?? lineage.parentDropId ?? "—"}</dd>
+                </div>
+                <div>
+                  <dt>edition depth</dt>
+                  <dd>{String(lineage.depth ?? 0)}</dd>
+                </div>
+                <div>
+                  <dt>authorized derivatives</dt>
+                  <dd>{String(lineage.derivatives?.length ?? 0)}</dd>
+                </div>
+              </dl>
+            </section>
+          ) : null}
         </section>
       </section>
 
