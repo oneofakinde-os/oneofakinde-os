@@ -40,7 +40,7 @@ function matchPathPattern(pathname: string, compiled: CompiledPattern): {
   if (!match) return null;
 
   const captures = match.slice(1);
-  const byName = Object.fromEntries(
+  const byName: Record<string, string> = Object.fromEntries(
     compiled.paramNames.map((name, index) => [name, captures[index] ?? ""])
   );
 
