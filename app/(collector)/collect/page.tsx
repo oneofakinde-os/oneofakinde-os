@@ -1,6 +1,5 @@
 import { CollectMarketplaceScreen } from "@/features/collect/collect-marketplace-screen";
-import { commerceBffService } from "@/lib/bff/service";
-import { parseCollectMarketLane } from "@/lib/collect/market-lanes";
+import { gateway } from "@/lib/gateway";
 import { requireSession } from "@/lib/server/session";
 
 type CollectPageProps = {
@@ -12,25 +11,16 @@ function firstParam(value: string | string[] | undefined): string {
   return Array.isArray(value) ? value[0] ?? "" : value;
 }
 
+function isLane(value: string): value is "all" | "sale" | "auction" | "resale" {
+  return value === "all" || value === "sale" || value === "auction" || value === "resale";
+}
+
 export default async function CollectPage({ searchParams }: CollectPageProps) {
   const session = await requireSession("/collect");
+  const drops = await gateway.listDrops();
   const resolvedParams = await searchParams;
-  const initialLane = parseCollectMarketLane(firstParam(resolvedParams.lane));
-  const [inventory, memberships, liveSessions, worldBundles] = await Promise.all([
-    commerceBffService.getCollectInventory(session.accountId, initialLane),
-    commerceBffService.listMembershipEntitlements(session.accountId),
-    commerceBffService.listCollectLiveSessions(session.accountId),
-    commerceBffService.listCollectWorldBundles(session.accountId)
-  ]);
+  const laneValue = firstParam(resolvedParams.lane).toLowerCase();
+  const initialLane = isLane(laneValue) ? laneValue : "all";
 
-  return (
-    <CollectMarketplaceScreen
-      session={session}
-      listings={inventory.listings}
-      initialLane={inventory.lane}
-      memberships={memberships}
-      liveSessions={liveSessions}
-      worldBundles={worldBundles}
-    />
-  );
+  return <CollectMarketplaceScreen session={session} drops={drops} initialLane={initialLane} />;
 }

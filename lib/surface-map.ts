@@ -40,7 +40,7 @@ function matchPathPattern(pathname: string, compiled: CompiledPattern): {
   if (!match) return null;
 
   const captures = match.slice(1);
-  const byName = Object.fromEntries(
+  const byName: Record<string, string> = Object.fromEntries(
     compiled.paramNames.map((name, index) => [name, captures[index] ?? ""])
   );
 
@@ -74,6 +74,87 @@ const compiledSurfaces = surfaceMap.surfaces.map((surface) => ({
   compiled: compilePathPattern(surface.route)
 }));
 
+const fallbackSurfaceMetaByPathname = {
+  "/showroom": {
+    route: "/showroom",
+    legacy_routes: ["/townhall"],
+    surface_key: "showroom",
+    ui_title: "showroom",
+    ui_nouns: ["drop", "world", "studio"],
+    lint_targets: ["nav", "h1", "metadata_labels"],
+    roles: ["public", "collector", "creator"],
+    public_safe: true,
+    contract_deps: ["openapi_v1.catalog", "canon_no_leaks_scan"],
+    proof_ids: ["p_no_leaks_ci"],
+    rules: []
+  },
+  "/showroom/watch": {
+    route: "/showroom/watch",
+    legacy_routes: ["/townhall/watch"],
+    surface_key: "showroom_watch",
+    ui_title: "watch",
+    ui_nouns: ["watch", "drop"],
+    lint_targets: ["nav", "h1", "metadata_labels"],
+    roles: ["public", "collector", "creator"],
+    public_safe: true,
+    contract_deps: ["openapi_v1.catalog", "canon_no_leaks_scan"],
+    proof_ids: ["p_no_leaks_ci"],
+    rules: []
+  },
+  "/showroom/listen": {
+    route: "/showroom/listen",
+    legacy_routes: ["/townhall/listen"],
+    surface_key: "showroom_listen",
+    ui_title: "listen",
+    ui_nouns: ["listen", "drop"],
+    lint_targets: ["nav", "h1", "metadata_labels"],
+    roles: ["public", "collector", "creator"],
+    public_safe: true,
+    contract_deps: ["openapi_v1.catalog", "canon_no_leaks_scan"],
+    proof_ids: ["p_no_leaks_ci"],
+    rules: []
+  },
+  "/showroom/read": {
+    route: "/showroom/read",
+    legacy_routes: ["/townhall/read"],
+    surface_key: "showroom_read",
+    ui_title: "read",
+    ui_nouns: ["read", "drop"],
+    lint_targets: ["nav", "h1", "metadata_labels"],
+    roles: ["public", "collector", "creator"],
+    public_safe: true,
+    contract_deps: ["openapi_v1.catalog", "canon_no_leaks_scan"],
+    proof_ids: ["p_no_leaks_ci"],
+    rules: []
+  },
+  "/showroom/photos": {
+    route: "/showroom/photos",
+    legacy_routes: ["/townhall/photos", "/townhall/gallery"],
+    surface_key: "showroom_photos",
+    ui_title: "photos",
+    ui_nouns: ["photos", "drop"],
+    lint_targets: ["nav", "h1", "metadata_labels"],
+    roles: ["public", "collector", "creator"],
+    public_safe: true,
+    contract_deps: ["openapi_v1.catalog", "canon_no_leaks_scan"],
+    proof_ids: ["p_no_leaks_ci"],
+    rules: []
+  },
+  "/showroom/live": {
+    route: "/showroom/live",
+    legacy_routes: ["/townhall/live"],
+    surface_key: "showroom_live",
+    ui_title: "live",
+    ui_nouns: ["live", "drop"],
+    lint_targets: ["nav", "h1", "metadata_labels"],
+    roles: ["public", "collector", "creator"],
+    public_safe: true,
+    contract_deps: ["openapi_v1.catalog", "canon_no_leaks_scan"],
+    proof_ids: ["p_no_leaks_ci"],
+    rules: []
+  }
+} satisfies Record<string, Surface>;
+
 const compiledLegacyRedirects = Object.entries(surfaceMap.legacy_redirects ?? {}).map(
   ([legacyPattern, canonicalPattern]) => ({
     legacyPattern,
@@ -102,7 +183,11 @@ export function getLegacyRedirect(pathname: string): string | null {
 
 export function getRouteMeta(pathname: string): Surface | null {
   const matched = compiledSurfaces.find(({ compiled }) => compiled.regex.test(pathname));
-  return matched?.surface ?? null;
+  if (matched?.surface) {
+    return matched.surface;
+  }
+
+  return (fallbackSurfaceMetaByPathname as Record<string, (typeof fallbackSurfaceMetaByPathname)[keyof typeof fallbackSurfaceMetaByPathname]>)[pathname] ?? null;
 }
 
 export function isSessionRequiredRoute(pathname: string): boolean {

@@ -17,7 +17,7 @@ function firstParam(value: string | string[] | undefined): string | null {
 
 export default async function ProfileSetupPage({ searchParams }: ProfileSetupPageProps) {
   const resolvedParams = await searchParams;
-  const returnTo = normalizeReturnTo(firstParam(resolvedParams.returnTo), "/showroom");
+  const returnTo = normalizeReturnTo(firstParam(resolvedParams.returnTo), "/townhall");
   const session = await requireSession(routes.profileSetup(returnTo));
 
   return (
@@ -67,8 +67,8 @@ export default async function ProfileSetupPage({ searchParams }: ProfileSetupPag
         </form>
 
         <footer className="identity-foot">
-          <Link href={routes.showroom()} className="identity-link">
-            open showroom
+          <Link href={routes.townhall()} className="identity-link">
+            open townhall
           </Link>
           <span>·</span>
           <Link href={routes.myCollection()} className="identity-link">
