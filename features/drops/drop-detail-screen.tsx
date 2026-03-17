@@ -127,7 +127,7 @@ export function DropDetailScreen({
           </dl>
 
           {lineage ? (
-            <section className="dropflow-lineage-panel" aria-label="drop lineage panel">
+            <section className="dropflow-lineage-panel" data-testid="drop-lineage-panel" aria-label="drop lineage panel">
               <div className="dropflow-panel-head">
                 <p>lineage</p>
                 <span>public record</span>
