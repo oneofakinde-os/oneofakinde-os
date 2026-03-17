@@ -144,7 +144,7 @@ export function DropDetailScreen({
                 </div>
                 <div>
                   <dt>edition depth</dt>
-                  <dd>{String(lineage.depth ?? 0)}</dd>
+                  <dd>{String((lineage as { editionDepth?: number; depth?: number }).editionDepth ?? (lineage as { depth?: number }).depth ?? 0)}</dd>
                 </div>
                 <div>
                   <dt>authorized derivatives</dt>

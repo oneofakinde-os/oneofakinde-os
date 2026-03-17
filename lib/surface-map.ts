@@ -187,7 +187,7 @@ export function getRouteMeta(pathname: string): Surface | null {
     return matched.surface;
   }
 
-  return fallbackSurfaceMetaByPathname[pathname] ?? null;
+  return (fallbackSurfaceMetaByPathname as Record<string, (typeof fallbackSurfaceMetaByPathname)[keyof typeof fallbackSurfaceMetaByPathname]>)[pathname] ?? null;
 }
 
 export function isSessionRequiredRoute(pathname: string): boolean {
