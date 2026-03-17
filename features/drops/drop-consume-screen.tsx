@@ -9,6 +9,7 @@ type DropConsumeScreenProps = {
   mode: ConsumeMode;
   session: Session;
   drop: Drop;
+  worldDrops?: Drop[];
   hasEntitlement: boolean;
   receipt: PurchaseReceipt | null;
   certificate: Certificate | null;

@@ -140,7 +140,7 @@ export function DropDetailScreen({
                 </div>
                 <div>
                   <dt>parent drop</dt>
-                  <dd>{lineage.parentDropTitle ?? lineage.parentDropId ?? "—"}</dd>
+                  <dd>{(lineage as { parentDropTitle?: string; parentDropId?: string }).parentDropTitle ?? (lineage as { parentDropId?: string }).parentDropId ?? "—"}</dd>
                 </div>
                 <div>
                   <dt>edition depth</dt>
