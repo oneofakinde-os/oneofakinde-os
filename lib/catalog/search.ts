@@ -84,6 +84,7 @@ export type ExecuteCatalogSearchInput = {
   lane?: string | null;
   offerState?: string | null;
   limit?: string | number | null;
+  viewerAccountId?: string | null;
 };
 
 function normalize(value: string): string {
@@ -272,9 +273,10 @@ export async function executeCatalogSearch(input: ExecuteCatalogSearchInput = {}
   const lane = parseCollectMarketLane(input.lane);
   const offerState = parseCatalogSearchOfferState(input.offerState);
   const limit = parseCatalogSearchLimit(input.limit);
+  const viewerAccountId = input.viewerAccountId ?? null;
 
   const [drops, worlds, collectInventory] = await Promise.all([
-    commerceBffService.listDrops(),
+    commerceBffService.listDrops(viewerAccountId),
     commerceBffService.listWorlds(),
     commerceBffService.getCollectInventory(null, "all")
   ]);

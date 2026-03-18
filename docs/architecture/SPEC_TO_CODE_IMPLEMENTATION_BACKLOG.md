@@ -1,7 +1,7 @@
 # Spec-to-Code Implementation Backlog (March 8 Authority)
 
 Date opened: 2026-03-17
-Current phase: Phase 1 complete; Phase 2 queued
+Current phase: Phase 1 complete; Phase 2 complete; Phase 3 in progress
 
 This backlog converts the March 8 authority pack into concrete file-level implementation work. Items are ordered by dependency, not convenience.
 
@@ -30,17 +30,17 @@ Goal: remove old rails and terms that conflict with launch checklist and glossar
 
 | Status | File | Change |
 | --- | --- | --- |
-| pending | `app/(auth)/auth/sign-up/page.tsx` | Remove wallet-first language from signup flow copy and links. |
-| pending | `app/(auth)/auth/sign-up/actions.ts` | Make wallet link optional post-signup, not default continuation gate. |
-| pending | `app/(auth)/auth/sign-in/page.tsx` | Align sign-in continuation and wording with non-wallet-first onboarding. |
-| pending | `app/(auth)/auth/wallet-connect/page.tsx` | Reposition as optional account-linking utility, not core flow step. |
-| pending | `lib/system-flow.ts` | Remove hard dependency chain through wallet/profile-setup for default entry flow. |
-| pending | `features/shell/app-shell.tsx` | Replace `favorites` nav with `library` canonical language. |
-| pending | `features/favorites/favorites-screen.tsx` | Migrate copy/labels to library semantics (or remove surface if merged). |
-| pending | `app/(collector)/favorites/page.tsx` | Redirect/remove in favor of canonical library route. |
-| pending | `features/drops/drop-detail-screen.tsx` | Replace `add to favorites` with canonical save/library wording. |
-| pending | `lib/routes.ts` | Remove stale public helpers (`invest`, `gallery` aliases, etc.) from canonical navigation graph. |
-| pending | `tests/proofs/terminology-rules.test.ts` | Expand fixtures for March 8 canonical noun enforcement. |
+| done | `app/(auth)/auth/sign-up/page.tsx` | Remove wallet-first language from signup flow copy and links. |
+| done | `app/(auth)/auth/sign-up/actions.ts` | Make wallet link optional post-signup, not default continuation gate. |
+| done | `app/(auth)/auth/sign-in/page.tsx` | Align sign-in continuation and wording with non-wallet-first onboarding. |
+| done | `app/(auth)/auth/wallet-connect/page.tsx` | Reposition as optional account-linking utility, not core flow step. |
+| done | `lib/system-flow.ts` | Remove hard dependency chain through wallet/profile-setup for default entry flow. |
+| done | `features/shell/app-shell.tsx` | Replace `favorites` nav with `library` canonical language. |
+| done | `features/favorites/favorites-screen.tsx` | Migrate copy/labels to library semantics (or remove surface if merged). |
+| done | `app/(collector)/favorites/page.tsx` | Redirect/remove in favor of canonical library route. |
+| done | `features/drops/drop-detail-screen.tsx` | Replace `add to favorites` with canonical save/library wording. |
+| done | `lib/routes.ts` | Remove stale public helpers (`invest`, `gallery` aliases, etc.) from canonical navigation graph. |
+| done | `tests/proofs/terminology-rules.test.ts` | Expand fixtures for March 8 canonical noun enforcement. |
 
 ## Phase 3: Domain Contract Alignment
 
@@ -48,12 +48,12 @@ Goal: make `lib/domain/contracts.ts` match March 8 engineering reference.
 
 | Status | File | Change |
 | --- | --- | --- |
-| pending | `lib/domain/contracts.ts` | Add/extend `World`, `Drop`, `LiveSession` types with March 8 fields (`entryRule`, `lore`, `visibility`, `previewPolicy`, etc.). |
+| in_progress | `lib/domain/contracts.ts` | Add/extend `World`, `Drop`, `LiveSession` types with March 8 fields (`entryRule`, `lore`, `visibility`, `previewPolicy`, etc.). |
 | pending | `lib/bff/contracts.ts` | Align API payload contracts with updated domain types. |
-| pending | `lib/bff/service.ts` | Enforce visibility and entry-rule semantics in business logic and feed/search gating. |
-| pending | `lib/bff/persistence.ts` | Persist new fields and migration-safe defaults. |
+| in_progress | `lib/bff/service.ts` | Enforce visibility and entry-rule semantics in business logic and feed/search gating. |
+| in_progress | `lib/bff/persistence.ts` | Persist new fields and migration-safe defaults. |
 | pending | `config/00xx_*.sql` | Add migrations for new world/drop/live columns and constraints. |
-| pending | `lib/adapters/mock-commerce.ts` | Seed canonical fields and visibility scenarios for proofs/smoke tests. |
+| in_progress | `lib/adapters/mock-commerce.ts` | Seed canonical fields and visibility scenarios for proofs/smoke tests. |
 
 ## Phase 4: API Contract Shape Alignment
 

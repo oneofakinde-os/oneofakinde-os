@@ -24,7 +24,7 @@ export async function GET(request: Request) {
   const dropIds =
     requestedDropIds.length > 0
       ? requestedDropIds
-      : (await commerceBffService.listDrops()).map((drop) => drop.id);
+      : (await commerceBffService.listDrops(session?.accountId ?? null)).map((drop) => drop.id);
 
   const social = await commerceBffService.getTownhallSocialSnapshot(
     session?.accountId ?? null,
@@ -33,4 +33,3 @@ export async function GET(request: Request) {
 
   return ok({ social });
 }
-

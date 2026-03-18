@@ -5,13 +5,18 @@ import type {
   CollectEnforcementSignalType,
   CollectListingType,
   CollectOfferState,
+  DropVisibility,
+  DropVisibilitySource,
   DropVersionLabel,
   Drop,
   LedgerTransaction,
+  LiveSessionAudienceEligibility,
   LiveSessionEligibilityRule,
+  LiveSessionType,
   MembershipEntitlementStatus,
   PatronStatus,
   PatronTierStatus,
+  PreviewPolicy,
   PurchaseReceipt,
   ReceiptBadge,
   SettlementLineItem,
@@ -183,6 +188,12 @@ export type LiveSessionRecord = {
   endsAt: string | null;
   mode: "live";
   eligibilityRule: LiveSessionEligibilityRule;
+  type?: LiveSessionType;
+  eligibility?: LiveSessionAudienceEligibility;
+  spatialAudio?: boolean;
+  exclusiveDropWindowDropId?: string | null;
+  exclusiveDropWindowDelay?: number | null;
+  capacity?: number;
 };
 
 export type TownhallLikeRecord = {
@@ -529,6 +540,20 @@ function createSeedDatabase(): BffDatabase {
       title: "dark matter",
       synopsis: "cinematic drops exploring identity and memory.",
       studioHandle: "oneofakinde",
+      visualIdentity: {
+        coverImageSrc: "/images/worlds/dark-matter-cover.jpg",
+        colorPrimary: "#0b132b",
+        colorSecondary: "#1c2541",
+        motionTreatment: "world_ambient_v1"
+      },
+      ambientAudioSrc: "https://cdn.oneofakinde.dev/worlds/dark-matter/ambient.mp3",
+      entryRule: "membership",
+      lore: "dark matter tracks identity through memory, movement, and live openings.",
+      releaseStructure: {
+        mode: "seasons",
+        currentLabel: "season one"
+      },
+      defaultDropVisibility: "world_members",
       collectBundles: [
         {
           bundleType: "current_only",
@@ -564,6 +589,20 @@ function createSeedDatabase(): BffDatabase {
       title: "through the lens",
       synopsis: "camera-led drops for real-world atmospheres.",
       studioHandle: "oneofakinde",
+      visualIdentity: {
+        coverImageSrc: "/images/worlds/through-the-lens-cover.jpg",
+        colorPrimary: "#102a43",
+        colorSecondary: "#334e68",
+        motionTreatment: "world_ambient_v1"
+      },
+      ambientAudioSrc: "https://cdn.oneofakinde.dev/worlds/through-the-lens/ambient.mp3",
+      entryRule: "open",
+      lore: "through the lens reframes daily scenes into episodic chapters.",
+      releaseStructure: {
+        mode: "chapters",
+        currentLabel: "chapter one"
+      },
+      defaultDropVisibility: "public",
       collectBundles: [
         {
           bundleType: "current_only",
@@ -619,7 +658,11 @@ function createSeedDatabase(): BffDatabase {
       priceUsd: 1.99,
       studioPinRank: 1,
       worldOrderIndex: 1,
-      previewMedia: seedPreviewMediaForDrop("stardust")
+      previewMedia: seedPreviewMediaForDrop("stardust"),
+      visibility: "public",
+      visibilitySource: "world_default",
+      previewPolicy: "full",
+      releaseAt: "2026-02-16T12:00:00.000Z"
     },
     {
       id: "twilight-whispers",
@@ -633,7 +676,11 @@ function createSeedDatabase(): BffDatabase {
       releaseDate: "2026-02-10",
       priceUsd: 3.49,
       worldOrderIndex: 3,
-      previewMedia: seedPreviewMediaForDrop("twilight-whispers")
+      previewMedia: seedPreviewMediaForDrop("twilight-whispers"),
+      visibility: "world_members",
+      visibilitySource: "world_default",
+      previewPolicy: "limited",
+      releaseAt: "2026-02-10T12:00:00.000Z"
     },
     {
       id: "voidrunner",
@@ -648,7 +695,11 @@ function createSeedDatabase(): BffDatabase {
       priceUsd: 9.99,
       studioPinRank: 3,
       worldOrderIndex: 2,
-      previewMedia: seedPreviewMediaForDrop("voidrunner")
+      previewMedia: seedPreviewMediaForDrop("voidrunner"),
+      visibility: "collectors_only",
+      visibilitySource: "drop",
+      previewPolicy: "poster",
+      releaseAt: "2026-02-12T12:00:00.000Z"
     },
     {
       id: "through-the-lens",
@@ -663,7 +714,11 @@ function createSeedDatabase(): BffDatabase {
       priceUsd: 12,
       studioPinRank: 2,
       worldOrderIndex: 1,
-      previewMedia: seedPreviewMediaForDrop("through-the-lens")
+      previewMedia: seedPreviewMediaForDrop("through-the-lens"),
+      visibility: "public",
+      visibilitySource: "drop",
+      previewPolicy: "full",
+      releaseAt: "2026-02-14T12:00:00.000Z"
     }
   ];
 
@@ -776,7 +831,13 @@ function createSeedDatabase(): BffDatabase {
         startsAt: new Date(now.valueOf() + DAY_MS).toISOString(),
         endsAt: null,
         mode: "live",
-        eligibilityRule: "public"
+        eligibilityRule: "public",
+        type: "studio_session",
+        eligibility: "open",
+        spatialAudio: false,
+        exclusiveDropWindowDropId: null,
+        exclusiveDropWindowDelay: null,
+        capacity: 250
       },
       {
         id: "live_dark_matter_members_salons",
@@ -788,7 +849,13 @@ function createSeedDatabase(): BffDatabase {
         startsAt: new Date(now.valueOf() + DAY_MS * 2).toISOString(),
         endsAt: null,
         mode: "live",
-        eligibilityRule: "membership_active"
+        eligibilityRule: "membership_active",
+        type: "opening",
+        eligibility: "membership",
+        spatialAudio: true,
+        exclusiveDropWindowDropId: null,
+        exclusiveDropWindowDelay: null,
+        capacity: 120
       },
       {
         id: "live_stardust_collectors_qna",
@@ -800,7 +867,13 @@ function createSeedDatabase(): BffDatabase {
         startsAt: new Date(now.valueOf() + DAY_MS * 3).toISOString(),
         endsAt: null,
         mode: "live",
-        eligibilityRule: "drop_owner"
+        eligibilityRule: "drop_owner",
+        type: "event",
+        eligibility: "invite",
+        spatialAudio: true,
+        exclusiveDropWindowDropId: "stardust",
+        exclusiveDropWindowDelay: 1440,
+        capacity: 80
       }
     ],
     townhallLikes: [
@@ -1375,9 +1448,52 @@ function normalizeLiveSessionEligibilityRule(value: unknown): LiveSessionEligibi
   return "public";
 }
 
+function normalizeLiveSessionType(value: unknown): LiveSessionType {
+  if (value === "opening" || value === "event" || value === "studio_session") {
+    return value;
+  }
+
+  return "event";
+}
+
+function normalizeLiveSessionAudienceEligibility(
+  value: unknown,
+  fallbackRule: LiveSessionEligibilityRule
+): LiveSessionAudienceEligibility {
+  if (value === "open" || value === "membership" || value === "patron" || value === "invite") {
+    return value;
+  }
+
+  if (fallbackRule === "membership_active") {
+    return "membership";
+  }
+
+  if (fallbackRule === "drop_owner") {
+    return "invite";
+  }
+
+  return "open";
+}
+
 function normalizeLiveSessionRecords(records: LiveSessionRecord[]): LiveSessionRecord[] {
   return records.map((record) => {
     const candidate = record as Partial<LiveSessionRecord>;
+    const eligibilityRule = normalizeLiveSessionEligibilityRule(candidate.eligibilityRule);
+    const exclusiveDropWindowDropId =
+      typeof candidate.exclusiveDropWindowDropId === "string" &&
+      candidate.exclusiveDropWindowDropId.trim().length > 0
+        ? candidate.exclusiveDropWindowDropId
+        : null;
+    const exclusiveDropWindowDelay =
+      typeof candidate.exclusiveDropWindowDelay === "number" &&
+      Number.isFinite(candidate.exclusiveDropWindowDelay) &&
+      candidate.exclusiveDropWindowDelay >= 1440
+        ? Math.floor(candidate.exclusiveDropWindowDelay)
+        : null;
+    const capacity =
+      typeof candidate.capacity === "number" && Number.isFinite(candidate.capacity)
+        ? Math.max(1, Math.floor(candidate.capacity))
+        : 200;
 
     return {
       id: typeof candidate.id === "string" && candidate.id.trim() ? candidate.id : `live_${randomUUID()}`,
@@ -1401,7 +1517,13 @@ function normalizeLiveSessionRecords(records: LiveSessionRecord[]): LiveSessionR
           ? candidate.endsAt
           : null,
       mode: "live",
-      eligibilityRule: normalizeLiveSessionEligibilityRule(candidate.eligibilityRule)
+      eligibilityRule,
+      type: normalizeLiveSessionType(candidate.type),
+      eligibility: normalizeLiveSessionAudienceEligibility(candidate.eligibility, eligibilityRule),
+      spatialAudio: Boolean(candidate.spatialAudio),
+      exclusiveDropWindowDropId,
+      exclusiveDropWindowDelay,
+      capacity
     };
   });
 }
@@ -2253,6 +2375,11 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
   if (isValidDb(input)) {
     return {
       ...input,
+      catalog: {
+        drops: input.catalog.drops.map((drop) => normalizeDropRecord(drop)),
+        worlds: input.catalog.worlds.map((world) => normalizeWorldRecord(world)),
+        studios: input.catalog.studios
+      },
       watchAccessGrants: normalizeWatchAccessGrantRecords(input.watchAccessGrants),
       watchSessions: normalizeWatchSessionRecords(input.watchSessions),
       receiptBadges: normalizeReceiptBadgeRecords(input.receiptBadges),
@@ -2284,6 +2411,11 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
     const candidate = input as Record<string, unknown>;
     return {
       ...input,
+      catalog: {
+        drops: input.catalog.drops.map((drop) => normalizeDropRecord(drop)),
+        worlds: input.catalog.worlds.map((world) => normalizeWorldRecord(world)),
+        studios: input.catalog.studios
+      },
       stripeWebhookEvents: Array.isArray(candidate.stripeWebhookEvents)
         ? (candidate.stripeWebhookEvents as StripeWebhookEventRecord[])
         : [],
@@ -2417,6 +2549,166 @@ async function persistFileDb(db: BffDatabase): Promise<void> {
   await fs.writeFile(dbPath, JSON.stringify(db, null, 2) + "\n", "utf8");
 }
 
+function normalizeDropVisibility(value: unknown): DropVisibility {
+  if (value === "world_members" || value === "collectors_only") {
+    return value;
+  }
+
+  return "public";
+}
+
+function normalizeDropVisibilitySource(value: unknown): DropVisibilitySource {
+  return value === "world_default" ? "world_default" : "drop";
+}
+
+function normalizePreviewPolicy(value: unknown): PreviewPolicy {
+  if (value === "limited" || value === "poster") {
+    return value;
+  }
+
+  return "full";
+}
+
+function normalizeCollaboratorSplits(value: unknown): Drop["collaborators"] | undefined {
+  type Collaborator = NonNullable<Drop["collaborators"]>[number];
+
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const rows = value
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return null;
+      }
+
+      const candidate = entry as Partial<Collaborator>;
+      if (
+        typeof candidate.accountId !== "string" ||
+        !candidate.accountId.trim() ||
+        typeof candidate.handle !== "string" ||
+        !candidate.handle.trim() ||
+        typeof candidate.splitPercent !== "number" ||
+        !Number.isFinite(candidate.splitPercent)
+      ) {
+        return null;
+      }
+
+      const splitPercent = Number(candidate.splitPercent.toFixed(2));
+      if (splitPercent <= 0 || splitPercent > 100) {
+        return null;
+      }
+
+      return {
+        accountId: candidate.accountId,
+        handle: candidate.handle,
+        splitPercent
+      } satisfies Collaborator;
+    })
+    .filter((entry): entry is Collaborator => entry !== null);
+
+  if (rows.length === 0) {
+    return undefined;
+  }
+
+  const total = Number(rows.reduce((sum, row) => sum + row.splitPercent, 0).toFixed(2));
+  if (Math.abs(total - 100) > 0.01) {
+    return undefined;
+  }
+
+  return rows;
+}
+
+function normalizeHexColor(value: unknown, fallback: string): string {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const normalized = value.trim();
+  return /^#[0-9a-fA-F]{6}$/.test(normalized) ? normalized.toLowerCase() : fallback;
+}
+
+function normalizeWorldVisualIdentity(
+  value: unknown,
+  worldId: string
+): NonNullable<World["visualIdentity"]> {
+  const fallback = {
+    coverImageSrc: `/images/worlds/${worldId || "world"}-cover.jpg`,
+    colorPrimary: "#0b132b"
+  } satisfies NonNullable<World["visualIdentity"]>;
+
+  if (!value || typeof value !== "object") {
+    return fallback;
+  }
+
+  const candidate = value as Partial<NonNullable<World["visualIdentity"]>>;
+  return {
+    coverImageSrc:
+      typeof candidate.coverImageSrc === "string" && candidate.coverImageSrc.trim()
+        ? candidate.coverImageSrc
+        : fallback.coverImageSrc,
+    colorPrimary: normalizeHexColor(candidate.colorPrimary, fallback.colorPrimary),
+    colorSecondary:
+      typeof candidate.colorSecondary === "string"
+        ? normalizeHexColor(candidate.colorSecondary, "#1c2541")
+        : undefined,
+    motionTreatment:
+      typeof candidate.motionTreatment === "string" && candidate.motionTreatment.trim()
+        ? candidate.motionTreatment
+        : undefined
+  };
+}
+
+function normalizeWorldRecord(world: World): World {
+  const releaseStructureCandidate = world.releaseStructure;
+  const releaseStructure =
+    releaseStructureCandidate &&
+    (releaseStructureCandidate.mode === "continuous" ||
+      releaseStructureCandidate.mode === "seasons" ||
+      releaseStructureCandidate.mode === "chapters")
+      ? {
+          mode: releaseStructureCandidate.mode,
+          currentLabel:
+            typeof releaseStructureCandidate.currentLabel === "string" &&
+            releaseStructureCandidate.currentLabel.trim()
+              ? releaseStructureCandidate.currentLabel
+              : undefined
+        }
+      : undefined;
+
+  return {
+    ...world,
+    visualIdentity: normalizeWorldVisualIdentity(world.visualIdentity, world.id),
+    ambientAudioSrc:
+      typeof world.ambientAudioSrc === "string" && world.ambientAudioSrc.trim()
+        ? world.ambientAudioSrc
+        : undefined,
+    entryRule:
+      world.entryRule === "membership" || world.entryRule === "patron" ? world.entryRule : "open",
+    lore: typeof world.lore === "string" && world.lore.trim() ? world.lore : undefined,
+    releaseStructure,
+    defaultDropVisibility:
+      typeof world.defaultDropVisibility === "string"
+        ? normalizeDropVisibility(world.defaultDropVisibility)
+        : undefined
+  };
+}
+
+function normalizeDropRecord(drop: Drop): Drop {
+  return {
+    ...drop,
+    previewMedia:
+      drop.previewMedia && Object.keys(drop.previewMedia).length > 0
+        ? drop.previewMedia
+        : seedPreviewMediaForDrop(drop.id),
+    collaborators: normalizeCollaboratorSplits(drop.collaborators),
+    visibility: normalizeDropVisibility(drop.visibility),
+    visibilitySource: normalizeDropVisibilitySource(drop.visibilitySource),
+    previewPolicy: normalizePreviewPolicy(drop.previewPolicy),
+    releaseAt: typeof drop.releaseAt === "string" && drop.releaseAt.trim() ? drop.releaseAt : undefined
+  };
+}
+
 function parseDropJson(value: unknown): Drop {
   const parsed = (typeof value === "string" ? JSON.parse(value) : value) as Partial<Drop> | null;
   if (!parsed || typeof parsed !== "object") {
@@ -2442,7 +2734,7 @@ function parseDropJson(value: unknown): Drop {
         : seedPreviewMediaForDrop(String(parsed.id ?? ""))
   };
 
-  return normalized;
+  return normalizeDropRecord(normalized);
 }
 
 function parseOptionalPositiveInt(value: unknown): number | undefined {
@@ -2456,7 +2748,8 @@ function parseOptionalPositiveInt(value: unknown): number | undefined {
 }
 
 function parseWorldJson(value: unknown): World {
-  return (typeof value === "string" ? JSON.parse(value) : value) as World;
+  const world = (typeof value === "string" ? JSON.parse(value) : value) as World;
+  return normalizeWorldRecord(world);
 }
 
 function parseStudioJson(value: unknown): Studio {
@@ -2681,8 +2974,25 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     }>(
       'SELECT id, studio_handle AS "studioHandle", world_id AS "worldId", title, amount_cents AS "amountCents", period_days AS "periodDays", benefits_summary AS "benefitsSummary", status, updated_at AS "updatedAt", updated_by_handle AS "updatedByHandle" FROM bff_patron_tier_configs ORDER BY updated_at DESC'
     ),
-    client.query<LiveSessionRecord>(
-      'SELECT id, studio_handle AS "studioHandle", world_id AS "worldId", drop_id AS "dropId", title, synopsis, starts_at AS "startsAt", ends_at AS "endsAt", mode, eligibility_rule AS "eligibilityRule" FROM bff_live_sessions ORDER BY starts_at ASC'
+    client.query<{
+      id: string;
+      studioHandle: string;
+      worldId: string | null;
+      dropId: string | null;
+      title: string;
+      synopsis: string;
+      startsAt: string;
+      endsAt: string | null;
+      mode: "live";
+      eligibilityRule: LiveSessionEligibilityRule;
+      type: LiveSessionType | null;
+      eligibility: LiveSessionAudienceEligibility | null;
+      spatialAudio: boolean | null;
+      exclusiveDropWindowDropId: string | null;
+      exclusiveDropWindowDelay: number | string | null;
+      capacity: number | string | null;
+    }>(
+      'SELECT id, studio_handle AS "studioHandle", world_id AS "worldId", drop_id AS "dropId", title, synopsis, starts_at AS "startsAt", ends_at AS "endsAt", mode, eligibility_rule AS "eligibilityRule", session_type AS "type", audience_eligibility AS "eligibility", spatial_audio AS "spatialAudio", exclusive_drop_window_drop_id AS "exclusiveDropWindowDropId", exclusive_drop_window_delay AS "exclusiveDropWindowDelay", capacity FROM bff_live_sessions ORDER BY starts_at ASC'
     ),
     client.query<TownhallLikeRecord>(
       'SELECT account_id AS "accountId", drop_id AS "dropId", liked_at AS "likedAt" FROM bff_townhall_likes ORDER BY liked_at DESC'
@@ -2971,7 +3281,30 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
         updatedByHandle: row.updatedByHandle
       }))
     ),
-    liveSessions: normalizeLiveSessionRecords(liveSessionsResult.rows),
+    liveSessions: normalizeLiveSessionRecords(
+      liveSessionsResult.rows.map((row) => ({
+        id: row.id,
+        studioHandle: row.studioHandle,
+        worldId: row.worldId,
+        dropId: row.dropId,
+        title: row.title,
+        synopsis: row.synopsis,
+        startsAt: row.startsAt,
+        endsAt: row.endsAt,
+        mode: row.mode,
+        eligibilityRule: row.eligibilityRule,
+        type: row.type ?? undefined,
+        eligibility: row.eligibility ?? undefined,
+        spatialAudio: Boolean(row.spatialAudio),
+        exclusiveDropWindowDropId: row.exclusiveDropWindowDropId,
+        exclusiveDropWindowDelay:
+          row.exclusiveDropWindowDelay === null || row.exclusiveDropWindowDelay === undefined
+            ? null
+            : Number(row.exclusiveDropWindowDelay),
+        capacity:
+          row.capacity === null || row.capacity === undefined ? undefined : Number(row.capacity)
+      }))
+    ),
     townhallLikes: townhallLikesResult.rows,
     townhallComments: normalizeTownhallCommentRecords(townhallCommentsResult.rows),
     townhallShares: townhallSharesResult.rows,
@@ -3381,7 +3714,7 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
 
   for (const liveSession of db.liveSessions) {
     await client.query(
-      "INSERT INTO bff_live_sessions (id, studio_handle, world_id, drop_id, title, synopsis, starts_at, ends_at, mode, eligibility_rule) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+      "INSERT INTO bff_live_sessions (id, studio_handle, world_id, drop_id, title, synopsis, starts_at, ends_at, mode, eligibility_rule, session_type, audience_eligibility, spatial_audio, exclusive_drop_window_drop_id, exclusive_drop_window_delay, capacity) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)",
       [
         liveSession.id,
         liveSession.studioHandle,
@@ -3392,7 +3725,20 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
         liveSession.startsAt,
         liveSession.endsAt,
         liveSession.mode,
-        liveSession.eligibilityRule
+        liveSession.eligibilityRule,
+        liveSession.type ?? "event",
+        liveSession.eligibility ??
+          (liveSession.eligibilityRule === "membership_active"
+            ? "membership"
+            : liveSession.eligibilityRule === "drop_owner"
+              ? "invite"
+              : "open"),
+        Boolean(liveSession.spatialAudio),
+        liveSession.exclusiveDropWindowDropId ?? null,
+        liveSession.exclusiveDropWindowDelay ?? null,
+        typeof liveSession.capacity === "number" && Number.isFinite(liveSession.capacity)
+          ? Math.max(1, Math.floor(liveSession.capacity))
+          : 200
       ]
     );
   }

@@ -605,6 +605,16 @@ function getLiveSessionExclusiveWindowEndMs(liveSession: LiveSessionRecord): num
     return Number.NaN;
   }
 
+  const explicitDelayMinutes =
+    typeof liveSession.exclusiveDropWindowDelay === "number" &&
+    Number.isFinite(liveSession.exclusiveDropWindowDelay) &&
+    liveSession.exclusiveDropWindowDelay >= 1
+      ? Math.floor(liveSession.exclusiveDropWindowDelay)
+      : null;
+  if (explicitDelayMinutes !== null) {
+    return startsAtMs + explicitDelayMinutes * 60 * 1000;
+  }
+
   return startsAtMs + resolveLiveSessionExclusiveWindowHours() * 60 * 60 * 1000;
 }
 
@@ -969,6 +979,55 @@ function findDropById(db: BffDatabase, dropId: string): Drop | null {
 
 function findWorldById(db: BffDatabase, worldId: string): World | null {
   return db.catalog.worlds.find((world) => world.id === worldId) ?? null;
+}
+
+function resolveDropVisibility(drop: Drop): "public" | "world_members" | "collectors_only" {
+  if (drop.visibility === "world_members" || drop.visibility === "collectors_only") {
+    return drop.visibility;
+  }
+  return "public";
+}
+
+function canAccountDiscoverDrop(db: BffDatabase, account: AccountRecord | null, drop: Drop): boolean {
+  const visibility = resolveDropVisibility(drop);
+  if (visibility === "public") {
+    return true;
+  }
+
+  if (!account) {
+    return false;
+  }
+
+  if (account.roles.includes("creator") && account.handle === drop.studioHandle) {
+    return true;
+  }
+
+  if (findOwnershipByDrop(db, account.id, drop.id)) {
+    return true;
+  }
+
+  if (visibility === "collectors_only") {
+    return false;
+  }
+
+  const world = findWorldById(db, drop.worldId);
+  if (!world) {
+    return false;
+  }
+
+  return hasActiveMembershipForWorld(db, account, world) || hasCollectEntitlementForWorld(db, account, world);
+}
+
+function listDiscoverableDrops(
+  db: BffDatabase,
+  viewerAccountId: string | null | undefined
+): Drop[] {
+  if (viewerAccountId === undefined) {
+    return [...db.catalog.drops];
+  }
+
+  const account = viewerAccountId ? findAccountById(db, viewerAccountId) : null;
+  return db.catalog.drops.filter((drop) => canAccountDiscoverDrop(db, account, drop));
 }
 
 function toWorldCollectOwnership(record: WorldCollectOwnershipRecord): WorldCollectOwnership {
@@ -2765,6 +2824,41 @@ function toLiveSessionWhatYouGet(db: BffDatabase, liveSession: LiveSessionRecord
   return "drop ownership required to join.";
 }
 
+function resolveLiveSessionType(liveSession: LiveSessionRecord): LiveSession["type"] {
+  if (
+    liveSession.type === "opening" ||
+    liveSession.type === "event" ||
+    liveSession.type === "studio_session"
+  ) {
+    return liveSession.type;
+  }
+
+  return "event";
+}
+
+function resolveLiveSessionAudienceEligibility(
+  liveSession: LiveSessionRecord
+): LiveSession["eligibility"] {
+  if (
+    liveSession.eligibility === "open" ||
+    liveSession.eligibility === "membership" ||
+    liveSession.eligibility === "patron" ||
+    liveSession.eligibility === "invite"
+  ) {
+    return liveSession.eligibility;
+  }
+
+  if (liveSession.eligibilityRule === "membership_active") {
+    return "membership";
+  }
+
+  if (liveSession.eligibilityRule === "drop_owner") {
+    return "invite";
+  }
+
+  return "open";
+}
+
 function toLiveSession(db: BffDatabase, liveSession: LiveSessionRecord): LiveSession {
   return {
     id: liveSession.id,
@@ -2777,6 +2871,18 @@ function toLiveSession(db: BffDatabase, liveSession: LiveSessionRecord): LiveSes
     endsAt: liveSession.endsAt,
     mode: "live",
     eligibilityRule: liveSession.eligibilityRule,
+    type: resolveLiveSessionType(liveSession),
+    eligibility: resolveLiveSessionAudienceEligibility(liveSession),
+    spatialAudio: Boolean(liveSession.spatialAudio),
+    exclusiveDropWindowDropId: liveSession.exclusiveDropWindowDropId ?? undefined,
+    exclusiveDropWindowDelay:
+      typeof liveSession.exclusiveDropWindowDelay === "number"
+        ? liveSession.exclusiveDropWindowDelay
+        : undefined,
+    capacity:
+      typeof liveSession.capacity === "number" && Number.isFinite(liveSession.capacity)
+        ? Math.max(1, Math.floor(liveSession.capacity))
+        : 200,
     whatYouGet: toLiveSessionWhatYouGet(db, liveSession)
   };
 }
@@ -2974,7 +3080,18 @@ function createWorkshopLiveSessionInDatabase(
     startsAt: new Date(startsAtMs).toISOString(),
     endsAt,
     mode: "live",
-    eligibilityRule: input.eligibilityRule
+    eligibilityRule: input.eligibilityRule,
+    type: input.eligibilityRule === "public" ? "studio_session" : "opening",
+    eligibility:
+      input.eligibilityRule === "membership_active"
+        ? "membership"
+        : input.eligibilityRule === "drop_owner"
+          ? "invite"
+          : "open",
+    spatialAudio: false,
+    exclusiveDropWindowDropId: dropId,
+    exclusiveDropWindowDelay: dropId ? 1440 : null,
+    capacity: 200
   };
 
   db.liveSessions.unshift(record);
@@ -3270,10 +3387,12 @@ function createSubmittedOfferRecord(input: {
 }
 
 const gatewayMethods: CommerceGateway = {
-  async listDrops(): Promise<Drop[]> {
+  async listDrops(viewerAccountId?: string | null): Promise<Drop[]> {
     return withDatabase(async (db) => ({
       persist: false,
-      result: [...db.catalog.drops].sort((a, b) => Date.parse(b.releaseDate) - Date.parse(a.releaseDate))
+      result: listDiscoverableDrops(db, viewerAccountId).sort(
+        (a, b) => Date.parse(b.releaseDate) - Date.parse(a.releaseDate)
+      )
     }));
   },
 
@@ -3291,10 +3410,12 @@ const gatewayMethods: CommerceGateway = {
     }));
   },
 
-  async listDropsByWorldId(worldId: string): Promise<Drop[]> {
+  async listDropsByWorldId(worldId: string, viewerAccountId?: string | null): Promise<Drop[]> {
     return withDatabase(async (db) => ({
       persist: false,
-      result: sortDropsForWorldSurface(db.catalog.drops.filter((drop) => drop.worldId === worldId))
+      result: sortDropsForWorldSurface(
+        listDiscoverableDrops(db, viewerAccountId).filter((drop) => drop.worldId === worldId)
+      )
     }));
   },
 
@@ -3305,20 +3426,38 @@ const gatewayMethods: CommerceGateway = {
     }));
   },
 
-  async listDropsByStudioHandle(handle: string): Promise<Drop[]> {
+  async listDropsByStudioHandle(handle: string, viewerAccountId?: string | null): Promise<Drop[]> {
     return withDatabase(async (db) => ({
       persist: false,
       result: sortDropsForStudioSurface(
-        db.catalog.drops.filter((drop) => drop.studioHandle === handle)
+        listDiscoverableDrops(db, viewerAccountId).filter((drop) => drop.studioHandle === handle)
       )
     }));
   },
 
-  async getDropById(dropId: string): Promise<Drop | null> {
-    return withDatabase(async (db) => ({
-      persist: false,
-      result: findDropById(db, dropId)
-    }));
+  async getDropById(dropId: string, viewerAccountId?: string | null): Promise<Drop | null> {
+    return withDatabase(async (db) => {
+      const drop = findDropById(db, dropId);
+      if (!drop) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      if (viewerAccountId === undefined) {
+        return {
+          persist: false,
+          result: drop
+        };
+      }
+
+      const account = viewerAccountId ? findAccountById(db, viewerAccountId) : null;
+      return {
+        persist: false,
+        result: canAccountDiscoverDrop(db, account, drop) ? drop : null
+      };
+    });
   },
 
   async getDropLineage(dropId: string): Promise<DropLineageSnapshot | null> {

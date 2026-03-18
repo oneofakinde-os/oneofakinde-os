@@ -164,6 +164,20 @@ function createInitialStore(): MockStore {
         title: "dark matter",
         synopsis: "cinematic drops exploring identity and memory.",
         studioHandle: "oneofakinde",
+        visualIdentity: {
+          coverImageSrc: "/images/worlds/dark-matter-cover.jpg",
+          colorPrimary: "#0b132b",
+          colorSecondary: "#1c2541",
+          motionTreatment: "world_ambient_v1"
+        },
+        ambientAudioSrc: "https://cdn.oneofakinde.dev/worlds/dark-matter/ambient.mp3",
+        entryRule: "membership",
+        lore: "dark matter tracks identity through memory, movement, and live openings.",
+        releaseStructure: {
+          mode: "seasons",
+          currentLabel: "season one"
+        },
+        defaultDropVisibility: "world_members",
         collectBundles: [
           {
             bundleType: "current_only",
@@ -202,6 +216,20 @@ function createInitialStore(): MockStore {
         title: "through the lens",
         synopsis: "camera-led drops for real-world atmospheres.",
         studioHandle: "oneofakinde",
+        visualIdentity: {
+          coverImageSrc: "/images/worlds/through-the-lens-cover.jpg",
+          colorPrimary: "#102a43",
+          colorSecondary: "#334e68",
+          motionTreatment: "world_ambient_v1"
+        },
+        ambientAudioSrc: "https://cdn.oneofakinde.dev/worlds/through-the-lens/ambient.mp3",
+        entryRule: "open",
+        lore: "through the lens reframes daily scenes into episodic chapters.",
+        releaseStructure: {
+          mode: "chapters",
+          currentLabel: "chapter one"
+        },
+        defaultDropVisibility: "public",
         collectBundles: [
           {
             bundleType: "current_only",
@@ -263,7 +291,11 @@ function createInitialStore(): MockStore {
         priceUsd: 1.99,
         studioPinRank: 1,
         worldOrderIndex: 1,
-        previewMedia: seedPreviewMediaForDrop("stardust")
+        previewMedia: seedPreviewMediaForDrop("stardust"),
+        visibility: "public",
+        visibilitySource: "world_default",
+        previewPolicy: "full",
+        releaseAt: "2026-02-16T12:00:00.000Z"
       }
     ],
     [
@@ -280,7 +312,11 @@ function createInitialStore(): MockStore {
         releaseDate: "2026-02-10",
         priceUsd: 3.49,
         worldOrderIndex: 3,
-        previewMedia: seedPreviewMediaForDrop("twilight-whispers")
+        previewMedia: seedPreviewMediaForDrop("twilight-whispers"),
+        visibility: "world_members",
+        visibilitySource: "world_default",
+        previewPolicy: "limited",
+        releaseAt: "2026-02-10T12:00:00.000Z"
       }
     ],
     [
@@ -298,7 +334,11 @@ function createInitialStore(): MockStore {
         priceUsd: 9.99,
         studioPinRank: 3,
         worldOrderIndex: 2,
-        previewMedia: seedPreviewMediaForDrop("voidrunner")
+        previewMedia: seedPreviewMediaForDrop("voidrunner"),
+        visibility: "collectors_only",
+        visibilitySource: "drop",
+        previewPolicy: "poster",
+        releaseAt: "2026-02-12T12:00:00.000Z"
       }
     ],
     [
@@ -316,7 +356,11 @@ function createInitialStore(): MockStore {
         priceUsd: 12,
         studioPinRank: 2,
         worldOrderIndex: 1,
-        previewMedia: seedPreviewMediaForDrop("through-the-lens")
+        previewMedia: seedPreviewMediaForDrop("through-the-lens"),
+        visibility: "public",
+        visibilitySource: "drop",
+        previewPolicy: "full",
+        releaseAt: "2026-02-14T12:00:00.000Z"
       }
     ]
   ]);
@@ -355,7 +399,13 @@ function createInitialStore(): MockStore {
       startsAt: "2026-02-17T12:00:00.000Z",
       endsAt: null,
       mode: "live",
-      eligibilityRule: "public"
+      eligibilityRule: "public",
+      type: "studio_session",
+      eligibility: "open",
+      spatialAudio: false,
+      exclusiveDropWindowDropId: undefined,
+      exclusiveDropWindowDelay: undefined,
+      capacity: 250
     },
     {
       id: "live_dark_matter_members_salons",
@@ -367,7 +417,13 @@ function createInitialStore(): MockStore {
       startsAt: "2026-02-18T12:00:00.000Z",
       endsAt: null,
       mode: "live",
-      eligibilityRule: "membership_active"
+      eligibilityRule: "membership_active",
+      type: "opening",
+      eligibility: "membership",
+      spatialAudio: true,
+      exclusiveDropWindowDropId: undefined,
+      exclusiveDropWindowDelay: undefined,
+      capacity: 120
     },
     {
       id: "live_stardust_collectors_qna",
@@ -379,7 +435,13 @@ function createInitialStore(): MockStore {
       startsAt: "2026-02-19T12:00:00.000Z",
       endsAt: null,
       mode: "live",
-      eligibilityRule: "drop_owner"
+      eligibilityRule: "drop_owner",
+      type: "event",
+      eligibility: "invite",
+      spatialAudio: true,
+      exclusiveDropWindowDropId: "stardust",
+      exclusiveDropWindowDelay: 1440,
+      capacity: 80
     }
   ];
 
@@ -783,6 +845,77 @@ function isMembershipActive(entitlement: MembershipEntitlementRecord, nowMs = Da
   return endsAt >= nowMs;
 }
 
+function resolveDropVisibility(drop: Drop): "public" | "world_members" | "collectors_only" {
+  if (drop.visibility === "world_members" || drop.visibility === "collectors_only") {
+    return drop.visibility;
+  }
+
+  return "public";
+}
+
+function hasActiveMembershipForWorld(accountId: string, world: World): boolean {
+  return store.membershipEntitlements.some((entitlement) => {
+    if (entitlement.accountId !== accountId) {
+      return false;
+    }
+
+    if (entitlement.studioHandle !== world.studioHandle) {
+      return false;
+    }
+
+    if (!isMembershipActive(entitlement)) {
+      return false;
+    }
+
+    return entitlement.worldId === null || entitlement.worldId === world.id;
+  });
+}
+
+function hasCollectEntitlementForWorld(accountId: string, world: World): boolean {
+  return getOwnedDrops(accountId).some((ownership) => ownership.drop.worldId === world.id);
+}
+
+function canAccountDiscoverDrop(account: AccountRecord | null, drop: Drop): boolean {
+  const visibility = resolveDropVisibility(drop);
+  if (visibility === "public") {
+    return true;
+  }
+
+  if (!account) {
+    return false;
+  }
+
+  if (account.roles.includes("creator") && account.handle === drop.studioHandle) {
+    return true;
+  }
+
+  const ownsDrop = getOwnedDrops(account.id).some((ownership) => ownership.drop.id === drop.id);
+  if (ownsDrop) {
+    return true;
+  }
+
+  if (visibility === "collectors_only") {
+    return false;
+  }
+
+  const world = store.worlds.get(drop.worldId) ?? null;
+  if (!world) {
+    return false;
+  }
+
+  return hasActiveMembershipForWorld(account.id, world) || hasCollectEntitlementForWorld(account.id, world);
+}
+
+function listDiscoverableDrops(viewerAccountId: string | null | undefined): Drop[] {
+  const allDrops = [...store.drops.values()];
+  if (viewerAccountId === undefined) {
+    return allDrops;
+  }
+
+  const account = viewerAccountId ? (store.accounts.get(viewerAccountId) ?? null) : null;
+  return allDrops.filter((drop) => canAccountDiscoverDrop(account, drop));
+}
+
 function toMembershipWhatYouGet(entitlement: MembershipEntitlementRecord): string {
   if (entitlement.worldId) {
     const world = store.worlds.get(entitlement.worldId);
@@ -935,6 +1068,41 @@ function toLiveSessionWhatYouGet(liveSession: LiveSessionRecord): string {
   return "drop ownership required to join.";
 }
 
+function resolveLiveSessionType(liveSession: LiveSessionRecord): LiveSession["type"] {
+  if (
+    liveSession.type === "opening" ||
+    liveSession.type === "event" ||
+    liveSession.type === "studio_session"
+  ) {
+    return liveSession.type;
+  }
+
+  return "event";
+}
+
+function resolveLiveSessionAudienceEligibility(
+  liveSession: LiveSessionRecord
+): LiveSession["eligibility"] {
+  if (
+    liveSession.eligibility === "open" ||
+    liveSession.eligibility === "membership" ||
+    liveSession.eligibility === "patron" ||
+    liveSession.eligibility === "invite"
+  ) {
+    return liveSession.eligibility;
+  }
+
+  if (liveSession.eligibilityRule === "membership_active") {
+    return "membership";
+  }
+
+  if (liveSession.eligibilityRule === "drop_owner") {
+    return "invite";
+  }
+
+  return "open";
+}
+
 function toLiveSession(liveSession: LiveSessionRecord): LiveSession {
   return {
     id: liveSession.id,
@@ -947,6 +1115,18 @@ function toLiveSession(liveSession: LiveSessionRecord): LiveSession {
     endsAt: liveSession.endsAt,
     mode: "live",
     eligibilityRule: liveSession.eligibilityRule,
+    type: resolveLiveSessionType(liveSession),
+    eligibility: resolveLiveSessionAudienceEligibility(liveSession),
+    spatialAudio: Boolean(liveSession.spatialAudio),
+    exclusiveDropWindowDropId: liveSession.exclusiveDropWindowDropId ?? undefined,
+    exclusiveDropWindowDelay:
+      typeof liveSession.exclusiveDropWindowDelay === "number"
+        ? liveSession.exclusiveDropWindowDelay
+        : undefined,
+    capacity:
+      typeof liveSession.capacity === "number" && Number.isFinite(liveSession.capacity)
+        ? Math.max(1, Math.floor(liveSession.capacity))
+        : 200,
     whatYouGet: toLiveSessionWhatYouGet(liveSession)
   };
 }
@@ -1089,7 +1269,18 @@ function createWorkshopLiveSessionRecord(
     startsAt: new Date(startsAtMs).toISOString(),
     endsAt,
     mode: "live",
-    eligibilityRule: input.eligibilityRule
+    eligibilityRule: input.eligibilityRule,
+    type: input.eligibilityRule === "public" ? "studio_session" : "opening",
+    eligibility:
+      input.eligibilityRule === "membership_active"
+        ? "membership"
+        : input.eligibilityRule === "drop_owner"
+          ? "invite"
+          : "open",
+    spatialAudio: false,
+    exclusiveDropWindowDropId: dropId ?? undefined,
+    exclusiveDropWindowDelay: dropId ? 1440 : undefined,
+    capacity: 200
   };
 }
 
@@ -1244,8 +1435,8 @@ function updateWorkshopWorldReleaseRecordStatus(
 }
 
 export const commerceGateway: CommerceGateway = {
-  async listDrops(): Promise<Drop[]> {
-    return [...store.drops.values()].sort(
+  async listDrops(viewerAccountId?: string | null): Promise<Drop[]> {
+    return listDiscoverableDrops(viewerAccountId).sort(
       (a, b) => Date.parse(b.releaseDate) - Date.parse(a.releaseDate)
     );
   },
@@ -1258,22 +1449,34 @@ export const commerceGateway: CommerceGateway = {
     return store.worlds.get(worldId) ?? null;
   },
 
-  async listDropsByWorldId(worldId: string): Promise<Drop[]> {
-    return sortDropsForWorldSurface((await this.listDrops()).filter((drop) => drop.worldId === worldId));
+  async listDropsByWorldId(worldId: string, viewerAccountId?: string | null): Promise<Drop[]> {
+    return sortDropsForWorldSurface(
+      (await this.listDrops(viewerAccountId)).filter((drop) => drop.worldId === worldId)
+    );
   },
 
   async getStudioByHandle(handle: string): Promise<Studio | null> {
     return store.studios.get(handle) ?? null;
   },
 
-  async listDropsByStudioHandle(handle: string): Promise<Drop[]> {
+  async listDropsByStudioHandle(handle: string, viewerAccountId?: string | null): Promise<Drop[]> {
     return sortDropsForStudioSurface(
-      (await this.listDrops()).filter((drop) => drop.studioHandle === handle)
+      (await this.listDrops(viewerAccountId)).filter((drop) => drop.studioHandle === handle)
     );
   },
 
-  async getDropById(dropId: string): Promise<Drop | null> {
-    return store.drops.get(dropId) ?? null;
+  async getDropById(dropId: string, viewerAccountId?: string | null): Promise<Drop | null> {
+    const drop = store.drops.get(dropId) ?? null;
+    if (!drop) {
+      return null;
+    }
+
+    if (viewerAccountId === undefined) {
+      return drop;
+    }
+
+    const account = viewerAccountId ? (store.accounts.get(viewerAccountId) ?? null) : null;
+    return canAccountDiscoverDrop(account, drop) ? drop : null;
   },
 
   async getDropLineage(dropId: string): Promise<DropLineageSnapshot | null> {

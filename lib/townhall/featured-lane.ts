@@ -51,10 +51,12 @@ export type ShowroomFeaturedLane = {
 
 export async function buildShowroomFeaturedLane(input?: {
   limit?: string | number | null;
+  viewerAccountId?: string | null;
 }): Promise<ShowroomFeaturedLane> {
   const limit = clampLimit(input?.limit);
+  const viewerAccountId = input?.viewerAccountId ?? null;
   const [drops, collectInventory] = await Promise.all([
-    commerceBffService.listDrops(),
+    commerceBffService.listDrops(viewerAccountId),
     commerceBffService.getCollectInventory(null, "all")
   ]);
   const telemetryByDropId = await commerceBffService.getTownhallTelemetrySignals(
