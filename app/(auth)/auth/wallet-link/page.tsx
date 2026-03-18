@@ -19,7 +19,7 @@ function firstParam(value: string | string[] | undefined): string | null {
 
 export default async function WalletLinkPage({ searchParams }: WalletLinkPageProps) {
   const resolvedParams = await searchParams;
-  const defaultReturnTo = routes.profileSetup(routes.showroom());
+  const defaultReturnTo = routes.townhall();
   const returnTo = normalizeReturnTo(
     firstParam(resolvedParams.returnTo),
     defaultReturnTo
@@ -55,11 +55,11 @@ export default async function WalletLinkPage({ searchParams }: WalletLinkPagePro
 
         <div className="identity-foot">
           <Link href={continueHref} className="identity-link">
-            continue onboarding
+            continue
           </Link>
           <span>·</span>
-          <Link href={routes.showroom()} className="identity-link">
-            open showroom
+          <Link href={routes.townhall()} className="identity-link">
+            open townhall
           </Link>
         </div>
       </section>

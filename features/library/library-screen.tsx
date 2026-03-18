@@ -15,7 +15,7 @@ export function LibraryScreen({ session, library }: LibraryScreenProps) {
       title="library"
       subtitle="saved drop curation and quick access"
       session={session}
-      activeNav="townhall"
+      activeNav="library"
     >
       <section className="slice-panel">
         <div className="slice-row">

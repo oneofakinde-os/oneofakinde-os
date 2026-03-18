@@ -17,8 +17,8 @@ function firstParam(value: string | string[] | undefined): string | null {
 
 export default async function SignUpPage({ searchParams }: SignUpPageProps) {
   const resolvedParams = await searchParams;
-  const returnTo = normalizeReturnTo(firstParam(resolvedParams.returnTo), "/showroom");
-  const walletConnectReturnTo = routes.profileSetup(returnTo);
+  const returnTo = normalizeReturnTo(firstParam(resolvedParams.returnTo), "/townhall");
+  const walletConnectHref = routes.walletConnect(returnTo);
   const errorCode = firstParam(resolvedParams.error);
   const hasInvalidEmail = errorCode === "invalid_email";
 
@@ -28,7 +28,7 @@ export default async function SignUpPage({ searchParams }: SignUpPageProps) {
         <header className="identity-head">
           <p className="identity-brand">oneofakinde</p>
           <h1 className="identity-title">create account</h1>
-          <p className="identity-copy">start with email, then continue through wallet and identity setup.</p>
+          <p className="identity-copy">start with email and continue directly into townhall. wallet linking is optional.</p>
         </header>
 
         <form action={signUpAction} className="identity-form">
@@ -92,8 +92,8 @@ export default async function SignUpPage({ searchParams }: SignUpPageProps) {
         </form>
 
         <footer className="identity-foot">
-          <Link href={routes.walletConnect(walletConnectReturnTo)} className="identity-link">
-            connect wallet
+          <Link href={walletConnectHref} className="identity-link">
+            link wallet (optional)
           </Link>
           <span>·</span>
           <Link href={routes.signIn(returnTo)} className="identity-link">

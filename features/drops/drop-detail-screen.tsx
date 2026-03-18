@@ -23,7 +23,7 @@ export function DropDetailScreen({
     ? routes.collectDrop(drop.id)
     : routes.signIn(routes.collectDrop(drop.id));
   const watchHref = session ? routes.dropWatch(drop.id) : routes.signIn(routes.dropWatch(drop.id));
-  const favoritesHref = session ? routes.favorites() : routes.signIn(routes.favorites());
+  const libraryHref = session ? routes.library() : routes.signIn(routes.library());
 
   return (
     <main className="dropflow-page">
@@ -70,8 +70,8 @@ export function DropDetailScreen({
               <Link href={watchHref} className="dropflow-secondary-cta">
                 watch
               </Link>
-              <Link href={favoritesHref} className="dropflow-secondary-cta">
-                add to favorites
+              <Link href={libraryHref} className="dropflow-secondary-cta">
+                save to library
               </Link>
             </div>
           </div>
@@ -159,7 +159,7 @@ export function DropDetailScreen({
       <aside className="dropflow-side-notes" aria-label="drop context notes">
         <h2>{drop.title}</h2>
         <p>drop detail is now modeled as a high-visibility conversion surface.</p>
-        <p>default actions: collect, watch path, and save-to-favorites.</p>
+        <p>default actions: collect, watch path, and save-to-library.</p>
       </aside>
     </main>
   );

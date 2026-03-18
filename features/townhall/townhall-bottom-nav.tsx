@@ -43,7 +43,7 @@ export function TownhallBottomNav({
       <Link href={routes.townhallWatch()} className={navLinkClass(activeMode === "watch")} aria-label="watch mode">
         <FilmIcon className="townhall-bottom-icon-glyph" />
       </Link>
-      <Link href={routes.townhallGallery()} className={navLinkClass(activeMode === "photos")} aria-label="photos mode">
+      <Link href={routes.townhallPhotos()} className={navLinkClass(activeMode === "photos")} aria-label="photos mode">
         <CameraIcon className="townhall-bottom-icon-glyph" />
       </Link>
       <Link href={routes.collect()} className={navLinkClass(activeMode === "collect")} aria-label="collect marketplace">

@@ -2,7 +2,7 @@ import type { Session } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
 import Link from "next/link";
 
-type AppShellNavKey = "townhall" | "collect" | "my_collection" | "favorites" | "worlds";
+type AppShellNavKey = "townhall" | "collect" | "my_collection" | "library" | "worlds";
 
 type AppShellProps = {
   title: string;
@@ -35,8 +35,8 @@ export function AppShell({ title, subtitle, session, activeNav, children }: AppS
           >
             my collection
           </Link>
-          <Link href={routes.favorites()} className={`slice-link ${activeNav === "favorites" ? "active" : ""}`}>
-            favorites
+          <Link href={routes.library()} className={`slice-link ${activeNav === "library" ? "active" : ""}`}>
+            library
           </Link>
           <Link href={routes.worlds()} className={`slice-link ${activeNav === "worlds" ? "active" : ""}`}>
             worlds

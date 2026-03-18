@@ -13,28 +13,45 @@ const mapFixture: SurfaceMapLike = {
       {
         base: "asset",
         variants: ["asset", "assets", "my assets"]
+      },
+      {
+        base: "gallery",
+        variants: ["gallery", "galleries"]
+      },
+      {
+        base: "profile",
+        variants: ["profile", "my profile"]
       }
     ],
-    include_ui_phrases: ["my assets"]
+    include_ui_phrases: ["my assets", "my profile"]
   },
   exceptions: {
     by_route: {
-      "/collect/:drop_id": {
-        allow_terms: ["receipt"]
+      "/settings/billing": {
+        allow_terms: ["purchase"]
       }
     }
   },
   surfaces: [
     {
-      route: "/my-collection",
+      route: "/library",
       rules: [
         {
           kind: "require_terms",
-          terms: ["my collection"]
+          terms: ["library"]
         },
         {
           kind: "ban_terms",
-          terms: ["library"]
+          terms: ["favorites"]
+        }
+      ]
+    },
+    {
+      route: "/settings/billing",
+      rules: [
+        {
+          kind: "ban_terms",
+          terms: ["purchase"]
         }
       ]
     }
@@ -49,9 +66,9 @@ test("containsTerm matches exact word boundaries", () => {
 test("terminology rules detect global and route bans", () => {
   const routeDocuments: RouteDocument[] = [
     {
-      filePath: "app/(collector)/my-collection/page.tsx",
-      route: "/my-collection",
-      content: "export default function Page() { return <h1>library of assets</h1>; }"
+      filePath: "app/(collector)/library/page.tsx",
+      route: "/library",
+      content: "export default function Page() { return <h1>favorites gallery of assets</h1>; }"
     }
   ];
 
@@ -65,9 +82,22 @@ test("terminology rules detect global and route bans", () => {
 test("terminology rules pass with compliant copy", () => {
   const routeDocuments: RouteDocument[] = [
     {
-      filePath: "app/(collector)/my-collection/page.tsx",
-      route: "/my-collection",
-      content: "export default function Page() { return <h1>my collection</h1>; }"
+      filePath: "app/(collector)/library/page.tsx",
+      route: "/library",
+      content: "export default function Page() { return <h1>library</h1>; }"
+    }
+  ];
+
+  const violations = collectTerminologyViolations(mapFixture, routeDocuments);
+  assert.equal(violations.length, 0);
+});
+
+test("terminology rules honor per-route allow term exceptions", () => {
+  const routeDocuments: RouteDocument[] = [
+    {
+      filePath: "app/(settings)/billing/page.tsx",
+      route: "/settings/billing",
+      content: "export default function Page() { return <h1>purchase receipt</h1>; }"
     }
   ];
 

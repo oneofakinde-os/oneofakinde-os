@@ -461,7 +461,7 @@ function createInitialStore(): MockStore {
     worldId: "dark-matter",
     status: "active",
     startedAt: "2026-02-02T12:00:00.000Z",
-    endsAt: "2026-03-18T12:00:00.000Z"
+    endsAt: null
   });
 
   const seededDrop = drops.get("stardust");

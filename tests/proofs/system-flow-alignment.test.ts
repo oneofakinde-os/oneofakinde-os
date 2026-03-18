@@ -12,13 +12,14 @@ function getReturnTo(pathnameWithSearch: string): string | null {
   return url.searchParams.get("returnTo");
 }
 
-test("system flow: default entry journey routes through auth -> wallet -> profile -> townhall", () => {
+test("system flow: default entry journey routes through auth -> townhall with optional wallet/profile", () => {
   const flow = buildDefaultEntryFlow();
 
   assert.equal(flow.finalReturnTo, routes.townhall());
   assert.equal(getReturnTo(flow.profileSetupReturnTo), routes.townhall());
-  assert.equal(getReturnTo(flow.walletConnectReturnTo), flow.profileSetupReturnTo);
-  assert.equal(getReturnTo(flow.signInHref), flow.walletConnectReturnTo);
+  assert.equal(getReturnTo(flow.walletConnectReturnTo), routes.townhall());
+  assert.equal(getReturnTo(flow.walletConnectHref), routes.townhall());
+  assert.equal(getReturnTo(flow.signInHref), routes.townhall());
   assert.equal(getReturnTo(flow.signUpHref), routes.townhall());
   assert.equal(extractFinalReturnTo(flow.walletConnectReturnTo), routes.townhall());
   assert.equal(extractFinalReturnTo(flow.profileSetupReturnTo), routes.townhall());
