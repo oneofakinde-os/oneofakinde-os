@@ -25,18 +25,18 @@ export const routes = {
   showroomLive: (): Route => asRoute("/showroom/live"),
   showroomFeatured: (): Route => asRoute("/showroom?lane_key=featured"),
 
-  townhall: (): Route => asRoute("/showroom"),
+  townhall: (): Route => asRoute("/townhall"),
   townhallSearch: (query?: string): Route =>
     query
-      ? asRoute(`/showroom/search?q=${encodeURIComponent(query)}`)
-      : asRoute("/showroom/search"),
-  townhallWatch: (): Route => asRoute("/showroom/watch"),
-  townhallListen: (): Route => asRoute("/showroom/listen"),
-  townhallRead: (): Route => asRoute("/showroom/read"),
-  townhallPhotos: (): Route => asRoute("/showroom/photos"),
-  townhallGallery: (): Route => asRoute("/showroom/photos"),
-  townhallLive: (): Route => asRoute("/showroom/live"),
-  townhallFeatured: (): Route => asRoute("/showroom?lane_key=featured"),
+      ? asRoute(`/townhall/search?q=${encodeURIComponent(query)}`)
+      : asRoute("/townhall/search"),
+  townhallWatch: (): Route => asRoute("/townhall/watch"),
+  townhallListen: (): Route => asRoute("/townhall/listen"),
+  townhallRead: (): Route => asRoute("/townhall/read"),
+  townhallPhotos: (): Route => asRoute("/townhall/photos"),
+  townhallGallery: (): Route => asRoute("/townhall/photos"),
+  townhallLive: (): Route => asRoute("/townhall/live"),
+  townhallFeatured: (): Route => asRoute("/townhall?lane_key=featured"),
 
   watchHub: (): Route => asRoute("/watch"),
   listenHub: (): Route => asRoute("/listen"),

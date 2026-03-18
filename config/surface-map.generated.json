@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-03-17T03:15:48.826Z",
+  "generated_at": "2026-03-18T07:39:55.372Z",
   "source_path": "config/surface-map.source.txt",
   "source_metadata": {
     "format": "lintable_txt_v1",
-    "last_updated": "2026-03-01",
+    "last_updated": "2026-03-08",
     "notes": "this file is machine-lintable; no free-text notes. everything is structured."
   },
   "locked_glossary": {
@@ -15,6 +15,7 @@
       "studio": "public-facing creator presence (creator identity surface)",
       "workshop": "creator back-office (making suite; formerly studio when meaning the suite)",
       "showroom": "primary feed + discovery shell (community + marketplace)",
+      "townhall": "public square for open discourse and civic conversation",
       "watch": "video consumable mode",
       "listen": "audio consumable mode",
       "read": "text consumable mode",
@@ -40,9 +41,6 @@
       },
       "gallery": {
         "replace_with": "photos"
-      },
-      "townhall": {
-        "replace_with": "showroom"
       },
       "invest": {
         "replace_with": "collect"
@@ -1675,10 +1673,229 @@
       "rules": []
     },
     {
-      "route": "/showroom",
-      "legacy_routes": [
-        "/townhall"
+      "route": "/townhall",
+      "legacy_routes": [],
+      "surface_key": "townhall",
+      "ui_title": "townhall",
+      "ui_nouns": [
+        "townhall",
+        "drop"
       ],
+      "lint_targets": [
+        "nav",
+        "h1",
+        "cta",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.catalog",
+        "schema_v1.catalog",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_public_safe_render",
+        "p_no_leaks_ci"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/townhall/watch",
+      "legacy_routes": [],
+      "surface_key": "townhall_watch",
+      "ui_title": "townhall watch",
+      "ui_nouns": [
+        "townhall",
+        "watch",
+        "drop"
+      ],
+      "lint_targets": [
+        "nav",
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.catalog",
+        "schema_v1.catalog",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_no_leaks_ci"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/townhall/listen",
+      "legacy_routes": [],
+      "surface_key": "townhall_listen",
+      "ui_title": "townhall listen",
+      "ui_nouns": [
+        "townhall",
+        "listen",
+        "drop"
+      ],
+      "lint_targets": [
+        "nav",
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.catalog",
+        "schema_v1.catalog",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_no_leaks_ci"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/townhall/read",
+      "legacy_routes": [],
+      "surface_key": "townhall_read",
+      "ui_title": "townhall read",
+      "ui_nouns": [
+        "townhall",
+        "read",
+        "drop"
+      ],
+      "lint_targets": [
+        "nav",
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.catalog",
+        "schema_v1.catalog",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_no_leaks_ci"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/townhall/photos",
+      "legacy_routes": [
+        "/townhall/gallery"
+      ],
+      "surface_key": "townhall_photos",
+      "ui_title": "townhall photos",
+      "ui_nouns": [
+        "townhall",
+        "photos",
+        "drop"
+      ],
+      "lint_targets": [
+        "nav",
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.catalog",
+        "schema_v1.catalog",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_no_leaks_ci"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/townhall/live",
+      "legacy_routes": [],
+      "surface_key": "townhall_live",
+      "ui_title": "townhall live",
+      "ui_nouns": [
+        "townhall",
+        "live",
+        "drop"
+      ],
+      "lint_targets": [
+        "nav",
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.catalog",
+        "schema_v1.catalog",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_no_leaks_ci"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/townhall/search",
+      "legacy_routes": [],
+      "surface_key": "townhall_search",
+      "ui_title": "townhall search",
+      "ui_nouns": [
+        "townhall",
+        "drop",
+        "world",
+        "studio"
+      ],
+      "lint_targets": [
+        "h1",
+        "metadata_labels",
+        "empty_state"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.search",
+        "schema_v1.catalog",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_no_leaks_ci"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/showroom",
+      "legacy_routes": [],
       "surface_key": "showroom",
       "ui_title": "showroom",
       "ui_nouns": [
@@ -1710,9 +1927,7 @@
     },
     {
       "route": "/showroom/watch",
-      "legacy_routes": [
-        "/townhall/watch"
-      ],
+      "legacy_routes": [],
       "surface_key": "showroom_watch",
       "ui_title": "showroom watch",
       "ui_nouns": [
@@ -1743,9 +1958,7 @@
     },
     {
       "route": "/showroom/listen",
-      "legacy_routes": [
-        "/townhall/listen"
-      ],
+      "legacy_routes": [],
       "surface_key": "showroom_listen",
       "ui_title": "showroom listen",
       "ui_nouns": [
@@ -1776,9 +1989,7 @@
     },
     {
       "route": "/showroom/read",
-      "legacy_routes": [
-        "/townhall/read"
-      ],
+      "legacy_routes": [],
       "surface_key": "showroom_read",
       "ui_title": "showroom read",
       "ui_nouns": [
@@ -1809,10 +2020,7 @@
     },
     {
       "route": "/showroom/photos",
-      "legacy_routes": [
-        "/townhall/photos",
-        "/townhall/gallery"
-      ],
+      "legacy_routes": [],
       "surface_key": "showroom_photos",
       "ui_title": "showroom photos",
       "ui_nouns": [
@@ -1843,9 +2051,7 @@
     },
     {
       "route": "/showroom/live",
-      "legacy_routes": [
-        "/townhall/live"
-      ],
+      "legacy_routes": [],
       "surface_key": "showroom_live",
       "ui_title": "showroom live",
       "ui_nouns": [
@@ -1876,9 +2082,7 @@
     },
     {
       "route": "/showroom/search",
-      "legacy_routes": [
-        "/townhall/search"
-      ],
+      "legacy_routes": [],
       "surface_key": "showroom_search",
       "ui_title": "showroom search",
       "ui_nouns": [
@@ -1957,14 +2161,7 @@
     "/studio": "/workshop",
     "/invest": "/collect",
     "/gallery": "/photos",
-    "/townhall": "/showroom",
-    "/townhall/watch": "/showroom/watch",
-    "/townhall/listen": "/showroom/listen",
-    "/townhall/read": "/showroom/read",
-    "/townhall/photos": "/showroom/photos",
-    "/townhall/gallery": "/showroom/photos",
-    "/townhall/live": "/showroom/live",
-    "/townhall/search": "/showroom/search"
+    "/townhall/gallery": "/townhall/photos"
   },
   "session_required_route_patterns": [
     "/logout",
@@ -2015,6 +2212,13 @@
     "/auth/wallet-connect",
     "/auctions",
     "/photos",
+    "/townhall",
+    "/townhall/watch",
+    "/townhall/listen",
+    "/townhall/read",
+    "/townhall/photos",
+    "/townhall/live",
+    "/townhall/search",
     "/showroom",
     "/showroom/watch",
     "/showroom/listen",
@@ -2031,9 +2235,9 @@
     "canon_payments_stripe"
   ],
   "stats": {
-    "route_count": 53,
-    "public_safe_count": 30,
+    "route_count": 60,
+    "public_safe_count": 37,
     "session_required_count": 23,
-    "legacy_redirect_count": 38
+    "legacy_redirect_count": 31
   }
 }

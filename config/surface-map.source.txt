@@ -1,5 +1,5 @@
-version: v3.1
-date: 2026-03-01
+version: v3.2
+date: 2026-03-08
 
 - surface map: naming + routes + glossary + linter authority
 - public surfaces + economic rails: build contract authority
@@ -11,7 +11,7 @@ date: 2026-03-01
 
 oneofakinde os — 2026 surface map (source of truth)
 format: lintable_txt_v1
-last_updated: 2026-03-01
+last_updated: 2026-03-08
 notes: this file is machine-lintable; no free-text notes. everything is structured.
 
 # =====================================================================
@@ -26,6 +26,7 @@ locked_glossary:
     studio: "public-facing creator presence (creator identity surface)"
     workshop: "creator back-office (making suite; formerly studio when meaning the suite)"
     showroom: "primary feed + discovery shell (community + marketplace)"
+    townhall: "public square for open discourse and civic conversation"
     watch: "video consumable mode"
     listen: "audio consumable mode"
     read: "text consumable mode"
@@ -37,7 +38,6 @@ locked_glossary:
     collection_place: { term: "collection", meaning: "place", replace_with: "world" }
     collections_place: { term: "collections", meaning: "places", replace_with: "worlds" }
     gallery: { replace_with: "photos" }
-    townhall: { replace_with: "showroom" }
     invest: { replace_with: "collect" }
     profile: { replace_with: "studio" } # when meaning public creator presence
     studio_making_suite: { term: "studio", meaning: "creator back-office", replace_with: "workshop" }
@@ -682,8 +682,85 @@ surfaces:
     contract_deps: ["openapi_v1.catalog", "schema_v1.catalog", "canon_no_leaks_scan"]
     proof_ids: ["p_no_leaks_ci"]
 
+  - route: "/townhall"
+    legacy_routes: []
+    surface_key: "townhall"
+    ui_title: "townhall"
+    ui_nouns: ["townhall", "drop"]
+    lint_targets: ["nav", "h1", "cta", "metadata_labels"]
+    roles: ["public", "collector", "creator"]
+    public_safe: true
+    contract_deps: ["openapi_v1.catalog", "schema_v1.catalog", "canon_no_leaks_scan"]
+    proof_ids: ["p_public_safe_render", "p_no_leaks_ci"]
+
+  - route: "/townhall/watch"
+    legacy_routes: []
+    surface_key: "townhall_watch"
+    ui_title: "townhall watch"
+    ui_nouns: ["townhall", "watch", "drop"]
+    lint_targets: ["nav", "h1", "metadata_labels"]
+    roles: ["public", "collector", "creator"]
+    public_safe: true
+    contract_deps: ["openapi_v1.catalog", "schema_v1.catalog", "canon_no_leaks_scan"]
+    proof_ids: ["p_no_leaks_ci"]
+
+  - route: "/townhall/listen"
+    legacy_routes: []
+    surface_key: "townhall_listen"
+    ui_title: "townhall listen"
+    ui_nouns: ["townhall", "listen", "drop"]
+    lint_targets: ["nav", "h1", "metadata_labels"]
+    roles: ["public", "collector", "creator"]
+    public_safe: true
+    contract_deps: ["openapi_v1.catalog", "schema_v1.catalog", "canon_no_leaks_scan"]
+    proof_ids: ["p_no_leaks_ci"]
+
+  - route: "/townhall/read"
+    legacy_routes: []
+    surface_key: "townhall_read"
+    ui_title: "townhall read"
+    ui_nouns: ["townhall", "read", "drop"]
+    lint_targets: ["nav", "h1", "metadata_labels"]
+    roles: ["public", "collector", "creator"]
+    public_safe: true
+    contract_deps: ["openapi_v1.catalog", "schema_v1.catalog", "canon_no_leaks_scan"]
+    proof_ids: ["p_no_leaks_ci"]
+
+  - route: "/townhall/photos"
+    legacy_routes: ["/townhall/gallery"]
+    surface_key: "townhall_photos"
+    ui_title: "townhall photos"
+    ui_nouns: ["townhall", "photos", "drop"]
+    lint_targets: ["nav", "h1", "metadata_labels"]
+    roles: ["public", "collector", "creator"]
+    public_safe: true
+    contract_deps: ["openapi_v1.catalog", "schema_v1.catalog", "canon_no_leaks_scan"]
+    proof_ids: ["p_no_leaks_ci"]
+
+  - route: "/townhall/live"
+    legacy_routes: []
+    surface_key: "townhall_live"
+    ui_title: "townhall live"
+    ui_nouns: ["townhall", "live", "drop"]
+    lint_targets: ["nav", "h1", "metadata_labels"]
+    roles: ["public", "collector", "creator"]
+    public_safe: true
+    contract_deps: ["openapi_v1.catalog", "schema_v1.catalog", "canon_no_leaks_scan"]
+    proof_ids: ["p_no_leaks_ci"]
+
+  - route: "/townhall/search"
+    legacy_routes: []
+    surface_key: "townhall_search"
+    ui_title: "townhall search"
+    ui_nouns: ["townhall", "drop", "world", "studio"]
+    lint_targets: ["h1", "metadata_labels", "empty_state"]
+    roles: ["public", "collector", "creator"]
+    public_safe: true
+    contract_deps: ["openapi_v1.search", "schema_v1.catalog", "canon_no_leaks_scan"]
+    proof_ids: ["p_no_leaks_ci"]
+
   - route: "/showroom"
-    legacy_routes: ["/townhall"]
+    legacy_routes: []
     surface_key: "showroom"
     ui_title: "showroom"
     ui_nouns: ["showroom", "drop"]
@@ -694,7 +771,7 @@ surfaces:
     proof_ids: ["p_public_safe_render", "p_no_leaks_ci"]
 
   - route: "/showroom/watch"
-    legacy_routes: ["/townhall/watch"]
+    legacy_routes: []
     surface_key: "showroom_watch"
     ui_title: "showroom watch"
     ui_nouns: ["showroom", "watch", "drop"]
@@ -705,7 +782,7 @@ surfaces:
     proof_ids: ["p_no_leaks_ci"]
 
   - route: "/showroom/listen"
-    legacy_routes: ["/townhall/listen"]
+    legacy_routes: []
     surface_key: "showroom_listen"
     ui_title: "showroom listen"
     ui_nouns: ["showroom", "listen", "drop"]
@@ -716,7 +793,7 @@ surfaces:
     proof_ids: ["p_no_leaks_ci"]
 
   - route: "/showroom/read"
-    legacy_routes: ["/townhall/read"]
+    legacy_routes: []
     surface_key: "showroom_read"
     ui_title: "showroom read"
     ui_nouns: ["showroom", "read", "drop"]
@@ -727,7 +804,7 @@ surfaces:
     proof_ids: ["p_no_leaks_ci"]
 
   - route: "/showroom/photos"
-    legacy_routes: ["/townhall/photos", "/townhall/gallery"]
+    legacy_routes: []
     surface_key: "showroom_photos"
     ui_title: "showroom photos"
     ui_nouns: ["showroom", "photos", "drop"]
@@ -738,7 +815,7 @@ surfaces:
     proof_ids: ["p_no_leaks_ci"]
 
   - route: "/showroom/live"
-    legacy_routes: ["/townhall/live"]
+    legacy_routes: []
     surface_key: "showroom_live"
     ui_title: "showroom live"
     ui_nouns: ["showroom", "live", "drop"]
@@ -749,7 +826,7 @@ surfaces:
     proof_ids: ["p_no_leaks_ci"]
 
   - route: "/showroom/search"
-    legacy_routes: ["/townhall/search"]
+    legacy_routes: []
     surface_key: "showroom_search"
     ui_title: "showroom search"
     ui_nouns: ["showroom", "drop", "world", "studio"]

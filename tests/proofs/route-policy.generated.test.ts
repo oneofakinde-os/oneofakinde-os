@@ -124,36 +124,8 @@ const redirectCases = [
     "targetPathname": "/photos"
   },
   {
-    "sourcePathname": "/townhall",
-    "targetPathname": "/showroom"
-  },
-  {
-    "sourcePathname": "/townhall/watch",
-    "targetPathname": "/showroom/watch"
-  },
-  {
-    "sourcePathname": "/townhall/listen",
-    "targetPathname": "/showroom/listen"
-  },
-  {
-    "sourcePathname": "/townhall/read",
-    "targetPathname": "/showroom/read"
-  },
-  {
-    "sourcePathname": "/townhall/photos",
-    "targetPathname": "/showroom/photos"
-  },
-  {
     "sourcePathname": "/townhall/gallery",
-    "targetPathname": "/showroom/photos"
-  },
-  {
-    "sourcePathname": "/townhall/live",
-    "targetPathname": "/showroom/live"
-  },
-  {
-    "sourcePathname": "/townhall/search",
-    "targetPathname": "/showroom/search"
+    "targetPathname": "/townhall/photos"
   }
 ] as const;
 const metadataCases = [
@@ -521,6 +493,55 @@ const metadataCases = [
   {
     "pathname": "/photos",
     "surfaceKey": "photos_hub",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
+    "pathname": "/townhall",
+    "surfaceKey": "townhall",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
+    "pathname": "/townhall/watch",
+    "surfaceKey": "townhall_watch",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
+    "pathname": "/townhall/listen",
+    "surfaceKey": "townhall_listen",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
+    "pathname": "/townhall/read",
+    "surfaceKey": "townhall_read",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
+    "pathname": "/townhall/photos",
+    "surfaceKey": "townhall_photos",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
+    "pathname": "/townhall/live",
+    "surfaceKey": "townhall_live",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
+    "pathname": "/townhall/search",
+    "surfaceKey": "townhall_search",
     "publicSafe": "true",
     "hasSession": false,
     "sessionRoles": []
@@ -919,6 +940,9 @@ const proofPublicSafeCases = [
   },
   {
     "pathname": "/certificates/cert_id-sample"
+  },
+  {
+    "pathname": "/townhall"
   },
   {
     "pathname": "/showroom"

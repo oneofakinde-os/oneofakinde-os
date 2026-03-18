@@ -30,16 +30,23 @@ This package defines the target software architecture for oneofakinde OS using t
   - One-click release-candidate verification flow and freeze decision protocol.
 - `release-candidate-dry-run.md`
   - Strict pass/fail launch dry run checklist and execution command.
+- `SPEC_TO_CODE_IMPLEMENTATION_BACKLOG.md`
+  - File-by-file execution backlog to close March 8 spec-to-code gaps.
 
 ## Source Basis
 
-Primary source of truth is `oneofakinde-os_2026-surface map_021626.txt` (dated 2026-02-16). Supporting visual direction is derived from:
+Primary source of truth is now the March 8, 2026 authority archive:
 
-- `oneofakinde_brand_design_rules_manual_v2026.pdf`
-- `oneofakinde-os_look and feel.pages`
-- `oneofakinde_system reference_01.pdf`
-- `oneofakinde_system reference_02.pdf`
+- `/Users/pantallero/Documents/pantallero/projects/oneofakinde/vision/oneofakinde_final_authority_archive_2026-03-08`
+
+Key authority artifacts consumed by engineering delivery:
+
+- `00_start_here/README_START_HERE.md`
+- `01_authority/oneofakinde_build_contract_authority_2026-03-08.txt`
+- `01_authority/oneofakinde_engineering_reference_2026-03-08.md`
+- `01_authority/oneofakinde_launch_readiness_checklist_2026-03-08.md`
+- `04_workshop/oneofakinde_workshop_screen_by_screen_flow_spec_2026-03-08.docx`
 
 ## Notes
 
-The two `system reference` PDFs are image-heavy with no recoverable text layer in this execution environment. Their first-page visuals were reviewed and incorporated as directional context only; hard behavioral rules are anchored to the 2026 surface map.
+Older 2026 artifacts remain useful as historical context, but implementation contract decisions must now trace back to the March 8 authority archive unless an explicit amendment is documented.

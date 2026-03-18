@@ -48,9 +48,9 @@ test("proof: townhall feed focus query parsing is strict and safe", () => {
 });
 
 test("proof: townhall return href keeps mode lane, ordering, and feed focus", () => {
-  assert.equal(routeForTownhallMediaFilter("watch"), "/showroom/watch");
-  assert.equal(routeForTownhallMediaFilter("agora"), "/showroom");
-  assert.equal(routeForTownhallMediaFilter("all"), "/showroom");
+  assert.equal(routeForTownhallMediaFilter("watch"), "/townhall/watch");
+  assert.equal(routeForTownhallMediaFilter("agora"), "/townhall");
+  assert.equal(routeForTownhallMediaFilter("all"), "/townhall");
 
   const href = buildTownhallFeedHrefWithFocus({
     mediaFilter: "watch",
@@ -60,7 +60,7 @@ test("proof: townhall return href keeps mode lane, ordering, and feed focus", ()
   });
 
   const parsed = new URL(href, "https://oneofakinde.local");
-  assert.equal(parsed.pathname, "/showroom/watch");
+  assert.equal(parsed.pathname, "/townhall/watch");
   assert.equal(parsed.searchParams.get("lane_key"), "most_collected");
   assert.equal(parsed.searchParams.get("focusDrop"), "voidrunner");
   assert.equal(parsed.searchParams.get("focusPosition"), "4");

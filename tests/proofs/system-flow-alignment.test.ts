@@ -12,7 +12,7 @@ function getReturnTo(pathnameWithSearch: string): string | null {
   return url.searchParams.get("returnTo");
 }
 
-test("system flow: default entry journey routes through auth -> wallet -> profile -> showroom", () => {
+test("system flow: default entry journey routes through auth -> wallet -> profile -> townhall", () => {
   const flow = buildDefaultEntryFlow();
 
   assert.equal(flow.finalReturnTo, routes.townhall());
@@ -79,9 +79,9 @@ test("system flow: public steps stay public and protected steps enforce session"
   }
 });
 
-test("system flow: showroom, certificate, and media steps expose canonical surface keys", () => {
+test("system flow: townhall, certificate, and media steps expose canonical surface keys", () => {
   const checks = [
-    { pathname: routes.townhall(), expectedSurfaceKey: "showroom" },
+    { pathname: routes.townhall(), expectedSurfaceKey: "townhall" },
     { pathname: routes.certificate(FLOW_CERT_ID), expectedSurfaceKey: "certificate_verify" },
     { pathname: routes.dropWatch(FLOW_DROP_ID), expectedSurfaceKey: "drop_full_watch" },
     { pathname: routes.dropListen(FLOW_DROP_ID), expectedSurfaceKey: "drop_full_listen" },
@@ -104,7 +104,7 @@ test("system flow: showroom, certificate, and media steps expose canonical surfa
   }
 });
 
-test("system flow: featured lane deep link resolves to showroom with lane_key=featured", () => {
+test("system flow: featured lane deep link resolves to townhall with lane_key=featured", () => {
   const featured = new URL(routes.townhallFeatured(), "https://oneofakinde.local");
   assert.equal(featured.pathname, routes.townhall());
   assert.equal(featured.searchParams.get("lane_key"), "featured");
