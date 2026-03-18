@@ -8,7 +8,6 @@ export const routes = {
   home: (): Route => asRoute("/"),
   explore: (): Route => asRoute("/explore"),
   collect: (): Route => asRoute("/collect"),
-  invest: (): Route => asRoute("/invest"),
   auctions: (): Route => asRoute("/auctions"),
   create: (): Route => asRoute("/create"),
 
@@ -21,7 +20,6 @@ export const routes = {
   showroomListen: (): Route => asRoute("/showroom/listen"),
   showroomRead: (): Route => asRoute("/showroom/read"),
   showroomPhotos: (): Route => asRoute("/showroom/photos"),
-  showroomGallery: (): Route => asRoute("/showroom/photos"),
   showroomLive: (): Route => asRoute("/showroom/live"),
   showroomFeatured: (): Route => asRoute("/showroom?lane_key=featured"),
 
@@ -34,7 +32,6 @@ export const routes = {
   townhallListen: (): Route => asRoute("/townhall/listen"),
   townhallRead: (): Route => asRoute("/townhall/read"),
   townhallPhotos: (): Route => asRoute("/townhall/photos"),
-  townhallGallery: (): Route => asRoute("/townhall/photos"),
   townhallLive: (): Route => asRoute("/townhall/live"),
   townhallFeatured: (): Route => asRoute("/townhall?lane_key=featured"),
 
@@ -42,7 +39,6 @@ export const routes = {
   listenHub: (): Route => asRoute("/listen"),
   readHub: (): Route => asRoute("/read"),
   photosHub: (): Route => asRoute("/photos"),
-  galleryHub: (): Route => asRoute("/photos"),
   liveHub: (): Route => asRoute("/live"),
   liveNow: (): Route => asRoute("/live"),
 
@@ -58,12 +54,10 @@ export const routes = {
   dropActivity: (dropId: string): Route => asRoute(`/drops/${dropId}/activity`),
   dropPreview: (dropId: string): Route => asRoute(`/drops/${dropId}/preview`),
   dropPreviewPhotos: (dropId: string): Route => asRoute(`/drops/${dropId}/preview/photos`),
-  dropPreviewGallery: (dropId: string): Route => asRoute(`/drops/${dropId}/preview/photos`),
   dropWatch: (dropId: string): Route => asRoute(`/drops/${dropId}/watch`),
   dropListen: (dropId: string): Route => asRoute(`/drops/${dropId}/listen`),
   dropRead: (dropId: string): Route => asRoute(`/drops/${dropId}/read`),
   dropPhotos: (dropId: string): Route => asRoute(`/drops/${dropId}/photos`),
-  dropGallery: (dropId: string): Route => asRoute(`/drops/${dropId}/photos`),
 
   collectDrop: (dropId: string): Route => asRoute(`/collect/${dropId}`),
   buyDrop: (dropId: string): Route => asRoute(`/collect/${dropId}`),

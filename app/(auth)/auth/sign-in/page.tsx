@@ -18,11 +18,11 @@ function firstParam(value: string | string[] | undefined): string | null {
 
 export default async function SignInPage({ searchParams }: SignInPageProps) {
   const resolvedParams = await searchParams;
-  const defaultReturnTo = buildDefaultEntryFlow().walletConnectReturnTo;
+  const defaultReturnTo = buildDefaultEntryFlow().finalReturnTo;
   const returnTo = normalizeReturnTo(firstParam(resolvedParams.returnTo), defaultReturnTo);
   const walletConnectHref = returnTo.startsWith("/auth/wallet-connect")
     ? (returnTo as ReturnType<typeof routes.walletConnect>)
-    : routes.walletConnect(routes.profileSetup(returnTo));
+    : routes.walletConnect(returnTo);
   const signUpReturnTo = extractFinalReturnTo(returnTo);
   const errorCode = firstParam(resolvedParams.error);
   const hasInvalidEmail = errorCode === "invalid_email";
@@ -34,7 +34,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
         <header className="identity-head">
           <p className="identity-brand">oneofakinde</p>
           <h1 className="identity-title">sign in</h1>
-          <p className="identity-copy">sign in, connect wallet, complete identity setup, then enter showroom.</p>
+          <p className="identity-copy">sign in and continue directly to townhall. wallet linking stays optional.</p>
         </header>
 
         <form action={signInAction} className="identity-form">
@@ -103,7 +103,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
 
         <footer className="identity-foot">
           <Link href={walletConnectHref} className="identity-link">
-            connect wallet
+            link wallet (optional)
           </Link>
           <span>·</span>
           <Link href={routes.signUp(signUpReturnTo)} className="identity-link">

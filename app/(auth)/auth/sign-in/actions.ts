@@ -43,6 +43,6 @@ export async function signInAction(formData: FormData): Promise<void> {
     maxAge: 60 * 60 * 24 * 14
   });
 
-  const defaultReturnTo = buildDefaultEntryFlow().walletConnectReturnTo;
+  const defaultReturnTo = buildDefaultEntryFlow().finalReturnTo;
   redirect(normalizeReturnTo(returnTo, defaultReturnTo) as Route);
 }

@@ -12,13 +12,13 @@ export type EntryFlowTargets = {
 
 export function buildDefaultEntryFlow(finalReturnTo: Route = routes.townhall()): EntryFlowTargets {
   const profileSetupReturnTo = routes.profileSetup(finalReturnTo);
-  const walletConnectReturnTo = routes.walletConnect(profileSetupReturnTo);
+  const walletConnectReturnTo = routes.walletConnect(finalReturnTo);
 
   return {
     finalReturnTo,
     profileSetupReturnTo,
     walletConnectReturnTo,
-    signInHref: routes.signIn(walletConnectReturnTo),
+    signInHref: routes.signIn(finalReturnTo),
     signUpHref: routes.signUp(finalReturnTo),
     walletConnectHref: walletConnectReturnTo
   };

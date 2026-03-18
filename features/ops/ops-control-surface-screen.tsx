@@ -27,7 +27,7 @@ type OpsControlSurfaceScreenProps = {
 type SurfaceMeta = {
   title: string;
   subtitle: string;
-  activeNav: "townhall" | "my_collection" | "favorites" | "worlds";
+  activeNav: "townhall" | "my_collection" | "library" | "worlds";
 };
 
 type CampaignState = "running" | "scheduled" | "draft";
@@ -58,8 +58,8 @@ const SURFACE_META: Record<OpsSurface, SurfaceMeta> = {
   },
   following: {
     title: "following",
-    subtitle: "favorites users and followed creator world updates",
-    activeNav: "favorites"
+    subtitle: "saved-library users and followed creator world updates",
+    activeNav: "library"
   },
   create: {
     title: "create",
@@ -248,7 +248,7 @@ function renderFollowingBody(session: Session, drops: Drop[]) {
       <section className="slice-panel">
         <p className="slice-label">social graph</p>
         <h2 className="slice-title">@{session.handle} following</h2>
-        <p className="slice-copy">creator identities and world updates that feed your favorites surfaces.</p>
+        <p className="slice-copy">creator identities and world updates that feed your library surfaces.</p>
         <ul className="ops-grid" aria-label="following list">
           {handles.map((handle, index) => (
             <li key={handle} className="ops-card">
@@ -269,7 +269,7 @@ function renderFollowingBody(session: Session, drops: Drop[]) {
       </section>
 
       <section className="slice-panel">
-        <p className="slice-label">favorites users</p>
+        <p className="slice-label">library users</p>
         <div className="ops-kpi-grid">
           <article className="ops-kpi">
             <h3>{handles.length}</h3>

@@ -746,7 +746,7 @@ function createSeedDatabase(): BffDatabase {
         worldId: "dark-matter",
         status: "active",
         startedAt: new Date(now.valueOf() - DAY_MS * 14).toISOString(),
-        endsAt: new Date(now.valueOf() + DAY_MS * 30).toISOString()
+        endsAt: null
       }
     ],
     patrons: [],

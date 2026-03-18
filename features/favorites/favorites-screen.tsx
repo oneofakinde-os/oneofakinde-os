@@ -6,30 +6,30 @@ import Link from "next/link";
 
 type FavoritesScreenProps = {
   session: Session;
-  favorites: LibrarySnapshot;
+  library: LibrarySnapshot;
 };
 
-export function FavoritesScreen({ session, favorites }: FavoritesScreenProps) {
+export function FavoritesScreen({ session, library }: FavoritesScreenProps) {
   return (
     <AppShell
-      title="favorites"
+      title="library"
       subtitle="saved drop curation and quick access"
       session={session}
-      activeNav="favorites"
+      activeNav="library"
     >
       <section className="slice-panel">
         <div className="slice-row">
-          <p className="slice-label">{favorites.savedDrops.length} saved drops</p>
+          <p className="slice-label">{library.savedDrops.length} saved drops</p>
           <Link href={routes.townhall()} className="slice-button ghost">
             open townhall
           </Link>
         </div>
 
-        {favorites.savedDrops.length === 0 ? (
-          <p className="slice-copy">your favorites list is empty. save drops from townhall to populate it.</p>
+        {library.savedDrops.length === 0 ? (
+          <p className="slice-copy">your library is empty. save drops from townhall to populate it.</p>
         ) : (
-          <ul className="slice-grid" aria-label="favorites drop list">
-            {favorites.savedDrops.map((item) => (
+          <ul className="slice-grid" aria-label="library drop list">
+            {library.savedDrops.map((item) => (
               <li key={`${item.drop.id}:${item.savedAt}`} className="slice-drop-card">
                 <p className="slice-label">saved {item.savedAt.slice(0, 10)}</p>
                 <h2 className="slice-title">{item.drop.title}</h2>

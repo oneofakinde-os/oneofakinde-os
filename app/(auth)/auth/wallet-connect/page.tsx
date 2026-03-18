@@ -19,7 +19,7 @@ function firstParam(value: string | string[] | undefined): string | null {
 
 export default async function WalletConnectPage({ searchParams }: WalletConnectPageProps) {
   const [resolvedParams, session] = await Promise.all([searchParams, getOptionalSession()]);
-  const defaultReturnTo = routes.profileSetup(routes.showroom());
+  const defaultReturnTo = routes.townhall();
   const returnTo = normalizeReturnTo(
     firstParam(resolvedParams.returnTo),
     defaultReturnTo
@@ -35,7 +35,7 @@ export default async function WalletConnectPage({ searchParams }: WalletConnectP
         <header className="identity-head">
           <p className="identity-brand">oneofakinde</p>
           <h1 className="identity-title">connect wallet</h1>
-          <p className="identity-copy">choose a wallet now or scan to link on another device, then continue onboarding.</p>
+          <p className="identity-copy">wallet link is optional. connect now or skip and continue with your account session.</p>
         </header>
 
         <section className="wallet-grid" aria-label="wallet providers">
@@ -57,10 +57,10 @@ export default async function WalletConnectPage({ searchParams }: WalletConnectP
 
         <div className="slice-button-row">
           <Link href={walletLinkHref} className="identity-cta identity-cta-link">
-            continue to wallet-link
+            link wallet and continue
           </Link>
           <Link href={continueHref} className="slice-button alt">
-            continue without wallet
+            skip for now
           </Link>
         </div>
 
