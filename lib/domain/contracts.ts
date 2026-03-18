@@ -27,6 +27,18 @@ export type DropPreviewAsset = {
 
 export type DropPreviewMap = Partial<Record<DropPreviewMode, DropPreviewAsset>>;
 
+export type CollaboratorSplit = {
+  accountId: string;
+  handle: string;
+  splitPercent: number;
+};
+
+export type DropVisibility = "public" | "world_members" | "collectors_only";
+
+export type DropVisibilitySource = "drop" | "world_default";
+
+export type PreviewPolicy = "full" | "limited" | "poster";
+
 export type Drop = {
   id: string;
   title: string;
@@ -41,6 +53,11 @@ export type Drop = {
   studioPinRank?: number;
   worldOrderIndex?: number;
   previewMedia?: DropPreviewMap;
+  collaborators?: CollaboratorSplit[];
+  visibility?: DropVisibility;
+  visibilitySource?: DropVisibilitySource;
+  previewPolicy?: PreviewPolicy;
+  releaseAt?: string;
 };
 
 export type MembershipEntitlementStatus = "active" | "expired" | "canceled";
@@ -167,6 +184,10 @@ export type WorldConversationModerationCaseResolveResult =
 
 export type LiveSessionEligibilityRule = "public" | "membership_active" | "drop_owner";
 
+export type LiveSessionType = "opening" | "event" | "studio_session";
+
+export type LiveSessionAudienceEligibility = "open" | "membership" | "patron" | "invite";
+
 export type LiveSession = {
   id: string;
   studioHandle: string;
@@ -178,6 +199,12 @@ export type LiveSession = {
   endsAt: string | null;
   mode: "live";
   eligibilityRule: LiveSessionEligibilityRule;
+  type?: LiveSessionType;
+  eligibility?: LiveSessionAudienceEligibility;
+  spatialAudio?: boolean;
+  exclusiveDropWindowDropId?: string;
+  exclusiveDropWindowDelay?: number;
+  capacity?: number;
   whatYouGet: string;
 };
 
@@ -454,6 +481,20 @@ export type World = {
   title: string;
   synopsis: string;
   studioHandle: string;
+  visualIdentity?: {
+    coverImageSrc: string;
+    colorPrimary: string;
+    colorSecondary?: string;
+    motionTreatment?: string;
+  };
+  ambientAudioSrc?: string;
+  entryRule?: "open" | "membership" | "patron";
+  lore?: string;
+  releaseStructure?: {
+    mode: "continuous" | "seasons" | "chapters";
+    currentLabel?: string;
+  };
+  defaultDropVisibility?: DropVisibility;
   collectBundles?: WorldCollectBundle[];
 };
 

@@ -2765,6 +2765,41 @@ function toLiveSessionWhatYouGet(db: BffDatabase, liveSession: LiveSessionRecord
   return "drop ownership required to join.";
 }
 
+function resolveLiveSessionType(liveSession: LiveSessionRecord): LiveSession["type"] {
+  if (
+    liveSession.type === "opening" ||
+    liveSession.type === "event" ||
+    liveSession.type === "studio_session"
+  ) {
+    return liveSession.type;
+  }
+
+  return "event";
+}
+
+function resolveLiveSessionAudienceEligibility(
+  liveSession: LiveSessionRecord
+): LiveSession["eligibility"] {
+  if (
+    liveSession.eligibility === "open" ||
+    liveSession.eligibility === "membership" ||
+    liveSession.eligibility === "patron" ||
+    liveSession.eligibility === "invite"
+  ) {
+    return liveSession.eligibility;
+  }
+
+  if (liveSession.eligibilityRule === "membership_active") {
+    return "membership";
+  }
+
+  if (liveSession.eligibilityRule === "drop_owner") {
+    return "invite";
+  }
+
+  return "open";
+}
+
 function toLiveSession(db: BffDatabase, liveSession: LiveSessionRecord): LiveSession {
   return {
     id: liveSession.id,
@@ -2777,6 +2812,18 @@ function toLiveSession(db: BffDatabase, liveSession: LiveSessionRecord): LiveSes
     endsAt: liveSession.endsAt,
     mode: "live",
     eligibilityRule: liveSession.eligibilityRule,
+    type: resolveLiveSessionType(liveSession),
+    eligibility: resolveLiveSessionAudienceEligibility(liveSession),
+    spatialAudio: Boolean(liveSession.spatialAudio),
+    exclusiveDropWindowDropId: liveSession.exclusiveDropWindowDropId ?? undefined,
+    exclusiveDropWindowDelay:
+      typeof liveSession.exclusiveDropWindowDelay === "number"
+        ? liveSession.exclusiveDropWindowDelay
+        : undefined,
+    capacity:
+      typeof liveSession.capacity === "number" && Number.isFinite(liveSession.capacity)
+        ? Math.max(1, Math.floor(liveSession.capacity))
+        : 200,
     whatYouGet: toLiveSessionWhatYouGet(db, liveSession)
   };
 }
@@ -2974,7 +3021,18 @@ function createWorkshopLiveSessionInDatabase(
     startsAt: new Date(startsAtMs).toISOString(),
     endsAt,
     mode: "live",
-    eligibilityRule: input.eligibilityRule
+    eligibilityRule: input.eligibilityRule,
+    type: input.eligibilityRule === "public" ? "studio_session" : "opening",
+    eligibility:
+      input.eligibilityRule === "membership_active"
+        ? "membership"
+        : input.eligibilityRule === "drop_owner"
+          ? "invite"
+          : "open",
+    spatialAudio: false,
+    exclusiveDropWindowDropId: dropId,
+    exclusiveDropWindowDelay: dropId ? 1440 : null,
+    capacity: 200
   };
 
   db.liveSessions.unshift(record);
