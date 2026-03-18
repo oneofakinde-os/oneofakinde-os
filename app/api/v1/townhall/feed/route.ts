@@ -23,11 +23,11 @@ export async function GET(request: Request) {
   const mediaFilter = parseTownhallShowroomMediaFilter(url.searchParams.get("media"));
   const ordering = parseTownhallShowroomOrderingFromParams(url.searchParams);
 
-  const [session, drops, collectInventory] = await Promise.all([
+  const [session, collectInventory] = await Promise.all([
     getRequestSession(request),
-    gateway.listDrops(),
     commerceBffService.getCollectInventory(null, "all")
   ]);
+  const drops = await commerceBffService.listDrops(session?.accountId ?? null);
   const filteredDrops = filterDropsForShowroomMedia(drops, mediaFilter, {
     collectListingsByDropId: buildCollectListingsByDropId(collectInventory.listings)
   });

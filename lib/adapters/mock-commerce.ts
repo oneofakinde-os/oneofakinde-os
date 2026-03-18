@@ -845,6 +845,77 @@ function isMembershipActive(entitlement: MembershipEntitlementRecord, nowMs = Da
   return endsAt >= nowMs;
 }
 
+function resolveDropVisibility(drop: Drop): "public" | "world_members" | "collectors_only" {
+  if (drop.visibility === "world_members" || drop.visibility === "collectors_only") {
+    return drop.visibility;
+  }
+
+  return "public";
+}
+
+function hasActiveMembershipForWorld(accountId: string, world: World): boolean {
+  return store.membershipEntitlements.some((entitlement) => {
+    if (entitlement.accountId !== accountId) {
+      return false;
+    }
+
+    if (entitlement.studioHandle !== world.studioHandle) {
+      return false;
+    }
+
+    if (!isMembershipActive(entitlement)) {
+      return false;
+    }
+
+    return entitlement.worldId === null || entitlement.worldId === world.id;
+  });
+}
+
+function hasCollectEntitlementForWorld(accountId: string, world: World): boolean {
+  return getOwnedDrops(accountId).some((ownership) => ownership.drop.worldId === world.id);
+}
+
+function canAccountDiscoverDrop(account: AccountRecord | null, drop: Drop): boolean {
+  const visibility = resolveDropVisibility(drop);
+  if (visibility === "public") {
+    return true;
+  }
+
+  if (!account) {
+    return false;
+  }
+
+  if (account.roles.includes("creator") && account.handle === drop.studioHandle) {
+    return true;
+  }
+
+  const ownsDrop = getOwnedDrops(account.id).some((ownership) => ownership.drop.id === drop.id);
+  if (ownsDrop) {
+    return true;
+  }
+
+  if (visibility === "collectors_only") {
+    return false;
+  }
+
+  const world = store.worlds.get(drop.worldId) ?? null;
+  if (!world) {
+    return false;
+  }
+
+  return hasActiveMembershipForWorld(account.id, world) || hasCollectEntitlementForWorld(account.id, world);
+}
+
+function listDiscoverableDrops(viewerAccountId: string | null | undefined): Drop[] {
+  const allDrops = [...store.drops.values()];
+  if (viewerAccountId === undefined) {
+    return allDrops;
+  }
+
+  const account = viewerAccountId ? (store.accounts.get(viewerAccountId) ?? null) : null;
+  return allDrops.filter((drop) => canAccountDiscoverDrop(account, drop));
+}
+
 function toMembershipWhatYouGet(entitlement: MembershipEntitlementRecord): string {
   if (entitlement.worldId) {
     const world = store.worlds.get(entitlement.worldId);
@@ -1364,8 +1435,8 @@ function updateWorkshopWorldReleaseRecordStatus(
 }
 
 export const commerceGateway: CommerceGateway = {
-  async listDrops(): Promise<Drop[]> {
-    return [...store.drops.values()].sort(
+  async listDrops(viewerAccountId?: string | null): Promise<Drop[]> {
+    return listDiscoverableDrops(viewerAccountId).sort(
       (a, b) => Date.parse(b.releaseDate) - Date.parse(a.releaseDate)
     );
   },
@@ -1378,22 +1449,34 @@ export const commerceGateway: CommerceGateway = {
     return store.worlds.get(worldId) ?? null;
   },
 
-  async listDropsByWorldId(worldId: string): Promise<Drop[]> {
-    return sortDropsForWorldSurface((await this.listDrops()).filter((drop) => drop.worldId === worldId));
+  async listDropsByWorldId(worldId: string, viewerAccountId?: string | null): Promise<Drop[]> {
+    return sortDropsForWorldSurface(
+      (await this.listDrops(viewerAccountId)).filter((drop) => drop.worldId === worldId)
+    );
   },
 
   async getStudioByHandle(handle: string): Promise<Studio | null> {
     return store.studios.get(handle) ?? null;
   },
 
-  async listDropsByStudioHandle(handle: string): Promise<Drop[]> {
+  async listDropsByStudioHandle(handle: string, viewerAccountId?: string | null): Promise<Drop[]> {
     return sortDropsForStudioSurface(
-      (await this.listDrops()).filter((drop) => drop.studioHandle === handle)
+      (await this.listDrops(viewerAccountId)).filter((drop) => drop.studioHandle === handle)
     );
   },
 
-  async getDropById(dropId: string): Promise<Drop | null> {
-    return store.drops.get(dropId) ?? null;
+  async getDropById(dropId: string, viewerAccountId?: string | null): Promise<Drop | null> {
+    const drop = store.drops.get(dropId) ?? null;
+    if (!drop) {
+      return null;
+    }
+
+    if (viewerAccountId === undefined) {
+      return drop;
+    }
+
+    const account = viewerAccountId ? (store.accounts.get(viewerAccountId) ?? null) : null;
+    return canAccountDiscoverDrop(account, drop) ? drop : null;
   },
 
   async getDropLineage(dropId: string): Promise<DropLineageSnapshot | null> {

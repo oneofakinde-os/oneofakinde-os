@@ -4,11 +4,13 @@
  * This implementation uses in-process catalog scoring against the persisted BFF snapshot.
  * Launch can swap internals to Postgres FTS/indexing without changing request or response shape.
  */
+import { getRequestSession } from "@/lib/bff/auth";
 import { ok } from "@/lib/bff/http";
 import { executeCatalogSearch, parseCatalogSearchQuery } from "@/lib/catalog/search";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
+  const session = await getRequestSession(request);
   const query = parseCatalogSearchQuery(url.searchParams.get("q"));
   const lane = url.searchParams.get("lane");
   const offerState = url.searchParams.get("offer_state");
@@ -18,7 +20,8 @@ export async function GET(request: Request) {
     query,
     lane,
     offerState,
-    limit
+    limit,
+    viewerAccountId: session?.accountId ?? null
   });
 
   return ok({ search });

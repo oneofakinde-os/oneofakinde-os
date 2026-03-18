@@ -35,14 +35,14 @@ import type {
 } from "@/lib/domain/contracts";
 
 export interface CommerceGateway {
-  listDrops(): Promise<Drop[]>;
+  listDrops(viewerAccountId?: string | null): Promise<Drop[]>;
   listWorlds(): Promise<World[]>;
   getWorldById(worldId: string): Promise<World | null>;
-  listDropsByWorldId(worldId: string): Promise<Drop[]>;
+  listDropsByWorldId(worldId: string, viewerAccountId?: string | null): Promise<Drop[]>;
   getStudioByHandle(handle: string): Promise<Studio | null>;
-  listDropsByStudioHandle(handle: string): Promise<Drop[]>;
+  listDropsByStudioHandle(handle: string, viewerAccountId?: string | null): Promise<Drop[]>;
 
-  getDropById(dropId: string): Promise<Drop | null>;
+  getDropById(dropId: string, viewerAccountId?: string | null): Promise<Drop | null>;
   getDropLineage(dropId: string): Promise<DropLineageSnapshot | null>;
   createDropVersion(
     accountId: string,

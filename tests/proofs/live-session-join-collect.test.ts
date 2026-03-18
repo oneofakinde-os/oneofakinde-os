@@ -222,3 +222,57 @@ test("proof: live session join and collect enforce exclusive window closure", as
   );
   assert.equal(joinResponse.status, 410);
 });
+
+test("proof: live session join honors explicit exclusiveDropWindowDelay when endsAt is omitted", async (t) => {
+  const dbPath = createIsolatedDbPath();
+  process.env.OOK_BFF_DB_PATH = dbPath;
+  process.env.OOK_BFF_PERSISTENCE_BACKEND = "file";
+
+  t.after(async () => {
+    delete process.env.OOK_BFF_DB_PATH;
+    delete process.env.OOK_BFF_PERSISTENCE_BACKEND;
+    await fs.rm(dbPath, { force: true });
+  });
+
+  const creator = await commerceBffService.createSession({
+    email: "oneofakinde@oneofakinde.com",
+    role: "creator"
+  });
+  const seededCollector = await commerceBffService.createSession({
+    email: "collector@oneofakinde.com",
+    role: "collector"
+  });
+
+  const nowMs = Date.now();
+  const createResponse = await postWorkshopLiveSessionRoute(
+    new Request("http://127.0.0.1:3000/api/v1/workshop/live-sessions", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-ook-session-token": creator.sessionToken
+      },
+      body: JSON.stringify({
+        title: "long exclusive delay window",
+        synopsis: "delay should override default exclusive window hours",
+        worldId: "dark-matter",
+        dropId: "voidrunner",
+        startsAt: new Date(nowMs - 3 * 60 * 60 * 1000).toISOString(),
+        eligibilityRule: "membership_active"
+      })
+    })
+  );
+  assert.equal(createResponse.status, 201);
+  const createdPayload = await parseJson<{ liveSession: { id: string } }>(createResponse);
+  const liveSessionId = createdPayload.liveSession.id;
+
+  const joinResponse = await postLiveSessionJoinRoute(
+    new Request(`http://127.0.0.1:3000/api/v1/live-sessions/${encodeURIComponent(liveSessionId)}/join`, {
+      method: "POST",
+      headers: {
+        "x-ook-session-token": seededCollector.sessionToken
+      }
+    }),
+    withRouteParams({ session_id: liveSessionId })
+  );
+  assert.equal(joinResponse.status, 200);
+});

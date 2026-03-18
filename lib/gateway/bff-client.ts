@@ -141,7 +141,7 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
   };
 
   return {
-    async listDrops(): Promise<Drop[]> {
+    async listDrops(_viewerAccountId?: string | null): Promise<Drop[]> {
       const response = await requestJson<{ drops: Drop[] }>(options, "/api/v1/catalog/drops");
       if (!response.ok || !response.payload) return [];
       return response.payload.drops;
@@ -162,7 +162,7 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
       return response.payload.world;
     },
 
-    async listDropsByWorldId(worldId: string): Promise<Drop[]> {
+    async listDropsByWorldId(worldId: string, _viewerAccountId?: string | null): Promise<Drop[]> {
       const response = await requestJson<{ drops: Drop[] }>(
         options,
         `/api/v1/catalog/worlds/${encodeURIComponent(worldId)}/drops`
@@ -180,7 +180,7 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
       return response.payload.studio;
     },
 
-    async listDropsByStudioHandle(handle: string): Promise<Drop[]> {
+    async listDropsByStudioHandle(handle: string, _viewerAccountId?: string | null): Promise<Drop[]> {
       const response = await requestJson<{ drops: Drop[] }>(
         options,
         `/api/v1/catalog/studios/${encodeURIComponent(handle)}/drops`
@@ -189,7 +189,7 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
       return response.payload.drops;
     },
 
-    async getDropById(dropId: string): Promise<Drop | null> {
+    async getDropById(dropId: string, _viewerAccountId?: string | null): Promise<Drop | null> {
       const response = await requestJson<{ drop: Drop }>(
         options,
         `/api/v1/catalog/drops/${encodeURIComponent(dropId)}`

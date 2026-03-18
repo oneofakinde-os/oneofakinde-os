@@ -38,8 +38,17 @@ test("proof: townhall feed route paginates with cursor and stable order", async 
     await fs.rm(dbPath, { force: true });
   });
 
+  const creator = await commerceBffService.createSession({
+    email: "oneofakinde@oneofakinde.com",
+    role: "creator"
+  });
+
   const firstPageResponse = await getTownhallFeedRoute(
-    new Request("http://127.0.0.1:3000/api/v1/townhall/feed?limit=2")
+    new Request("http://127.0.0.1:3000/api/v1/townhall/feed?limit=2", {
+      headers: {
+        "x-ook-session-token": creator.sessionToken
+      }
+    })
   );
   assert.equal(firstPageResponse.status, 200);
 
@@ -59,7 +68,12 @@ test("proof: townhall feed route paginates with cursor and stable order", async 
     new Request(
       `http://127.0.0.1:3000/api/v1/townhall/feed?limit=2&cursor=${encodeURIComponent(
         firstPage.feed.nextCursor ?? ""
-      )}`
+      )}`,
+      {
+        headers: {
+          "x-ook-session-token": creator.sessionToken
+        }
+      }
     )
   );
   assert.equal(secondPageResponse.status, 200);
@@ -76,7 +90,7 @@ test("proof: townhall feed route paginates with cursor and stable order", async 
     "expected no overlap across paginated slices"
   );
 
-  const allDrops = await commerceBffService.listDrops();
+  const allDrops = await commerceBffService.listDrops(creator.accountId);
   const telemetryByDropId = await commerceBffService.getTownhallTelemetrySignals(
     allDrops.map((drop) => drop.id)
   );
@@ -99,13 +113,26 @@ test("proof: townhall feed rejects malformed cursor", async () => {
 });
 
 test("proof: townhall feed supports canonical ordering via lane_key", async () => {
+  const creator = await commerceBffService.createSession({
+    email: "oneofakinde@oneofakinde.com",
+    role: "creator"
+  });
+
   const featuredResponse = await getTownhallFeedRoute(
-    new Request("http://127.0.0.1:3000/api/v1/townhall/feed?lane_key=featured&limit=4")
+    new Request("http://127.0.0.1:3000/api/v1/townhall/feed?lane_key=featured&limit=4", {
+      headers: {
+        "x-ook-session-token": creator.sessionToken
+      }
+    })
   );
   assert.equal(featuredResponse.status, 200);
 
   const newestResponse = await getTownhallFeedRoute(
-    new Request("http://127.0.0.1:3000/api/v1/townhall/feed?lane_key=newest&limit=4")
+    new Request("http://127.0.0.1:3000/api/v1/townhall/feed?lane_key=newest&limit=4", {
+      headers: {
+        "x-ook-session-token": creator.sessionToken
+      }
+    })
   );
   assert.equal(newestResponse.status, 200);
   const newestPayload = await parseJson<FeedPayload>(newestResponse);
@@ -115,11 +142,15 @@ test("proof: townhall feed supports canonical ordering via lane_key", async () =
   );
 
   const collectedResponse = await getTownhallFeedRoute(
-    new Request("http://127.0.0.1:3000/api/v1/townhall/feed?lane_key=most_collected&limit=2")
+    new Request("http://127.0.0.1:3000/api/v1/townhall/feed?lane_key=most_collected&limit=2", {
+      headers: {
+        "x-ook-session-token": creator.sessionToken
+      }
+    })
   );
   assert.equal(collectedResponse.status, 200);
   const collectedPayload = await parseJson<FeedPayload>(collectedResponse);
-  const allDrops = await commerceBffService.listDrops();
+  const allDrops = await commerceBffService.listDrops(creator.accountId);
   const telemetryByDropId = await commerceBffService.getTownhallTelemetrySignals(
     allDrops.map((drop) => drop.id)
   );
@@ -157,7 +188,7 @@ test("proof: townhall feed supports agora commerce lane filtering", async () => 
   const payload = await parseJson<FeedPayload>(response);
   assert.ok(payload.feed.drops.length > 0);
 
-  const allDrops = await commerceBffService.listDrops();
+  const allDrops = await commerceBffService.listDrops(null);
   const collectInventory = await commerceBffService.getCollectInventory(null, "all");
   const telemetryByDropId = await commerceBffService.getTownhallTelemetrySignals(
     allDrops.map((drop) => drop.id)

@@ -2974,8 +2974,25 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     }>(
       'SELECT id, studio_handle AS "studioHandle", world_id AS "worldId", title, amount_cents AS "amountCents", period_days AS "periodDays", benefits_summary AS "benefitsSummary", status, updated_at AS "updatedAt", updated_by_handle AS "updatedByHandle" FROM bff_patron_tier_configs ORDER BY updated_at DESC'
     ),
-    client.query<LiveSessionRecord>(
-      'SELECT id, studio_handle AS "studioHandle", world_id AS "worldId", drop_id AS "dropId", title, synopsis, starts_at AS "startsAt", ends_at AS "endsAt", mode, eligibility_rule AS "eligibilityRule" FROM bff_live_sessions ORDER BY starts_at ASC'
+    client.query<{
+      id: string;
+      studioHandle: string;
+      worldId: string | null;
+      dropId: string | null;
+      title: string;
+      synopsis: string;
+      startsAt: string;
+      endsAt: string | null;
+      mode: "live";
+      eligibilityRule: LiveSessionEligibilityRule;
+      type: LiveSessionType | null;
+      eligibility: LiveSessionAudienceEligibility | null;
+      spatialAudio: boolean | null;
+      exclusiveDropWindowDropId: string | null;
+      exclusiveDropWindowDelay: number | string | null;
+      capacity: number | string | null;
+    }>(
+      'SELECT id, studio_handle AS "studioHandle", world_id AS "worldId", drop_id AS "dropId", title, synopsis, starts_at AS "startsAt", ends_at AS "endsAt", mode, eligibility_rule AS "eligibilityRule", session_type AS "type", audience_eligibility AS "eligibility", spatial_audio AS "spatialAudio", exclusive_drop_window_drop_id AS "exclusiveDropWindowDropId", exclusive_drop_window_delay AS "exclusiveDropWindowDelay", capacity FROM bff_live_sessions ORDER BY starts_at ASC'
     ),
     client.query<TownhallLikeRecord>(
       'SELECT account_id AS "accountId", drop_id AS "dropId", liked_at AS "likedAt" FROM bff_townhall_likes ORDER BY liked_at DESC'
@@ -3264,7 +3281,30 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
         updatedByHandle: row.updatedByHandle
       }))
     ),
-    liveSessions: normalizeLiveSessionRecords(liveSessionsResult.rows),
+    liveSessions: normalizeLiveSessionRecords(
+      liveSessionsResult.rows.map((row) => ({
+        id: row.id,
+        studioHandle: row.studioHandle,
+        worldId: row.worldId,
+        dropId: row.dropId,
+        title: row.title,
+        synopsis: row.synopsis,
+        startsAt: row.startsAt,
+        endsAt: row.endsAt,
+        mode: row.mode,
+        eligibilityRule: row.eligibilityRule,
+        type: row.type ?? undefined,
+        eligibility: row.eligibility ?? undefined,
+        spatialAudio: Boolean(row.spatialAudio),
+        exclusiveDropWindowDropId: row.exclusiveDropWindowDropId,
+        exclusiveDropWindowDelay:
+          row.exclusiveDropWindowDelay === null || row.exclusiveDropWindowDelay === undefined
+            ? null
+            : Number(row.exclusiveDropWindowDelay),
+        capacity:
+          row.capacity === null || row.capacity === undefined ? undefined : Number(row.capacity)
+      }))
+    ),
     townhallLikes: townhallLikesResult.rows,
     townhallComments: normalizeTownhallCommentRecords(townhallCommentsResult.rows),
     townhallShares: townhallSharesResult.rows,
@@ -3674,7 +3714,7 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
 
   for (const liveSession of db.liveSessions) {
     await client.query(
-      "INSERT INTO bff_live_sessions (id, studio_handle, world_id, drop_id, title, synopsis, starts_at, ends_at, mode, eligibility_rule) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+      "INSERT INTO bff_live_sessions (id, studio_handle, world_id, drop_id, title, synopsis, starts_at, ends_at, mode, eligibility_rule, session_type, audience_eligibility, spatial_audio, exclusive_drop_window_drop_id, exclusive_drop_window_delay, capacity) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)",
       [
         liveSession.id,
         liveSession.studioHandle,
@@ -3685,7 +3725,20 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
         liveSession.startsAt,
         liveSession.endsAt,
         liveSession.mode,
-        liveSession.eligibilityRule
+        liveSession.eligibilityRule,
+        liveSession.type ?? "event",
+        liveSession.eligibility ??
+          (liveSession.eligibilityRule === "membership_active"
+            ? "membership"
+            : liveSession.eligibilityRule === "drop_owner"
+              ? "invite"
+              : "open"),
+        Boolean(liveSession.spatialAudio),
+        liveSession.exclusiveDropWindowDropId ?? null,
+        liveSession.exclusiveDropWindowDelay ?? null,
+        typeof liveSession.capacity === "number" && Number.isFinite(liveSession.capacity)
+          ? Math.max(1, Math.floor(liveSession.capacity))
+          : 200
       ]
     );
   }
