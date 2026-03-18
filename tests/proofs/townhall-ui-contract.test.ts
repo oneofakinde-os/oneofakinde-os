@@ -78,16 +78,10 @@ test("proof: townhall canonical and legacy routes align with route helpers", asy
     routes.townhallListen(),
     routes.townhallRead(),
     routes.townhallPhotos(),
-    routes.townhallLive()
+    routes.townhallLive(),
+    routes.townhallSearch()
   ]);
   const expectedLegacy = new Set([
-    "/townhall",
-    "/townhall/watch",
-    "/townhall/listen",
-    "/townhall/read",
-    "/townhall/photos",
-    "/townhall/live",
-    "/townhall/search",
     "/townhall/gallery"
   ]);
 

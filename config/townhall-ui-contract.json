@@ -1,22 +1,16 @@
 {
-  "version": "phase1-train1-v1",
+  "version": "phase1-train1-v2",
   "townhall": {
     "canonical_routes": [
-      "/showroom",
-      "/showroom/watch",
-      "/showroom/listen",
-      "/showroom/read",
-      "/showroom/photos",
-      "/showroom/live"
-    ],
-    "legacy_redirect_routes": [
       "/townhall",
       "/townhall/watch",
       "/townhall/listen",
       "/townhall/read",
       "/townhall/photos",
       "/townhall/live",
-      "/townhall/search",
+      "/townhall/search"
+    ],
+    "legacy_redirect_routes": [
       "/townhall/gallery"
     ],
     "required_search_placeholder": "search users, worlds, and drops",
