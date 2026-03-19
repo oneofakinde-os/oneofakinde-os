@@ -10,6 +10,30 @@
   - `master_matrix!37` library reading/listening queue
   - `master_matrix!49` drop thread
 
+## Recertification Snapshot (2026-03-19)
+- Completed slices: `RY-01` through `RY-07`
+- Closed rows in this backlog:
+  - `master_matrix!14`
+  - `master_matrix!15`
+  - `master_matrix!16`
+  - `master_matrix!20`
+  - `master_matrix!37`
+  - `master_matrix!38`
+  - `master_matrix!49`
+  - `master_matrix!50`
+- Promotion evidence (GitHub merge commits):
+  - `RY-01` / PR `#113` -> `ccbb0853a17cf22f37f5b0d2e6ee939e64017125`
+  - `RY-02` / PR `#114` -> `9b7b2aa193aa665b0e76d87be82be2398d83f9d1`
+  - `RY-03` / PR `#115` -> `3af660c53f16db2f935c0d219c9e5ce7f5dba2f1`
+  - `RY-04` / PR `#116` -> `37ae8958503c3c8e7d10b4678d117a8dc6f02acb`
+  - `RY-05` / PR `#117` -> `8d109c7f671e23743d09f8772c832ab537ed5d29`
+  - `RY-06` / PR `#118` -> `bd33eb83c3b2091f4b999a0821e8162fd0ab4afd`
+  - `RY-07` / PR `#119` -> `3f758b79bd6e3f5fd53c616e10cec5f33ee9862f`
+- Current tracked matrix status (derived from this backlog):
+  - `40 green` (`32` baseline + `8` closed rows)
+  - `6 remaining yellow` (not yet explicitly sliced in this backlog)
+  - `0 remaining red`
+
 ## Execution Rules
 - Promote each slice by SHA lock (`local` == `origin/main` == `vercel deployment status sha`).
 - No direct Vercel hotfixes; all changes via PR to `main`.
@@ -17,7 +41,7 @@
 
 ## Red→Yellow Slice Backlog
 
-### RY-01 Drop Thread Baseline (in progress)
+### RY-01 Drop Thread Baseline (completed)
 Goal:
 - Move `master_matrix!49` from red to yellow by adding an in-surface drop thread experience on `/drops/[id]` backed by existing Townhall social APIs.
 
@@ -34,7 +58,7 @@ Acceptance:
 - Signed-out users see sign-in gate, not mutation failure.
 - New proof test passes.
 
-### RY-02 Townhall Standalone Discourse Objects
+### RY-02 Townhall Standalone Discourse Objects (completed)
 Goal:
 - Move `master_matrix!14` from red to yellow by adding standalone townhall post/note entities (not only drop-attached comments).
 
@@ -52,7 +76,7 @@ Acceptance:
 - Feed can render standalone posts and linked-object references.
 - Moderation/reporting and persistence proof exists.
 
-### RY-03 Studio Thread Surface
+### RY-03 Studio Thread Surface (completed)
 Goal:
 - Move `master_matrix!20` from red to yellow by adding a studio-level public thread surface.
 
@@ -67,7 +91,7 @@ Acceptance:
 - Thread links to/from townhall and drop contexts.
 - Moderation/reporting behavior aligns with role rails.
 
-### RY-04 Library Queue + Gated Recall
+### RY-04 Library Queue + Gated Recall (completed)
 Goal:
 - Move `master_matrix!37` from red to yellow and strengthen `master_matrix!38`.
 
@@ -84,7 +108,7 @@ Acceptance:
 - Queue progression and resume metadata are visible in UI.
 - Saved drops surface eligibility-state deltas as access unlocks.
 
-### RY-05 Townhall Thread Actions + Follow-State Recall (in progress)
+### RY-05 Townhall Thread Actions + Follow-State Recall (completed)
 Goal:
 - Move `master_matrix!15` from yellow to green by adding explicit thread save/follow/share actions plus recall filters for followed and saved threads.
 
@@ -103,7 +127,7 @@ Acceptance:
 - `/api/v1/townhall/posts` supports recall filtering for `following` and `saved` thread views.
 - Proof coverage locks mutation flow and recall filtering behavior.
 
-### RY-06 Drop Live Artifacts Surface Exposure (in progress)
+### RY-06 Drop Live Artifacts Surface Exposure (completed)
 Goal:
 - Move `master_matrix!50` from yellow to green by exposing approved live-session artifacts directly on drop detail surfaces with explicit artifact-kind provenance.
 
@@ -132,7 +156,7 @@ Acceptance:
 - Drop detail surface renders an artifact panel with session provenance for approved artifacts.
 - Proof coverage locks API contract and UI rendering on drop detail.
 
-### RY-07 Townhall Moderation Case Progress Rails (in progress)
+### RY-07 Townhall Moderation Case Progress Rails (completed)
 Goal:
 - Move `master_matrix!16` from yellow to green by making moderation/reporting case progress explicit on townhall thread objects and controls.
 
