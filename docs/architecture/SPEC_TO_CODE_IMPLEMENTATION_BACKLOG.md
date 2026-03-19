@@ -1,7 +1,7 @@
 # Spec-to-Code Implementation Backlog (March 8 Authority)
 
 Date opened: 2026-03-17
-Current phase: Phase 1 complete; Phase 2 complete; Phase 3 complete; Phase 4 complete; Phase 5 complete; Phase 6 complete; Phase 7 complete; Phase 8 complete; Phase 9 complete; Phase 10 complete
+Current phase: Phase 1 complete; Phase 2 complete; Phase 3 complete; Phase 4 complete; Phase 5 complete; Phase 6 complete; Phase 7 complete; Phase 8 complete; Phase 9 complete; Phase 10 complete; Phase 11 complete
 
 This backlog converts the March 8 authority pack into concrete file-level implementation work. Items are ordered by dependency, not convenience.
 
@@ -139,6 +139,17 @@ Goal: satisfy remaining Section 5.1 lifecycle checks for explicit session typing
 | done | `features/workshop/workshop-root-screen.tsx` | Add session type selector and render type/capacity/spatial state in workshop live-session list. |
 | done | `lib/bff/persistence.ts` + `lib/bff/service.ts` + `app/api/v1/live-sessions/[session_id]/join/route.ts` | Add persisted attendee rail and enforce live-session capacity ceiling with `409` on overflow joins. |
 | done | `tests/proofs/live-session-capacity-and-type.test.ts` | Add proofs for join capacity ceiling behavior and explicit session type persistence. |
+
+## Phase 11: Live Session Conversation Thread Rail (Full Launch)
+
+Goal: satisfy Section 5.1 conversation requirement with a `live_session_id`-scoped thread that is visible only to eligible accounts while the session is active.
+
+| Status | File | Change |
+| --- | --- | --- |
+| done | `lib/domain/contracts.ts` | Add live-session conversation thread/message contracts. |
+| done | `lib/bff/persistence.ts` + `lib/bff/service.ts` | Add persisted live-session conversation message rail and eligibility/active-window access gating. |
+| done | `app/api/v1/live-sessions/[session_id]/conversation/route.ts` | Add GET/POST API for live-session thread retrieval and message creation with strict validation. |
+| done | `tests/proofs/live-session-conversation-rails.test.ts` | Add proof coverage for session-scoped visibility, active-window enforcement, threaded replies, and payload privacy guardrails. |
 
 ## Working Rules
 

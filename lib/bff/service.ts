@@ -27,6 +27,8 @@ import type {
   LibrarySnapshot,
   LedgerTransaction,
   LiveSession,
+  LiveSessionConversationMessage,
+  LiveSessionConversationThread,
   LiveSessionArtifact,
   LiveSessionEligibility,
   LiveSessionJoinSnapshot,
@@ -108,6 +110,7 @@ import {
   type LedgerTransactionRecord,
   type LiveSessionRecord,
   type LiveSessionAttendeeRecord,
+  type LiveSessionConversationMessageRecord,
   type LiveSessionArtifactRecord,
   type MembershipEntitlementRecord,
   type PatronCommitmentRecord,
@@ -140,6 +143,9 @@ const TOWNHALL_COMMENTS_PREVIEW_LIMIT = 24;
 const WORLD_CONVERSATION_MESSAGE_MAX_LENGTH = 600;
 const WORLD_CONVERSATION_MESSAGES_PREVIEW_LIMIT = 200;
 const WORLD_CONVERSATION_MESSAGE_LOG_LIMIT = 50_000;
+const LIVE_SESSION_CONVERSATION_MESSAGE_MAX_LENGTH = 600;
+const LIVE_SESSION_CONVERSATION_MESSAGES_PREVIEW_LIMIT = 200;
+const LIVE_SESSION_CONVERSATION_MESSAGE_LOG_LIMIT = 50_000;
 const WORLD_CONVERSATION_MODERATION_QUEUE_LIMIT = 500;
 const COLLECT_OFFERS_LOG_LIMIT = 50_000;
 const COLLECT_ENFORCEMENT_SIGNAL_LOG_LIMIT = 10_000;
@@ -1918,6 +1924,10 @@ function normalizeWorldConversationMessageBody(value: string): string {
   return value.trim().slice(0, WORLD_CONVERSATION_MESSAGE_MAX_LENGTH);
 }
 
+function normalizeLiveSessionConversationMessageBody(value: string): string {
+  return value.trim().slice(0, LIVE_SESSION_CONVERSATION_MESSAGE_MAX_LENGTH);
+}
+
 function canAccountModerateWorldConversationMessage(
   account: AccountRecord | null,
   world: World,
@@ -1959,6 +1969,52 @@ function canAccountReportWorldConversationMessage(
 function canAccountAppealWorldConversationMessage(
   account: AccountRecord | null,
   message: WorldConversationMessageRecord
+): boolean {
+  if (!account) {
+    return false;
+  }
+
+  if (message.accountId !== account.id) {
+    return false;
+  }
+
+  if (message.visibility !== "hidden" && message.visibility !== "restricted" && message.visibility !== "deleted") {
+    return false;
+  }
+
+  return !message.appealRequestedAt;
+}
+
+function canAccountModerateLiveSessionConversationMessage(
+  account: AccountRecord | null,
+  liveSession: LiveSessionRecord,
+  message: LiveSessionConversationMessageRecord
+): boolean {
+  if (!account) {
+    return false;
+  }
+
+  if (message.accountId === account.id) {
+    return false;
+  }
+
+  return account.roles.includes("creator") && account.handle === liveSession.studioHandle;
+}
+
+function canAccountReportLiveSessionConversationMessage(
+  account: AccountRecord | null,
+  message: LiveSessionConversationMessageRecord
+): boolean {
+  if (!account) {
+    return false;
+  }
+
+  return message.accountId !== account.id && message.visibility === "visible";
+}
+
+function canAccountAppealLiveSessionConversationMessage(
+  account: AccountRecord | null,
+  message: LiveSessionConversationMessageRecord
 ): boolean {
   if (!account) {
     return false;
@@ -2125,6 +2181,119 @@ function buildWorldConversationThread(
   };
 }
 
+function toLiveSessionConversationMessage(
+  record: LiveSessionConversationMessageRecord,
+  accountHandleById: Map<string, string>,
+  viewerAccount: AccountRecord | null,
+  liveSession: LiveSessionRecord,
+  options: {
+    depth: number;
+    replyCount: number;
+  }
+): LiveSessionConversationMessage {
+  const canModerate = canAccountModerateLiveSessionConversationMessage(
+    viewerAccount,
+    liveSession,
+    record
+  );
+  const isAuthor = Boolean(viewerAccount && viewerAccount.id === record.accountId);
+  return {
+    id: record.id,
+    liveSessionId: record.liveSessionId,
+    parentMessageId: record.parentMessageId,
+    depth: options.depth,
+    replyCount: options.replyCount,
+    authorHandle: accountHandleById.get(record.accountId) ?? "community",
+    body:
+      !canModerate && !isAuthor && record.visibility === "hidden"
+        ? "message hidden by moderation."
+        : !canModerate && !isAuthor && record.visibility === "restricted"
+          ? "message restricted by moderation."
+          : !canModerate && !isAuthor && record.visibility === "deleted"
+            ? "message deleted by moderation."
+            : record.body,
+    createdAt: record.createdAt,
+    visibility: record.visibility,
+    reportCount: record.reportCount,
+    canModerate,
+    canReport: canAccountReportLiveSessionConversationMessage(viewerAccount, record),
+    canReply: viewerAccount !== null,
+    canAppeal: canAccountAppealLiveSessionConversationMessage(viewerAccount, record),
+    appealRequested: Boolean(record.appealRequestedAt)
+  };
+}
+
+function buildLiveSessionConversationThread(
+  db: BffDatabase,
+  liveSession: LiveSessionRecord,
+  viewerAccount: AccountRecord
+): LiveSessionConversationThread {
+  const accountHandleById = new Map(db.accounts.map((entry) => [entry.id, entry.handle]));
+  const visibleMessages = db.liveSessionConversationMessages
+    .filter((entry) => entry.liveSessionId === liveSession.id)
+    .filter((entry) => {
+      if (entry.visibility === "visible") {
+        return true;
+      }
+
+      if (entry.accountId === viewerAccount.id) {
+        return true;
+      }
+
+      return canAccountModerateLiveSessionConversationMessage(viewerAccount, liveSession, entry);
+    })
+    .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt))
+    .slice(-LIVE_SESSION_CONVERSATION_MESSAGES_PREVIEW_LIMIT);
+
+  const visibleById = new Map(visibleMessages.map((entry) => [entry.id, entry]));
+  const childrenByParentId = new Map<string, LiveSessionConversationMessageRecord[]>();
+  const rootMessages: LiveSessionConversationMessageRecord[] = [];
+  const replyCountByParentId = new Map<string, number>();
+
+  for (const message of visibleMessages) {
+    if (message.parentMessageId && visibleById.has(message.parentMessageId)) {
+      const currentChildren = childrenByParentId.get(message.parentMessageId) ?? [];
+      currentChildren.push(message);
+      childrenByParentId.set(message.parentMessageId, currentChildren);
+      replyCountByParentId.set(
+        message.parentMessageId,
+        (replyCountByParentId.get(message.parentMessageId) ?? 0) + 1
+      );
+    } else {
+      rootMessages.push(message);
+    }
+  }
+
+  rootMessages.sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
+  for (const [parentId, entries] of childrenByParentId.entries()) {
+    entries.sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
+    childrenByParentId.set(parentId, entries);
+  }
+
+  const messages: LiveSessionConversationMessage[] = [];
+  const traverse = (record: LiveSessionConversationMessageRecord, depth: number) => {
+    messages.push(
+      toLiveSessionConversationMessage(record, accountHandleById, viewerAccount, liveSession, {
+        depth,
+        replyCount: replyCountByParentId.get(record.id) ?? 0
+      })
+    );
+    const children = childrenByParentId.get(record.id) ?? [];
+    for (const child of children) {
+      traverse(child, depth + 1);
+    }
+  };
+
+  for (const root of rootMessages) {
+    traverse(root, 0);
+  }
+
+  return {
+    liveSessionId: liveSession.id,
+    messages
+  };
+}
+
 function toTownhallComment(
   record: TownhallCommentRecord,
   accountHandleById: Map<string, string>,
@@ -2279,6 +2448,18 @@ function findWorldConversationMessageById(
   return (
     db.worldConversationMessages.find((entry) => entry.worldId === worldId && entry.id === messageId) ??
     null
+  );
+}
+
+function findLiveSessionConversationMessageById(
+  db: BffDatabase,
+  liveSessionId: string,
+  messageId: string
+): LiveSessionConversationMessageRecord | null {
+  return (
+    db.liveSessionConversationMessages.find(
+      (entry) => entry.liveSessionId === liveSessionId && entry.id === messageId
+    ) ?? null
   );
 }
 
@@ -2975,6 +3156,12 @@ function trimWorldConversationMessages(db: BffDatabase): void {
   }
 }
 
+function trimLiveSessionConversationMessages(db: BffDatabase): void {
+  if (db.liveSessionConversationMessages.length > LIVE_SESSION_CONVERSATION_MESSAGE_LOG_LIMIT) {
+    db.liveSessionConversationMessages.length = LIVE_SESSION_CONVERSATION_MESSAGE_LOG_LIMIT;
+  }
+}
+
 function hasActiveMembershipForWorld(
   db: BffDatabase,
   account: AccountRecord,
@@ -3040,6 +3227,41 @@ function canAccessWorldConversationThread(
   }
 
   return account.roles.includes("creator") && account.handle === world.studioHandle;
+}
+
+function isLiveSessionActiveNow(liveSession: LiveSessionRecord, nowMs: number): boolean {
+  const startsAtMs = Date.parse(liveSession.startsAt);
+  if (!Number.isFinite(startsAtMs) || nowMs < startsAtMs) {
+    return false;
+  }
+
+  if (!liveSession.endsAt) {
+    return true;
+  }
+
+  const endsAtMs = Date.parse(liveSession.endsAt);
+  if (!Number.isFinite(endsAtMs)) {
+    return false;
+  }
+
+  return nowMs <= endsAtMs;
+}
+
+function canAccessLiveSessionConversationThread(
+  db: BffDatabase,
+  account: AccountRecord,
+  liveSession: LiveSessionRecord,
+  nowMs: number
+): boolean {
+  if (!isLiveSessionActiveNow(liveSession, nowMs)) {
+    return false;
+  }
+
+  if (account.roles.includes("creator") && account.handle === liveSession.studioHandle) {
+    return true;
+  }
+
+  return resolveLiveSessionEligibilityInDatabase(db, account.id, liveSession).eligible;
 }
 
 function toLiveSessionWhatYouGet(db: BffDatabase, liveSession: LiveSessionRecord): string {
@@ -5548,6 +5770,157 @@ export const commerceBffService = {
         result: {
           ok: true as const,
           patrons: roster
+        }
+      };
+    });
+  },
+
+  async getLiveSessionConversationThread(
+    accountId: string,
+    liveSessionId: string
+  ): Promise<
+    | {
+        ok: true;
+        thread: LiveSessionConversationThread;
+      }
+    | { ok: false; reason: "not_found" | "forbidden" }
+  > {
+    return withDatabase<
+      | {
+          ok: true;
+          thread: LiveSessionConversationThread;
+        }
+      | { ok: false; reason: "not_found" | "forbidden" }
+    >(async (db) => {
+      const account = findAccountById(db, accountId);
+      const liveSession = db.liveSessions.find((entry) => entry.id === liveSessionId) ?? null;
+      if (!account || !liveSession) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "not_found" as const
+          }
+        };
+      }
+
+      const nowMs = Date.now();
+      if (!canAccessLiveSessionConversationThread(db, account, liveSession, nowMs)) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "forbidden" as const
+          }
+        };
+      }
+
+      return {
+        persist: false,
+        result: {
+          ok: true as const,
+          thread: buildLiveSessionConversationThread(db, liveSession, account)
+        }
+      };
+    });
+  },
+
+  async addLiveSessionConversationMessage(
+    accountId: string,
+    liveSessionId: string,
+    body: string,
+    parentMessageId?: string | null
+  ): Promise<
+    | {
+        ok: true;
+        thread: LiveSessionConversationThread;
+      }
+    | { ok: false; reason: "not_found" | "forbidden" | "invalid" }
+  > {
+    return withDatabase<
+      | {
+          ok: true;
+          thread: LiveSessionConversationThread;
+        }
+      | { ok: false; reason: "not_found" | "forbidden" | "invalid" }
+    >(async (db) => {
+      const account = findAccountById(db, accountId);
+      const liveSession = db.liveSessions.find((entry) => entry.id === liveSessionId) ?? null;
+      if (!account || !liveSession) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "not_found" as const
+          }
+        };
+      }
+
+      const nowMs = Date.now();
+      if (!canAccessLiveSessionConversationThread(db, account, liveSession, nowMs)) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "forbidden" as const
+          }
+        };
+      }
+
+      const normalizedBody = normalizeLiveSessionConversationMessageBody(body);
+      if (!normalizedBody) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "invalid" as const
+          }
+        };
+      }
+
+      const normalizedParentMessageId = parentMessageId?.trim() || null;
+      if (normalizedParentMessageId) {
+        const parentMessage = findLiveSessionConversationMessageById(
+          db,
+          liveSession.id,
+          normalizedParentMessageId
+        );
+        if (!parentMessage) {
+          return {
+            persist: false,
+            result: {
+              ok: false as const,
+              reason: "invalid" as const
+            }
+          };
+        }
+      }
+
+      const nowIso = new Date().toISOString();
+      const message: LiveSessionConversationMessageRecord = {
+        id: `lscm_${randomUUID()}`,
+        liveSessionId: liveSession.id,
+        accountId: account.id,
+        parentMessageId: normalizedParentMessageId,
+        body: normalizedBody,
+        createdAt: nowIso,
+        visibility: "visible",
+        reportCount: 0,
+        reportedAt: null,
+        moderatedAt: null,
+        moderatedByAccountId: null,
+        appealRequestedAt: null,
+        appealRequestedByAccountId: null
+      };
+
+      db.liveSessionConversationMessages.unshift(message);
+      trimLiveSessionConversationMessages(db);
+
+      return {
+        persist: true,
+        result: {
+          ok: true as const,
+          thread: buildLiveSessionConversationThread(db, liveSession, account)
         }
       };
     });

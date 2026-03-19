@@ -287,6 +287,22 @@ export type WorldConversationMessageRecord = {
   appealRequestedByAccountId: string | null;
 };
 
+export type LiveSessionConversationMessageRecord = {
+  id: string;
+  liveSessionId: string;
+  accountId: string;
+  parentMessageId: string | null;
+  body: string;
+  createdAt: string;
+  visibility: WorldConversationVisibility;
+  reportCount: number;
+  reportedAt: string | null;
+  moderatedAt: string | null;
+  moderatedByAccountId: string | null;
+  appealRequestedAt: string | null;
+  appealRequestedByAccountId: string | null;
+};
+
 export type CollectOfferRecord = {
   id: string;
   accountId: string;
@@ -402,6 +418,7 @@ export type BffDatabase = {
   townhallShares: TownhallShareRecord[];
   townhallTelemetryEvents: TownhallTelemetryEventRecord[];
   worldConversationMessages: WorldConversationMessageRecord[];
+  liveSessionConversationMessages: LiveSessionConversationMessageRecord[];
   collectOffers: CollectOfferRecord[];
   collectEnforcementSignals: CollectEnforcementSignalRecord[];
   worldCollectOwnerships: WorldCollectOwnershipRecord[];
@@ -992,6 +1009,7 @@ function createSeedDatabase(): BffDatabase {
       }
     ],
     worldConversationMessages: [],
+    liveSessionConversationMessages: [],
     collectOffers: [
       {
         id: "offer_seed_voidrunner_resale_1",
@@ -1116,6 +1134,7 @@ function createCatalogSeedDatabase(): BffDatabase {
     townhallShares: [],
     townhallTelemetryEvents: [],
     worldConversationMessages: [],
+    liveSessionConversationMessages: [],
     collectOffers: [],
     collectEnforcementSignals: [],
     worldCollectOwnerships: [],
@@ -1159,6 +1178,7 @@ function createEmptyDatabase(): BffDatabase {
     townhallShares: [],
     townhallTelemetryEvents: [],
     worldConversationMessages: [],
+    liveSessionConversationMessages: [],
     collectOffers: [],
     collectEnforcementSignals: [],
     worldCollectOwnerships: [],
@@ -1205,6 +1225,7 @@ function isValidDb(input: unknown): input is BffDatabase {
     Array.isArray(candidate.townhallShares) &&
     Array.isArray(candidate.townhallTelemetryEvents) &&
     Array.isArray(candidate.worldConversationMessages) &&
+    Array.isArray(candidate.liveSessionConversationMessages) &&
     Array.isArray(candidate.collectOffers) &&
     Array.isArray(candidate.collectEnforcementSignals) &&
     Array.isArray(candidate.worldCollectOwnerships) &&
@@ -1234,6 +1255,7 @@ function hasLegacyBaseDbShape(input: unknown): input is Omit<
   | "townhallShares"
   | "townhallTelemetryEvents"
   | "worldConversationMessages"
+  | "liveSessionConversationMessages"
   | "collectOffers"
   | "collectEnforcementSignals"
   | "worldCollectOwnerships"
@@ -2413,6 +2435,72 @@ function normalizeWorldConversationMessageRecords(
   });
 }
 
+function normalizeLiveSessionConversationMessageRecords(
+  messages: LiveSessionConversationMessageRecord[]
+): LiveSessionConversationMessageRecord[] {
+  return messages.map((message) => {
+    const candidate = message as Partial<LiveSessionConversationMessageRecord> & {
+      liveSessionId?: unknown;
+      accountId?: unknown;
+      parentMessageId?: unknown;
+      body?: unknown;
+      createdAt?: unknown;
+      visibility?: unknown;
+      reportCount?: unknown;
+      reportedAt?: unknown;
+      moderatedAt?: unknown;
+      moderatedByAccountId?: unknown;
+      appealRequestedAt?: unknown;
+      appealRequestedByAccountId?: unknown;
+    };
+
+    return {
+      id:
+        typeof candidate.id === "string" && candidate.id.trim()
+          ? candidate.id
+          : `lscm_${randomUUID()}`,
+      liveSessionId: typeof candidate.liveSessionId === "string" ? candidate.liveSessionId : "",
+      accountId: typeof candidate.accountId === "string" ? candidate.accountId : "",
+      parentMessageId:
+        typeof candidate.parentMessageId === "string" && candidate.parentMessageId.trim()
+          ? candidate.parentMessageId
+          : null,
+      body: typeof candidate.body === "string" ? candidate.body : "",
+      createdAt:
+        typeof candidate.createdAt === "string" && candidate.createdAt.trim()
+          ? candidate.createdAt
+          : new Date().toISOString(),
+      visibility: normalizeWorldConversationVisibility(candidate.visibility),
+      reportCount:
+        typeof candidate.reportCount === "number" && Number.isFinite(candidate.reportCount)
+          ? Math.max(0, Math.floor(candidate.reportCount))
+          : 0,
+      reportedAt:
+        typeof candidate.reportedAt === "string" && candidate.reportedAt.trim()
+          ? candidate.reportedAt
+          : null,
+      moderatedAt:
+        typeof candidate.moderatedAt === "string" && candidate.moderatedAt.trim()
+          ? candidate.moderatedAt
+          : null,
+      moderatedByAccountId:
+        typeof candidate.moderatedByAccountId === "string" &&
+        candidate.moderatedByAccountId.trim()
+          ? candidate.moderatedByAccountId
+          : null,
+      appealRequestedAt:
+        typeof candidate.appealRequestedAt === "string" && candidate.appealRequestedAt.trim()
+          ? candidate.appealRequestedAt
+          : null,
+      appealRequestedByAccountId:
+        typeof candidate.appealRequestedByAccountId === "string" &&
+        candidate.appealRequestedByAccountId.trim()
+          ? candidate.appealRequestedByAccountId
+          : null
+    };
+  });
+}
+
 function normalizeWatchAccessGrantRecords(records: WatchAccessGrantRecord[]): WatchAccessGrantRecord[] {
   return records.map((record) => {
     const candidate = record as Partial<WatchAccessGrantRecord>;
@@ -2575,6 +2663,9 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
       worldConversationMessages: normalizeWorldConversationMessageRecords(
         input.worldConversationMessages
       ),
+      liveSessionConversationMessages: normalizeLiveSessionConversationMessageRecords(
+        input.liveSessionConversationMessages
+      ),
       payments: normalizePaymentRecords(input.payments),
       collectOffers: normalizeCollectOfferRecords(input.collectOffers),
       collectEnforcementSignals: normalizeCollectEnforcementSignalRecords(
@@ -2663,6 +2754,11 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
       worldConversationMessages: Array.isArray(candidate.worldConversationMessages)
         ? normalizeWorldConversationMessageRecords(
             candidate.worldConversationMessages as WorldConversationMessageRecord[]
+          )
+        : [],
+      liveSessionConversationMessages: Array.isArray(candidate.liveSessionConversationMessages)
+        ? normalizeLiveSessionConversationMessageRecords(
+            candidate.liveSessionConversationMessages as LiveSessionConversationMessageRecord[]
           )
         : [],
       payments: Array.isArray(candidate.payments)
@@ -3550,6 +3646,12 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
         appealRequestedByAccountId: row.appealRequestedByAccountId
       }))
     ),
+    liveSessionConversationMessages: normalizeLiveSessionConversationMessageRecords(
+      parseMetaJsonValue<LiveSessionConversationMessageRecord[]>(
+        meta.get("live_session_conversation_messages_json"),
+        []
+      )
+    ),
     collectOffers: normalizeCollectOfferRecords(
       collectOffersResult.rows.map((row) => ({
         id: row.id,
@@ -3701,6 +3803,10 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
   await client.query("INSERT INTO bff_meta (key, value) VALUES ($1, $2)", [
     "live_session_artifacts_json",
     JSON.stringify(db.liveSessionArtifacts)
+  ]);
+  await client.query("INSERT INTO bff_meta (key, value) VALUES ($1, $2)", [
+    "live_session_conversation_messages_json",
+    JSON.stringify(db.liveSessionConversationMessages)
   ]);
 
   for (const drop of db.catalog.drops) {
