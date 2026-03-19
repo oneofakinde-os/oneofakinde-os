@@ -100,4 +100,28 @@ test("proof: collaborator ledger routing writes per-recipient payout line items 
     Number((receipt.payoutUsd ?? 0).toFixed(2)),
     "expected collaborator payout ledger total to match receipt payout total"
   );
+
+  const workshopPanel = await commerceBffService.getWorkshopAnalyticsPanel(creatorSession.accountId);
+  assert.ok(workshopPanel, "expected workshop analytics panel");
+  if (!workshopPanel) {
+    return;
+  }
+
+  assert.ok(
+    workshopPanel.payouts.payoutLedgerLineItems >= 2,
+    "expected workshop analytics payout ledger line-item fanout"
+  );
+  assert.ok(
+    workshopPanel.payouts.payoutRecipients >= 2,
+    "expected workshop analytics payout recipient fanout"
+  );
+  assert.ok(workshopPanel.payouts.missingLedgerReceiptCount >= 0);
+  assert.ok(
+    workshopPanel.payouts.completedReceipts >= workshopPanel.payouts.missingLedgerReceiptCount
+  );
+  assert.equal(
+    Number((workshopPanel.payouts.payoutUsd - workshopPanel.payouts.payoutLedgerUsd).toFixed(2)),
+    Number(workshopPanel.payouts.payoutParityDeltaUsd.toFixed(2)),
+    "expected payout parity delta to match receipt vs ledger payout aggregation"
+  );
 });

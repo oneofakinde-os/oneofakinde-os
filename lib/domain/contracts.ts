@@ -787,6 +787,19 @@ export type WorkshopAnalyticsPanel = {
   collectIntents: number;
   completedCollects: number;
   collectConversionRate: number;
+  payouts: {
+    completedReceipts: number;
+    grossUsd: number;
+    processingUsd: number;
+    commissionUsd: number;
+    payoutUsd: number;
+    payoutLedgerUsd: number;
+    payoutParityDeltaUsd: number;
+    payoutLedgerLineItems: number;
+    payoutRecipients: number;
+    missingLedgerReceiptCount: number;
+  };
+  freshnessTimestamp: string;
   updatedAt: string;
 };
 

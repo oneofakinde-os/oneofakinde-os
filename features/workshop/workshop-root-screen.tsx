@@ -393,8 +393,15 @@ export function WorkshopRootScreen({
 
       {analyticsPanel ? (
         <section className="slice-panel">
-          <p className="slice-label">workshop analytics v0</p>
+          <p className="slice-label">workshop analytics + payout summary</p>
+          <p className="slice-copy">
+            creator funnel and payout settlement are shown together so conversion and payout parity are audited in one view.
+          </p>
           <div className="ops-kpi-grid">
+            <article className="ops-kpi">
+              <h3>{analyticsPanel.dropsPublished}</h3>
+              <p>drops published</p>
+            </article>
             <article className="ops-kpi">
               <h3>{analyticsPanel.discoveryImpressions}</h3>
               <p>discovery impressions</p>
@@ -406,6 +413,10 @@ export function WorkshopRootScreen({
             <article className="ops-kpi">
               <h3>{analyticsPanel.accessStarts}</h3>
               <p>access starts</p>
+            </article>
+            <article className="ops-kpi">
+              <h3>{analyticsPanel.completions}</h3>
+              <p>completions</p>
             </article>
             <article className="ops-kpi">
               <h3>{analyticsPanel.collectIntents}</h3>
@@ -420,7 +431,46 @@ export function WorkshopRootScreen({
               <p>collect conversion</p>
             </article>
           </div>
-          <p className="slice-meta">updated {new Date(analyticsPanel.updatedAt).toLocaleString()}</p>
+
+          <ul className="slice-list" aria-label="workshop payout summary">
+            <li>
+              <span>completed payout receipts</span>
+              <span>{analyticsPanel.payouts.completedReceipts}</span>
+            </li>
+            <li>
+              <span>gross / processing / commission</span>
+              <span>
+                {formatUsd(analyticsPanel.payouts.grossUsd)} /{" "}
+                {formatUsd(analyticsPanel.payouts.processingUsd)} /{" "}
+                {formatUsd(analyticsPanel.payouts.commissionUsd)}
+              </span>
+            </li>
+            <li>
+              <span>receipt payout vs ledger payout</span>
+              <span>
+                {formatUsd(analyticsPanel.payouts.payoutUsd)} /{" "}
+                {formatUsd(analyticsPanel.payouts.payoutLedgerUsd)}
+              </span>
+            </li>
+            <li>
+              <span>payout parity delta</span>
+              <span>{formatUsd(analyticsPanel.payouts.payoutParityDeltaUsd)}</span>
+            </li>
+            <li>
+              <span>ledger payout line items / recipients</span>
+              <span>
+                {analyticsPanel.payouts.payoutLedgerLineItems} / {analyticsPanel.payouts.payoutRecipients}
+              </span>
+            </li>
+            <li>
+              <span>missing ledger receipt links</span>
+              <span>{analyticsPanel.payouts.missingLedgerReceiptCount}</span>
+            </li>
+          </ul>
+
+          <p className="slice-meta">
+            freshness timestamp: {new Date(analyticsPanel.freshnessTimestamp).toLocaleString()}
+          </p>
         </section>
       ) : null}
 

@@ -1133,6 +1133,9 @@ function toWorkshopAnalyticsPanel(db: BffDatabase, account: AccountRecord): Work
   const studioDrops = db.catalog.drops.filter((drop) => drop.studioHandle === account.handle);
   const studioDropIds = new Set(studioDrops.map((drop) => drop.id));
   const telemetry = db.townhallTelemetryEvents.filter((entry) => studioDropIds.has(entry.dropId));
+  const completedReceipts = db.receipts.filter(
+    (receipt) => receipt.status === "completed" && studioDropIds.has(receipt.dropId)
+  );
   const discoveryImpressions = telemetry.filter(
     (entry) => entry.eventType === "impression" || entry.eventType === "showroom_impression"
   ).length;
@@ -1140,11 +1143,83 @@ function toWorkshopAnalyticsPanel(db: BffDatabase, account: AccountRecord): Work
   const accessStarts = telemetry.filter((entry) => entry.eventType === "access_start").length;
   const completions = telemetry.filter((entry) => entry.eventType === "completion").length;
   const collectIntents = telemetry.filter((entry) => entry.eventType === "collect_intent").length;
-  const completedCollects = db.receipts.filter(
-    (receipt) => receipt.status === "completed" && studioDropIds.has(receipt.dropId)
-  ).length;
+  const completedCollects = completedReceipts.length;
   const collectConversionRate =
     collectIntents > 0 ? Number((completedCollects / collectIntents).toFixed(4)) : 0;
+
+  const payoutUsd = clampCurrencyAmount(
+    completedReceipts.reduce((sum, receipt) => sum + (receipt.payoutUsd ?? 0), 0)
+  );
+  const grossUsd = clampCurrencyAmount(
+    completedReceipts.reduce((sum, receipt) => sum + receipt.amountUsd, 0)
+  );
+  const processingUsd = clampCurrencyAmount(
+    completedReceipts.reduce((sum, receipt) => sum + (receipt.processingUsd ?? 0), 0)
+  );
+  const commissionUsd = clampCurrencyAmount(
+    completedReceipts.reduce((sum, receipt) => sum + (receipt.commissionUsd ?? 0), 0)
+  );
+
+  const collectTransactionById = new Map<string, LedgerTransactionRecord>(
+    db.ledgerTransactions
+      .filter((entry) => entry.kind === "collect")
+      .map((entry) => [entry.id, entry])
+  );
+  const payoutLineItemsByTransactionId = db.ledgerLineItems
+    .filter((entry) => entry.kind === "artist_payout_collect")
+    .reduce<Map<string, LedgerLineItemRecord[]>>((acc, entry) => {
+      const current = acc.get(entry.transactionId) ?? [];
+      current.push(entry);
+      acc.set(entry.transactionId, current);
+      return acc;
+    }, new Map<string, LedgerLineItemRecord[]>());
+
+  let payoutLedgerUsd = 0;
+  let payoutLedgerLineItems = 0;
+  let missingLedgerReceiptCount = 0;
+  const payoutRecipientAccountIds = new Set<string>();
+  const linkedCollectTransactionIds = new Set<string>();
+  for (const receipt of completedReceipts) {
+    const ledgerTransactionId = receipt.ledgerTransactionId ?? null;
+    if (!ledgerTransactionId) {
+      missingLedgerReceiptCount += 1;
+      continue;
+    }
+
+    const collectTransaction = collectTransactionById.get(ledgerTransactionId) ?? null;
+    if (!collectTransaction) {
+      missingLedgerReceiptCount += 1;
+      continue;
+    }
+
+    linkedCollectTransactionIds.add(collectTransaction.id);
+    const payoutLineItems = payoutLineItemsByTransactionId.get(collectTransaction.id) ?? [];
+    payoutLedgerLineItems += payoutLineItems.length;
+    payoutLedgerUsd += payoutLineItems.reduce((sum, entry) => sum + entry.amountUsd, 0);
+
+    for (const lineItem of payoutLineItems) {
+      if (lineItem.recipientAccountId) {
+        payoutRecipientAccountIds.add(lineItem.recipientAccountId);
+      }
+    }
+  }
+
+  const payoutLedgerUsdRounded = clampCurrencyAmount(payoutLedgerUsd);
+  const payoutParityDeltaUsd = clampSignedCurrencyAmount(payoutUsd - payoutLedgerUsdRounded);
+  const linkedCollectTransactions = Array.from(linkedCollectTransactionIds.values())
+    .map((transactionId) => collectTransactionById.get(transactionId))
+    .filter((entry): entry is LedgerTransactionRecord => Boolean(entry));
+  const linkedPayoutLineItems = linkedCollectTransactions.flatMap(
+    (transaction) => payoutLineItemsByTransactionId.get(transaction.id) ?? []
+  );
+  const freshnessTimestamp = toLatestTimestamp(
+    telemetry.map((entry) => entry.occurredAt).concat(
+      completedReceipts.map((receipt) => receipt.purchasedAt),
+      studioDrops.map((drop) => drop.releaseDate),
+      linkedCollectTransactions.map((transaction) => transaction.createdAt),
+      linkedPayoutLineItems.map((lineItem) => lineItem.createdAt)
+    )
+  );
 
   return {
     studioHandle: account.handle,
@@ -1156,14 +1231,20 @@ function toWorkshopAnalyticsPanel(db: BffDatabase, account: AccountRecord): Work
     collectIntents,
     completedCollects,
     collectConversionRate,
-    updatedAt: toLatestTimestamp(
-      telemetry.map((entry) => entry.occurredAt).concat(
-        db.receipts
-          .filter((receipt) => studioDropIds.has(receipt.dropId))
-          .map((receipt) => receipt.purchasedAt),
-        studioDrops.map((drop) => drop.releaseDate)
-      )
-    )
+    payouts: {
+      completedReceipts: completedReceipts.length,
+      grossUsd,
+      processingUsd,
+      commissionUsd,
+      payoutUsd,
+      payoutLedgerUsd: payoutLedgerUsdRounded,
+      payoutParityDeltaUsd,
+      payoutLedgerLineItems,
+      payoutRecipients: payoutRecipientAccountIds.size,
+      missingLedgerReceiptCount
+    },
+    freshnessTimestamp,
+    updatedAt: freshnessTimestamp
   };
 }
 
