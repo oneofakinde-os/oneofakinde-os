@@ -79,7 +79,11 @@ export async function POST(
     return forbidden("valid live session join token required");
   }
 
-  const receipt = await commerceBffService.purchaseDrop(guard.session.accountId, dropId);
+  const receipt = await commerceBffService.purchaseDropViaLiveSession(
+    guard.session.accountId,
+    dropId,
+    liveSessionId
+  );
   if (!receipt) {
     return notFound("drop not found");
   }
