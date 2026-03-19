@@ -6,10 +6,12 @@ import type {
   WorldCollectBundleOption,
   WorldCollectBundleType,
   WorldCollectOwnership,
+  WorldCollectOwnershipScope,
   WorldCollectUpgradeEligibilityReason,
   WorldCollectUpgradePreview
 } from "@/lib/domain/contracts";
 
+const DAY_MS = 24 * 60 * 60 * 1000;
 const WORLD_COLLECT_PRIORITY: Record<WorldCollectBundleType, number> = {
   current_only: 1,
   season_pass_window: 2,
@@ -224,6 +226,79 @@ export function buildWorldCollectBundleOptions(input: {
   memberships: MembershipEntitlement[];
 }): WorldCollectBundleOption[] {
   const bundles = resolveWorldCollectBundles(input.world, input.drops);
+  const orderedDrops = [...input.drops].sort(sortByReleaseDesc);
+
+  function buildOwnershipScope(bundle: WorldCollectBundle): WorldCollectOwnershipScope {
+    if (orderedDrops.length === 0) {
+      if (bundle.bundleType === "current_only") {
+        return {
+          includedDropIds: [],
+          includedDropCount: 0,
+          includesFutureCanonicalDrops: false,
+          coverageLabel: "latest drop only (0 drops currently live)"
+        };
+      }
+
+      if (bundle.bundleType === "season_pass_window") {
+        return {
+          includedDropIds: [],
+          includedDropCount: 0,
+          includesFutureCanonicalDrops: true,
+          coverageLabel: "season window (0 drops currently live)"
+        };
+      }
+
+      return {
+        includedDropIds: [],
+        includedDropCount: 0,
+        includesFutureCanonicalDrops: true,
+        coverageLabel: "full world catalog (0 drops currently live)"
+      };
+    }
+
+    if (bundle.bundleType === "current_only") {
+      const includedDropIds = [orderedDrops[0]?.id].filter((value): value is string => Boolean(value));
+      return {
+        includedDropIds,
+        includedDropCount: includedDropIds.length,
+        includesFutureCanonicalDrops: false,
+        coverageLabel: `latest drop only (${includedDropIds.length} drop${includedDropIds.length === 1 ? "" : "s"})`
+      };
+    }
+
+    if (bundle.bundleType === "season_pass_window") {
+      const anchorReleaseMs = Date.parse(orderedDrops[0]?.releaseDate ?? "");
+      const windowDays = bundle.seasonWindowDays ?? 90;
+      const includedDrops = Number.isFinite(anchorReleaseMs)
+        ? orderedDrops.filter((drop) => {
+            const releaseMs = Date.parse(drop.releaseDate);
+            if (!Number.isFinite(releaseMs)) {
+              return false;
+            }
+            return anchorReleaseMs - releaseMs <= windowDays * DAY_MS;
+          })
+        : [orderedDrops[0]];
+      const stableIncludedDrops = includedDrops.length > 0 ? includedDrops : [orderedDrops[0]];
+      const includedDropIds = stableIncludedDrops
+        .map((drop) => drop?.id)
+        .filter((value): value is string => Boolean(value));
+      return {
+        includedDropIds,
+        includedDropCount: includedDropIds.length,
+        includesFutureCanonicalDrops: true,
+        coverageLabel: `season window (${includedDropIds.length} drops · ${windowDays} days)`
+      };
+    }
+
+    const includedDropIds = orderedDrops.map((drop) => drop.id);
+    return {
+      includedDropIds,
+      includedDropCount: includedDropIds.length,
+      includesFutureCanonicalDrops: true,
+      coverageLabel: `full world catalog (${includedDropIds.length} drops) + future canonical drops`
+    };
+  }
+
   return bundles.map((bundle) => ({
     bundle,
     upgradePreview: buildWorldCollectUpgradePreview({
@@ -231,6 +306,7 @@ export function buildWorldCollectBundleOptions(input: {
       targetBundle: bundle,
       activeOwnership: input.activeOwnership,
       memberships: input.memberships
-    })
+    }),
+    ownershipScope: buildOwnershipScope(bundle)
   }));
 }

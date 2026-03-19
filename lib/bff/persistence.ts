@@ -2039,6 +2039,23 @@ function normalizeWorldCollectBundleType(value: unknown): WorldCollectBundleType
   return "current_only";
 }
 
+function normalizeWorldCollectAmountUsd(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return 0;
+  }
+  return Number(Math.max(0, value).toFixed(2));
+}
+
+function normalizeWorldCollectUpgradeProrationStrategy(
+  value: unknown
+): WorldCollectUpgradeProrationStrategy {
+  if (value === "placeholder_linear_proration_v1") {
+    return value;
+  }
+
+  return "placeholder_linear_proration_v1";
+}
+
 function normalizeWorldCollectOwnershipStatus(value: unknown): WorldCollectOwnershipStatus {
   return value === "upgraded" ? "upgraded" : "active";
 }
@@ -2057,6 +2074,11 @@ function normalizeWorldCollectOwnershipRecords(
       upgradedToBundleType?: unknown;
       upgradedAt?: unknown;
     };
+    const amountPaidUsd = normalizeWorldCollectAmountUsd(candidate.amountPaidUsd);
+    const previousOwnershipCreditUsd = Math.min(
+      normalizeWorldCollectAmountUsd(candidate.previousOwnershipCreditUsd),
+      amountPaidUsd
+    );
 
     return {
       id: typeof candidate.id === "string" && candidate.id.trim() ? candidate.id : `wown_${randomUUID()}`,
@@ -2068,16 +2090,9 @@ function normalizeWorldCollectOwnershipRecords(
         typeof candidate.purchasedAt === "string" && candidate.purchasedAt.trim()
           ? candidate.purchasedAt
           : new Date().toISOString(),
-      amountPaidUsd:
-        typeof candidate.amountPaidUsd === "number" && Number.isFinite(candidate.amountPaidUsd)
-          ? Number(candidate.amountPaidUsd.toFixed(2))
-          : 0,
-      previousOwnershipCreditUsd:
-        typeof candidate.previousOwnershipCreditUsd === "number" &&
-        Number.isFinite(candidate.previousOwnershipCreditUsd)
-          ? Number(candidate.previousOwnershipCreditUsd.toFixed(2))
-          : 0,
-      prorationStrategy: "placeholder_linear_proration_v1",
+      amountPaidUsd,
+      previousOwnershipCreditUsd,
+      prorationStrategy: normalizeWorldCollectUpgradeProrationStrategy(candidate.prorationStrategy),
       upgradedToBundleType:
         candidate.upgradedToBundleType === "current_only" ||
         candidate.upgradedToBundleType === "season_pass_window" ||

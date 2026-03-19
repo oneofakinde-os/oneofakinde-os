@@ -30,8 +30,6 @@ export async function GET(
   }
 
   return ok({
-    world: snapshot.world,
-    activeOwnership: snapshot.activeOwnership,
-    bundles: snapshot.bundles
+    snapshot
   });
 }

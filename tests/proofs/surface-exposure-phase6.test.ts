@@ -6,7 +6,15 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { DropDetailScreen } from "../../features/drops/drop-detail-screen";
 import { StudioScreen } from "../../features/profile/studio-screen";
 import { WorldDetailScreen } from "../../features/world/world-detail-screen";
-import type { Drop, DropLiveArtifactsSnapshot, Session, Studio, World } from "../../lib/domain/contracts";
+import type {
+  Drop,
+  DropLiveArtifactsSnapshot,
+  Session,
+  Studio,
+  World,
+  WorldCollectBundleSnapshot,
+  WorldCollectUpgradePreview
+} from "../../lib/domain/contracts";
 
 (globalThis as { React?: typeof React }).React = React;
 
@@ -81,19 +89,105 @@ const sampleLiveArtifacts: DropLiveArtifactsSnapshot = {
   ]
 };
 
+const sampleWorldCollectFullWorldUpgradePreview: WorldCollectUpgradePreview = {
+  worldId: "dark-matter",
+  targetBundleType: "full_world",
+  currentBundleType: "current_only",
+  eligible: true,
+  eligibilityReason: "eligible",
+  previousOwnershipCreditUsd: 1.99,
+  prorationStrategy: "placeholder_linear_proration_v1",
+  prorationRatio: 0.11,
+  subtotalUsd: 17.99,
+  totalUsd: 16,
+  currency: "USD"
+};
+
+const sampleWorldCollectSnapshot: WorldCollectBundleSnapshot = {
+  world: sampleWorld,
+  activeOwnership: {
+    id: "wown_current",
+    accountId: "acct_collector_1",
+    worldId: "dark-matter",
+    bundleType: "current_only",
+    status: "active",
+    purchasedAt: "2026-03-18T12:00:00.000Z",
+    amountPaidUsd: 1.99,
+    previousOwnershipCreditUsd: 0,
+    prorationStrategy: "placeholder_linear_proration_v1",
+    upgradedToBundleType: null,
+    upgradedAt: null
+  },
+  bundles: [
+    {
+      bundle: {
+        bundleType: "current_only",
+        title: "dark matter current drop",
+        synopsis: "access to the latest chapter currently live in this world.",
+        priceUsd: 1.99,
+        currency: "USD",
+        eligibilityRule: "public",
+        seasonWindowDays: 14
+      },
+      upgradePreview: {
+        worldId: "dark-matter",
+        targetBundleType: "current_only",
+        currentBundleType: "current_only",
+        eligible: false,
+        eligibilityReason: "already_owned_target",
+        previousOwnershipCreditUsd: 1.99,
+        prorationStrategy: "placeholder_linear_proration_v1",
+        prorationRatio: 1,
+        subtotalUsd: 1.99,
+        totalUsd: 1.99,
+        currency: "USD"
+      },
+      ownershipScope: {
+        includedDropIds: ["stardust"],
+        includedDropCount: 1,
+        includesFutureCanonicalDrops: false,
+        coverageLabel: "latest drop only (1 drop)"
+      }
+    },
+    {
+      bundle: {
+        bundleType: "full_world",
+        title: "dark matter full world",
+        synopsis: "permanent access to the full world catalog and future canonical updates.",
+        priceUsd: 17.99,
+        currency: "USD",
+        eligibilityRule: "public",
+        seasonWindowDays: null
+      },
+      upgradePreview: sampleWorldCollectFullWorldUpgradePreview,
+      ownershipScope: {
+        includedDropIds: ["stardust"],
+        includedDropCount: 1,
+        includesFutureCanonicalDrops: true,
+        coverageLabel: "full world catalog (1 drops) + future canonical drops"
+      }
+    }
+  ]
+};
+
 test("proof: world detail renders visual identity, access rails, conversation, and patron hooks", () => {
   const markup = renderToStaticMarkup(
     createElement(WorldDetailScreen, {
       world: sampleWorld,
       drops: [sampleDrop],
-      session: sampleSession
+      session: sampleSession,
+      worldCollectSnapshot: sampleWorldCollectSnapshot,
+      worldCollectFullWorldUpgradePreview: sampleWorldCollectFullWorldUpgradePreview
     })
   );
 
   assert.equal(markup.includes('data-testid="world-visual-identity"'), true);
   assert.equal(markup.includes('data-testid="world-access-contract"'), true);
+  assert.equal(markup.includes('data-testid="world-collect-contract"'), true);
   assert.equal(markup.includes('data-testid="world-conversation-entry"'), true);
   assert.equal(markup.includes('data-testid="world-patron-roster-hook"'), true);
+  assert.equal(markup.includes("full-world upgrade:"), true);
+  assert.equal(markup.includes("latest drop only (1 drop)"), true);
 });
 
 test("proof: drop detail renders visibility, preview policy, and canonical info drawer", () => {

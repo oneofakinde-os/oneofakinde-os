@@ -571,9 +571,17 @@ export type WorldCollectUpgradePreview = {
   currency: "USD";
 };
 
+export type WorldCollectOwnershipScope = {
+  includedDropIds: string[];
+  includedDropCount: number;
+  includesFutureCanonicalDrops: boolean;
+  coverageLabel: string;
+};
+
 export type WorldCollectBundleOption = {
   bundle: WorldCollectBundle;
   upgradePreview: WorldCollectUpgradePreview;
+  ownershipScope: WorldCollectOwnershipScope;
 };
 
 export type WorldCollectBundleSnapshot = {

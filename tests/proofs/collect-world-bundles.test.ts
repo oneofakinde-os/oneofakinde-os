@@ -57,23 +57,46 @@ test("proof: world collect bundles enforce session and expose canonical bundle t
   assert.equal(response.status, 200);
 
   const payload = await parseJson<{
-    world: { id: string };
-    bundles: Array<{
-      bundle: { bundleType: string };
-      upgradePreview: { eligible: boolean; eligibilityReason: string };
-    }>;
+    snapshot: {
+      world: { id: string };
+      bundles: Array<{
+        bundle: { bundleType: string };
+        upgradePreview: { eligible: boolean; eligibilityReason: string };
+        ownershipScope: {
+          includedDropIds: string[];
+          includedDropCount: number;
+          includesFutureCanonicalDrops: boolean;
+          coverageLabel: string;
+        };
+      }>;
+    };
   }>(response);
-  assert.equal(payload.world.id, "dark-matter");
+  assert.equal(payload.snapshot.world.id, "dark-matter");
   assert.deepEqual(
-    payload.bundles.map((entry) => entry.bundle.bundleType),
+    payload.snapshot.bundles.map((entry) => entry.bundle.bundleType),
     ["current_only", "season_pass_window", "full_world"]
   );
 
-  const seasonPass = payload.bundles.find(
+  const seasonPass = payload.snapshot.bundles.find(
     (entry) => entry.bundle.bundleType === "season_pass_window"
   );
   assert.equal(seasonPass?.upgradePreview.eligible, false);
   assert.equal(seasonPass?.upgradePreview.eligibilityReason, "membership_required");
+  assert.equal(seasonPass?.ownershipScope.includesFutureCanonicalDrops, true);
+  assert.ok((seasonPass?.ownershipScope.includedDropCount ?? 0) >= 1);
+  assert.ok((seasonPass?.ownershipScope.coverageLabel ?? "").includes("season window"));
+
+  const currentOnly = payload.snapshot.bundles.find(
+    (entry) => entry.bundle.bundleType === "current_only"
+  );
+  assert.equal(currentOnly?.ownershipScope.includesFutureCanonicalDrops, false);
+  assert.equal(currentOnly?.ownershipScope.includedDropCount, 1);
+
+  const fullWorld = payload.snapshot.bundles.find(
+    (entry) => entry.bundle.bundleType === "full_world"
+  );
+  assert.equal(fullWorld?.ownershipScope.includesFutureCanonicalDrops, true);
+  assert.ok((fullWorld?.ownershipScope.coverageLabel ?? "").includes("future canonical"));
 });
 
 test("proof: world collect upgrade preview applies previous ownership credit and proration hook", async (t) => {
@@ -107,6 +130,23 @@ test("proof: world collect upgrade preview applies previous ownership credit and
   );
   assert.equal(collectCurrent.status, 201);
 
+  const collectCurrentPayload = await parseJson<{
+    snapshot: {
+      activeOwnership: {
+        bundleType: string;
+      } | null;
+    } | null;
+    result: {
+      bundleType: string;
+      ownership: {
+        bundleType: string;
+      };
+    };
+  }>(collectCurrent);
+  assert.equal(collectCurrentPayload.result.bundleType, "current_only");
+  assert.equal(collectCurrentPayload.result.ownership.bundleType, "current_only");
+  assert.equal(collectCurrentPayload.snapshot?.activeOwnership?.bundleType, "current_only");
+
   const previewResponse = await getCollectWorldUpgradePreviewRoute(
     new Request(
       "http://127.0.0.1:3000/api/v1/collect/worlds/dark-matter/upgrade-preview?target_bundle_type=full_world",
@@ -121,6 +161,12 @@ test("proof: world collect upgrade preview applies previous ownership credit and
   assert.equal(previewResponse.status, 200);
 
   const previewPayload = await parseJson<{
+    snapshot: {
+      world: { id: string };
+      activeOwnership: {
+        bundleType: string;
+      } | null;
+    };
     preview: {
       worldId: string;
       currentBundleType: string | null;
@@ -133,6 +179,8 @@ test("proof: world collect upgrade preview applies previous ownership credit and
     };
   }>(previewResponse);
 
+  assert.equal(previewPayload.snapshot.world.id, "dark-matter");
+  assert.equal(previewPayload.snapshot.activeOwnership?.bundleType, "current_only");
   assert.equal(previewPayload.preview.worldId, "dark-matter");
   assert.equal(previewPayload.preview.currentBundleType, "current_only");
   assert.equal(previewPayload.preview.targetBundleType, "full_world");
@@ -160,6 +208,12 @@ test("proof: world collect upgrade preview applies previous ownership credit and
   assert.equal(collectFullWorld.status, 201);
 
   const collectedPayload = await parseJson<{
+    snapshot: {
+      activeOwnership: {
+        bundleType: string;
+        amountPaidUsd: number;
+      } | null;
+    } | null;
     result: {
       bundleType: string;
       ownership: {
@@ -171,6 +225,8 @@ test("proof: world collect upgrade preview applies previous ownership credit and
   assert.equal(collectedPayload.result.bundleType, "full_world");
   assert.equal(collectedPayload.result.ownership.bundleType, "full_world");
   assert.ok(collectedPayload.result.ownership.amountPaidUsd >= 0);
+  assert.equal(collectedPayload.snapshot?.activeOwnership?.bundleType, "full_world");
+  assert.ok((collectedPayload.snapshot?.activeOwnership?.amountPaidUsd ?? -1) >= 0);
 });
 
 test("proof: world bundle hooks do not regress collect inventory and townhall feed", async (t) => {
