@@ -1,7 +1,7 @@
 # Spec-to-Code Implementation Backlog (March 8 Authority)
 
 Date opened: 2026-03-17
-Current phase: Phase 1 complete; Phase 2 complete; Phase 3 complete; Phase 4 complete; Phase 5 complete; Phase 6 pending
+Current phase: Phase 1 complete; Phase 2 complete; Phase 3 complete; Phase 4 complete; Phase 5 complete; Phase 6 complete; Phase 7 pending
 
 This backlog converts the March 8 authority pack into concrete file-level implementation work. Items are ordered by dependency, not convenience.
 
@@ -85,10 +85,11 @@ Goal: expose already-built backend rails in user-facing surfaces.
 
 | Status | File | Change |
 | --- | --- | --- |
-| pending | `features/world/world-detail-screen.tsx` | Render visual identity, lore, entry rule state, member gating, patron roster hooks, and conversation entry points. |
-| pending | `features/drops/drop-detail-screen.tsx` | Add visibility/preview-policy rows and canonical info drawer behavior. |
-| pending | `app/(public)/studio/[handle]/page.tsx` + studio feature files | Expose membership and patron indicators per authority scope. |
-| pending | `features/townhall/townhall-feed-screen.tsx` | Ensure showroom/townhall lane behavior matches post-reset canonical route semantics. |
+| done | `features/world/world-detail-screen.tsx` | Render visual identity, lore, entry rule state, member gating, patron roster hooks, and conversation entry points. |
+| done | `features/drops/drop-detail-screen.tsx` | Add visibility/preview-policy rows and canonical info drawer behavior. |
+| done | `app/(public)/studio/[handle]/page.tsx` + studio feature files | Expose membership and patron indicators per authority scope. |
+| done | `features/townhall/townhall-feed-screen.tsx` | Ensure showroom/townhall lane behavior matches post-reset canonical route semantics. |
+| done | `tests/proofs/surface-exposure-phase6.test.ts` + `tests/proofs/townhall-feed-focus.test.ts` | Add proof coverage for world/drop/studio exposure and route-namespace lane behavior. |
 
 ## Phase 7: Launch Readiness Verification
 

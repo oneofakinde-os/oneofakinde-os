@@ -11,8 +11,45 @@ type WorldDetailScreenProps = {
   session: Session | null;
 };
 
+const ENTRY_RULE_COPY: Record<NonNullable<World["entryRule"]>, string> = {
+  open: "open entry",
+  membership: "membership required",
+  patron: "patron support required"
+};
+
+const DEFAULT_DROP_VISIBILITY_COPY: Record<NonNullable<World["defaultDropVisibility"]>, string> = {
+  public: "public",
+  world_members: "world members",
+  collectors_only: "collectors only"
+};
+
 export function WorldDetailScreen({ world, drops, session }: WorldDetailScreenProps) {
   const orderedDrops = sortDropsForWorldSurface(drops);
+  const entryRuleLabel = world.entryRule ? ENTRY_RULE_COPY[world.entryRule] : "not configured";
+  const memberGatingState =
+    world.entryRule === "membership"
+      ? "membership gate active"
+      : world.entryRule === "patron"
+        ? "patron gate active"
+        : "open access";
+  const defaultDropVisibilityLabel = world.defaultDropVisibility
+    ? DEFAULT_DROP_VISIBILITY_COPY[world.defaultDropVisibility]
+    : "inherit from world release defaults";
+  const worldConversationHref = `/api/v1/worlds/${encodeURIComponent(world.id)}/conversation`;
+  const patronRosterHref = `/api/v1/worlds/${encodeURIComponent(world.id)}/patron-roster`;
+  const worldIdentityStyle = world.visualIdentity
+    ? {
+        backgroundColor: world.visualIdentity.colorPrimary,
+        backgroundImage: world.visualIdentity.coverImageSrc
+          ? `linear-gradient(140deg, ${world.visualIdentity.colorPrimary}, ${world.visualIdentity.colorSecondary ?? world.visualIdentity.colorPrimary}), url(${world.visualIdentity.coverImageSrc})`
+          : undefined,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        borderRadius: "0.75rem",
+        padding: "1rem",
+        border: "1px solid rgba(255,255,255,0.12)"
+      }
+    : undefined;
 
   return (
     <AppShell
@@ -33,6 +70,77 @@ export function WorldDetailScreen({ world, drops, session }: WorldDetailScreenPr
             open studio
           </Link>
         </div>
+        {world.visualIdentity ? (
+          <div
+            className="slice-panel"
+            style={worldIdentityStyle}
+            data-testid="world-visual-identity"
+            aria-label="world visual identity"
+          >
+            <p className="slice-label">visual identity</p>
+            <p className="slice-copy">
+              primary {world.visualIdentity.colorPrimary}
+              {world.visualIdentity.colorSecondary ? ` · secondary ${world.visualIdentity.colorSecondary}` : ""}
+            </p>
+            {world.visualIdentity.motionTreatment ? (
+              <p className="slice-meta">motion treatment · {world.visualIdentity.motionTreatment}</p>
+            ) : null}
+          </div>
+        ) : (
+          <p className="slice-meta">visual identity not configured for this world yet.</p>
+        )}
+      </section>
+
+      <section className="slice-panel" data-testid="world-access-contract">
+        <p className="slice-label">world constitution</p>
+        <p className="slice-copy">{world.lore ?? "lore has not been published yet."}</p>
+        <p className="slice-meta">entry rule state · {entryRuleLabel}</p>
+        <p className="slice-meta">member gating · {memberGatingState}</p>
+        <p className="slice-meta">default drop visibility · {defaultDropVisibilityLabel}</p>
+        {world.ambientAudioSrc ? (
+          <p className="slice-meta">ambient audio rail configured</p>
+        ) : (
+          <p className="slice-meta">ambient audio rail not configured</p>
+        )}
+        <div className="slice-button-row">
+          {session ? (
+            <a
+              href={worldConversationHref}
+              className="slice-button ghost"
+              data-testid="world-conversation-entry"
+            >
+              world conversation
+            </a>
+          ) : (
+            <Link
+              href={routes.signIn(routes.world(world.id))}
+              className="slice-button ghost"
+              data-testid="world-conversation-entry"
+            >
+              sign in for conversation
+            </Link>
+          )}
+          {session ? (
+            <a
+              href={patronRosterHref}
+              className="slice-button alt"
+              data-testid="world-patron-roster-hook"
+            >
+              patron roster
+            </a>
+          ) : (
+            <Link
+              href={routes.signIn(routes.world(world.id))}
+              className="slice-button alt"
+              data-testid="world-patron-roster-hook"
+            >
+              sign in for patron roster
+            </Link>
+          )}
+        </div>
+        <p className="slice-meta">
+          conversation and patron roster rails require world membership or collect entitlement.
+        </p>
       </section>
 
       <section className="slice-panel">

@@ -23,10 +23,12 @@ import {
 import {
   buildTownhallFeedHrefWithFocus,
   resolveTownhallFeedActiveIndex,
-  routeForTownhallMediaFilter,
-  type TownhallFeedFocus
+  routeForFeedMediaFilter,
+  type TownhallFeedFocus,
+  type TownhallFeedRouteNamespace
 } from "@/lib/townhall/feed-focus";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import type { UrlObject } from "node:url";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TownhallBottomNav } from "./townhall-bottom-nav";
@@ -54,6 +56,7 @@ type TownhallFeedScreenProps = {
   pageSize?: number;
   showroomMedia?: TownhallShowroomMediaFilter | string;
   showroomOrdering?: TownhallShowroomOrdering | string;
+  routeNamespace?: TownhallFeedRouteNamespace;
   initialFocusDropId?: string | null;
   initialFocusPosition?: number | null;
 };
@@ -279,9 +282,17 @@ export function TownhallFeedScreen({
   pageSize = DEFAULT_TOWNHALL_FEED_PAGE_SIZE,
   showroomMedia = DEFAULT_TOWNHALL_SHOWROOM_MEDIA_FILTER,
   showroomOrdering = DEFAULT_TOWNHALL_SHOWROOM_ORDERING,
+  routeNamespace,
   initialFocusDropId = null,
   initialFocusPosition = null
 }: TownhallFeedScreenProps) {
+  const pathname = usePathname();
+  const resolvedRouteNamespace = useMemo<TownhallFeedRouteNamespace>(() => {
+    if (routeNamespace) {
+      return routeNamespace;
+    }
+    return pathname.startsWith("/showroom") ? "showroom" : "townhall";
+  }, [pathname, routeNamespace]);
   const parsedShowroomOrdering = parseTownhallShowroomOrdering(showroomOrdering);
   const parsedShowroomMedia = parseTownhallShowroomMediaFilter(showroomMedia);
   const effectiveShowroomMedia = mode === "townhall" ? parsedShowroomMedia : mode;
@@ -829,7 +840,7 @@ export function TownhallFeedScreen({
   }
 
   function showroomHref(mediaFilter: TownhallShowroomMediaFilter, ordering: TownhallShowroomOrdering): UrlObject {
-    const pathname = routeForTownhallMediaFilter(mediaFilter);
+    const pathname = routeForFeedMediaFilter(mediaFilter, resolvedRouteNamespace);
     if (ordering !== DEFAULT_TOWNHALL_SHOWROOM_ORDERING) {
       return {
         pathname,
@@ -846,7 +857,7 @@ export function TownhallFeedScreen({
     mediaFilter: TownhallShowroomMediaFilter,
     ordering: TownhallShowroomOrdering
   ): string {
-    const pathname = routeForTownhallMediaFilter(mediaFilter);
+    const pathname = routeForFeedMediaFilter(mediaFilter, resolvedRouteNamespace);
     if (ordering === DEFAULT_TOWNHALL_SHOWROOM_ORDERING) {
       return pathname;
     }
@@ -862,6 +873,7 @@ export function TownhallFeedScreen({
     const returnTo = buildTownhallFeedHrefWithFocus({
       mediaFilter: effectiveShowroomMedia,
       ordering: parsedShowroomOrdering,
+      routeNamespace: resolvedRouteNamespace,
       focusDropId: dropId,
       focusPosition: position
     });
@@ -1197,6 +1209,7 @@ export function TownhallFeedScreen({
         data-testid="showroom-shell"
         data-showroom-ordering={parsedShowroomOrdering}
         data-showroom-media={effectiveShowroomMedia}
+        data-feed-route-namespace={resolvedRouteNamespace}
       >
         <header className="townhall-header townhall-header-feed">
           <Link href={routes.studio(activeDrop.studioHandle)} className="townhall-avatar-link" aria-label="open creator studio">
