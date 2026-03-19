@@ -2,12 +2,15 @@ import { WorkshopRootScreen } from "@/features/workshop/workshop-root-screen";
 import { requireSessionRoles } from "@/lib/server/session";
 import { loadWorkshopContext } from "@/lib/server/workshop";
 import {
+  approveWorkshopLiveSessionArtifactAction,
+  captureWorkshopLiveSessionArtifactAction,
   createAuthorizedDerivativeAction,
   createDropVersionAction,
   upsertWorkshopPatronTierConfigAction,
   validateWorkshopPublishGateAction,
   createWorkshopWorldReleaseAction,
   createWorkshopLiveSessionAction,
+  transitionWorkshopProStateAction,
   updateWorkshopWorldReleaseStatusAction,
   resolveWorkshopModerationCaseAction
 } from "./actions";
@@ -24,6 +27,10 @@ type WorkshopPageProps = {
     derivative_id?: string | string[];
     patron_status?: string | string[];
     patron_config_id?: string | string[];
+    artifact_status?: string | string[];
+    artifact_id?: string | string[];
+    pro_status?: string | string[];
+    pro_state?: string | string[];
     moderation_status?: string | string[];
     moderation_comment_id?: string | string[];
     compose?: string | string[];
@@ -213,6 +220,56 @@ function toPatronNotice(patronStatus: string | null, patronConfigId: string | nu
   return "patron tier config updated.";
 }
 
+function toArtifactNotice(artifactStatus: string | null, artifactId: string | null): string | null {
+  if (!artifactStatus) {
+    return null;
+  }
+
+  if (artifactStatus === "captured") {
+    return artifactId
+      ? `live session artifact captured for review: ${artifactId}.`
+      : "live session artifact captured for review.";
+  }
+
+  if (artifactStatus === "approved") {
+    return artifactId
+      ? `live session artifact approved and promoted to catalog drop: ${artifactId}.`
+      : "live session artifact approved and promoted to catalog drop.";
+  }
+
+  if (artifactStatus === "invalid_input") {
+    return "artifact action failed: check live session, title, and artifact identifiers.";
+  }
+
+  if (artifactStatus === "capture_failed" || artifactStatus === "approve_failed") {
+    return "artifact action failed: verify creator scope, live session lineage, and artifact status.";
+  }
+
+  return "workshop live-session artifact status updated.";
+}
+
+function toProNotice(proStatus: string | null, proState: string | null): string | null {
+  if (!proStatus) {
+    return null;
+  }
+
+  if (proStatus === "updated") {
+    return proState
+      ? `workshop pro state updated: ${proState.replaceAll("_", " ")}.`
+      : "workshop pro state updated.";
+  }
+
+  if (proStatus === "invalid_input") {
+    return "workshop pro state update failed: invalid transition request.";
+  }
+
+  if (proStatus === "update_failed") {
+    return "workshop pro state update failed: transition is not allowed for current state.";
+  }
+
+  return "workshop pro state updated.";
+}
+
 function toPublishNotice(
   publishStatus: string | null,
   missingSections: string | null,
@@ -259,6 +316,10 @@ export default async function WorkshopPage({ searchParams }: WorkshopPageProps) 
   const derivativeId = firstParam(resolvedSearchParams.derivative_id);
   const patronStatus = firstParam(resolvedSearchParams.patron_status);
   const patronConfigId = firstParam(resolvedSearchParams.patron_config_id);
+  const artifactStatus = firstParam(resolvedSearchParams.artifact_status);
+  const artifactId = firstParam(resolvedSearchParams.artifact_id);
+  const proStatus = firstParam(resolvedSearchParams.pro_status);
+  const proState = firstParam(resolvedSearchParams.pro_state);
   const moderationStatus = firstParam(resolvedSearchParams.moderation_status);
   const moderationCommentId = firstParam(resolvedSearchParams.moderation_comment_id);
   const compose = firstParam(resolvedSearchParams.compose);
@@ -307,9 +368,14 @@ export default async function WorkshopPage({ searchParams }: WorkshopPageProps) 
       versionNotice={toVersionNotice(versionStatus, versionId)}
       derivativeNotice={toDerivativeNotice(derivativeStatus, derivativeId)}
       patronNotice={toPatronNotice(patronStatus, patronConfigId)}
+      artifactNotice={toArtifactNotice(artifactStatus, artifactId)}
+      proNotice={toProNotice(proStatus, proState)}
       moderationNotice={toModerationNotice(moderationStatus, moderationCommentId)}
       validatePublishGateAction={validateWorkshopPublishGateAction}
       createLiveSessionAction={createWorkshopLiveSessionAction}
+      captureLiveSessionArtifactAction={captureWorkshopLiveSessionArtifactAction}
+      approveLiveSessionArtifactAction={approveWorkshopLiveSessionArtifactAction}
+      transitionWorkshopProStateAction={transitionWorkshopProStateAction}
       upsertPatronTierConfigAction={upsertWorkshopPatronTierConfigAction}
       createWorldReleaseAction={createWorkshopWorldReleaseAction}
       updateWorldReleaseStatusAction={updateWorkshopWorldReleaseStatusAction}

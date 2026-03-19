@@ -2,6 +2,7 @@ import type {
   AuthorizedDerivative,
   AuthorizedDerivativeKind,
   Certificate,
+  CaptureWorkshopLiveSessionArtifactInput,
   CollectLiveSessionSnapshot,
   CollectEnforcementSignal,
   CollectEnforcementSignalType,
@@ -26,6 +27,7 @@ import type {
   LibrarySnapshot,
   LedgerTransaction,
   LiveSession,
+  LiveSessionArtifact,
   LiveSessionEligibility,
   LiveSessionJoinSnapshot,
   MyCollectionAnalyticsPanel,
@@ -56,6 +58,8 @@ import type {
   TownhallTelemetryEventType,
   TownhallTelemetrySignals,
   WorkshopAnalyticsPanel,
+  WorkshopProProfile,
+  WorkshopProState,
   WatchQualityLevel,
   WatchQualityMode,
   WatchTelemetryEventType,
@@ -102,10 +106,12 @@ import {
   type LedgerLineItemRecord,
   type LedgerTransactionRecord,
   type LiveSessionRecord,
+  type LiveSessionArtifactRecord,
   type MembershipEntitlementRecord,
   type PatronCommitmentRecord,
   type PatronRecord,
   type PatronTierConfigRecord,
+  type WorkshopProProfileRecord,
   type WorldConversationMessageRecord,
   type WorldReleaseQueueRecord,
   type WorldCollectOwnershipRecord,
@@ -143,9 +149,12 @@ const WATCH_SESSION_LOG_LIMIT = 50_000;
 const PATRON_ROSTER_LOG_LIMIT = 20_000;
 const PATRON_COMMITMENT_LOG_LIMIT = 50_000;
 const PATRON_TIER_CONFIG_LOG_LIMIT = 2_000;
+const LIVE_SESSION_ARTIFACT_LOG_LIMIT = 20_000;
+const WORKSHOP_PRO_PROFILE_LOG_LIMIT = 2_000;
 const DEFAULT_PATRON_COMMITMENT_AMOUNT_CENTS = 500;
 const DEFAULT_PATRON_COMMITMENT_PERIOD_DAYS = 30;
 const DEFAULT_PATRON_TIER_TITLE = "studio patron";
+const WORKSHOP_PRO_GRACE_PERIOD_DAYS = 7;
 const WATCH_ACCESS_TOKEN_VERSION = 1 as const;
 const WATCH_ACCESS_TOKEN_DEFAULT_TTL_SECONDS = 300;
 const WATCH_ACCESS_TOKEN_MIN_TTL_SECONDS = 1;
@@ -170,6 +179,8 @@ const COLLECT_ENFORCEMENT_SIGNAL_TYPES: CollectEnforcementSignalType[] = [
   "invalid_settle_price_rejected",
   "reaward_blocked"
 ];
+
+const WORKSHOP_PRO_STATES: WorkshopProState[] = ["active", "past_due", "grace", "locked"];
 
 const COLLECT_SIGNAL_SEVERITY: Record<CollectEnforcementSignalType, CollectIntegrityFlagSeverity> = {
   invalid_listing_action_blocked: "warning",
@@ -464,6 +475,15 @@ function resolvePatronCommitmentPeriodDays(): number {
 
 function isPatronTierStatus(value: unknown): value is PatronTierStatus {
   return value === "active" || value === "disabled";
+}
+
+function isWorkshopProState(value: unknown): value is WorkshopProState {
+  return (
+    value === "active" ||
+    value === "past_due" ||
+    value === "grace" ||
+    value === "locked"
+  );
 }
 
 function createWatchAccessSignature(payloadEncoded: string, secret: string): string {
@@ -2782,6 +2802,126 @@ function trimPatronTierConfigs(db: BffDatabase): void {
   }
 }
 
+function toWorkshopProProfile(record: WorkshopProProfileRecord): WorkshopProProfile {
+  return {
+    studioHandle: record.studioHandle,
+    state: record.state,
+    cycleAnchorAt: record.cycleAnchorAt,
+    pastDueAt: record.pastDueAt ?? undefined,
+    graceEndsAt: record.graceEndsAt ?? undefined,
+    lockedAt: record.lockedAt ?? undefined,
+    updatedAt: record.updatedAt
+  };
+}
+
+function trimWorkshopProProfiles(db: BffDatabase): void {
+  if (db.workshopProProfiles.length > WORKSHOP_PRO_PROFILE_LOG_LIMIT) {
+    db.workshopProProfiles.length = WORKSHOP_PRO_PROFILE_LOG_LIMIT;
+  }
+}
+
+function ensureWorkshopProProfileRecord(
+  db: BffDatabase,
+  studioHandle: string
+): {
+  profile: WorkshopProProfileRecord;
+  created: boolean;
+} {
+  const existing = db.workshopProProfiles.find((entry) => entry.studioHandle === studioHandle);
+  if (existing) {
+    return {
+      profile: existing,
+      created: false
+    };
+  }
+
+  const nowIso = new Date().toISOString();
+  const profile: WorkshopProProfileRecord = {
+    studioHandle,
+    state: "active",
+    cycleAnchorAt: nowIso,
+    pastDueAt: null,
+    graceEndsAt: null,
+    lockedAt: null,
+    updatedAt: nowIso
+  };
+  db.workshopProProfiles.unshift(profile);
+  trimWorkshopProProfiles(db);
+  return {
+    profile,
+    created: true
+  };
+}
+
+function canTransitionWorkshopProState(current: WorkshopProState, next: WorkshopProState): boolean {
+  if (current === next) {
+    return true;
+  }
+
+  if (current === "active") {
+    return next === "past_due";
+  }
+
+  if (current === "past_due") {
+    return next === "grace" || next === "active";
+  }
+
+  if (current === "grace") {
+    return next === "locked" || next === "active";
+  }
+
+  if (current === "locked") {
+    return next === "active";
+  }
+
+  return false;
+}
+
+function applyWorkshopProStateTransition(
+  profile: WorkshopProProfileRecord,
+  nextState: WorkshopProState
+): boolean {
+  if (!canTransitionWorkshopProState(profile.state, nextState)) {
+    return false;
+  }
+
+  const nowIso = new Date().toISOString();
+  profile.state = nextState;
+  profile.updatedAt = nowIso;
+
+  if (nextState === "active") {
+    profile.pastDueAt = null;
+    profile.graceEndsAt = null;
+    profile.lockedAt = null;
+    return true;
+  }
+
+  if (nextState === "past_due") {
+    profile.pastDueAt = nowIso;
+    profile.graceEndsAt = null;
+    profile.lockedAt = null;
+    return true;
+  }
+
+  if (nextState === "grace") {
+    if (!profile.pastDueAt) {
+      profile.pastDueAt = nowIso;
+    }
+    profile.graceEndsAt = new Date(
+      Date.now() + WORKSHOP_PRO_GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000
+    ).toISOString();
+    profile.lockedAt = null;
+    return true;
+  }
+
+  if (nextState === "locked") {
+    profile.lockedAt = nowIso;
+    return true;
+  }
+
+  return true;
+}
+
 function findEffectivePatronTierConfig(
   db: BffDatabase,
   studioHandle: string,
@@ -2988,6 +3128,28 @@ function toLiveSession(db: BffDatabase, liveSession: LiveSessionRecord): LiveSes
   };
 }
 
+function toLiveSessionArtifact(record: LiveSessionArtifactRecord): LiveSessionArtifact {
+  return {
+    id: record.id,
+    liveSessionId: record.liveSessionId,
+    studioHandle: record.studioHandle,
+    worldId: record.worldId,
+    sourceDropId: record.sourceDropId,
+    title: record.title,
+    synopsis: record.synopsis,
+    status: record.status,
+    capturedAt: record.capturedAt,
+    approvedAt: record.approvedAt ?? undefined,
+    catalogDropId: record.catalogDropId ?? undefined
+  };
+}
+
+function trimLiveSessionArtifacts(db: BffDatabase): void {
+  if (db.liveSessionArtifacts.length > LIVE_SESSION_ARTIFACT_LOG_LIMIT) {
+    db.liveSessionArtifacts.length = LIVE_SESSION_ARTIFACT_LOG_LIMIT;
+  }
+}
+
 function resolveLiveSessionEligibilityInDatabase(
   db: BffDatabase,
   accountId: string,
@@ -3171,6 +3333,12 @@ function createWorkshopLiveSessionInDatabase(
     };
   }
 
+  const capacity =
+    typeof input.capacity === "number" && Number.isFinite(input.capacity)
+      ? Math.max(1, Math.floor(input.capacity))
+      : 200;
+  const spatialAudio = Boolean(input.spatialAudio);
+
   const record: LiveSessionRecord = {
     id: `live_workshop_${randomUUID()}`,
     studioHandle: account.handle,
@@ -3189,10 +3357,10 @@ function createWorkshopLiveSessionInDatabase(
         : input.eligibilityRule === "drop_owner"
           ? "invite"
           : "open",
-    spatialAudio: false,
+    spatialAudio,
     exclusiveDropWindowDropId: dropId,
     exclusiveDropWindowDelay: dropId ? 1440 : null,
-    capacity: 200
+    capacity
   };
 
   db.liveSessions.unshift(record);
@@ -3200,6 +3368,272 @@ function createWorkshopLiveSessionInDatabase(
   return {
     persist: true,
     result: toLiveSession(db, record)
+  };
+}
+
+function listWorkshopLiveSessionArtifactsInDatabase(
+  db: BffDatabase,
+  account: AccountRecord
+): LiveSessionArtifact[] {
+  return db.liveSessionArtifacts
+    .filter((artifact) => artifact.studioHandle === account.handle)
+    .sort((a, b) => Date.parse(b.capturedAt) - Date.parse(a.capturedAt))
+    .map((artifact) => toLiveSessionArtifact(artifact));
+}
+
+function captureWorkshopLiveSessionArtifactInDatabase(
+  db: BffDatabase,
+  accountId: string,
+  input: CaptureWorkshopLiveSessionArtifactInput
+): {
+  persist: boolean;
+  result: LiveSessionArtifact | null;
+} {
+  const account = findAccountById(db, accountId);
+  if (!account || !account.roles.includes("creator")) {
+    return {
+      persist: false,
+      result: null
+    };
+  }
+
+  const liveSession = db.liveSessions.find((entry) => entry.id === input.liveSessionId);
+  if (!liveSession || liveSession.studioHandle !== account.handle) {
+    return {
+      persist: false,
+      result: null
+    };
+  }
+
+  const title = input.title.trim();
+  if (!title) {
+    return {
+      persist: false,
+      result: null
+    };
+  }
+
+  let worldId = input.worldId;
+  if (!worldId && liveSession.worldId) {
+    worldId = liveSession.worldId;
+  }
+
+  if (worldId) {
+    const world = findWorldById(db, worldId);
+    if (!world || world.studioHandle !== account.handle) {
+      return {
+        persist: false,
+        result: null
+      };
+    }
+  }
+
+  let sourceDropId = input.sourceDropId;
+  if (!sourceDropId && liveSession.dropId) {
+    sourceDropId = liveSession.dropId;
+  }
+
+  if (sourceDropId) {
+    const sourceDrop = findDropById(db, sourceDropId);
+    if (!sourceDrop || sourceDrop.studioHandle !== account.handle) {
+      return {
+        persist: false,
+        result: null
+      };
+    }
+
+    if (!worldId) {
+      worldId = sourceDrop.worldId;
+    }
+
+    if (worldId && sourceDrop.worldId !== worldId) {
+      return {
+        persist: false,
+        result: null
+      };
+    }
+  }
+
+  const nowIso = new Date().toISOString();
+  const artifact: LiveSessionArtifactRecord = {
+    id: `lart_${randomUUID()}`,
+    liveSessionId: liveSession.id,
+    studioHandle: account.handle,
+    worldId,
+    sourceDropId,
+    title,
+    synopsis: input.synopsis.trim(),
+    status: "held_for_review",
+    capturedAt: nowIso,
+    approvedAt: null,
+    catalogDropId: null,
+    approvedByHandle: null
+  };
+  db.liveSessionArtifacts.unshift(artifact);
+  trimLiveSessionArtifacts(db);
+
+  return {
+    persist: true,
+    result: toLiveSessionArtifact(artifact)
+  };
+}
+
+function approveWorkshopLiveSessionArtifactInDatabase(
+  db: BffDatabase,
+  accountId: string,
+  artifactId: string
+): {
+  persist: boolean;
+  result: LiveSessionArtifact | null;
+} {
+  const account = findAccountById(db, accountId);
+  if (!account || !account.roles.includes("creator")) {
+    return {
+      persist: false,
+      result: null
+    };
+  }
+
+  const artifact = db.liveSessionArtifacts.find(
+    (entry) => entry.id === artifactId && entry.studioHandle === account.handle
+  );
+  if (!artifact || artifact.status !== "held_for_review") {
+    return {
+      persist: false,
+      result: null
+    };
+  }
+
+  const liveSession = db.liveSessions.find((entry) => entry.id === artifact.liveSessionId) ?? null;
+  const sourceDrop =
+    (artifact.sourceDropId ? findDropById(db, artifact.sourceDropId) : null) ??
+    (liveSession?.dropId ? findDropById(db, liveSession.dropId) : null);
+  const worldId = artifact.worldId ?? liveSession?.worldId ?? sourceDrop?.worldId ?? null;
+  if (!worldId) {
+    return {
+      persist: false,
+      result: null
+    };
+  }
+
+  const world = findWorldById(db, worldId);
+  if (!world || world.studioHandle !== account.handle) {
+    return {
+      persist: false,
+      result: null
+    };
+  }
+
+  const nowIso = new Date().toISOString();
+  const artifactCountForSession = db.liveSessionArtifacts.filter(
+    (entry) => entry.liveSessionId === artifact.liveSessionId
+  ).length;
+  const generatedDropId = `artifact_${randomUUID()}`;
+
+  db.catalog.drops.unshift({
+    id: generatedDropId,
+    title: artifact.title,
+    seasonLabel: world.releaseStructure?.currentLabel ?? "live artifacts",
+    episodeLabel: `artifact ${artifactCountForSession}`,
+    studioHandle: account.handle,
+    worldId: world.id,
+    worldLabel: world.title,
+    synopsis:
+      artifact.synopsis.trim().length > 0
+        ? artifact.synopsis
+        : `captured from live session ${liveSession?.title ?? artifact.liveSessionId}.`,
+    releaseDate: nowIso.slice(0, 10),
+    priceUsd: sourceDrop?.priceUsd ?? 0,
+    previewMedia: sourceDrop?.previewMedia,
+    collaborators: sourceDrop?.collaborators,
+    visibility: "public",
+    visibilitySource: "drop",
+    previewPolicy: sourceDrop?.previewPolicy ?? "limited",
+    releaseAt: nowIso
+  });
+
+  artifact.status = "approved";
+  artifact.approvedAt = nowIso;
+  artifact.catalogDropId = generatedDropId;
+  artifact.approvedByHandle = account.handle;
+  artifact.worldId = world.id;
+  if (!artifact.sourceDropId && sourceDrop) {
+    artifact.sourceDropId = sourceDrop.id;
+  }
+
+  return {
+    persist: true,
+    result: toLiveSessionArtifact(artifact)
+  };
+}
+
+function getWorkshopProProfileInDatabase(
+  db: BffDatabase,
+  accountId: string
+): {
+  persist: boolean;
+  result: WorkshopProProfile | null;
+} {
+  const account = findAccountById(db, accountId);
+  if (!account || !account.roles.includes("creator")) {
+    return {
+      persist: false,
+      result: null
+    };
+  }
+
+  const ensured = ensureWorkshopProProfileRecord(db, account.handle);
+  return {
+    persist: ensured.created,
+    result: toWorkshopProProfile(ensured.profile)
+  };
+}
+
+function transitionWorkshopProStateInDatabase(
+  db: BffDatabase,
+  accountId: string,
+  state: WorkshopProState
+): {
+  persist: boolean;
+  result: WorkshopProProfile | null;
+} {
+  const account = findAccountById(db, accountId);
+  if (!account || !account.roles.includes("creator")) {
+    return {
+      persist: false,
+      result: null
+    };
+  }
+
+  if (!isWorkshopProState(state) || !WORKSHOP_PRO_STATES.includes(state)) {
+    return {
+      persist: false,
+      result: null
+    };
+  }
+
+  const currentProfile =
+    db.workshopProProfiles.find((entry) => entry.studioHandle === account.handle) ?? null;
+  const currentState = currentProfile?.state ?? "active";
+  if (!canTransitionWorkshopProState(currentState, state)) {
+    return {
+      persist: false,
+      result: null
+    };
+  }
+
+  const ensured =
+    currentProfile === null ? ensureWorkshopProProfileRecord(db, account.handle) : { profile: currentProfile, created: false };
+  if (!applyWorkshopProStateTransition(ensured.profile, state)) {
+    return {
+      persist: ensured.created,
+      result: null
+    };
+  }
+
+  return {
+    persist: true,
+    result: toWorkshopProProfile(ensured.profile)
   };
 }
 
@@ -3908,6 +4342,52 @@ const gatewayMethods: CommerceGateway = {
         result: listWorkshopLiveSessionsInDatabase(db, account)
       };
     });
+  },
+
+  async listWorkshopLiveSessionArtifacts(accountId: string): Promise<LiveSessionArtifact[]> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account || !account.roles.includes("creator")) {
+        return {
+          persist: false,
+          result: []
+        };
+      }
+
+      return {
+        persist: false,
+        result: listWorkshopLiveSessionArtifactsInDatabase(db, account)
+      };
+    });
+  },
+
+  async captureWorkshopLiveSessionArtifact(
+    accountId: string,
+    input: CaptureWorkshopLiveSessionArtifactInput
+  ): Promise<LiveSessionArtifact | null> {
+    return withDatabase(async (db) =>
+      captureWorkshopLiveSessionArtifactInDatabase(db, accountId, input)
+    );
+  },
+
+  async approveWorkshopLiveSessionArtifact(
+    accountId: string,
+    artifactId: string
+  ): Promise<LiveSessionArtifact | null> {
+    return withDatabase(async (db) =>
+      approveWorkshopLiveSessionArtifactInDatabase(db, accountId, artifactId)
+    );
+  },
+
+  async getWorkshopProProfile(accountId: string): Promise<WorkshopProProfile | null> {
+    return withDatabase(async (db) => getWorkshopProProfileInDatabase(db, accountId));
+  },
+
+  async transitionWorkshopProState(
+    accountId: string,
+    state: WorkshopProState
+  ): Promise<WorkshopProProfile | null> {
+    return withDatabase(async (db) => transitionWorkshopProStateInDatabase(db, accountId, state));
   },
 
   async listWorkshopPatronTierConfigs(accountId: string): Promise<PatronTierConfig[]> {

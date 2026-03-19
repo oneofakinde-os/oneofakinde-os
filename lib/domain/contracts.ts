@@ -216,6 +216,32 @@ export type CreateWorkshopLiveSessionInput = {
   startsAt: string;
   endsAt: string | null;
   eligibilityRule: LiveSessionEligibilityRule;
+  spatialAudio?: boolean;
+  capacity?: number;
+};
+
+export type LiveSessionArtifactStatus = "held_for_review" | "approved";
+
+export type LiveSessionArtifact = {
+  id: string;
+  liveSessionId: string;
+  studioHandle: string;
+  worldId: string | null;
+  sourceDropId: string | null;
+  title: string;
+  synopsis: string;
+  status: LiveSessionArtifactStatus;
+  capturedAt: string;
+  approvedAt?: string;
+  catalogDropId?: string;
+};
+
+export type CaptureWorkshopLiveSessionArtifactInput = {
+  liveSessionId: string;
+  title: string;
+  synopsis: string;
+  worldId: string | null;
+  sourceDropId: string | null;
 };
 
 export type WorldReleaseQueuePacingMode = "manual" | "daily" | "weekly";
@@ -674,6 +700,18 @@ export type WorkshopAnalyticsPanel = {
   collectIntents: number;
   completedCollects: number;
   collectConversionRate: number;
+  updatedAt: string;
+};
+
+export type WorkshopProState = "active" | "past_due" | "grace" | "locked";
+
+export type WorkshopProProfile = {
+  studioHandle: string;
+  state: WorkshopProState;
+  cycleAnchorAt: string;
+  pastDueAt?: string;
+  graceEndsAt?: string;
+  lockedAt?: string;
   updatedAt: string;
 };
 

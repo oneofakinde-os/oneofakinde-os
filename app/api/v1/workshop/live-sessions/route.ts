@@ -18,6 +18,8 @@ type PostWorkshopLiveSessionBody = {
   startsAt?: string;
   endsAt?: string | null;
   eligibilityRule?: string;
+  spatialAudio?: boolean;
+  capacity?: number;
 };
 
 const LIVE_ELIGIBILITY_RULES = new Set<LiveSessionEligibilityRule>([
@@ -91,6 +93,8 @@ function parseCreateWorkshopLiveSessionInput(
   const dropId = normalizeOptionalBodyString(body, "dropId");
   const synopsis = normalizeOptionalBodyString(body, "synopsis") ?? "";
   const endsAt = normalizeOptionalBodyString(body, "endsAt");
+  const spatialAudioRaw = body?.spatialAudio;
+  const capacityRaw = body?.capacity;
 
   if (endsAt) {
     const parsedEndsAt = Date.parse(endsAt);
@@ -109,6 +113,24 @@ function parseCreateWorkshopLiveSessionInput(
     };
   }
 
+  if (spatialAudioRaw !== undefined && typeof spatialAudioRaw !== "boolean") {
+    return {
+      ok: false,
+      response: badRequest("spatialAudio must be a boolean when provided")
+    };
+  }
+
+  if (
+    capacityRaw !== undefined &&
+    capacityRaw !== null &&
+    (typeof capacityRaw !== "number" || !Number.isFinite(capacityRaw) || capacityRaw <= 0)
+  ) {
+    return {
+      ok: false,
+      response: badRequest("capacity must be a positive number when provided")
+    };
+  }
+
   return {
     ok: true,
     input: {
@@ -118,7 +140,12 @@ function parseCreateWorkshopLiveSessionInput(
       dropId,
       startsAt: new Date(parsedStartsAt).toISOString(),
       endsAt: endsAt ? new Date(Date.parse(endsAt)).toISOString() : null,
-      eligibilityRule
+      eligibilityRule,
+      spatialAudio: spatialAudioRaw === true,
+      capacity:
+        typeof capacityRaw === "number" && Number.isFinite(capacityRaw)
+          ? Math.max(1, Math.floor(capacityRaw))
+          : undefined
     }
   };
 }

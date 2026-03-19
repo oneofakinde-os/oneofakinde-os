@@ -3,8 +3,10 @@ import type {
   CollectLiveSessionSnapshot,
   Drop,
   LiveSession,
+  LiveSessionArtifact,
   LiveSessionEligibility,
   Studio,
+  WorkshopProProfile,
   World
 } from "@/lib/domain/contracts";
 
@@ -62,6 +64,18 @@ export type WorkshopLiveSessionsResponse = {
 
 export type WorkshopLiveSessionResponse = {
   liveSession: LiveSession;
+};
+
+export type WorkshopLiveSessionArtifactsResponse = {
+  artifacts: LiveSessionArtifact[];
+};
+
+export type WorkshopLiveSessionArtifactResponse = {
+  artifact: LiveSessionArtifact;
+};
+
+export type WorkshopProProfileResponse = {
+  profile: WorkshopProProfile;
 };
 
 export type CreateCheckoutSessionInput = {
