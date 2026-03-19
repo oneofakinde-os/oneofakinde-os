@@ -6,7 +6,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { DropDetailScreen } from "../../features/drops/drop-detail-screen";
 import { StudioScreen } from "../../features/profile/studio-screen";
 import { WorldDetailScreen } from "../../features/world/world-detail-screen";
-import type { Drop, Session, Studio, World } from "../../lib/domain/contracts";
+import type { Drop, DropLiveArtifactsSnapshot, Session, Studio, World } from "../../lib/domain/contracts";
 
 (globalThis as { React?: typeof React }).React = React;
 
@@ -59,6 +59,28 @@ const sampleStudio: Studio = {
   worldIds: ["dark-matter"]
 };
 
+const sampleLiveArtifacts: DropLiveArtifactsSnapshot = {
+  dropId: "stardust",
+  artifacts: [
+    {
+      artifactId: "lart_proof_one",
+      artifactKind: "transcript",
+      title: "dark matter opening transcript",
+      synopsis: "approved transcript capture.",
+      capturedAt: "2026-03-16T12:00:00.000Z",
+      approvedAt: "2026-03-16T13:00:00.000Z",
+      liveSessionId: "live_opening",
+      liveSessionTitle: "dark matter opening",
+      liveSessionStartsAt: "2026-03-16T11:00:00.000Z",
+      liveSessionType: "opening",
+      sourceDropId: "stardust",
+      sourceDropTitle: "stardust",
+      catalogDropId: "artifact_drop_one",
+      catalogDropTitle: "dark matter opening transcript"
+    }
+  ]
+};
+
 test("proof: world detail renders visual identity, access rails, conversation, and patron hooks", () => {
   const markup = renderToStaticMarkup(
     createElement(WorldDetailScreen, {
@@ -78,13 +100,15 @@ test("proof: drop detail renders visibility, preview policy, and canonical info 
   const markup = renderToStaticMarkup(
     createElement(DropDetailScreen, {
       drop: sampleDrop,
-      session: sampleSession
+      session: sampleSession,
+      liveArtifacts: sampleLiveArtifacts
     })
   );
 
   assert.equal(markup.includes('data-testid="drop-visibility-row"'), true);
   assert.equal(markup.includes('data-testid="drop-preview-policy-row"'), true);
   assert.equal(markup.includes('data-testid="drop-canonical-info-drawer"'), true);
+  assert.equal(markup.includes('data-testid="drop-live-artifacts-panel"'), true);
   assert.equal(markup.includes("canonical info drawer"), true);
 });
 

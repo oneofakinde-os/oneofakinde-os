@@ -11,6 +11,7 @@ import type {
   CreateWorkshopLiveSessionInput,
   CreateSessionInput,
   Drop,
+  DropLiveArtifactsSnapshot,
   DropLineageSnapshot,
   DropVersion,
   LibrarySnapshot,
@@ -40,6 +41,7 @@ import type {
 import type {
   CatalogDropResponse,
   CatalogDropsResponse,
+  DropLiveArtifactsResponse,
   CatalogStudioDropsResponse,
   CatalogStudioResponse,
   CatalogWorldDropsResponse,
@@ -229,6 +231,15 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
       );
       if (!response.ok || !response.payload) return null;
       return response.payload.lineage;
+    },
+
+    async getDropLiveArtifacts(dropId: string): Promise<DropLiveArtifactsSnapshot | null> {
+      const response = await requestJson<DropLiveArtifactsResponse>(
+        options,
+        `/api/v1/drops/${encodeURIComponent(dropId)}/live-artifacts`
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.liveArtifacts;
     },
 
     async createDropVersion(

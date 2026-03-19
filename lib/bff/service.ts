@@ -20,6 +20,8 @@ import type {
   CreateDropVersionInput,
   CreateSessionInput,
   Drop,
+  DropLiveArtifactEntry,
+  DropLiveArtifactsSnapshot,
   DropLineageSnapshot,
   DropVersion,
   DropVersionLabel,
@@ -39,6 +41,7 @@ import type {
   LiveSessionConversationModerationResolution,
   LiveSessionConversationThread,
   LiveSessionArtifact,
+  LiveSessionArtifactKind,
   LiveSessionEligibility,
   LiveSessionJoinSnapshot,
   LiveSessionType,
@@ -247,6 +250,11 @@ const TOWNHALL_POST_LINKED_OBJECT_KIND_SET = new Set<TownhallPostLinkedObjectKin
   "drop",
   "world",
   "studio"
+]);
+const LIVE_SESSION_ARTIFACT_KIND_SET = new Set<LiveSessionArtifactKind>([
+  "recording",
+  "transcript",
+  "highlight"
 ]);
 const TOWNHALL_POSTS_FILTER_SET = new Set<TownhallPostsFilter>(["all", "following", "saved"]);
 const WORLD_CONVERSATION_MODERATION_RESOLUTION_SET = new Set<WorldConversationModerationResolution>([
@@ -1880,6 +1888,10 @@ function rememberProcessedStripeWebhookEvent(db: BffDatabase, eventId: string): 
 
 function isTownhallShareChannel(value: string): value is TownhallShareChannel {
   return TOWNHALL_SHARE_CHANNEL_SET.has(value as TownhallShareChannel);
+}
+
+function isLiveSessionArtifactKind(value: string): value is LiveSessionArtifactKind {
+  return LIVE_SESSION_ARTIFACT_KIND_SET.has(value as LiveSessionArtifactKind);
 }
 
 function isTownhallPostsFilter(value: string): value is TownhallPostsFilter {
@@ -4372,12 +4384,75 @@ function toLiveSessionArtifact(record: LiveSessionArtifactRecord): LiveSessionAr
     studioHandle: record.studioHandle,
     worldId: record.worldId,
     sourceDropId: record.sourceDropId,
+    artifactKind: record.artifactKind,
     title: record.title,
     synopsis: record.synopsis,
     status: record.status,
     capturedAt: record.capturedAt,
     approvedAt: record.approvedAt ?? undefined,
     catalogDropId: record.catalogDropId ?? undefined
+  };
+}
+
+function toDropLiveArtifactEntry(
+  db: BffDatabase,
+  artifact: LiveSessionArtifactRecord
+): DropLiveArtifactEntry | null {
+  if (artifact.status !== "approved" || !artifact.catalogDropId || !artifact.approvedAt) {
+    return null;
+  }
+
+  const catalogDrop = findDropById(db, artifact.catalogDropId);
+  if (!catalogDrop) {
+    return null;
+  }
+
+  const liveSession = db.liveSessions.find((entry) => entry.id === artifact.liveSessionId) ?? null;
+  const sourceDrop = artifact.sourceDropId ? findDropById(db, artifact.sourceDropId) : null;
+
+  return {
+    artifactId: artifact.id,
+    artifactKind: artifact.artifactKind,
+    title: artifact.title,
+    synopsis: artifact.synopsis,
+    capturedAt: artifact.capturedAt,
+    approvedAt: artifact.approvedAt,
+    liveSessionId: artifact.liveSessionId,
+    liveSessionTitle: liveSession?.title ?? artifact.liveSessionId,
+    liveSessionStartsAt: liveSession?.startsAt ?? artifact.capturedAt,
+    liveSessionType: liveSession ? (resolveLiveSessionType(liveSession) ?? "event") : "event",
+    sourceDropId: artifact.sourceDropId,
+    sourceDropTitle: sourceDrop?.title ?? null,
+    catalogDropId: artifact.catalogDropId,
+    catalogDropTitle: catalogDrop.title
+  };
+}
+
+function buildDropLiveArtifactsSnapshot(
+  db: BffDatabase,
+  dropId: string
+): DropLiveArtifactsSnapshot | null {
+  const drop = findDropById(db, dropId);
+  if (!drop) {
+    return null;
+  }
+
+  const artifacts = db.liveSessionArtifacts
+    .filter((artifact) => artifact.status === "approved")
+    .filter((artifact) => artifact.catalogDropId === drop.id || artifact.sourceDropId === drop.id)
+    .map((artifact) => toDropLiveArtifactEntry(db, artifact))
+    .filter((entry): entry is DropLiveArtifactEntry => entry !== null)
+    .sort((a, b) => {
+      const approvedDelta = Date.parse(b.approvedAt) - Date.parse(a.approvedAt);
+      if (approvedDelta !== 0) {
+        return approvedDelta;
+      }
+      return Date.parse(b.capturedAt) - Date.parse(a.capturedAt);
+    });
+
+  return {
+    dropId: drop.id,
+    artifacts
   };
 }
 
@@ -4773,6 +4848,14 @@ function captureWorkshopLiveSessionArtifactInDatabase(
     };
   }
 
+  const artifactKind = input.artifactKind ?? "highlight";
+  if (!isLiveSessionArtifactKind(artifactKind)) {
+    return {
+      persist: false,
+      result: null
+    };
+  }
+
   let worldId = input.worldId;
   if (!worldId && liveSession.worldId) {
     worldId = liveSession.worldId;
@@ -4821,6 +4904,7 @@ function captureWorkshopLiveSessionArtifactInDatabase(
     studioHandle: account.handle,
     worldId,
     sourceDropId,
+    artifactKind,
     title,
     synopsis: input.synopsis.trim(),
     status: "held_for_review",
@@ -5438,6 +5522,10 @@ const gatewayMethods: CommerceGateway = {
 
   async getDropLineage(dropId: string): Promise<DropLineageSnapshot | null> {
     return commerceBffService.getDropLineage(dropId);
+  },
+
+  async getDropLiveArtifacts(dropId: string): Promise<DropLiveArtifactsSnapshot | null> {
+    return commerceBffService.getDropLiveArtifacts(dropId);
   },
 
   async createDropVersion(
@@ -8194,6 +8282,23 @@ export const commerceBffService = {
       return {
         persist: false,
         result: buildDropLineageSnapshot(db, drop.id)
+      };
+    });
+  },
+
+  async getDropLiveArtifacts(dropId: string): Promise<DropLiveArtifactsSnapshot | null> {
+    return withDatabase(async (db) => {
+      const drop = findDropById(db, dropId);
+      if (!drop) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      return {
+        persist: false,
+        result: buildDropLiveArtifactsSnapshot(db, drop.id)
       };
     });
   },

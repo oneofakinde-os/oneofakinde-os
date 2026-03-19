@@ -5,10 +5,20 @@ import type {
 } from "@/lib/bff/contracts";
 import { badRequest, forbidden, getRequiredBodyString, ok, safeJson } from "@/lib/bff/http";
 import { commerceBffService } from "@/lib/bff/service";
-import type { CaptureWorkshopLiveSessionArtifactInput } from "@/lib/domain/contracts";
+import type {
+  CaptureWorkshopLiveSessionArtifactInput,
+  LiveSessionArtifactKind
+} from "@/lib/domain/contracts";
+
+const LIVE_SESSION_ARTIFACT_KINDS = new Set<LiveSessionArtifactKind>([
+  "recording",
+  "transcript",
+  "highlight"
+]);
 
 type PostWorkshopLiveSessionArtifactBody = {
   liveSessionId?: string;
+  artifactKind?: string;
   title?: string;
   synopsis?: string;
   worldId?: string | null;
@@ -57,10 +67,19 @@ function parseCaptureLiveSessionArtifactInput(
     };
   }
 
+  const artifactKind = normalizeOptionalBodyString(body, "artifactKind") ?? "highlight";
+  if (!LIVE_SESSION_ARTIFACT_KINDS.has(artifactKind as LiveSessionArtifactKind)) {
+    return {
+      ok: false,
+      response: badRequest("artifactKind must be recording, transcript, or highlight")
+    };
+  }
+
   return {
     ok: true,
     input: {
       liveSessionId,
+      artifactKind: artifactKind as LiveSessionArtifactKind,
       title,
       synopsis: normalizeOptionalBodyString(body, "synopsis") ?? "",
       worldId: normalizeOptionalBodyString(body, "worldId"),

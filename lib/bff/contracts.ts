@@ -2,6 +2,7 @@ import type {
   CheckoutSession,
   CollectLiveSessionSnapshot,
   Drop,
+  DropLiveArtifactsSnapshot,
   LiveSession,
   LiveSessionArtifact,
   LiveSessionEligibility,
@@ -16,6 +17,10 @@ export type CatalogDropsResponse = {
 
 export type CatalogDropResponse = {
   drop: Drop;
+};
+
+export type DropLiveArtifactsResponse = {
+  liveArtifacts: DropLiveArtifactsSnapshot;
 };
 
 export type CatalogWorldsResponse = {

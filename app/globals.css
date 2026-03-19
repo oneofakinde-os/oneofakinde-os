@@ -2610,6 +2610,25 @@ a {
   font-size: 0.69rem;
 }
 
+.dropflow-list {
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.dropflow-list-row {
+  list-style: none;
+  border: 1px solid #2e404d;
+  border-radius: 10px;
+  padding: 8px;
+  background: rgba(8, 12, 16, 0.52);
+}
+
+.dropflow-list-row p {
+  margin: 0;
+}
+
 .dropflow-bullet-list {
   margin: 0;
   padding: 0 0 0 16px;

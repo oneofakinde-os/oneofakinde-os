@@ -1,6 +1,11 @@
 import type { UrlObject } from "url";
 import { formatUsd } from "@/features/shared/format";
-import type { DropLineageSnapshot, Drop, Session } from "@/lib/domain/contracts";
+import type {
+  DropLineageSnapshot,
+  Drop,
+  DropLiveArtifactsSnapshot,
+  Session
+} from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
 import Link from "next/link";
 import { DropThreadPanel } from "./drop-thread-panel";
@@ -8,6 +13,7 @@ import { DropThreadPanel } from "./drop-thread-panel";
 type DropDetailScreenProps = {
   backHref?: UrlObject;
   lineage?: DropLineageSnapshot | null;
+  liveArtifacts?: DropLiveArtifactsSnapshot | null;
   drop: Drop;
   session: Session | null;
 };
@@ -42,11 +48,16 @@ function formatPreviewPolicy(policy: Drop["previewPolicy"]): string {
   return "inherit world preview policy";
 }
 
+function formatArtifactKind(kind: string): string {
+  return kind.replace(/_/g, " ");
+}
+
 export function DropDetailScreen({
   drop,
   session,
   backHref,
-  lineage
+  lineage,
+  liveArtifacts
 }: DropDetailScreenProps) {
   const collectHref = session
     ? routes.collectDrop(drop.id)
@@ -189,6 +200,33 @@ export function DropDetailScreen({
                   <dd>{String(lineage.derivatives?.length ?? 0)}</dd>
                 </div>
               </dl>
+            </section>
+          ) : null}
+
+          {liveArtifacts && liveArtifacts.artifacts.length > 0 ? (
+            <section
+              className="dropflow-lineage-panel"
+              data-testid="drop-live-artifacts-panel"
+              aria-label="drop live artifacts panel"
+            >
+              <div className="dropflow-panel-head">
+                <p>live session artifacts</p>
+                <span>approved and published</span>
+              </div>
+              <ul className="dropflow-list" aria-label="approved live session artifacts">
+                {liveArtifacts.artifacts.map((artifact) => (
+                  <li key={artifact.artifactId} className="dropflow-list-row">
+                    <p className="dropflow-meta">
+                      {formatArtifactKind(artifact.artifactKind)} · {artifact.liveSessionTitle}
+                    </p>
+                    <p>{artifact.title}</p>
+                    <p className="dropflow-meta">
+                      approved {new Date(artifact.approvedAt).toLocaleDateString()} · session{" "}
+                      {new Date(artifact.liveSessionStartsAt).toLocaleDateString()}
+                    </p>
+                  </li>
+                ))}
+              </ul>
             </section>
           ) : null}
         </section>

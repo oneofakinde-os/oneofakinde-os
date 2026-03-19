@@ -11,6 +11,7 @@ import type {
   CreateWorkshopLiveSessionInput,
   CreateSessionInput,
   Drop,
+  DropLiveArtifactsSnapshot,
   DropLineageSnapshot,
   DropVersion,
   LibrarySnapshot,
@@ -48,6 +49,7 @@ export interface CommerceGateway {
 
   getDropById(dropId: string, viewerAccountId?: string | null): Promise<Drop | null>;
   getDropLineage(dropId: string): Promise<DropLineageSnapshot | null>;
+  getDropLiveArtifacts(dropId: string): Promise<DropLiveArtifactsSnapshot | null>;
   createDropVersion(
     accountId: string,
     dropId: string,
