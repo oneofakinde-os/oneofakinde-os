@@ -1,7 +1,7 @@
 # Spec-to-Code Implementation Backlog (March 8 Authority)
 
 Date opened: 2026-03-17
-Current phase: Phase 1 complete; Phase 2 complete; Phase 3 complete; Phase 4 complete; Phase 5 pending
+Current phase: Phase 1 complete; Phase 2 complete; Phase 3 complete; Phase 4 complete; Phase 5 complete; Phase 6 pending
 
 This backlog converts the March 8 authority pack into concrete file-level implementation work. Items are ordered by dependency, not convenience.
 
@@ -73,11 +73,11 @@ Goal: ship the actual constitutional workshop flow.
 
 | Status | File | Change |
 | --- | --- | --- |
-| pending | `app/(creator)/create/page.tsx` | Replace launchpad behavior with canonical create-drop/create-world entry into stepper flow. |
-| pending | `features/workshop/workshop-root-screen.tsx` | Add create-drop + create-world stepper architecture and publish gating UI sections. |
-| pending | `app/(creator)/workshop/actions.ts` | Support culture/access/economics completion and blocking publish rules. |
-| pending | `lib/server/workshop.ts` | Provide stepper context state and validation summaries. |
-| pending | `tests/proofs/workshop-*.test.ts` | Add proofs for visibility selector, preview policy selector, and hard publish gate. |
+| done | `app/(creator)/create/page.tsx` | Replace launchpad behavior with canonical create-drop/create-world entry into stepper flow. |
+| done | `features/workshop/workshop-root-screen.tsx` | Add create-drop + create-world stepper architecture and publish gating UI sections. |
+| done | `app/(creator)/workshop/actions.ts` | Support culture/access/economics completion and blocking publish rules. |
+| done | `lib/server/workshop.ts` | Provide stepper context state and validation summaries. |
+| done | `tests/proofs/workshop-*.test.ts` | Add proofs for visibility selector, preview policy selector, and hard publish gate. |
 
 ## Phase 6: World/Drop/Studio Surface Exposure
 
