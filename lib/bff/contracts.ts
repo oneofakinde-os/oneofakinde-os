@@ -36,6 +36,18 @@ export type CatalogStudioDropsResponse = {
   drops: Drop[];
 };
 
+export type FeedResponse = {
+  drops: Drop[];
+  lane_key: string;
+  total: number;
+};
+
+export type CatalogSearchResponse = {
+  results: Drop[];
+  cursor?: string;
+  total: number;
+};
+
 export type CollectLiveSessionsResponse = {
   liveSessions: CollectLiveSessionSnapshot[];
 };
