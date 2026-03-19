@@ -27,6 +27,10 @@ test("proof: analytics panels contract documents workshop, my collection, and op
   assert.match(analyticsPanels, /My Collection Analytics/);
   assert.match(analyticsPanels, /Ops Analytics/);
   assert.match(analyticsPanels, /collectConversionRate/);
+  assert.match(analyticsPanels, /payouts\.payoutUsd/);
+  assert.match(analyticsPanels, /payouts\.payoutLedgerUsd/);
+  assert.match(analyticsPanels, /payouts\.payoutParityDeltaUsd/);
+  assert.match(analyticsPanels, /freshnessTimestamp/);
   assert.match(analyticsPanels, /participation\.likes/);
   assert.match(analyticsPanels, /settlement\.missingLedgerLinks/);
   assert.match(analyticsPanels, /reliability\.rebufferEvents/);

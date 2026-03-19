@@ -16,10 +16,22 @@ This document defines the v0 analytics panel contracts for workshop, my collecti
   - `collectIntents`
   - `completedCollects`
   - `collectConversionRate`
+  - `payouts.completedReceipts`
+  - `payouts.grossUsd`
+  - `payouts.processingUsd`
+  - `payouts.commissionUsd`
+  - `payouts.payoutUsd`
+  - `payouts.payoutLedgerUsd`
+  - `payouts.payoutParityDeltaUsd`
+  - `payouts.payoutLedgerLineItems`
+  - `payouts.payoutRecipients`
+  - `payouts.missingLedgerReceiptCount`
+  - `freshnessTimestamp`
   - `updatedAt`
 - Source streams:
   - `townhall_telemetry_events` (discovery/preview/access/intent)
   - `receipts` (completed collects for creator drops)
+  - `ledger_transactions`, `ledger_line_items` (creator payout parity + collaborator fanout rollups)
 
 ## My Collection Analytics (Collector Private)
 

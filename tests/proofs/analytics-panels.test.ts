@@ -163,17 +163,39 @@ test("proof: analytics panel routes enforce auth and role boundaries with aggreg
     panel: {
       studioHandle: string;
       dropsPublished: number;
+      completions: number;
       collectIntents: number;
       completedCollects: number;
       collectConversionRate: number;
+      payouts: {
+        completedReceipts: number;
+        grossUsd: number;
+        processingUsd: number;
+        commissionUsd: number;
+        payoutUsd: number;
+        payoutLedgerUsd: number;
+        payoutParityDeltaUsd: number;
+        payoutLedgerLineItems: number;
+        payoutRecipients: number;
+        missingLedgerReceiptCount: number;
+      };
+      freshnessTimestamp: string;
       updatedAt: string;
     };
   }>(workshopResponse);
   assert.equal(workshopPayload.panel.studioHandle, "oneofakinde");
   assert.ok(workshopPayload.panel.dropsPublished > 0);
+  assert.ok(workshopPayload.panel.completions >= 1);
   assert.ok(workshopPayload.panel.collectIntents >= 1);
   assert.ok(workshopPayload.panel.completedCollects >= 1);
   assert.ok(workshopPayload.panel.collectConversionRate >= 0);
+  assert.ok(workshopPayload.panel.payouts.completedReceipts >= 1);
+  assert.ok(workshopPayload.panel.payouts.payoutUsd > 0);
+  assert.ok(workshopPayload.panel.payouts.payoutLedgerUsd > 0);
+  assert.ok(workshopPayload.panel.payouts.payoutLedgerLineItems >= 1);
+  assert.ok(workshopPayload.panel.payouts.payoutRecipients >= 1);
+  assert.ok(Math.abs(workshopPayload.panel.payouts.payoutParityDeltaUsd) <= 0.01);
+  assert.ok(workshopPayload.panel.freshnessTimestamp.length > 0);
   assertNoForbiddenKeys(workshopPayload, [...FORBIDDEN_KEYS]);
 
   const forbiddenOps = await getOpsAnalyticsRoute(

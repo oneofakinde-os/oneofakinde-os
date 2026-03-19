@@ -726,15 +726,35 @@ function getWorkshopAnalyticsPanelForAccount(account: AccountRecord): WorkshopAn
     (drop) => drop.studioHandle === account.handle
   );
   const creatorDropIdSet = new Set(creatorDrops.map((drop) => drop.id));
-  const completedCollects = listAllReceipts().filter(
+  const completedReceipts = listAllReceipts().filter(
     (receipt) => receipt.status === "completed" && creatorDropIdSet.has(receipt.dropId)
   );
+  const completedCollects = completedReceipts.length;
+  const payoutLineItems = completedReceipts
+    .flatMap((receipt) => receipt.lineItems ?? [])
+    .filter((entry) => entry.kind === "artist_payout_collect");
+  const payoutRecipients = new Set(
+    payoutLineItems
+      .map((entry) => entry.recipientAccountId)
+      .filter((entry): entry is string => typeof entry === "string" && entry.length > 0)
+  );
 
-  const collectIntents = completedCollects.length * 2;
+  const collectIntents = completedCollects * 2;
   const collectConversionRate =
     collectIntents > 0
-      ? Number((completedCollects.length / collectIntents).toFixed(4))
+      ? Number((completedCollects / collectIntents).toFixed(4))
       : 0;
+  const payoutUsd = Number(
+    completedReceipts.reduce((sum, receipt) => sum + (receipt.payoutUsd ?? 0), 0).toFixed(2)
+  );
+  const payoutLedgerUsd = Number(
+    payoutLineItems.reduce((sum, lineItem) => sum + lineItem.amountUsd, 0).toFixed(2)
+  );
+  const freshnessTimestamp = maxIsoDate(
+    completedReceipts
+      .map((receipt) => receipt.purchasedAt)
+      .concat(creatorDrops.map((drop) => drop.releaseDate), payoutLineItems.map((lineItem) => lineItem.createdAt))
+  );
 
   return {
     studioHandle: account.handle,
@@ -744,11 +764,26 @@ function getWorkshopAnalyticsPanelForAccount(account: AccountRecord): WorkshopAn
     accessStarts: creatorDrops.length * 40,
     completions: creatorDrops.length * 18,
     collectIntents,
-    completedCollects: completedCollects.length,
+    completedCollects,
     collectConversionRate,
-    updatedAt: maxIsoDate(
-      completedCollects.map((receipt) => receipt.purchasedAt).concat(creatorDrops.map((drop) => drop.releaseDate))
-    )
+    payouts: {
+      completedReceipts: completedReceipts.length,
+      grossUsd: Number(completedReceipts.reduce((sum, receipt) => sum + receipt.amountUsd, 0).toFixed(2)),
+      processingUsd: Number(
+        completedReceipts.reduce((sum, receipt) => sum + (receipt.processingUsd ?? 0), 0).toFixed(2)
+      ),
+      commissionUsd: Number(
+        completedReceipts.reduce((sum, receipt) => sum + (receipt.commissionUsd ?? 0), 0).toFixed(2)
+      ),
+      payoutUsd,
+      payoutLedgerUsd,
+      payoutParityDeltaUsd: Number((payoutUsd - payoutLedgerUsd).toFixed(2)),
+      payoutLedgerLineItems: payoutLineItems.length,
+      payoutRecipients: payoutRecipients.size,
+      missingLedgerReceiptCount: 0
+    },
+    freshnessTimestamp,
+    updatedAt: freshnessTimestamp
   };
 }
 

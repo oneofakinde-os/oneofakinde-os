@@ -205,6 +205,19 @@ test("proof: derivative collect payout splits follow authorized lineage split re
     Number((receipt.payoutUsd ?? 0).toFixed(2)),
     "expected split payout total to match quote payout total"
   );
+
+  const workshopPanel = await commerceBffService.getWorkshopAnalyticsPanel(creatorSession.accountId);
+  assert.ok(workshopPanel, "expected workshop analytics payout summary");
+  if (!workshopPanel) {
+    return;
+  }
+
+  assert.ok(workshopPanel.payouts.completedReceipts >= 1);
+  assert.ok(workshopPanel.payouts.missingLedgerReceiptCount >= 0);
+  assert.equal(
+    Number((workshopPanel.payouts.payoutUsd - workshopPanel.payouts.payoutLedgerUsd).toFixed(2)),
+    Number(workshopPanel.payouts.payoutParityDeltaUsd.toFixed(2))
+  );
 });
 
 test("proof: non-derivative collect payout remains single-recipient", async (t) => {
