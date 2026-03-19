@@ -69,6 +69,7 @@ const DERIVATIVE_KIND_OPTIONS = [
   "anthology_world",
   "collaborative_season"
 ] as const;
+const LIVE_SESSION_ARTIFACT_KIND_OPTIONS = ["highlight", "recording", "transcript"] as const;
 
 export function WorkshopRootScreen({
   session,
@@ -781,6 +782,17 @@ export function WorkshopRootScreen({
           </label>
 
           <label className="slice-field">
+            artifact kind
+            <select name="artifact_kind" className="slice-select" defaultValue="highlight">
+              {LIVE_SESSION_ARTIFACT_KIND_OPTIONS.map((kind) => (
+                <option key={kind} value={kind}>
+                  {kind}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="slice-field">
             artifact title
             <input
               name="artifact_title"
@@ -840,6 +852,7 @@ export function WorkshopRootScreen({
                   {artifact.status === "held_for_review" ? "held for review" : "approved"}
                 </p>
                 <h2 className="slice-title">{artifact.title}</h2>
+                <p className="slice-meta">kind: {artifact.artifactKind}</p>
                 <p className="slice-copy">{artifact.synopsis || "no synopsis provided."}</p>
                 <p className="slice-meta">
                   session:{" "}

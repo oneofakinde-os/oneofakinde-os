@@ -82,6 +82,7 @@ test("proof: live session artifacts are held for review until explicit approval 
   assert.equal(captureResponse.status, 201);
   const capturePayload = await parseJson<{ artifact: LiveSessionArtifact }>(captureResponse);
   assert.equal(capturePayload.artifact.status, "held_for_review");
+  assert.equal(capturePayload.artifact.artifactKind, "highlight");
   assert.equal(capturePayload.artifact.catalogDropId, undefined);
 
   const preApprovalCatalogResponse = await getCatalogDropsRoute(
@@ -111,6 +112,7 @@ test("proof: live session artifacts are held for review until explicit approval 
   assert.equal(approveResponse.status, 200);
   const approvePayload = await parseJson<{ artifact: LiveSessionArtifact }>(approveResponse);
   assert.equal(approvePayload.artifact.status, "approved");
+  assert.equal(approvePayload.artifact.artifactKind, "highlight");
   assert.ok(approvePayload.artifact.catalogDropId);
 
   const postApprovalCatalogResponse = await getCatalogDropsRoute(

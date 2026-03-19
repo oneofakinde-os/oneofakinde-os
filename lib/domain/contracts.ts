@@ -278,6 +278,7 @@ export type CreateWorkshopLiveSessionInput = {
 };
 
 export type LiveSessionArtifactStatus = "held_for_review" | "approved";
+export type LiveSessionArtifactKind = "recording" | "transcript" | "highlight";
 
 export type LiveSessionArtifact = {
   id: string;
@@ -285,6 +286,7 @@ export type LiveSessionArtifact = {
   studioHandle: string;
   worldId: string | null;
   sourceDropId: string | null;
+  artifactKind: LiveSessionArtifactKind;
   title: string;
   synopsis: string;
   status: LiveSessionArtifactStatus;
@@ -295,10 +297,33 @@ export type LiveSessionArtifact = {
 
 export type CaptureWorkshopLiveSessionArtifactInput = {
   liveSessionId: string;
+  artifactKind?: LiveSessionArtifactKind;
   title: string;
   synopsis: string;
   worldId: string | null;
   sourceDropId: string | null;
+};
+
+export type DropLiveArtifactEntry = {
+  artifactId: string;
+  artifactKind: LiveSessionArtifactKind;
+  title: string;
+  synopsis: string;
+  capturedAt: string;
+  approvedAt: string;
+  liveSessionId: string;
+  liveSessionTitle: string;
+  liveSessionStartsAt: string;
+  liveSessionType: LiveSessionType;
+  sourceDropId: string | null;
+  sourceDropTitle: string | null;
+  catalogDropId: string;
+  catalogDropTitle: string;
+};
+
+export type DropLiveArtifactsSnapshot = {
+  dropId: string;
+  artifacts: DropLiveArtifactEntry[];
 };
 
 export type WorldReleaseQueuePacingMode = "manual" | "daily" | "weekly";

@@ -39,10 +39,11 @@ export default async function DropDetailPage({ params, searchParams }: DropDetai
   const resolvedSearchParams = (await searchParams) ?? {};
   const returnTo = normalizeReturnTo(firstQueryValue(resolvedSearchParams.returnTo), routes.townhall());
 
-  const [drop, session, lineage] = await Promise.all([
+  const [drop, session, lineage, liveArtifacts] = await Promise.all([
     gateway.getDropById(id),
     getOptionalSession(),
-    gateway.getDropLineage(id)
+    gateway.getDropLineage(id),
+    gateway.getDropLiveArtifacts(id)
   ]);
 
   if (!drop) {
@@ -53,6 +54,7 @@ export default async function DropDetailPage({ params, searchParams }: DropDetai
     <DropDetailScreen
       drop={drop}
       lineage={lineage}
+      liveArtifacts={liveArtifacts}
       session={session}
       backHref={toHrefObject(returnTo)}
     />

@@ -10,6 +10,7 @@ import type {
   CreateWorkshopWorldReleaseInput,
   CreateWorkshopLiveSessionInput,
   LiveSessionEligibilityRule,
+  LiveSessionArtifactKind,
   LiveSessionType,
   PatronTierStatus,
   PreviewPolicy,
@@ -37,6 +38,11 @@ const LIVE_ELIGIBILITY_RULES = new Set<LiveSessionEligibilityRule>([
   "drop_owner"
 ]);
 const LIVE_SESSION_TYPES = new Set<LiveSessionType>(["opening", "event", "studio_session"]);
+const LIVE_SESSION_ARTIFACT_KINDS = new Set<LiveSessionArtifactKind>([
+  "recording",
+  "transcript",
+  "highlight"
+]);
 const DROP_VERSION_LABELS = new Set<DropVersionLabel>([
   "v1",
   "v2",
@@ -229,12 +235,17 @@ function parseCaptureLiveSessionArtifactInput(
 ): CaptureWorkshopLiveSessionArtifactInput | null {
   const liveSessionId = getRequiredFormString(formData, "live_session_id");
   const title = getRequiredFormString(formData, "artifact_title");
+  const artifactKind = getOptionalFormString(formData, "artifact_kind") ?? "highlight";
   if (!liveSessionId || !title) {
+    return null;
+  }
+  if (!LIVE_SESSION_ARTIFACT_KINDS.has(artifactKind as LiveSessionArtifactKind)) {
     return null;
   }
 
   return {
     liveSessionId,
+    artifactKind: artifactKind as LiveSessionArtifactKind,
     title,
     synopsis: getOptionalFormString(formData, "artifact_synopsis") ?? "",
     worldId: getOptionalFormString(formData, "artifact_world_id"),

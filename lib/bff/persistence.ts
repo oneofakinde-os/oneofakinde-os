@@ -13,6 +13,7 @@ import type {
   LedgerTransaction,
   LiveSessionAudienceEligibility,
   LiveSessionArtifactStatus,
+  LiveSessionArtifactKind,
   LiveSessionEligibilityRule,
   LiveSessionType,
   MembershipEntitlementStatus,
@@ -220,6 +221,7 @@ export type LiveSessionArtifactRecord = {
   studioHandle: string;
   worldId: string | null;
   sourceDropId: string | null;
+  artifactKind: LiveSessionArtifactKind;
   title: string;
   synopsis: string;
   status: LiveSessionArtifactStatus;
@@ -1800,6 +1802,14 @@ function normalizeLiveSessionArtifactStatus(value: unknown): LiveSessionArtifact
   return "held_for_review";
 }
 
+function normalizeLiveSessionArtifactKind(value: unknown): LiveSessionArtifactKind {
+  if (value === "recording" || value === "transcript" || value === "highlight") {
+    return value;
+  }
+
+  return "highlight";
+}
+
 function normalizeLiveSessionArtifactRecords(
   records: LiveSessionArtifactRecord[]
 ): LiveSessionArtifactRecord[] {
@@ -1823,6 +1833,7 @@ function normalizeLiveSessionArtifactRecords(
         typeof candidate.sourceDropId === "string" && candidate.sourceDropId.trim().length > 0
           ? candidate.sourceDropId
           : null,
+      artifactKind: normalizeLiveSessionArtifactKind(candidate.artifactKind),
       title:
         typeof candidate.title === "string" && candidate.title.trim().length > 0
           ? candidate.title

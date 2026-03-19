@@ -102,3 +102,32 @@ Acceptance:
 - Townhall standalone posts expose save/follow/share actions with viewer-specific state and aggregate counts.
 - `/api/v1/townhall/posts` supports recall filtering for `following` and `saved` thread views.
 - Proof coverage locks mutation flow and recall filtering behavior.
+
+### RY-06 Drop Live Artifacts Surface Exposure (in progress)
+Goal:
+- Move `master_matrix!50` from yellow to green by exposing approved live-session artifacts directly on drop detail surfaces with explicit artifact-kind provenance.
+
+File backlog:
+- `lib/domain/contracts.ts`
+- `lib/domain/ports.ts`
+- `lib/bff/contracts.ts`
+- `lib/bff/persistence.ts`
+- `lib/bff/service.ts`
+- `lib/gateway/bff-client.ts`
+- `lib/adapters/mock-commerce.ts`
+- `app/api/v1/drops/[drop_id]/live-artifacts/route.ts` (new)
+- `app/api/v1/workshop/live-session-artifacts/route.ts`
+- `app/(creator)/workshop/actions.ts`
+- `app/(public)/drops/[id]/page.tsx`
+- `features/workshop/workshop-root-screen.tsx`
+- `features/drops/drop-detail-screen.tsx`
+- `app/globals.css`
+- `tests/proofs/workshop-live-session-artifacts.test.ts`
+- `tests/proofs/surface-exposure-phase6.test.ts`
+- `tests/proofs/drop-live-artifacts-surface.test.ts` (new)
+
+Acceptance:
+- Workshop artifact capture stores explicit `artifactKind` (`recording`, `transcript`, `highlight`) with default validation.
+- Approved artifacts can be queried by drop through `/api/v1/drops/[drop_id]/live-artifacts`.
+- Drop detail surface renders an artifact panel with session provenance for approved artifacts.
+- Proof coverage locks API contract and UI rendering on drop detail.

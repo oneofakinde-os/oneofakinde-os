@@ -13,6 +13,7 @@ import type {
   CreateWorkshopLiveSessionInput,
   CreateSessionInput,
   Drop,
+  DropLiveArtifactsSnapshot,
   DropLineageSnapshot,
   DropVersion,
   DropVersionLabel,
@@ -20,6 +21,7 @@ import type {
   LibrarySnapshot,
   LiveSession,
   LiveSessionArtifact,
+  LiveSessionArtifactKind,
   LiveSessionEligibility,
   MembershipEntitlement,
   MyCollectionAnalyticsPanel,
@@ -131,6 +133,11 @@ const AUTHORIZED_DERIVATIVE_KINDS = new Set<AuthorizedDerivativeKind>([
   "translation",
   "anthology_world",
   "collaborative_season"
+]);
+const LIVE_SESSION_ARTIFACT_KINDS = new Set<LiveSessionArtifactKind>([
+  "recording",
+  "transcript",
+  "highlight"
 ]);
 const PATRON_TIER_STATUS_SET = new Set<PatronTierStatus>(["active", "disabled"]);
 const WORKSHOP_PRO_STATES = new Set<WorkshopProState>(["active", "past_due", "grace", "locked"]);
@@ -816,6 +823,52 @@ function buildDropLineageSnapshot(dropId: string): DropLineageSnapshot {
   };
 }
 
+function buildDropLiveArtifactsSnapshot(dropId: string): DropLiveArtifactsSnapshot {
+  const artifacts = store.liveSessionArtifacts
+    .filter((artifact) => artifact.status === "approved")
+    .filter((artifact) => artifact.catalogDropId === dropId || artifact.sourceDropId === dropId)
+    .map((artifact) => {
+      const liveSession =
+        store.liveSessions.find((entry) => entry.id === artifact.liveSessionId) ?? null;
+      const sourceDrop = artifact.sourceDropId
+        ? (store.drops.get(artifact.sourceDropId) ?? null)
+        : null;
+      const catalogDrop = artifact.catalogDropId
+        ? (store.drops.get(artifact.catalogDropId) ?? null)
+        : null;
+      const approvedAt = artifact.approvedAt ?? artifact.capturedAt;
+
+      return {
+        artifactId: artifact.id,
+        artifactKind: artifact.artifactKind,
+        title: artifact.title,
+        synopsis: artifact.synopsis,
+        capturedAt: artifact.capturedAt,
+        approvedAt,
+        liveSessionId: artifact.liveSessionId,
+        liveSessionTitle: liveSession?.title ?? artifact.liveSessionId,
+        liveSessionStartsAt: liveSession?.startsAt ?? artifact.capturedAt,
+        liveSessionType: liveSession?.type ?? "event",
+        sourceDropId: artifact.sourceDropId ?? null,
+        sourceDropTitle: sourceDrop?.title ?? null,
+        catalogDropId: artifact.catalogDropId ?? artifact.id,
+        catalogDropTitle: catalogDrop?.title ?? artifact.title
+      };
+    })
+    .sort((a, b) => {
+      const approvedDelta = Date.parse(b.approvedAt) - Date.parse(a.approvedAt);
+      if (approvedDelta !== 0) {
+        return approvedDelta;
+      }
+      return Date.parse(b.capturedAt) - Date.parse(a.capturedAt);
+    });
+
+  return {
+    dropId,
+    artifacts
+  };
+}
+
 function grantOwnership({
   account,
   drop,
@@ -1163,6 +1216,7 @@ function toLiveSessionArtifact(record: LiveSessionArtifactRecord): LiveSessionAr
     studioHandle: record.studioHandle,
     worldId: record.worldId,
     sourceDropId: record.sourceDropId,
+    artifactKind: record.artifactKind,
     title: record.title,
     synopsis: record.synopsis,
     status: record.status,
@@ -1638,6 +1692,14 @@ export const commerceGateway: CommerceGateway = {
     return buildDropLineageSnapshot(dropId);
   },
 
+  async getDropLiveArtifacts(dropId: string): Promise<DropLiveArtifactsSnapshot | null> {
+    if (!store.drops.has(dropId)) {
+      return null;
+    }
+
+    return buildDropLiveArtifactsSnapshot(dropId);
+  },
+
   async createDropVersion(
     accountId: string,
     dropId: string,
@@ -2104,6 +2166,11 @@ export const commerceGateway: CommerceGateway = {
       return null;
     }
 
+    const artifactKind = input.artifactKind ?? "highlight";
+    if (!LIVE_SESSION_ARTIFACT_KINDS.has(artifactKind)) {
+      return null;
+    }
+
     let worldId = input.worldId ?? liveSession.worldId ?? null;
     if (worldId) {
       const world = store.worlds.get(worldId);
@@ -2135,6 +2202,7 @@ export const commerceGateway: CommerceGateway = {
       studioHandle: account.handle,
       worldId,
       sourceDropId,
+      artifactKind,
       title,
       synopsis: input.synopsis.trim(),
       status: "held_for_review",
