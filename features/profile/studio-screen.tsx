@@ -4,6 +4,7 @@ import { isStudioPinned, sortDropsForStudioSurface } from "@/lib/catalog/drop-cu
 import type { Drop, Session, Studio, World } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
 import Link from "next/link";
+import { StudioThreadPanel } from "./studio-thread-panel";
 
 type StudioViewerMembershipIndicator = {
   hasSession: boolean;
@@ -32,6 +33,10 @@ export function StudioScreen({
   const pinnedDrops = orderedDrops.filter((drop) => isStudioPinned(drop));
   const memberWorldIds = new Set(viewerMembershipIndicator?.memberWorldIds ?? []);
   const studioPatronWorldId = worlds[0]?.id ?? null;
+  const studioConversationHref = `/api/v1/studios/${encodeURIComponent(studio.handle)}/conversation`;
+  const canModerateStudioThread = Boolean(
+    session?.roles.includes("creator") && session.handle.toLowerCase() === studio.handle.toLowerCase()
+  );
   const membershipStatus = !viewerMembershipIndicator?.hasSession
     ? "sign in to check membership"
     : viewerMembershipIndicator.hasStudioMembership
@@ -74,6 +79,25 @@ export function StudioScreen({
             )}
           </div>
         ) : null}
+        <div className="slice-button-row">
+          {session ? (
+            <a
+              href={studioConversationHref}
+              className="slice-button ghost"
+              data-testid="studio-thread-entry"
+            >
+              studio thread entry
+            </a>
+          ) : (
+            <Link
+              href={routes.signIn(routes.studio(studio.handle))}
+              className="slice-button ghost"
+              data-testid="studio-thread-entry"
+            >
+              sign in for studio thread
+            </Link>
+          )}
+        </div>
       </section>
 
       <section className="slice-panel">
@@ -164,6 +188,19 @@ export function StudioScreen({
             </li>
           ))}
         </ul>
+      </section>
+
+      <section id="studio-thread" data-testid="studio-thread-surface">
+        <StudioThreadPanel
+          studioHandle={studio.handle}
+          canInteract={Boolean(session)}
+          canModerate={canModerateStudioThread}
+          signInHref={routes.signIn(routes.studio(studio.handle))}
+          dropContextOptions={orderedDrops.slice(0, 6).map((drop) => ({
+            id: drop.id,
+            title: drop.title
+          }))}
+        />
       </section>
     </AppShell>
   );

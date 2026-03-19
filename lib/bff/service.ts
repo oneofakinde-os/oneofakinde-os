@@ -320,6 +320,17 @@ type TownhallPostMutationResult = {
   result: TownhallPost | null;
 };
 
+type StudioConversationLinkedObjectInput = {
+  kind: TownhallPostLinkedObjectKind;
+  id: string;
+};
+
+type StudioConversationThread = {
+  studioHandle: string;
+  studioTitle: string;
+  posts: TownhallPost[];
+};
+
 type TownhallCommentModerationResult =
   | {
       ok: true;
@@ -2640,6 +2651,157 @@ function buildTownhallPostsSnapshot(
   return {
     posts
   };
+}
+
+function canAccountModerateStudioConversationPost(
+  account: AccountRecord | null,
+  studio: Studio,
+  post: TownhallPostRecord
+): boolean {
+  if (!account) {
+    return false;
+  }
+
+  if (!account.roles.includes("creator")) {
+    return false;
+  }
+
+  if (account.handle !== studio.handle) {
+    return false;
+  }
+
+  return post.accountId !== account.id;
+}
+
+function doesTownhallPostBelongToStudioConversation(
+  db: BffDatabase,
+  post: TownhallPostRecord,
+  studio: Studio
+): boolean {
+  if (!post.linkedObjectKind || !post.linkedObjectId) {
+    return false;
+  }
+
+  if (post.linkedObjectKind === "studio") {
+    return post.linkedObjectId === studio.handle;
+  }
+
+  if (post.linkedObjectKind === "world") {
+    const world = findWorldById(db, post.linkedObjectId);
+    return world?.studioHandle === studio.handle;
+  }
+
+  if (post.linkedObjectKind === "drop") {
+    const drop = findDropById(db, post.linkedObjectId);
+    return drop?.studioHandle === studio.handle;
+  }
+
+  return false;
+}
+
+function resolveStudioConversationLinkedObjectRecord(
+  db: BffDatabase,
+  studio: Studio,
+  linkedObject?: StudioConversationLinkedObjectInput | null
+): ResolvedTownhallPostLinkedObjectRecord | null {
+  const fallbackLinkedObject: TownhallPostLinkedObjectInput = {
+    kind: "studio",
+    id: studio.handle,
+    label: studio.title,
+    href: `/studio/${studio.handle}`
+  };
+  const resolved = resolveTownhallPostLinkedObjectRecord(db, linkedObject ?? fallbackLinkedObject);
+  if (!resolved) {
+    return null;
+  }
+
+  if (resolved.kind === "studio") {
+    return resolved.id === studio.handle ? resolved : null;
+  }
+
+  if (resolved.kind === "world") {
+    const world = findWorldById(db, resolved.id);
+    return world?.studioHandle === studio.handle ? resolved : null;
+  }
+
+  const drop = findDropById(db, resolved.id);
+  return drop?.studioHandle === studio.handle ? resolved : null;
+}
+
+function toStudioConversationPost(
+  record: TownhallPostRecord,
+  accountHandleById: Map<string, string>,
+  viewerAccount: AccountRecord | null,
+  studio: Studio
+): TownhallPost {
+  const canModerate = canAccountModerateStudioConversationPost(viewerAccount, studio, record);
+  const isAuthor = Boolean(viewerAccount && viewerAccount.id === record.accountId);
+  return {
+    id: record.id,
+    authorHandle: accountHandleById.get(record.accountId) ?? "community",
+    body:
+      !canModerate && !isAuthor && record.visibility === "hidden"
+        ? "post hidden by moderation."
+        : !canModerate && !isAuthor && record.visibility === "restricted"
+          ? "post restricted by moderation."
+          : !canModerate && !isAuthor && record.visibility === "deleted"
+            ? "post deleted by moderation."
+            : record.body,
+    createdAt: record.createdAt,
+    visibility: record.visibility,
+    reportCount: record.reportCount,
+    linkedObject: toTownhallPostLinkedObject(record),
+    canModerate,
+    canReport: canAccountReportTownhallPost(viewerAccount, record),
+    canAppeal: canAccountAppealTownhallPost(viewerAccount, record),
+    appealRequested: Boolean(record.appealRequestedAt)
+  };
+}
+
+function buildStudioConversationThread(
+  db: BffDatabase,
+  studio: Studio,
+  accountId: string | null,
+  limit = TOWNHALL_POSTS_PREVIEW_LIMIT
+): StudioConversationThread {
+  const viewerAccount = accountId ? findAccountById(db, accountId) : null;
+  const accountHandleById = new Map(db.accounts.map((account) => [account.id, account.handle]));
+
+  const posts = db.townhallPosts
+    .filter((record) => doesTownhallPostBelongToStudioConversation(db, record, studio))
+    .filter((record) => {
+      if (record.visibility === "visible") {
+        return true;
+      }
+
+      if (viewerAccount && record.accountId === viewerAccount.id) {
+        return true;
+      }
+
+      return canAccountModerateStudioConversationPost(viewerAccount, studio, record);
+    })
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+    .slice(0, Math.max(1, Math.floor(limit)))
+    .map((record) => toStudioConversationPost(record, accountHandleById, viewerAccount, studio));
+
+  return {
+    studioHandle: studio.handle,
+    studioTitle: studio.title,
+    posts
+  };
+}
+
+function findStudioConversationPostById(
+  db: BffDatabase,
+  studio: Studio,
+  postId: string
+): TownhallPostRecord | null {
+  const post = findTownhallPostById(db, postId);
+  if (!post) {
+    return null;
+  }
+
+  return doesTownhallPostBelongToStudioConversation(db, post, studio) ? post : null;
 }
 
 function buildTownhallCommentsView(
@@ -5990,6 +6152,232 @@ export const commerceBffService = {
   ...gatewayMethods,
 
   createCheckoutSession: createCheckoutSessionForPayment,
+
+  async getStudioConversationThread(
+    accountId: string | null,
+    studioHandle: string,
+    options?: { limit?: number }
+  ): Promise<
+    | {
+        ok: true;
+        thread: StudioConversationThread;
+      }
+    | { ok: false; reason: "not_found" }
+  > {
+    return withDatabase<
+      | {
+          ok: true;
+          thread: StudioConversationThread;
+        }
+      | { ok: false; reason: "not_found" }
+    >(async (db) => {
+      const studio = db.catalog.studios.find((entry) => entry.handle === studioHandle) ?? null;
+      if (!studio) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "not_found" as const
+          }
+        };
+      }
+
+      const normalizedLimit =
+        typeof options?.limit === "number" && Number.isFinite(options.limit)
+          ? Math.min(TOWNHALL_POSTS_PREVIEW_LIMIT, Math.max(1, Math.floor(options.limit)))
+          : TOWNHALL_POSTS_PREVIEW_LIMIT;
+
+      return {
+        persist: false,
+        result: {
+          ok: true as const,
+          thread: buildStudioConversationThread(db, studio, accountId, normalizedLimit)
+        }
+      };
+    });
+  },
+
+  async createStudioConversationMessage(
+    accountId: string,
+    studioHandle: string,
+    body: string,
+    linkedObject?: StudioConversationLinkedObjectInput | null
+  ): Promise<
+    | {
+        ok: true;
+        thread: StudioConversationThread;
+      }
+    | { ok: false; reason: "not_found" | "invalid" }
+  > {
+    return withDatabase<
+      | {
+          ok: true;
+          thread: StudioConversationThread;
+        }
+      | { ok: false; reason: "not_found" | "invalid" }
+    >(async (db) => {
+      const account = findAccountById(db, accountId);
+      const studio = db.catalog.studios.find((entry) => entry.handle === studioHandle) ?? null;
+      if (!account || !studio) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "not_found" as const
+          }
+        };
+      }
+
+      const normalizedBody = normalizeTownhallPostBody(body);
+      if (!normalizedBody) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "invalid" as const
+          }
+        };
+      }
+
+      const resolvedLinkedObject = resolveStudioConversationLinkedObjectRecord(db, studio, linkedObject);
+      if (!resolvedLinkedObject) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "invalid" as const
+          }
+        };
+      }
+
+      const post: TownhallPostRecord = {
+        id: `post_${randomUUID()}`,
+        accountId: account.id,
+        body: normalizedBody,
+        createdAt: new Date().toISOString(),
+        visibility: "visible",
+        reportCount: 0,
+        reportedAt: null,
+        moderatedAt: null,
+        moderatedByAccountId: null,
+        appealRequestedAt: null,
+        appealRequestedByAccountId: null,
+        linkedObjectKind: resolvedLinkedObject.kind,
+        linkedObjectId: resolvedLinkedObject.id,
+        linkedObjectLabel: resolvedLinkedObject.label,
+        linkedObjectHref: resolvedLinkedObject.href
+      };
+
+      db.townhallPosts.unshift(post);
+      trimTownhallPosts(db);
+
+      return {
+        persist: true,
+        result: {
+          ok: true as const,
+          thread: buildStudioConversationThread(db, studio, account.id)
+        }
+      };
+    });
+  },
+
+  async actOnStudioConversationMessage(
+    accountId: string,
+    studioHandle: string,
+    messageId: string,
+    action: "report" | "appeal" | "hide" | "restrict" | "delete" | "restore"
+  ): Promise<
+    | {
+        ok: true;
+        thread: StudioConversationThread;
+      }
+    | { ok: false; reason: "not_found" | "forbidden" }
+  > {
+    return withDatabase<
+      | {
+          ok: true;
+          thread: StudioConversationThread;
+        }
+      | { ok: false; reason: "not_found" | "forbidden" }
+    >(async (db) => {
+      const account = findAccountById(db, accountId);
+      const studio = db.catalog.studios.find((entry) => entry.handle === studioHandle) ?? null;
+      const post = studio ? findStudioConversationPostById(db, studio, messageId) : null;
+      if (!account || !studio || !post) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "not_found" as const
+          }
+        };
+      }
+
+      if (action === "report") {
+        if (!canAccountReportTownhallPost(account, post)) {
+          return {
+            persist: false,
+            result: {
+              ok: false as const,
+              reason: "forbidden" as const
+            }
+          };
+        }
+
+        post.reportCount += 1;
+        post.reportedAt = new Date().toISOString();
+      } else if (action === "appeal") {
+        if (!canAccountAppealTownhallPost(account, post)) {
+          return {
+            persist: false,
+            result: {
+              ok: false as const,
+              reason: "forbidden" as const
+            }
+          };
+        }
+
+        post.appealRequestedAt = new Date().toISOString();
+        post.appealRequestedByAccountId = account.id;
+      } else {
+        if (!canAccountModerateStudioConversationPost(account, studio, post)) {
+          return {
+            persist: false,
+            result: {
+              ok: false as const,
+              reason: "forbidden" as const
+            }
+          };
+        }
+
+        if (action === "hide") {
+          post.visibility = "hidden";
+        } else if (action === "restrict") {
+          post.visibility = "restricted";
+        } else if (action === "delete") {
+          post.visibility = "deleted";
+        } else {
+          post.visibility = "visible";
+        }
+
+        const nowIso = new Date().toISOString();
+        post.moderatedAt = nowIso;
+        post.moderatedByAccountId = account.id;
+        post.appealRequestedAt = null;
+        post.appealRequestedByAccountId = null;
+        post.reportCount = 0;
+        post.reportedAt = null;
+      }
+
+      return {
+        persist: true,
+        result: {
+          ok: true as const,
+          thread: buildStudioConversationThread(db, studio, account.id)
+        }
+      };
+    });
+  },
 
   async purchaseDropViaLiveSession(
     accountId: string,
