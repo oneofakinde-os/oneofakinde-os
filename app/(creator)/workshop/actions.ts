@@ -12,6 +12,7 @@ import type {
   LiveSessionEligibilityRule,
   LiveSessionArtifactKind,
   LiveSessionType,
+  PatronCommitmentCadence,
   PatronTierStatus,
   PreviewPolicy,
   TownhallModerationCaseResolution,
@@ -72,6 +73,16 @@ const WORLD_RELEASE_STATUS_ACTIONS = new Set<Exclude<WorldReleaseQueueStatus, "s
   "published",
   "canceled"
 ]);
+const PATRON_COMMITMENT_CADENCES = new Set<PatronCommitmentCadence>([
+  "weekly",
+  "monthly",
+  "quarterly"
+]);
+const PATRON_COMMITMENT_CADENCE_TO_PERIOD_DAYS: Record<PatronCommitmentCadence, number> = {
+  weekly: 7,
+  monthly: 30,
+  quarterly: 90
+};
 const PATRON_TIER_STATUSES = new Set<PatronTierStatus>(["active", "disabled"]);
 const WORKSHOP_PRO_STATES = new Set<WorkshopProState>(["active", "past_due", "grace", "locked"]);
 
@@ -263,32 +274,64 @@ function parsePositiveInteger(input: string): number | null {
 
 function parseUpsertPatronTierConfigInput(
   formData: FormData
-): UpsertWorkshopPatronTierConfigInput | null {
+):
+  | { ok: true; input: UpsertWorkshopPatronTierConfigInput }
+  | { ok: false; error: "title" | "amount" | "cadence" | "period" | "early_access" | "status" } {
   const title = getRequiredFormString(formData, "patron_title");
   const amountCentsRaw = getRequiredFormString(formData, "patron_amount_cents");
-  const periodDaysRaw = getRequiredFormString(formData, "patron_period_days");
+  const cadenceRaw = getRequiredFormString(formData, "patron_commitment_cadence");
+  const periodDaysRaw = getOptionalFormString(formData, "patron_period_days");
+  const earlyAccessWindowHoursRaw = getRequiredFormString(formData, "patron_early_access_window_hours");
   const status = getRequiredFormString(formData, "patron_status");
-  if (!title || !amountCentsRaw || !periodDaysRaw || !status) {
-    return null;
+  if (!title) {
+    return { ok: false, error: "title" };
+  }
+  if (!amountCentsRaw) {
+    return { ok: false, error: "amount" };
+  }
+  if (!cadenceRaw || !PATRON_COMMITMENT_CADENCES.has(cadenceRaw as PatronCommitmentCadence)) {
+    return { ok: false, error: "cadence" };
+  }
+  if (!earlyAccessWindowHoursRaw) {
+    return { ok: false, error: "early_access" };
+  }
+  if (!status) {
+    return { ok: false, error: "status" };
   }
 
   if (!PATRON_TIER_STATUSES.has(status as PatronTierStatus)) {
-    return null;
+    return { ok: false, error: "status" };
   }
 
   const amountCents = parsePositiveInteger(amountCentsRaw);
-  const periodDays = parsePositiveInteger(periodDaysRaw);
-  if (!amountCents || !periodDays) {
-    return null;
+  if (!amountCents) {
+    return { ok: false, error: "amount" };
+  }
+  const commitmentCadence = cadenceRaw as PatronCommitmentCadence;
+  const periodDays = PATRON_COMMITMENT_CADENCE_TO_PERIOD_DAYS[commitmentCadence];
+  const earlyAccessWindowHours = parsePositiveInteger(earlyAccessWindowHoursRaw);
+  if (!earlyAccessWindowHours || earlyAccessWindowHours > 168) {
+    return { ok: false, error: "early_access" };
+  }
+  if (periodDaysRaw) {
+    const submittedPeriodDays = parsePositiveInteger(periodDaysRaw);
+    if (!submittedPeriodDays || submittedPeriodDays !== periodDays) {
+      return { ok: false, error: "period" };
+    }
   }
 
   return {
-    worldId: getOptionalFormString(formData, "patron_world_id"),
-    title,
-    amountCents,
-    periodDays,
-    benefitsSummary: getOptionalFormString(formData, "patron_benefits_summary") ?? "",
-    status: status as PatronTierStatus
+    ok: true,
+    input: {
+      worldId: getOptionalFormString(formData, "patron_world_id"),
+      title,
+      amountCents,
+      commitmentCadence,
+      periodDays,
+      earlyAccessWindowHours,
+      benefitsSummary: getOptionalFormString(formData, "patron_benefits_summary") ?? "",
+      status: status as PatronTierStatus
+    }
   };
 }
 
@@ -582,12 +625,14 @@ export async function transitionWorkshopProStateAction(formData: FormData): Prom
 
 export async function upsertWorkshopPatronTierConfigAction(formData: FormData): Promise<void> {
   const session = await requireSessionRoles("/workshop", ["creator"]);
-  const input = parseUpsertPatronTierConfigInput(formData);
-  if (!input) {
-    redirect("/workshop?patron_status=invalid_input");
+  const parsed = parseUpsertPatronTierConfigInput(formData);
+  if (!parsed.ok) {
+    redirect(
+      `/workshop?patron_status=invalid_input&patron_error=${encodeURIComponent(parsed.error)}`
+    );
   }
 
-  const config = await gateway.upsertWorkshopPatronTierConfig(session.accountId, input);
+  const config = await gateway.upsertWorkshopPatronTierConfig(session.accountId, parsed.input);
   if (!config) {
     redirect("/workshop?patron_status=save_failed");
   }

@@ -52,6 +52,7 @@ import type {
   OpsAnalyticsPanel,
   OwnedDrop,
   OwnershipHistoryEntry,
+  PatronCommitmentCadence,
   Patron,
   PatronTierConfig,
   PatronTierStatus,
@@ -193,6 +194,13 @@ const WORKSHOP_PRO_PROFILE_LOG_LIMIT = 2_000;
 const DEFAULT_PATRON_COMMITMENT_AMOUNT_CENTS = 500;
 const DEFAULT_PATRON_COMMITMENT_PERIOD_DAYS = 30;
 const DEFAULT_PATRON_TIER_TITLE = "studio patron";
+const PATRON_EARLY_ACCESS_WINDOW_HOURS_MIN = 1;
+const PATRON_EARLY_ACCESS_WINDOW_HOURS_MAX = 168;
+const PATRON_COMMITMENT_CADENCE_TO_PERIOD_DAYS: Record<PatronCommitmentCadence, number> = {
+  weekly: 7,
+  monthly: 30,
+  quarterly: 90
+};
 const WORKSHOP_PRO_GRACE_PERIOD_DAYS = 7;
 const WATCH_ACCESS_TOKEN_VERSION = 1 as const;
 const WATCH_ACCESS_TOKEN_DEFAULT_TTL_SECONDS = 300;
@@ -548,6 +556,30 @@ function resolvePatronCommitmentPeriodDays(): number {
   }
 
   return DEFAULT_PATRON_COMMITMENT_PERIOD_DAYS;
+}
+
+function isPatronCommitmentCadence(value: unknown): value is PatronCommitmentCadence {
+  return value === "weekly" || value === "monthly" || value === "quarterly";
+}
+
+function resolvePatronCommitmentPeriodDaysForCadence(cadence: PatronCommitmentCadence): number {
+  return PATRON_COMMITMENT_CADENCE_TO_PERIOD_DAYS[cadence] ?? DEFAULT_PATRON_COMMITMENT_PERIOD_DAYS;
+}
+
+function normalizePatronEarlyAccessWindowHours(value: number): number | null {
+  if (!Number.isFinite(value)) {
+    return null;
+  }
+
+  const normalized = Math.floor(value);
+  if (
+    normalized < PATRON_EARLY_ACCESS_WINDOW_HOURS_MIN ||
+    normalized > PATRON_EARLY_ACCESS_WINDOW_HOURS_MAX
+  ) {
+    return null;
+  }
+
+  return normalized;
 }
 
 function isPatronTierStatus(value: unknown): value is PatronTierStatus {
@@ -4012,7 +4044,9 @@ function toPatronTierConfig(config: PatronTierConfigRecord): PatronTierConfig {
     worldId: config.worldId,
     title: config.title,
     amountCents: config.amountCents,
+    commitmentCadence: config.commitmentCadence,
     periodDays: config.periodDays,
+    earlyAccessWindowHours: config.earlyAccessWindowHours,
     benefitsSummary: config.benefitsSummary,
     status: config.status,
     updatedAt: config.updatedAt,
@@ -6026,7 +6060,14 @@ const gatewayMethods: CommerceGateway = {
       }
 
       const amountCents = Math.floor(input.amountCents);
-      const periodDays = Math.floor(input.periodDays);
+      const submittedPeriodDays = Math.floor(input.periodDays);
+      const commitmentCadence = input.commitmentCadence;
+      const periodDays = isPatronCommitmentCadence(commitmentCadence)
+        ? resolvePatronCommitmentPeriodDaysForCadence(commitmentCadence)
+        : null;
+      const earlyAccessWindowHours = normalizePatronEarlyAccessWindowHours(
+        input.earlyAccessWindowHours
+      );
       const title = input.title.trim() || DEFAULT_PATRON_TIER_TITLE;
       const benefitsSummary = input.benefitsSummary.trim();
       if (!Number.isFinite(amountCents) || amountCents <= 0) {
@@ -6035,7 +6076,19 @@ const gatewayMethods: CommerceGateway = {
           result: null
         };
       }
-      if (!Number.isFinite(periodDays) || periodDays <= 0) {
+      if (!Number.isFinite(submittedPeriodDays) || submittedPeriodDays <= 0) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+      if (periodDays === null || submittedPeriodDays !== periodDays) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+      if (earlyAccessWindowHours === null) {
         return {
           persist: false,
           result: null
@@ -6059,7 +6112,9 @@ const gatewayMethods: CommerceGateway = {
         worldId,
         title,
         amountCents,
+        commitmentCadence,
         periodDays,
+        earlyAccessWindowHours,
         benefitsSummary,
         status: input.status,
         updatedAt: nowIso,
@@ -6068,7 +6123,9 @@ const gatewayMethods: CommerceGateway = {
 
       config.title = title;
       config.amountCents = amountCents;
+      config.commitmentCadence = commitmentCadence;
       config.periodDays = periodDays;
+      config.earlyAccessWindowHours = earlyAccessWindowHours;
       config.benefitsSummary = benefitsSummary;
       config.status = input.status;
       config.updatedAt = nowIso;

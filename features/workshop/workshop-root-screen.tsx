@@ -71,6 +71,12 @@ const DERIVATIVE_KIND_OPTIONS = [
 ] as const;
 const LIVE_SESSION_ARTIFACT_KIND_OPTIONS = ["highlight", "recording", "transcript"] as const;
 
+function toPatronCadenceLabel(cadence: PatronTierConfig["commitmentCadence"]): string {
+  if (cadence === "weekly") return "week";
+  if (cadence === "quarterly") return "quarter";
+  return "month";
+}
+
 export function WorkshopRootScreen({
   session,
   channelTitle,
@@ -540,14 +546,27 @@ export function WorkshopRootScreen({
           </label>
 
           <label className="slice-field">
-            period (days)
+            commitment cadence
+            <select
+              name="patron_commitment_cadence"
+              className="slice-select"
+              defaultValue="monthly"
+            >
+              <option value="weekly">weekly (7 days)</option>
+              <option value="monthly">monthly (30 days)</option>
+              <option value="quarterly">quarterly (90 days)</option>
+            </select>
+          </label>
+
+          <label className="slice-field">
+            early-access window (hours)
             <input
-              name="patron_period_days"
+              name="patron_early_access_window_hours"
               className="slice-input"
               required
               inputMode="numeric"
               pattern="[0-9]+"
-              defaultValue="30"
+              defaultValue="48"
             />
           </label>
 
@@ -587,7 +606,11 @@ export function WorkshopRootScreen({
                 <h2 className="slice-title">{config.title}</h2>
                 <p className="slice-copy">{config.benefitsSummary || "no summary provided."}</p>
                 <p className="slice-meta">
-                  {formatUsd(config.amountCents / 100)} every {config.periodDays} days
+                  {formatUsd(config.amountCents / 100)} every{" "}
+                  {toPatronCadenceLabel(config.commitmentCadence)} ({config.periodDays} days)
+                </p>
+                <p className="slice-meta">
+                  early-access window: {config.earlyAccessWindowHours} hours
                 </p>
                 <p className="slice-meta">
                   status: {config.status} · updated {new Date(config.updatedAt).toLocaleString()}

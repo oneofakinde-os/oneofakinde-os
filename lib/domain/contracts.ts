@@ -101,6 +101,7 @@ export type PatronRosterEntry = {
 };
 
 export type PatronTierStatus = "active" | "disabled";
+export type PatronCommitmentCadence = "weekly" | "monthly" | "quarterly";
 
 export type PatronTierConfig = {
   id: string;
@@ -108,7 +109,9 @@ export type PatronTierConfig = {
   worldId: string | null;
   title: string;
   amountCents: number;
+  commitmentCadence: PatronCommitmentCadence;
   periodDays: number;
+  earlyAccessWindowHours: number;
   benefitsSummary: string;
   status: PatronTierStatus;
   updatedAt: string;
@@ -119,7 +122,9 @@ export type UpsertWorkshopPatronTierConfigInput = {
   worldId: string | null;
   title: string;
   amountCents: number;
+  commitmentCadence: PatronCommitmentCadence;
   periodDays: number;
+  earlyAccessWindowHours: number;
   benefitsSummary: string;
   status: PatronTierStatus;
 };

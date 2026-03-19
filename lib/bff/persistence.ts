@@ -17,6 +17,7 @@ import type {
   LiveSessionEligibilityRule,
   LiveSessionType,
   MembershipEntitlementStatus,
+  PatronCommitmentCadence,
   PatronStatus,
   PatronTierStatus,
   PreviewPolicy,
@@ -182,7 +183,9 @@ export type PatronTierConfigRecord = {
   worldId: string | null;
   title: string;
   amountCents: number;
+  commitmentCadence: PatronCommitmentCadence;
   periodDays: number;
+  earlyAccessWindowHours: number;
   benefitsSummary: string;
   status: PatronTierStatus;
   updatedAt: string;
@@ -922,7 +925,9 @@ function createSeedDatabase(): BffDatabase {
         worldId: null,
         title: "studio patron",
         amountCents: 500,
+        commitmentCadence: "monthly",
         periodDays: 30,
+        earlyAccessWindowHours: 48,
         benefitsSummary: "studio patron support lane with world-level visibility.",
         status: "active",
         updatedAt: new Date(now.valueOf() - DAY_MS * 3).toISOString(),
@@ -1647,11 +1652,35 @@ function normalizePatronTierStatus(value: unknown): PatronTierStatus {
   return value === "disabled" ? "disabled" : "active";
 }
 
+function normalizePatronCommitmentCadence(value: unknown): PatronCommitmentCadence {
+  if (value === "weekly" || value === "monthly" || value === "quarterly") {
+    return value;
+  }
+
+  return "monthly";
+}
+
+function resolvePatronPeriodDaysForCadence(cadence: PatronCommitmentCadence): number {
+  if (cadence === "weekly") return 7;
+  if (cadence === "quarterly") return 90;
+  return 30;
+}
+
 function normalizePatronTierConfigRecords(
   records: PatronTierConfigRecord[]
 ): PatronTierConfigRecord[] {
   return records.map((record) => {
     const candidate = record as Partial<PatronTierConfigRecord>;
+    const commitmentCadence = normalizePatronCommitmentCadence(candidate.commitmentCadence);
+    const periodDaysFromRecord =
+      typeof candidate.periodDays === "number" && Number.isFinite(candidate.periodDays)
+        ? Math.max(1, Math.floor(candidate.periodDays))
+        : null;
+    const expectedPeriodDays = resolvePatronPeriodDaysForCadence(commitmentCadence);
+    const periodDays =
+      periodDaysFromRecord !== null && periodDaysFromRecord > 0
+        ? periodDaysFromRecord
+        : expectedPeriodDays;
 
     return {
       id:
@@ -1671,10 +1700,16 @@ function normalizePatronTierConfigRecords(
         typeof candidate.amountCents === "number" && Number.isFinite(candidate.amountCents)
           ? Math.max(1, Math.floor(candidate.amountCents))
           : 500,
+      commitmentCadence,
       periodDays:
-        typeof candidate.periodDays === "number" && Number.isFinite(candidate.periodDays)
-          ? Math.max(1, Math.floor(candidate.periodDays))
-          : 30,
+        periodDays === expectedPeriodDays
+          ? periodDays
+          : expectedPeriodDays,
+      earlyAccessWindowHours:
+        typeof candidate.earlyAccessWindowHours === "number" &&
+        Number.isFinite(candidate.earlyAccessWindowHours)
+          ? Math.min(168, Math.max(1, Math.floor(candidate.earlyAccessWindowHours)))
+          : 48,
       benefitsSummary: typeof candidate.benefitsSummary === "string" ? candidate.benefitsSummary : "",
       status: normalizePatronTierStatus(candidate.status),
       updatedAt:
@@ -3620,13 +3655,15 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       worldId: string | null;
       title: string;
       amountCents: string | number;
+      commitmentCadence: PatronCommitmentCadence;
       periodDays: string | number;
+      earlyAccessWindowHours: string | number;
       benefitsSummary: string;
       status: PatronTierStatus;
       updatedAt: string;
       updatedByHandle: string;
     }>(
-      'SELECT id, studio_handle AS "studioHandle", world_id AS "worldId", title, amount_cents AS "amountCents", period_days AS "periodDays", benefits_summary AS "benefitsSummary", status, updated_at AS "updatedAt", updated_by_handle AS "updatedByHandle" FROM bff_patron_tier_configs ORDER BY updated_at DESC'
+      'SELECT id, studio_handle AS "studioHandle", world_id AS "worldId", title, amount_cents AS "amountCents", commitment_cadence AS "commitmentCadence", period_days AS "periodDays", early_access_window_hours AS "earlyAccessWindowHours", benefits_summary AS "benefitsSummary", status, updated_at AS "updatedAt", updated_by_handle AS "updatedByHandle" FROM bff_patron_tier_configs ORDER BY updated_at DESC'
     ),
     client.query<{
       id: string;
@@ -3954,7 +3991,9 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
         worldId: row.worldId,
         title: row.title,
         amountCents: Number(row.amountCents),
+        commitmentCadence: row.commitmentCadence,
         periodDays: Number(row.periodDays),
+        earlyAccessWindowHours: Number(row.earlyAccessWindowHours),
         benefitsSummary: row.benefitsSummary,
         status: row.status,
         updatedAt: row.updatedAt,
@@ -4470,14 +4509,16 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
 
   for (const config of db.patronTierConfigs) {
     await client.query(
-      "INSERT INTO bff_patron_tier_configs (id, studio_handle, world_id, title, amount_cents, period_days, benefits_summary, status, updated_at, updated_by_handle) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+      "INSERT INTO bff_patron_tier_configs (id, studio_handle, world_id, title, amount_cents, commitment_cadence, period_days, early_access_window_hours, benefits_summary, status, updated_at, updated_by_handle) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
       [
         config.id,
         config.studioHandle,
         config.worldId,
         config.title,
         config.amountCents,
+        config.commitmentCadence,
         config.periodDays,
+        config.earlyAccessWindowHours,
         config.benefitsSummary,
         config.status,
         config.updatedAt,
