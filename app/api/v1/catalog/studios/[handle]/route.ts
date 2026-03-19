@@ -1,3 +1,4 @@
+import type { CatalogStudioResponse } from "@/lib/bff/contracts";
 import { commerceBffService } from "@/lib/bff/service";
 import { badRequest, getRequiredRouteParam, notFound, ok, type RouteContext } from "@/lib/bff/http";
 
@@ -16,5 +17,5 @@ export async function GET(_request: Request, context: RouteContext<Params>) {
     return notFound("studio not found");
   }
 
-  return ok({ studio });
+  return ok<CatalogStudioResponse>({ studio });
 }

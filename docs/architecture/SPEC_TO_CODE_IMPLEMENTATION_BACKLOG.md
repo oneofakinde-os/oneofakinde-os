@@ -1,7 +1,7 @@
 # Spec-to-Code Implementation Backlog (March 8 Authority)
 
 Date opened: 2026-03-17
-Current phase: Phase 1 complete; Phase 2 complete; Phase 3 in progress
+Current phase: Phase 1 complete; Phase 2 complete; Phase 3 complete; Phase 4 pending
 
 This backlog converts the March 8 authority pack into concrete file-level implementation work. Items are ordered by dependency, not convenience.
 
@@ -48,12 +48,12 @@ Goal: make `lib/domain/contracts.ts` match March 8 engineering reference.
 
 | Status | File | Change |
 | --- | --- | --- |
-| in_progress | `lib/domain/contracts.ts` | Add/extend `World`, `Drop`, `LiveSession` types with March 8 fields (`entryRule`, `lore`, `visibility`, `previewPolicy`, etc.). |
-| pending | `lib/bff/contracts.ts` | Align API payload contracts with updated domain types. |
-| in_progress | `lib/bff/service.ts` | Enforce visibility and entry-rule semantics in business logic and feed/search gating. |
-| in_progress | `lib/bff/persistence.ts` | Persist new fields and migration-safe defaults. |
-| pending | `config/00xx_*.sql` | Add migrations for new world/drop/live columns and constraints. |
-| in_progress | `lib/adapters/mock-commerce.ts` | Seed canonical fields and visibility scenarios for proofs/smoke tests. |
+| done | `lib/domain/contracts.ts` | Add/extend `World`, `Drop`, `LiveSession` types with March 8 fields (`entryRule`, `lore`, `visibility`, `previewPolicy`, etc.). |
+| done | `lib/bff/contracts.ts` | Align API payload contracts with updated domain types. |
+| done | `lib/bff/service.ts` | Enforce visibility and entry-rule semantics in business logic and feed/search gating. |
+| done | `lib/bff/persistence.ts` | Persist new fields and migration-safe defaults. |
+| done | `config/00xx_*.sql` | Add migrations for new world/drop/live columns and constraints. |
+| done | `lib/adapters/mock-commerce.ts` | Seed canonical fields and visibility scenarios for proofs/smoke tests. |
 
 ## Phase 4: API Contract Shape Alignment
 

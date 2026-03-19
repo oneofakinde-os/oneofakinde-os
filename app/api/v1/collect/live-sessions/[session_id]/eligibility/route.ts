@@ -1,3 +1,4 @@
+import type { CollectLiveSessionEligibilityResponse } from "@/lib/bff/contracts";
 import { getRequiredRouteParam, notFound, ok, type RouteContext } from "@/lib/bff/http";
 import { requireRequestSession } from "@/lib/bff/auth";
 import { commerceBffService } from "@/lib/bff/service";
@@ -29,7 +30,7 @@ export async function GET(
     return notFound("live session not found");
   }
 
-  return ok({
+  return ok<CollectLiveSessionEligibilityResponse>({
     eligibility
   });
 }
