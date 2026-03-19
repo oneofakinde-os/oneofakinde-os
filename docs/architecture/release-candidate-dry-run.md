@@ -121,6 +121,39 @@ disposition: ""
 notes: ""
 ```
 
+### Latest Evidence Snapshot (2026-03-19)
+
+```yaml
+run_id: "rc-2026-03-19-prod-01"
+launch_mode: "full-launch"
+base_url: "https://oneofakinde-os.vercel.app"
+git_sha: "93a2c3fd5db9a3c46fe15ee216592a11177b849c"
+executed_by: "@oneofakinde-os"
+executed_at_utc: "2026-03-19T07:12:31Z"
+report_path: "artifacts/release-candidate-dry-run.latest.json"
+workflow_run_url: "https://github.com/oneofakinde-os/oneofakinde-os/actions/runs/23283342377"
+evidence_links:
+  - "https://oneofakinde-nuimk6pc3-oneofakindes-projects.vercel.app"
+  - "https://github.com/oneofakinde-os/oneofakinde-os/actions/runs/23283342377/job/67701293550" # quality-gates
+  - "https://github.com/oneofakinde-os/oneofakinde-os/actions/runs/23283342377/job/67701293545" # security-audit
+  - "https://github.com/oneofakinde-os/oneofakinde-os/actions/runs/23283342377/job/67701293544" # secret-scan
+  - "https://github.com/oneofakinde-os/oneofakinde-os/actions/runs/23283342377/job/67701293529" # release-governance
+checks:
+  rc-01: { status: "PASS", evidence: "status ok + postgres backend confirmed" }
+  rc-02: { status: "PASS", evidence: "session created for acct_da7675a4-bb86-4bf2-8c8d-e7978b55d2c3" }
+  rc-03: { status: "PASS", evidence: "target drop stardust selected from 4 catalog drops" }
+  rc-04: { status: "PASS", evidence: "purchase completed with receipt rcpt_3df0ad1d-2708-4a1c-a354-149eb87ae45a" }
+  rc-05: { status: "PASS", evidence: "ownership confirmed for stardust" }
+  rc-06: { status: "PASS", evidence: "certificate cert_bb3e86cd-f610-4216-b2cb-15c00c3b7a98 resolved from receipt rcpt_3df0ad1d-2708-4a1c-a354-149eb87ae45a" }
+  rc-07: { status: "PASS", evidence: "watch entitlement returns true for owned drop" }
+  rc-08: { status: "PASS", evidence: "social persisted (comments=11, shares=20)" }
+  rc-09: { status: "PASS", evidence: "watch_time + completion + collect_intent accepted" }
+  rc-10: { status: "PASS", evidence: "node --import tsx --test tests/proofs/townhall-ui-contract.test.ts" }
+  rc-11: { status: "BLOCKED", evidence: "docs/architecture/townhall-immersive-qa-matrix.md has 9 TBD rows" }
+disposition: "BLOCKED"
+notes: "Automated gates are green (rc:verify, test:showroom:smoke, required CI checks). Freeze remains blocked until manual townhall matrix rows are completed as PASS."
+```
+
 ## Checklist IDs
 
 - `rc-01`: health endpoint returns `status=ok` + `backend=postgres`
