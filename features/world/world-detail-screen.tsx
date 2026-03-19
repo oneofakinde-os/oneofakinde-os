@@ -1,7 +1,13 @@
 import { AppShell } from "@/features/shell/app-shell";
 import { formatUsd } from "@/features/shared/format";
 import { sortDropsForWorldSurface } from "@/lib/catalog/drop-curation";
-import type { Drop, Session, World } from "@/lib/domain/contracts";
+import type {
+  Drop,
+  Session,
+  World,
+  WorldCollectBundleSnapshot,
+  WorldCollectUpgradePreview
+} from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
 import Link from "next/link";
 
@@ -9,6 +15,8 @@ type WorldDetailScreenProps = {
   world: World;
   drops: Drop[];
   session: Session | null;
+  worldCollectSnapshot: WorldCollectBundleSnapshot | null;
+  worldCollectFullWorldUpgradePreview: WorldCollectUpgradePreview | null;
 };
 
 const ENTRY_RULE_COPY: Record<NonNullable<World["entryRule"]>, string> = {
@@ -23,8 +31,15 @@ const DEFAULT_DROP_VISIBILITY_COPY: Record<NonNullable<World["defaultDropVisibil
   collectors_only: "collectors only"
 };
 
-export function WorldDetailScreen({ world, drops, session }: WorldDetailScreenProps) {
+export function WorldDetailScreen({
+  world,
+  drops,
+  session,
+  worldCollectSnapshot,
+  worldCollectFullWorldUpgradePreview
+}: WorldDetailScreenProps) {
   const orderedDrops = sortDropsForWorldSurface(drops);
+  const dropTitleById = new Map(drops.map((drop) => [drop.id, drop.title]));
   const entryRuleLabel = world.entryRule ? ENTRY_RULE_COPY[world.entryRule] : "not configured";
   const memberGatingState =
     world.entryRule === "membership"
@@ -37,6 +52,9 @@ export function WorldDetailScreen({ world, drops, session }: WorldDetailScreenPr
     : "inherit from world release defaults";
   const worldConversationHref = `/api/v1/worlds/${encodeURIComponent(world.id)}/conversation`;
   const patronRosterHref = `/api/v1/worlds/${encodeURIComponent(world.id)}/patron-roster`;
+  const worldCollectBundlesHref = `/api/v1/collect/worlds/${encodeURIComponent(world.id)}/bundles`;
+  const worldCollectUpgradePreviewHref = (bundleType: string) =>
+    `/api/v1/collect/worlds/${encodeURIComponent(world.id)}/upgrade-preview?target_bundle_type=${encodeURIComponent(bundleType)}`;
   const worldIdentityStyle = world.visualIdentity
     ? {
         backgroundColor: world.visualIdentity.colorPrimary,
@@ -141,6 +159,86 @@ export function WorldDetailScreen({ world, drops, session }: WorldDetailScreenPr
         <p className="slice-meta">
           conversation and patron roster rails require world membership or collect entitlement.
         </p>
+      </section>
+
+      <section className="slice-panel" data-testid="world-collect-contract">
+        <p className="slice-label">world collect ownership rails</p>
+        <p className="slice-copy">
+          bundle scope + upgrade credit are explicit so collectors can see included ownership before collecting.
+        </p>
+        {!session ? (
+          <>
+            <p className="slice-meta">sign in to view personalized bundle eligibility and upgrade credit.</p>
+            <div className="slice-button-row">
+              <Link href={routes.signIn(routes.world(world.id))} className="slice-button">
+                sign in for world collect
+              </Link>
+            </div>
+          </>
+        ) : !worldCollectSnapshot ? (
+          <>
+            <p className="slice-meta">world collect bundles are unavailable for this session.</p>
+            <div className="slice-button-row">
+              <a href={worldCollectBundlesHref} className="slice-button ghost">
+                open bundle contract
+              </a>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="slice-meta">
+              active ownership:{" "}
+              {worldCollectSnapshot.activeOwnership
+                ? `${worldCollectSnapshot.activeOwnership.bundleType.replaceAll("_", " ")} · paid ${formatUsd(worldCollectSnapshot.activeOwnership.amountPaidUsd)}`
+                : "none"}
+            </p>
+            {worldCollectFullWorldUpgradePreview ? (
+              <p className="slice-meta">
+                full-world upgrade:{" "}
+                {worldCollectFullWorldUpgradePreview.eligible
+                  ? `eligible · credit ${formatUsd(worldCollectFullWorldUpgradePreview.previousOwnershipCreditUsd)} · total ${formatUsd(worldCollectFullWorldUpgradePreview.totalUsd)}`
+                  : `not eligible (${worldCollectFullWorldUpgradePreview.eligibilityReason.replaceAll("_", " ")})`}
+              </p>
+            ) : null}
+            <ul className="slice-grid" aria-label="world collect bundle options">
+              {worldCollectSnapshot.bundles.map((entry) => {
+                const includedDropTitles = entry.ownershipScope.includedDropIds
+                  .map((dropId) => dropTitleById.get(dropId) ?? dropId)
+                  .join(", ");
+                return (
+                  <li key={entry.bundle.bundleType} className="slice-drop-card">
+                    <p className="slice-label">{entry.bundle.bundleType.replaceAll("_", " ")}</p>
+                    <h2 className="slice-title">{entry.bundle.title}</h2>
+                    <p className="slice-copy">{entry.bundle.synopsis}</p>
+                    <p className="slice-meta">
+                      {formatUsd(entry.bundle.priceUsd)} · {entry.ownershipScope.coverageLabel}
+                    </p>
+                    <p className="slice-meta">
+                      included drops: {includedDropTitles || "none currently published"}
+                    </p>
+                    <p className="slice-meta">
+                      upgrade state:{" "}
+                      {entry.upgradePreview.eligible
+                        ? `eligible · credit ${formatUsd(entry.upgradePreview.previousOwnershipCreditUsd)} · total ${formatUsd(entry.upgradePreview.totalUsd)}`
+                        : `blocked (${entry.upgradePreview.eligibilityReason.replaceAll("_", " ")})`}
+                    </p>
+                    <div className="slice-button-row">
+                      <a
+                        href={worldCollectUpgradePreviewHref(entry.bundle.bundleType)}
+                        className="slice-button ghost"
+                      >
+                        upgrade preview
+                      </a>
+                      <a href={worldCollectBundlesHref} className="slice-button alt">
+                        bundle contract
+                      </a>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
+        )}
       </section>
 
       <section className="slice-panel">

@@ -40,17 +40,23 @@ export async function GET(
     return badRequest("target_bundle_type is required");
   }
 
-  const preview = await commerceBffService.getCollectWorldUpgradePreview(
+  const snapshot = await commerceBffService.getCollectWorldBundlesForWorld(
     guard.session.accountId,
-    worldId,
-    bundleType
+    worldId
   );
-  if (!preview) {
-    return badRequest("world collect upgrade preview not found");
+  if (!snapshot) {
+    return badRequest("world collect bundles not found");
+  }
+
+  const option = snapshot.bundles.find(
+    (entry) => entry.bundle.bundleType === bundleType
+  );
+  if (!option) {
+    return badRequest("target_bundle_type is invalid");
   }
 
   return ok({
-    worldId,
-    preview
+    snapshot,
+    preview: option.upgradePreview
   });
 }

@@ -56,9 +56,14 @@ export async function POST(
     return badRequest("world bundle collect rejected");
   }
 
+  const snapshot = await commerceBffService.getCollectWorldBundlesForWorld(
+    guard.session.accountId,
+    worldId
+  );
+
   return ok(
     {
-      worldId,
+      snapshot,
       result: collected
     },
     201
