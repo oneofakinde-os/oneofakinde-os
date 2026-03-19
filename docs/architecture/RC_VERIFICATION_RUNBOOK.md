@@ -10,12 +10,15 @@ OOK_RC_BASE_URL=https://oneofakinde-os.vercel.app npm run rc:verify
 
 `rc:verify` runs, in order:
 
-1. `prepare:architecture`
-2. `test:proofs`
-3. `typecheck`
-4. `build`
-5. `release:governance`
-6. `rc:dry-run`
+1. `check:surface-sync`
+2. `lint:terminology`
+3. `check:api-shape`
+4. `prepare:architecture`
+5. `test:proofs`
+6. `typecheck`
+7. `build`
+8. `release:governance`
+9. `rc:dry-run`
 
 Any failure exits non-zero and blocks freeze.
 

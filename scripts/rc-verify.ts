@@ -7,12 +7,15 @@ type Step = {
 };
 
 const STEPS: Step[] = [
-  { id: "v-01", label: "prepare architecture", command: "npm run prepare:architecture" },
-  { id: "v-02", label: "proof tests", command: "npm run test:proofs" },
-  { id: "v-03", label: "typecheck", command: "npm run typecheck" },
-  { id: "v-04", label: "build", command: "npm run build" },
-  { id: "v-05", label: "release governance", command: "npm run release:governance" },
-  { id: "v-06", label: "release candidate dry run", command: "npm run rc:dry-run" }
+  { id: "v-01", label: "authority route map alignment", command: "npm run check:surface-sync" },
+  { id: "v-02", label: "authority terminology alignment", command: "npm run lint:terminology" },
+  { id: "v-03", label: "authority api-shape alignment", command: "npm run check:api-shape" },
+  { id: "v-04", label: "prepare architecture", command: "npm run prepare:architecture" },
+  { id: "v-05", label: "proof tests", command: "npm run test:proofs" },
+  { id: "v-06", label: "typecheck", command: "npm run typecheck" },
+  { id: "v-07", label: "build", command: "npm run build" },
+  { id: "v-08", label: "release governance", command: "npm run release:governance" },
+  { id: "v-09", label: "release candidate dry run", command: "npm run rc:dry-run" }
 ];
 
 type StepResult = {

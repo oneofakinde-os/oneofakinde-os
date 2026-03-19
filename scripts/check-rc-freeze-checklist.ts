@@ -143,9 +143,33 @@ function main() {
   }
 
   const rcDryRunDoc = readTextFile("docs/architecture/release-candidate-dry-run.md");
+  if (!rcDryRunDoc.includes("March 8 Traceability Matrix")) {
+    fail("release-candidate-dry-run.md missing March 8 Traceability Matrix section");
+  }
+  if (!rcDryRunDoc.includes("Evidence Capture Fields")) {
+    fail("release-candidate-dry-run.md missing Evidence Capture Fields section");
+  }
   for (const checkId of checklist.required_rc_checks) {
     if (!rcDryRunDoc.includes(`\`${checkId}\``)) {
       fail(`release-candidate-dry-run.md missing checklist id ${checkId}`);
+    }
+  }
+
+  const requiredEvidenceFields = [
+    "run_id",
+    "launch_mode",
+    "base_url",
+    "git_sha",
+    "executed_by",
+    "executed_at_utc",
+    "report_path",
+    "workflow_run_url",
+    "evidence_links",
+    "disposition"
+  ];
+  for (const field of requiredEvidenceFields) {
+    if (!rcDryRunDoc.includes(`\`${field}\``)) {
+      fail(`release-candidate-dry-run.md missing evidence capture field ${field}`);
     }
   }
 

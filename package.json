@@ -13,6 +13,7 @@
     "security:audit": "npm audit --audit-level=high --omit=dev",
     "check:feature-flags": "node --import tsx scripts/check-feature-flags-contract.ts",
     "check:freeze-checklist": "node --import tsx scripts/check-rc-freeze-checklist.ts",
+    "check:api-shape": "node --import tsx --test tests/proofs/showroom-lane-contract.test.ts tests/proofs/catalog-search-contract.test.ts tests/proofs/catalog-phase3-contract-routes.test.ts tests/proofs/taste-graph-isolation.test.ts",
     "release:governance": "npm run check:feature-flags && npm run check:freeze-checklist && node --import tsx scripts/check-release-governance.ts",
     "db:migrate:bff": "node --import tsx scripts/migrate-bff-postgres.ts",
     "db:dry-run:staging": "node --import tsx scripts/staging-postgres-dry-run.ts",

@@ -56,11 +56,20 @@ test("proof: rc freeze checklist contract aligns with required release checks", 
 });
 
 test("proof: rc runbook + governance scripts enforce one-click execution", async () => {
-  const [packageJsonText, runbookDoc, releaseGovernanceScript, freezeChecklistScript] = await Promise.all([
+  const [
+    packageJsonText,
+    runbookDoc,
+    releaseGovernanceScript,
+    freezeChecklistScript,
+    rcVerifyScript,
+    rcDryRunDoc
+  ] = await Promise.all([
     readRepoFile("package.json"),
     readRepoFile("docs/architecture/RC_VERIFICATION_RUNBOOK.md"),
     readRepoFile("scripts/check-release-governance.ts"),
-    readRepoFile("scripts/check-rc-freeze-checklist.ts")
+    readRepoFile("scripts/check-rc-freeze-checklist.ts"),
+    readRepoFile("scripts/rc-verify.ts"),
+    readRepoFile("docs/architecture/release-candidate-dry-run.md")
   ]);
 
   const packageJson = JSON.parse(packageJsonText) as {
@@ -69,13 +78,22 @@ test("proof: rc runbook + governance scripts enforce one-click execution", async
   const scripts = packageJson.scripts ?? {};
 
   assert.equal(typeof scripts["rc:verify"], "string");
+  assert.equal(typeof scripts["check:api-shape"], "string");
+  assert.match(scripts["check:api-shape"] ?? "", /taste-graph-isolation\.test\.ts/);
   assert.match(scripts["release:governance"] ?? "", /check:freeze-checklist/);
   assert.match(scripts["prepare:architecture"] ?? "", /check:freeze-checklist/);
   assert.match(runbookDoc, /npm run rc:verify/);
   assert.match(runbookDoc, /One-Click Command/i);
+  assert.match(runbookDoc, /check:surface-sync/);
+  assert.match(runbookDoc, /check:api-shape/);
   assert.match(releaseGovernanceScript, /config\/rc-freeze-checklist\.json/);
   assert.match(releaseGovernanceScript, /scripts\/check-rc-freeze-checklist\.ts/);
   assert.match(freezeChecklistScript, /release-candidate-dry-run\.md/);
+  assert.match(rcVerifyScript, /check:surface-sync/);
+  assert.match(rcVerifyScript, /lint:terminology/);
+  assert.match(rcVerifyScript, /check:api-shape/);
+  assert.match(rcDryRunDoc, /March 8 Traceability Matrix/);
+  assert.match(rcDryRunDoc, /Evidence Capture Fields/);
 });
 
 test("proof: rollout playbook and runbook docs are present in architecture index", async () => {

@@ -1,7 +1,7 @@
 # Spec-to-Code Implementation Backlog (March 8 Authority)
 
 Date opened: 2026-03-17
-Current phase: Phase 1 complete; Phase 2 complete; Phase 3 complete; Phase 4 complete; Phase 5 complete; Phase 6 complete; Phase 7 pending
+Current phase: Phase 1 complete; Phase 2 complete; Phase 3 complete; Phase 4 complete; Phase 5 complete; Phase 6 complete; Phase 7 complete
 
 This backlog converts the March 8 authority pack into concrete file-level implementation work. Items are ordered by dependency, not convenience.
 
@@ -97,9 +97,9 @@ Goal: prove compliance against launch checklist using staging evidence.
 
 | Status | File | Change |
 | --- | --- | --- |
-| pending | `docs/architecture/release-candidate-dry-run.md` | Update with March 8 checklist traceability links and evidence capture fields. |
-| pending | `scripts/rc-verify.ts` | Add authority-alignment checks (route map, terminology, API shape) to verification gate. |
-| pending | `tests/proofs/*.test.ts` | Add missing proofs called out by March 8 checklist (including taste-graph isolation checks if absent). |
+| done | `docs/architecture/release-candidate-dry-run.md` | Update with March 8 checklist traceability links and evidence capture fields. |
+| done | `scripts/rc-verify.ts` + `package.json` | Add authority-alignment checks (route map, terminology, API shape) to verification gate. |
+| done | `tests/proofs/taste-graph-isolation.test.ts` + `tests/proofs/rc-governance-execution.test.ts` | Add missing proofs called out by March 8 checklist (including taste-graph isolation checks). |
 
 ## Working Rules
 
