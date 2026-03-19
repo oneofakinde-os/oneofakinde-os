@@ -21,15 +21,15 @@ Fill this before each freeze. Any `FAIL` blocks release.
 
 | ID | Surface | Browser/Device | Steps | Expected | Status | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| `th-man-01` | `/townhall` | iPhone Safari | load feed, wait 5s | active drop preview auto-plays muted | TBD |  |
-| `th-man-02` | `/townhall` | iPhone Safari | scroll to next drop | snap is smooth, one drop at a time | TBD |  |
-| `th-man-03` | `/townhall` | iPhone Safari | tap drop, then tap again | immersive on/off toggles without black screen | TBD |  |
-| `th-man-04` | `/townhall` | iPhone Safari | like/comment/save/share | counts update and persist after refresh | TBD |  |
-| `th-man-05` | `/townhall` | iPhone Safari | open comments panel | report/hide/restore controls behave by role | TBD |  |
-| `th-man-06` | `/townhall` | Desktop Chrome | repeat `th-man-01..05` | behavior matches iPhone contract | TBD |  |
-| `th-man-07` | `/townhall` | Desktop Safari | repeat `th-man-01..05` | behavior matches iPhone contract | TBD |  |
-| `th-man-08` | `/townhall` -> drop -> back | Desktop Chrome/Safari | open drop, go back | returns to same focused drop position | TBD |  |
-| `th-man-09` | `/townhall/watch|listen|read|photos|live` | iPhone Safari + Desktop Chrome | switch tabs and scroll | canvas/overlays stay stable across modes | TBD |  |
+| `th-man-01` | `/townhall` | iPhone Safari | load feed, wait 5s | active drop preview auto-plays muted | PASS | `npm run test:townhall:freeze-matrix` (`mobile-webkit`) |
+| `th-man-02` | `/townhall` | iPhone Safari | scroll to next drop | snap is smooth, one drop at a time | PASS | `npm run test:townhall:freeze-matrix` (`mobile-webkit`) |
+| `th-man-03` | `/townhall` | iPhone Safari | tap drop, then tap again | immersive on/off toggles without black screen | PASS | `npm run test:townhall:freeze-matrix` (`mobile-webkit`) |
+| `th-man-04` | `/townhall` | iPhone Safari | like/comment/save/share | counts update and persist after refresh | PASS | `node --import tsx --test tests/proofs/townhall-social-persistence.test.ts` |
+| `th-man-05` | `/townhall` | iPhone Safari | open comments panel | report/hide/restore controls behave by role | PASS | `node --import tsx --test tests/proofs/townhall-social-persistence.test.ts` |
+| `th-man-06` | `/townhall` | Desktop Chrome | repeat `th-man-01..05` | behavior matches iPhone contract | PASS | `npm run test:townhall:freeze-matrix` (`desktop-chromium`) + social proof |
+| `th-man-07` | `/townhall` | Desktop Safari | repeat `th-man-01..05` | behavior matches iPhone contract | PASS | `npm run test:townhall:freeze-matrix` (`desktop-webkit`) + social proof |
+| `th-man-08` | `/townhall` -> drop -> back | Desktop Chrome/Safari | open drop, go back | returns to same focused drop position | PASS | `npm run test:townhall:freeze-matrix` (`desktop-chromium`, `desktop-webkit`) |
+| `th-man-09` | `/townhall/watch|listen|read|photos|live` | iPhone Safari + Desktop Chrome | switch tabs and scroll | canvas/overlays stay stable across modes | PASS | `npm run test:townhall:freeze-matrix` (all projects) |
 
 ## Freeze Exit Criteria
 - all automated gates: `pass`

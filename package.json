@@ -26,6 +26,7 @@
     "rc:verify": "node --import tsx scripts/rc-verify.ts",
     "generate:policy-tests": "node --import tsx scripts/generate-route-policy-tests.ts",
     "check:surface-sync": "node --import tsx scripts/check-surface-route-sync.ts",
+    "test:townhall:freeze-matrix": "playwright test --config=playwright.freeze.config.ts",
     "test:smoke:showroom": "playwright test --config=playwright.config.ts",
     "test:showroom:smoke": "playwright test --config=playwright.config.ts"
   },
