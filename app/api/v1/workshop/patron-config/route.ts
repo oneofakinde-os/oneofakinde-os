@@ -2,6 +2,7 @@ import { requireRequestSession } from "@/lib/bff/auth";
 import { badRequest, forbidden, ok, safeJson } from "@/lib/bff/http";
 import { commerceBffService } from "@/lib/bff/service";
 import type {
+  PatronCommitmentCadence,
   PatronTierStatus,
   UpsertWorkshopPatronTierConfigInput
 } from "@/lib/domain/contracts";
@@ -10,7 +11,9 @@ type PostWorkshopPatronConfigBody = {
   worldId?: string | null;
   title?: string;
   amountCents?: number | string;
+  commitmentCadence?: string;
   periodDays?: number | string;
+  earlyAccessWindowHours?: number | string;
   benefitsSummary?: string;
   status?: string;
 };
@@ -50,6 +53,16 @@ function isPatronTierStatus(value: unknown): value is PatronTierStatus {
   return value === "active" || value === "disabled";
 }
 
+function isPatronCommitmentCadence(value: unknown): value is PatronCommitmentCadence {
+  return value === "weekly" || value === "monthly" || value === "quarterly";
+}
+
+function toPatronCommitmentPeriodDays(cadence: PatronCommitmentCadence): number {
+  if (cadence === "weekly") return 7;
+  if (cadence === "quarterly") return 90;
+  return 30;
+}
+
 function parseUpsertInput(
   body: Record<string, unknown> | null
 ):
@@ -77,11 +90,31 @@ function parseUpsertInput(
     };
   }
 
-  const periodDays = parsePositiveInteger(body?.periodDays);
-  if (!periodDays) {
+  const commitmentCadenceRaw = normalizeOptionalBodyString(body, "commitmentCadence");
+  if (!commitmentCadenceRaw || !isPatronCommitmentCadence(commitmentCadenceRaw)) {
     return {
       ok: false,
-      response: badRequest("periodDays must be a positive integer")
+      response: badRequest("commitmentCadence must be one of: weekly, monthly, quarterly")
+    };
+  }
+
+  const periodDays = toPatronCommitmentPeriodDays(commitmentCadenceRaw);
+  const hasPeriodDays = Object.prototype.hasOwnProperty.call(body ?? {}, "periodDays");
+  if (hasPeriodDays) {
+    const submittedPeriodDays = parsePositiveInteger(body?.periodDays);
+    if (!submittedPeriodDays || submittedPeriodDays !== periodDays) {
+      return {
+        ok: false,
+        response: badRequest("periodDays must align with commitmentCadence")
+      };
+    }
+  }
+
+  const earlyAccessWindowHours = parsePositiveInteger(body?.earlyAccessWindowHours);
+  if (!earlyAccessWindowHours || earlyAccessWindowHours > 168) {
+    return {
+      ok: false,
+      response: badRequest("earlyAccessWindowHours must be an integer between 1 and 168")
     };
   }
 
@@ -99,7 +132,9 @@ function parseUpsertInput(
       worldId: normalizeOptionalBodyString(body, "worldId"),
       title,
       amountCents,
+      commitmentCadence: commitmentCadenceRaw,
       periodDays,
+      earlyAccessWindowHours,
       benefitsSummary: normalizeOptionalBodyString(body, "benefitsSummary") ?? "",
       status: statusRaw
     }

@@ -27,6 +27,7 @@ type WorkshopPageProps = {
     derivative_id?: string | string[];
     patron_status?: string | string[];
     patron_config_id?: string | string[];
+    patron_error?: string | string[];
     artifact_status?: string | string[];
     artifact_id?: string | string[];
     pro_status?: string | string[];
@@ -198,7 +199,11 @@ function toReleaseNotice(releaseStatus: string | null, releaseId: string | null)
   return "workshop world release queue updated.";
 }
 
-function toPatronNotice(patronStatus: string | null, patronConfigId: string | null): string | null {
+function toPatronNotice(
+  patronStatus: string | null,
+  patronConfigId: string | null,
+  patronError: string | null
+): string | null {
   if (!patronStatus) {
     return null;
   }
@@ -210,7 +215,25 @@ function toPatronNotice(patronStatus: string | null, patronConfigId: string | nu
   }
 
   if (patronStatus === "invalid_input") {
-    return "patron tier config failed: check title, amount, period, and status.";
+    if (patronError === "title") {
+      return "patron tier config failed: title is required.";
+    }
+    if (patronError === "amount") {
+      return "patron tier config failed: amount must be a positive integer.";
+    }
+    if (patronError === "cadence") {
+      return "patron tier config failed: cadence must be weekly, monthly, or quarterly.";
+    }
+    if (patronError === "period") {
+      return "patron tier config failed: period must align with the selected cadence.";
+    }
+    if (patronError === "early_access") {
+      return "patron tier config failed: early-access window must be between 1 and 168 hours.";
+    }
+    if (patronError === "status") {
+      return "patron tier config failed: status must be active or disabled.";
+    }
+    return "patron tier config failed: check title, amount, cadence, early-access window, and status.";
   }
 
   if (patronStatus === "save_failed") {
@@ -316,6 +339,7 @@ export default async function WorkshopPage({ searchParams }: WorkshopPageProps) 
   const derivativeId = firstParam(resolvedSearchParams.derivative_id);
   const patronStatus = firstParam(resolvedSearchParams.patron_status);
   const patronConfigId = firstParam(resolvedSearchParams.patron_config_id);
+  const patronError = firstParam(resolvedSearchParams.patron_error);
   const artifactStatus = firstParam(resolvedSearchParams.artifact_status);
   const artifactId = firstParam(resolvedSearchParams.artifact_id);
   const proStatus = firstParam(resolvedSearchParams.pro_status);
@@ -367,7 +391,7 @@ export default async function WorkshopPage({ searchParams }: WorkshopPageProps) 
       releaseNotice={toReleaseNotice(releaseStatus, releaseId)}
       versionNotice={toVersionNotice(versionStatus, versionId)}
       derivativeNotice={toDerivativeNotice(derivativeStatus, derivativeId)}
-      patronNotice={toPatronNotice(patronStatus, patronConfigId)}
+      patronNotice={toPatronNotice(patronStatus, patronConfigId, patronError)}
       artifactNotice={toArtifactNotice(artifactStatus, artifactId)}
       proNotice={toProNotice(proStatus, proState)}
       moderationNotice={toModerationNotice(moderationStatus, moderationCommentId)}

@@ -28,6 +28,7 @@ import type {
   MyCollectionSnapshot,
   OwnedDrop,
   OpsAnalyticsPanel,
+  PatronCommitmentCadence,
   PatronTierConfig,
   PatronTierStatus,
   PurchaseReceipt,
@@ -139,6 +140,16 @@ const LIVE_SESSION_ARTIFACT_KINDS = new Set<LiveSessionArtifactKind>([
   "transcript",
   "highlight"
 ]);
+const PATRON_COMMITMENT_CADENCE_SET = new Set<PatronCommitmentCadence>([
+  "weekly",
+  "monthly",
+  "quarterly"
+]);
+const PATRON_COMMITMENT_CADENCE_TO_PERIOD_DAYS: Record<PatronCommitmentCadence, number> = {
+  weekly: 7,
+  monthly: 30,
+  quarterly: 90
+};
 const PATRON_TIER_STATUS_SET = new Set<PatronTierStatus>(["active", "disabled"]);
 const WORKSHOP_PRO_STATES = new Set<WorkshopProState>(["active", "past_due", "grace", "locked"]);
 
@@ -402,7 +413,9 @@ function createInitialStore(): MockStore {
       worldId: null,
       title: "studio patron",
       amountCents: 500,
+      commitmentCadence: "monthly",
       periodDays: 30,
+      earlyAccessWindowHours: 48,
       benefitsSummary: "studio patron support lane with world-level visibility.",
       status: "active",
       updatedAt: "2026-02-10T12:00:00.000Z",
@@ -1026,7 +1039,9 @@ function toPatronTierConfig(config: PatronTierConfigRecord): PatronTierConfig {
     worldId: config.worldId,
     title: config.title,
     amountCents: config.amountCents,
+    commitmentCadence: config.commitmentCadence,
     periodDays: config.periodDays,
+    earlyAccessWindowHours: config.earlyAccessWindowHours,
     benefitsSummary: config.benefitsSummary,
     status: config.status,
     updatedAt: config.updatedAt,
@@ -1075,10 +1090,23 @@ function upsertWorkshopPatronTierConfigRecord(
 
   const amountCents = Math.floor(input.amountCents);
   const periodDays = Math.floor(input.periodDays);
+  const commitmentCadence = input.commitmentCadence;
+  const earlyAccessWindowHours = Math.floor(input.earlyAccessWindowHours);
+  if (!PATRON_COMMITMENT_CADENCE_SET.has(commitmentCadence)) {
+    return null;
+  }
+  const expectedPeriodDays = PATRON_COMMITMENT_CADENCE_TO_PERIOD_DAYS[commitmentCadence];
   if (!Number.isFinite(amountCents) || amountCents <= 0) {
     return null;
   }
-  if (!Number.isFinite(periodDays) || periodDays <= 0) {
+  if (!Number.isFinite(periodDays) || periodDays <= 0 || periodDays !== expectedPeriodDays) {
+    return null;
+  }
+  if (
+    !Number.isFinite(earlyAccessWindowHours) ||
+    earlyAccessWindowHours < 1 ||
+    earlyAccessWindowHours > 168
+  ) {
     return null;
   }
 
@@ -1098,7 +1126,9 @@ function upsertWorkshopPatronTierConfigRecord(
     worldId,
     title,
     amountCents,
+    commitmentCadence,
     periodDays,
+    earlyAccessWindowHours,
     benefitsSummary: input.benefitsSummary.trim(),
     status: input.status,
     updatedAt: nowIso,
@@ -1107,7 +1137,9 @@ function upsertWorkshopPatronTierConfigRecord(
 
   record.title = title;
   record.amountCents = amountCents;
+  record.commitmentCadence = commitmentCadence;
   record.periodDays = periodDays;
+  record.earlyAccessWindowHours = earlyAccessWindowHours;
   record.benefitsSummary = input.benefitsSummary.trim();
   record.status = input.status;
   record.updatedAt = nowIso;

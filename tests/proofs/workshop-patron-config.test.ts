@@ -52,7 +52,9 @@ test("proof: workshop patron config controls patron commitment terms with world/
         worldId: null,
         title: "studio patron core",
         amountCents: 1299,
-        periodDays: 45,
+        commitmentCadence: "monthly",
+        periodDays: 30,
+        earlyAccessWindowHours: 72,
         benefitsSummary: "studio-wide patron support lane",
         status: "active"
       })
@@ -71,7 +73,9 @@ test("proof: workshop patron config controls patron commitment terms with world/
         worldId: "dark-matter",
         title: "dark matter patron",
         amountCents: 2599,
-        periodDays: 60,
+        commitmentCadence: "quarterly",
+        periodDays: 90,
+        earlyAccessWindowHours: 24,
         benefitsSummary: "dark matter world patron lane",
         status: "active"
       })
@@ -125,8 +129,33 @@ test("proof: workshop patron config controls patron commitment terms with world/
   const worldPeriodDays = Math.round(
     (Date.parse(worldCommitment.periodEnd) - Date.parse(worldCommitment.periodStart)) / DAY_MS
   );
-  assert.equal(studioPeriodDays, 45);
-  assert.equal(worldPeriodDays, 60);
+  assert.equal(studioPeriodDays, 30);
+  assert.equal(worldPeriodDays, 90);
+
+  const configsResponse = await getWorkshopPatronConfigRoute(
+    new Request("http://127.0.0.1:3000/api/v1/workshop/patron-config", {
+      headers: {
+        "x-ook-session-token": creatorSession.sessionToken
+      }
+    })
+  );
+  assert.equal(configsResponse.status, 200);
+  const configsPayload = await parseJson<{
+    configs: Array<{
+      worldId: string | null;
+      commitmentCadence: "weekly" | "monthly" | "quarterly";
+      periodDays: number;
+      earlyAccessWindowHours: number;
+    }>;
+  }>(configsResponse);
+  const studioConfig = configsPayload.configs.find((config) => config.worldId === null);
+  const worldConfig = configsPayload.configs.find((config) => config.worldId === "dark-matter");
+  assert.equal(studioConfig?.commitmentCadence, "monthly");
+  assert.equal(studioConfig?.periodDays, 30);
+  assert.equal(studioConfig?.earlyAccessWindowHours, 72);
+  assert.equal(worldConfig?.commitmentCadence, "quarterly");
+  assert.equal(worldConfig?.periodDays, 90);
+  assert.equal(worldConfig?.earlyAccessWindowHours, 24);
 });
 
 test("proof: workshop patron config routes enforce creator role and avoid regressions", async (t) => {
@@ -144,6 +173,10 @@ test("proof: workshop patron config routes enforce creator role and avoid regres
     email: `collector-no-creator-${randomUUID()}@oneofakinde.test`,
     role: "collector"
   });
+  const creatorSession = await commerceBffService.createSession({
+    email: `creator-${randomUUID()}@oneofakinde.test`,
+    role: "creator"
+  });
 
   const forbiddenResponse = await postWorkshopPatronConfigRoute(
     new Request("http://127.0.0.1:3000/api/v1/workshop/patron-config", {
@@ -155,7 +188,9 @@ test("proof: workshop patron config routes enforce creator role and avoid regres
       body: JSON.stringify({
         title: "invalid",
         amountCents: 700,
+        commitmentCadence: "monthly",
         periodDays: 30,
+        earlyAccessWindowHours: 48,
         benefitsSummary: "n/a",
         status: "active"
       })
@@ -171,6 +206,73 @@ test("proof: workshop patron config routes enforce creator role and avoid regres
     })
   );
   assert.equal(configGetForbidden.status, 403);
+
+  const invalidCadenceResponse = await postWorkshopPatronConfigRoute(
+    new Request("http://127.0.0.1:3000/api/v1/workshop/patron-config", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-ook-session-token": creatorSession.sessionToken
+      },
+      body: JSON.stringify({
+        title: "invalid cadence",
+        amountCents: 700,
+        commitmentCadence: "yearly",
+        earlyAccessWindowHours: 48,
+        status: "active"
+      })
+    })
+  );
+  assert.equal(invalidCadenceResponse.status, 400);
+  const invalidCadencePayload = await parseJson<{ error: string }>(invalidCadenceResponse);
+  assert.equal(
+    invalidCadencePayload.error,
+    "commitmentCadence must be one of: weekly, monthly, quarterly"
+  );
+
+  const invalidPeriodResponse = await postWorkshopPatronConfigRoute(
+    new Request("http://127.0.0.1:3000/api/v1/workshop/patron-config", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-ook-session-token": creatorSession.sessionToken
+      },
+      body: JSON.stringify({
+        title: "invalid period",
+        amountCents: 900,
+        commitmentCadence: "weekly",
+        periodDays: 30,
+        earlyAccessWindowHours: 48,
+        status: "active"
+      })
+    })
+  );
+  assert.equal(invalidPeriodResponse.status, 400);
+  const invalidPeriodPayload = await parseJson<{ error: string }>(invalidPeriodResponse);
+  assert.equal(invalidPeriodPayload.error, "periodDays must align with commitmentCadence");
+
+  const invalidEarlyAccessResponse = await postWorkshopPatronConfigRoute(
+    new Request("http://127.0.0.1:3000/api/v1/workshop/patron-config", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-ook-session-token": creatorSession.sessionToken
+      },
+      body: JSON.stringify({
+        title: "invalid early access",
+        amountCents: 900,
+        commitmentCadence: "monthly",
+        earlyAccessWindowHours: 240,
+        status: "active"
+      })
+    })
+  );
+  assert.equal(invalidEarlyAccessResponse.status, 400);
+  const invalidEarlyAccessPayload = await parseJson<{ error: string }>(invalidEarlyAccessResponse);
+  assert.equal(
+    invalidEarlyAccessPayload.error,
+    "earlyAccessWindowHours must be an integer between 1 and 168"
+  );
 
   const collectInventory = await getCollectInventoryRoute(
     new Request("http://127.0.0.1:3000/api/v1/collect/inventory?lane=all", {
