@@ -23,7 +23,13 @@ import type {
   DropLineageSnapshot,
   DropVersion,
   DropVersionLabel,
+  LibraryEligibilitySnapshot,
   LibraryDrop,
+  LibraryQueueItem,
+  LibraryQueueProgressState,
+  LibraryRecallDelta,
+  LibraryRecallState,
+  LibrarySavedDrop,
   LibrarySnapshot,
   LedgerTransaction,
   LiveSession,
@@ -113,6 +119,7 @@ import {
   type DropVersionRecord,
   type CollectEnforcementSignalRecord,
   type CollectOfferRecord,
+  type LibraryEligibilityStateRecord,
   type LedgerLineItemRecord,
   type LedgerTransactionRecord,
   type LiveSessionRecord,
@@ -191,6 +198,8 @@ const LIVE_SESSION_PUBLIC_RELEASE_DELAY_MINUTES_MIN = 1440;
 const WATCH_TELEMETRY_LOG_LIMIT_DEFAULT = 50;
 const WATCH_TELEMETRY_LOG_LIMIT_MIN = 1;
 const WATCH_TELEMETRY_LOG_LIMIT_MAX = 200;
+const LIBRARY_QUEUE_DEFAULT_LIMIT = 24;
+const LIBRARY_QUEUE_MAX_LIMIT = 200;
 
 const COLLECT_ENFORCEMENT_SIGNAL_TYPES: CollectEnforcementSignalType[] = [
   "invalid_listing_action_blocked",
@@ -871,6 +880,191 @@ function getSavedDrops(db: BffDatabase, accountId: string): LibraryDrop[] {
     })
     .filter((entry): entry is LibraryDrop => entry !== null)
     .sort((a, b) => Date.parse(b.savedAt) - Date.parse(a.savedAt));
+}
+
+type LibraryModeSurface = "read" | "listen";
+
+const LIBRARY_QUEUE_STATE_WEIGHT: Record<LibraryQueueProgressState, number> = {
+  in_progress: 0,
+  pending: 1,
+  completed: 2
+};
+
+function normalizeLibraryQueueLimit(value?: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return LIBRARY_QUEUE_DEFAULT_LIMIT;
+  }
+
+  return Math.min(LIBRARY_QUEUE_MAX_LIMIT, Math.max(1, Math.floor(value)));
+}
+
+function toLibraryRecallDelta(
+  previousState: LibraryRecallState | null,
+  nextState: LibraryRecallState
+): LibraryRecallDelta {
+  if (!previousState) {
+    return "initial";
+  }
+
+  if (previousState === nextState) {
+    return "stable";
+  }
+
+  const previousUnlocked = previousState === "unlocked" || previousState === "owned";
+  const nextUnlocked = nextState === "unlocked" || nextState === "owned";
+  if (!previousUnlocked && nextUnlocked) {
+    return "unlocked";
+  }
+  if (previousUnlocked && !nextUnlocked) {
+    return "relocked";
+  }
+
+  return "changed";
+}
+
+function evaluateLibraryEligibilitySnapshot(
+  db: BffDatabase,
+  account: AccountRecord,
+  drop: Drop,
+  previousState: LibraryRecallState | null,
+  evaluatedAt: string
+): LibraryEligibilitySnapshot {
+  const hasEntitlement = Boolean(findOwnershipByDrop(db, account.id, drop.id));
+  const canDiscover = canAccountDiscoverDrop(db, account, drop);
+  const canCollectNow = canAccountCollectDropNow(db, account, drop);
+  const state: LibraryRecallState = hasEntitlement
+    ? "owned"
+    : canDiscover && canCollectNow
+      ? "unlocked"
+      : canDiscover
+        ? "scheduled"
+        : "gated";
+
+  return {
+    state,
+    delta: toLibraryRecallDelta(previousState, state),
+    previousState,
+    canDiscover,
+    canCollectNow,
+    hasEntitlement,
+    evaluatedAt
+  };
+}
+
+function summarizeLibraryModeResume(
+  db: BffDatabase,
+  accountId: string,
+  dropId: string,
+  mode: LibraryModeSurface
+): LibraryQueueItem["resume"] {
+  const relevantEvents = db.townhallTelemetryEvents.filter(
+    (entry) =>
+      entry.accountId === accountId &&
+      entry.dropId === dropId &&
+      entry.metadata?.surface === mode
+  );
+
+  let completionPercent = 0;
+  let consumedSeconds = 0;
+  let positionHint: number | null = null;
+  let lastActivityAt: string | null = null;
+  let hasActivity = false;
+  let hasCompletionSignal = false;
+
+  for (const event of relevantEvents) {
+    hasActivity = true;
+    if (!lastActivityAt || parseIsoTime(event.occurredAt) > parseIsoTime(lastActivityAt)) {
+      lastActivityAt = event.occurredAt;
+    }
+
+    completionPercent = Math.max(
+      completionPercent,
+      Number.isFinite(event.completionPercent) ? event.completionPercent : 0
+    );
+
+    if (event.eventType === "watch_time" || event.eventType === "drop_dwell_time") {
+      consumedSeconds += Math.max(0, Number(event.watchTimeSeconds) || 0);
+    }
+
+    if (typeof event.metadata?.position === "number" && Number.isFinite(event.metadata.position)) {
+      positionHint = Math.max(positionHint ?? 0, Math.max(1, Math.floor(event.metadata.position)));
+    }
+
+    if (
+      (event.eventType === "completion" || event.eventType === "access_complete") &&
+      (event.completionPercent >= 100 || event.metadata?.action === "complete")
+    ) {
+      hasCompletionSignal = true;
+    }
+  }
+
+  const normalizedCompletionPercent = Math.min(100, Math.max(0, Math.round(completionPercent)));
+  const progressState: LibraryQueueProgressState = hasCompletionSignal || normalizedCompletionPercent >= 100
+    ? "completed"
+    : hasActivity
+      ? "in_progress"
+      : "pending";
+  const normalizedConsumedSeconds = Number(consumedSeconds.toFixed(2));
+
+  const resumeLabel =
+    progressState === "completed"
+      ? mode === "read"
+        ? "read complete"
+        : "listen complete"
+      : mode === "read"
+        ? positionHint !== null
+          ? `resume at section ${positionHint}`
+          : hasActivity
+            ? "resume where you left off"
+            : "start reading"
+        : normalizedConsumedSeconds > 0
+          ? `resume at ${Math.floor(normalizedConsumedSeconds)}s`
+          : hasActivity
+            ? "resume playback"
+            : "start listening";
+
+  return {
+    completionPercent: normalizedCompletionPercent,
+    progressState,
+    lastActivityAt,
+    resumeLabel,
+    progressLabel: `${normalizedCompletionPercent}% complete`,
+    consumedSeconds: normalizedConsumedSeconds,
+    positionHint
+  };
+}
+
+function rankLibraryQueue(
+  items: Array<Omit<LibraryQueueItem, "queuePosition">>,
+  limit: number
+): LibraryQueueItem[] {
+  return [...items]
+    .sort((left, right) => {
+      const leftStateWeight = LIBRARY_QUEUE_STATE_WEIGHT[left.resume.progressState] ?? 99;
+      const rightStateWeight = LIBRARY_QUEUE_STATE_WEIGHT[right.resume.progressState] ?? 99;
+      if (leftStateWeight !== rightStateWeight) {
+        return leftStateWeight - rightStateWeight;
+      }
+
+      const leftActivityRank = left.resume.lastActivityAt ? parseIsoTime(left.resume.lastActivityAt) : 0;
+      const rightActivityRank = right.resume.lastActivityAt ? parseIsoTime(right.resume.lastActivityAt) : 0;
+      if (leftActivityRank !== rightActivityRank) {
+        return rightActivityRank - leftActivityRank;
+      }
+
+      const leftSavedRank = parseIsoTime(left.savedAt);
+      const rightSavedRank = parseIsoTime(right.savedAt);
+      if (leftSavedRank !== rightSavedRank) {
+        return rightSavedRank - leftSavedRank;
+      }
+
+      return left.drop.id.localeCompare(right.drop.id);
+    })
+    .slice(0, limit)
+    .map((item, index) => ({
+      ...item,
+      queuePosition: index + 1
+    }));
 }
 
 function toLatestTimestamp(values: Array<string | null | undefined>): string {
@@ -5202,7 +5396,12 @@ const gatewayMethods: CommerceGateway = {
     });
   },
 
-  async getLibrary(accountId: string): Promise<LibrarySnapshot | null> {
+  async getLibrary(
+    accountId: string,
+    options?: {
+      queueLimit?: number;
+    }
+  ): Promise<LibrarySnapshot | null> {
     return withDatabase(async (db) => {
       const account = findAccountById(db, accountId);
       if (!account) {
@@ -5212,15 +5411,79 @@ const gatewayMethods: CommerceGateway = {
         };
       }
 
+      const savedDrops = getSavedDrops(db, account.id);
+      const queueLimit = normalizeLibraryQueueLimit(options?.queueLimit);
+      const evaluatedAt = new Date().toISOString();
+      const savedDropIds = new Set(savedDrops.map((entry) => entry.drop.id));
+
+      const beforePruneCount = db.libraryEligibilityStates.length;
+      db.libraryEligibilityStates = db.libraryEligibilityStates.filter(
+        (entry) => entry.accountId !== account.id || savedDropIds.has(entry.dropId)
+      );
+      let persist = beforePruneCount !== db.libraryEligibilityStates.length;
+
+      const savedDropsWithEligibility: LibrarySavedDrop[] = [];
+      const readQueueCandidates: Array<Omit<LibraryQueueItem, "queuePosition">> = [];
+      const listenQueueCandidates: Array<Omit<LibraryQueueItem, "queuePosition">> = [];
+
+      for (const entry of savedDrops) {
+        const existingEligibility = db.libraryEligibilityStates.find(
+          (record) => record.accountId === account.id && record.dropId === entry.drop.id
+        );
+        const previousState = existingEligibility?.state ?? null;
+        const eligibility = evaluateLibraryEligibilitySnapshot(
+          db,
+          account,
+          entry.drop,
+          previousState,
+          evaluatedAt
+        );
+
+        if (!existingEligibility) {
+          db.libraryEligibilityStates.push({
+            accountId: account.id,
+            dropId: entry.drop.id,
+            state: eligibility.state,
+            updatedAt: evaluatedAt
+          } satisfies LibraryEligibilityStateRecord);
+          persist = true;
+        } else if (existingEligibility.state !== eligibility.state) {
+          existingEligibility.state = eligibility.state;
+          existingEligibility.updatedAt = evaluatedAt;
+          persist = true;
+        }
+
+        savedDropsWithEligibility.push({
+          ...entry,
+          eligibility
+        });
+
+        readQueueCandidates.push({
+          drop: entry.drop,
+          savedAt: entry.savedAt,
+          eligibility,
+          resume: summarizeLibraryModeResume(db, account.id, entry.drop.id, "read")
+        });
+
+        listenQueueCandidates.push({
+          drop: entry.drop,
+          savedAt: entry.savedAt,
+          eligibility,
+          resume: summarizeLibraryModeResume(db, account.id, entry.drop.id, "listen")
+        });
+      }
+
       return {
-        persist: false,
+        persist,
         result: {
           account: {
             accountId: account.id,
             handle: account.handle,
             displayName: account.displayName
           },
-          savedDrops: getSavedDrops(db, account.id)
+          savedDrops: savedDropsWithEligibility,
+          readQueue: rankLibraryQueue(readQueueCandidates, queueLimit),
+          listenQueue: rankLibraryQueue(listenQueueCandidates, queueLimit)
         }
       };
     });

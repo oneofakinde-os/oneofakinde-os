@@ -1899,9 +1899,65 @@ export const commerceGateway: CommerceGateway = {
     return getMyCollectionAnalyticsPanelForAccount(account);
   },
 
-  async getLibrary(accountId: string): Promise<LibrarySnapshot | null> {
+  async getLibrary(
+    accountId: string,
+    _options?: {
+      queueLimit?: number;
+    }
+  ): Promise<LibrarySnapshot | null> {
+    void _options;
     const account = store.accounts.get(accountId);
     if (!account) return null;
+
+    const ownedDropIds = new Set(getOwnedDrops(accountId).map((entry) => entry.drop.id));
+    const evaluatedAt = new Date().toISOString();
+    const savedDrops = getSavedDrops(accountId).map((entry) => {
+      const hasEntitlement = ownedDropIds.has(entry.drop.id);
+      const state: "owned" | "unlocked" = hasEntitlement ? "owned" : "unlocked";
+      return {
+        ...entry,
+        eligibility: {
+          state,
+          delta: "initial" as const,
+          previousState: null,
+          canDiscover: true,
+          canCollectNow: true,
+          hasEntitlement,
+          evaluatedAt
+        }
+      };
+    });
+
+    const readQueue = savedDrops.map((entry, index) => ({
+      drop: entry.drop,
+      savedAt: entry.savedAt,
+      queuePosition: index + 1,
+      eligibility: entry.eligibility,
+      resume: {
+        completionPercent: 0,
+        progressState: "pending" as const,
+        lastActivityAt: null,
+        resumeLabel: "start reading",
+        progressLabel: "0% complete",
+        consumedSeconds: 0,
+        positionHint: null
+      }
+    }));
+    const listenQueue = savedDrops.map((entry, index) => ({
+      drop: entry.drop,
+      savedAt: entry.savedAt,
+      queuePosition: index + 1,
+      eligibility: entry.eligibility,
+      resume: {
+        completionPercent: 0,
+        progressState: "pending" as const,
+        lastActivityAt: null,
+        resumeLabel: "start listening",
+        progressLabel: "0% complete",
+        consumedSeconds: 0,
+        positionHint: null
+      }
+    }));
 
     return {
       account: {
@@ -1909,7 +1965,9 @@ export const commerceGateway: CommerceGateway = {
         handle: account.handle,
         displayName: account.displayName
       },
-      savedDrops: getSavedDrops(accountId)
+      savedDrops,
+      readQueue,
+      listenQueue
     };
   },
 

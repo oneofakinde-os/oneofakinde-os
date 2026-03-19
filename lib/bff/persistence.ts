@@ -9,6 +9,7 @@ import type {
   DropVisibilitySource,
   DropVersionLabel,
   Drop,
+  LibraryRecallState,
   LedgerTransaction,
   LiveSessionAudienceEligibility,
   LiveSessionArtifactStatus,
@@ -76,6 +77,13 @@ export type SavedDropRecord = {
   accountId: string;
   dropId: string;
   savedAt: string;
+};
+
+export type LibraryEligibilityStateRecord = {
+  accountId: string;
+  dropId: string;
+  state: LibraryRecallState;
+  updatedAt: string;
 };
 
 export type CertificateRecord = Certificate & {
@@ -417,6 +425,7 @@ export type BffDatabase = {
   sessions: SessionRecord[];
   ownerships: OwnedDropRecord[];
   savedDrops: SavedDropRecord[];
+  libraryEligibilityStates: LibraryEligibilityStateRecord[];
   receipts: PurchaseReceipt[];
   certificates: CertificateRecord[];
   receiptBadges: ReceiptBadgeRecord[];
@@ -860,6 +869,7 @@ function createSeedDatabase(): BffDatabase {
         savedAt: new Date(now.valueOf() - DAY_MS * 3).toISOString()
       }
     ],
+    libraryEligibilityStates: [],
     receipts: [seededReceipt],
     certificates: [seededCertificate],
     receiptBadges: [],
@@ -1170,6 +1180,7 @@ function createCatalogSeedDatabase(): BffDatabase {
     sessions: [],
     ownerships: [],
     savedDrops: [],
+    libraryEligibilityStates: [],
     receipts: [],
     certificates: [],
     receiptBadges: [],
@@ -1215,6 +1226,7 @@ function createEmptyDatabase(): BffDatabase {
     sessions: [],
     ownerships: [],
     savedDrops: [],
+    libraryEligibilityStates: [],
     receipts: [],
     certificates: [],
     receiptBadges: [],
@@ -1263,6 +1275,7 @@ function isValidDb(input: unknown): input is BffDatabase {
     Array.isArray(candidate.sessions) &&
     Array.isArray(candidate.ownerships) &&
     Array.isArray(candidate.savedDrops) &&
+    Array.isArray(candidate.libraryEligibilityStates) &&
     Array.isArray(candidate.receipts) &&
     Array.isArray(candidate.certificates) &&
     Array.isArray(candidate.receiptBadges) &&
@@ -1324,6 +1337,7 @@ function hasLegacyBaseDbShape(input: unknown): input is Omit<
   | "authorizedDerivatives"
   | "ledgerTransactions"
   | "ledgerLineItems"
+  | "libraryEligibilityStates"
   | "receiptBadges"
 > {
   if (!input || typeof input !== "object") {
@@ -1344,6 +1358,34 @@ function hasLegacyBaseDbShape(input: unknown): input is Omit<
     Array.isArray(candidate.certificates) &&
     Array.isArray(candidate.payments)
   );
+}
+
+function normalizeLibraryRecallState(value: unknown): LibraryRecallState {
+  if (value === "gated" || value === "scheduled" || value === "unlocked" || value === "owned") {
+    return value;
+  }
+
+  return "gated";
+}
+
+function normalizeLibraryEligibilityStateRecords(
+  records: LibraryEligibilityStateRecord[]
+): LibraryEligibilityStateRecord[] {
+  return records.map((record) => {
+    const candidate = record as Partial<LibraryEligibilityStateRecord> & {
+      state?: unknown;
+    };
+
+    return {
+      accountId: typeof candidate.accountId === "string" ? candidate.accountId : "",
+      dropId: typeof candidate.dropId === "string" ? candidate.dropId : "",
+      state: normalizeLibraryRecallState(candidate.state),
+      updatedAt:
+        typeof candidate.updatedAt === "string" && candidate.updatedAt.trim()
+          ? candidate.updatedAt
+          : new Date().toISOString()
+    };
+  });
 }
 
 function normalizeTownhallTelemetryMetadata(value: unknown): TownhallTelemetryMetadata {
@@ -2787,6 +2829,9 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
       },
       watchAccessGrants: normalizeWatchAccessGrantRecords(input.watchAccessGrants),
       watchSessions: normalizeWatchSessionRecords(input.watchSessions),
+      libraryEligibilityStates: normalizeLibraryEligibilityStateRecords(
+        input.libraryEligibilityStates
+      ),
       receiptBadges: normalizeReceiptBadgeRecords(input.receiptBadges),
       membershipEntitlements: normalizeMembershipEntitlementRecords(input.membershipEntitlements),
       patrons: normalizePatronRecords(input.patrons),
@@ -2836,6 +2881,11 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         : [],
       watchSessions: Array.isArray(candidate.watchSessions)
         ? normalizeWatchSessionRecords(candidate.watchSessions as WatchSessionRecord[])
+        : [],
+      libraryEligibilityStates: Array.isArray(candidate.libraryEligibilityStates)
+        ? normalizeLibraryEligibilityStateRecords(
+            candidate.libraryEligibilityStates as LibraryEligibilityStateRecord[]
+          )
         : [],
       receiptBadges: Array.isArray(candidate.receiptBadges)
         ? normalizeReceiptBadgeRecords(candidate.receiptBadges as ReceiptBadgeRecord[])
@@ -3639,6 +3689,12 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     sessions: sessionsResult.rows,
     ownerships: ownershipsResult.rows,
     savedDrops: savedDropsResult.rows,
+    libraryEligibilityStates: normalizeLibraryEligibilityStateRecords(
+      parseMetaJsonValue<LibraryEligibilityStateRecord[]>(
+        meta.get("library_eligibility_states_json"),
+        []
+      )
+    ),
     receipts: receiptsResult.rows.map((row) => ({
       id: row.id,
       accountId: row.accountId,
@@ -3967,6 +4023,10 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
   `);
 
   await client.query("INSERT INTO bff_meta (key, value) VALUES ($1, $2)", ["version", String(db.version)]);
+  await client.query("INSERT INTO bff_meta (key, value) VALUES ($1, $2)", [
+    "library_eligibility_states_json",
+    JSON.stringify(db.libraryEligibilityStates)
+  ]);
   await client.query("INSERT INTO bff_meta (key, value) VALUES ($1, $2)", [
     "drop_versions_json",
     JSON.stringify(db.dropVersions)
