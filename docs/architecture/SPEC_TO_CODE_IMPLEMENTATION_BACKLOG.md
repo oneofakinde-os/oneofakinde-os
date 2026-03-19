@@ -1,7 +1,7 @@
 # Spec-to-Code Implementation Backlog (March 8 Authority)
 
 Date opened: 2026-03-17
-Current phase: Phase 1 complete; Phase 2 complete; Phase 3 complete; Phase 4 complete; Phase 5 complete; Phase 6 complete; Phase 7 complete; Phase 8 complete; Phase 9 complete; Phase 10 complete; Phase 11 complete; Phase 12 complete
+Current phase: Phase 1 complete; Phase 2 complete; Phase 3 complete; Phase 4 complete; Phase 5 complete; Phase 6 complete; Phase 7 complete; Phase 8 complete; Phase 9 complete; Phase 10 complete; Phase 11 complete; Phase 12 complete; Phase 13 complete
 
 This backlog converts the March 8 authority pack into concrete file-level implementation work. Items are ordered by dependency, not convenience.
 
@@ -162,6 +162,17 @@ Goal: satisfy the conversation law (`report → case → decision → appeal`) f
 | done | `app/api/v1/live-sessions/[session_id]/conversation/[message_id]/*` | Add report/appeal/resolve endpoints for live-session chat messages. |
 | done | `app/api/v1/workshop/moderation/live-session-conversation/*` | Add creator moderation queue and case resolution routes for live-session conversation messages. |
 | done | `tests/proofs/live-session-conversation-rails.test.ts` | Extend proof coverage with report, moderation decision, appeal, workshop queue, and case-resolution behavior. |
+
+## Phase 13: Live Session Opening Release + Attendee-First Edition Ordering (Full Launch)
+
+Goal: close Section 5.2 by adding explicit in-session drop release rails, pre-public attendee collect gating, and hard proof coverage for attendee-first edition ordering.
+
+| Status | File | Change |
+| --- | --- | --- |
+| done | `lib/bff/service.ts` | Add public release-time collect gating, explicit workshop live-session drop release mutation, and attendee-only pre-release collect enforcement. |
+| done | `app/api/v1/workshop/live-sessions/[session_id]/release-drop/route.ts` | Add creator-only explicit release endpoint with minimum 24h public release delay validation. |
+| done | `app/api/v1/live-sessions/[session_id]/collect/[drop_id]/route.ts` | Bind live-session collect completion to session-scoped collect entitlement context. |
+| done | `tests/proofs/live-session-opening-release.test.ts` | Add proof for in-session release, non-attendee pre-release collect denial, delayed public collect availability, and attendee-first edition positions. |
 
 ## Working Rules
 

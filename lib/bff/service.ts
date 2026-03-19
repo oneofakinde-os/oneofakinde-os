@@ -179,6 +179,7 @@ const LIVE_SESSION_JOIN_TOKEN_MAX_TTL_SECONDS = 86_400;
 const LIVE_SESSION_EXCLUSIVE_WINDOW_HOURS_DEFAULT = 2;
 const LIVE_SESSION_EXCLUSIVE_WINDOW_HOURS_MIN = 1;
 const LIVE_SESSION_EXCLUSIVE_WINDOW_HOURS_MAX = 48;
+const LIVE_SESSION_PUBLIC_RELEASE_DELAY_MINUTES_MIN = 1440;
 const WATCH_TELEMETRY_LOG_LIMIT_DEFAULT = 50;
 const WATCH_TELEMETRY_LOG_LIMIT_MIN = 1;
 const WATCH_TELEMETRY_LOG_LIMIT_MAX = 200;
@@ -1031,6 +1032,24 @@ function resolveDropVisibility(drop: Drop): "public" | "world_members" | "collec
 }
 
 function canAccountDiscoverDrop(db: BffDatabase, account: AccountRecord | null, drop: Drop): boolean {
+  const nowMs = resolveCurrentTimeMs();
+  const releaseAtMs = parseDropReleaseAtMs(drop);
+  if (releaseAtMs !== null && nowMs < releaseAtMs) {
+    if (!account) {
+      return false;
+    }
+
+    if (account.roles.includes("creator") && account.handle === drop.studioHandle) {
+      return true;
+    }
+
+    if (findOwnershipByDrop(db, account.id, drop.id)) {
+      return true;
+    }
+
+    return false;
+  }
+
   const visibility = resolveDropVisibility(drop);
   if (visibility === "public") {
     return true;
@@ -3020,6 +3039,110 @@ function parseIsoTimestamp(value: string): number | null {
   return parsed;
 }
 
+function resolveCurrentTimeMs(): number {
+  const nowMsRaw = process.env.OOK_TEST_NOW_MS;
+  if (typeof nowMsRaw === "string" && nowMsRaw.trim().length > 0) {
+    const parsedNowMs = Number(nowMsRaw);
+    if (Number.isFinite(parsedNowMs) && parsedNowMs > 0) {
+      return Math.floor(parsedNowMs);
+    }
+  }
+
+  const nowIsoRaw = process.env.OOK_TEST_NOW_ISO;
+  if (typeof nowIsoRaw === "string" && nowIsoRaw.trim().length > 0) {
+    const parsedNowIso = Date.parse(nowIsoRaw);
+    if (Number.isFinite(parsedNowIso)) {
+      return parsedNowIso;
+    }
+  }
+
+  return Date.now();
+}
+
+function parseDropReleaseAtMs(drop: Drop): number | null {
+  if (typeof drop.releaseAt !== "string" || drop.releaseAt.trim().length === 0) {
+    return null;
+  }
+
+  const parsed = Date.parse(drop.releaseAt);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+
+  return parsed;
+}
+
+function findLatestLiveSessionForExclusiveDropCollect(
+  db: BffDatabase,
+  dropId: string
+): LiveSessionRecord | null {
+  const candidates = db.liveSessions
+    .filter(
+      (liveSession) =>
+        liveSession.exclusiveDropWindowDropId === dropId || liveSession.dropId === dropId
+    )
+    .sort((a, b) => parseIsoTime(b.startsAt) - parseIsoTime(a.startsAt));
+
+  return candidates[0] ?? null;
+}
+
+function canAccountCollectDropDuringExclusiveLiveSessionWindow(
+  db: BffDatabase,
+  account: AccountRecord,
+  drop: Drop,
+  nowMs: number,
+  liveSessionId?: string | null
+): boolean {
+  const liveSession = liveSessionId
+    ? db.liveSessions.find((entry) => entry.id === liveSessionId) ?? null
+    : findLatestLiveSessionForExclusiveDropCollect(db, drop.id);
+  if (!liveSession) {
+    return false;
+  }
+
+  if (liveSession.dropId !== drop.id && liveSession.exclusiveDropWindowDropId !== drop.id) {
+    return false;
+  }
+
+  if (isLiveSessionExclusiveWindowClosed(liveSession, nowMs)) {
+    return false;
+  }
+
+  return hasLiveSessionAttendance(db, liveSession.id, account.id);
+}
+
+function canAccountCollectDropNow(
+  db: BffDatabase,
+  account: AccountRecord,
+  drop: Drop,
+  options?: {
+    nowMs?: number;
+    liveSessionId?: string | null;
+  }
+): boolean {
+  const nowMs = options?.nowMs ?? resolveCurrentTimeMs();
+  const releaseAtMs = parseDropReleaseAtMs(drop);
+  if (releaseAtMs === null || nowMs >= releaseAtMs) {
+    return true;
+  }
+
+  if (account.roles.includes("creator") && account.handle === drop.studioHandle) {
+    return true;
+  }
+
+  if (findOwnershipByDrop(db, account.id, drop.id)) {
+    return true;
+  }
+
+  return canAccountCollectDropDuringExclusiveLiveSessionWindow(
+    db,
+    account,
+    drop,
+    nowMs,
+    options?.liveSessionId
+  );
+}
+
 function isMembershipEntitlementActive(
   entitlement: MembershipEntitlementRecord,
   nowMs = Date.now()
@@ -3752,6 +3875,103 @@ function createWorkshopLiveSessionInDatabase(
   };
 }
 
+function releaseWorkshopLiveSessionDropInDatabase(
+  db: BffDatabase,
+  accountId: string,
+  liveSessionId: string,
+  input: {
+    dropId: string;
+    publicReleaseDelayMinutes?: number | null;
+  }
+): {
+  persist: boolean;
+  result: LiveSession | null;
+} {
+  const account = findAccountById(db, accountId);
+  if (!account || !account.roles.includes("creator")) {
+    return {
+      persist: false,
+      result: null
+    };
+  }
+
+  const liveSession = db.liveSessions.find((entry) => entry.id === liveSessionId) ?? null;
+  if (!liveSession || liveSession.studioHandle !== account.handle) {
+    return {
+      persist: false,
+      result: null
+    };
+  }
+
+  const dropId = input.dropId.trim();
+  if (!dropId) {
+    return {
+      persist: false,
+      result: null
+    };
+  }
+
+  const drop = findDropById(db, dropId);
+  if (!drop || drop.studioHandle !== account.handle) {
+    return {
+      persist: false,
+      result: null
+    };
+  }
+
+  if (liveSession.worldId && drop.worldId !== liveSession.worldId) {
+    return {
+      persist: false,
+      result: null
+    };
+  }
+
+  const nowMs = resolveCurrentTimeMs();
+  if (!isLiveSessionActiveNow(liveSession, nowMs) || isLiveSessionExclusiveWindowClosed(liveSession, nowMs)) {
+    return {
+      persist: false,
+      result: null
+    };
+  }
+
+  const configuredDelayMinutes =
+    typeof input.publicReleaseDelayMinutes === "number" &&
+    Number.isFinite(input.publicReleaseDelayMinutes)
+      ? Math.floor(input.publicReleaseDelayMinutes)
+      : LIVE_SESSION_PUBLIC_RELEASE_DELAY_MINUTES_MIN;
+  if (configuredDelayMinutes < LIVE_SESSION_PUBLIC_RELEASE_DELAY_MINUTES_MIN) {
+    return {
+      persist: false,
+      result: null
+    };
+  }
+
+  const exclusiveWindowEndMs = getLiveSessionExclusiveWindowEndMs(liveSession);
+  if (!Number.isFinite(exclusiveWindowEndMs)) {
+    return {
+      persist: false,
+      result: null
+    };
+  }
+
+  const publicReleaseAtMs = exclusiveWindowEndMs + configuredDelayMinutes * 60 * 1000;
+  if (!Number.isFinite(publicReleaseAtMs)) {
+    return {
+      persist: false,
+      result: null
+    };
+  }
+
+  liveSession.dropId = drop.id;
+  liveSession.exclusiveDropWindowDropId = drop.id;
+  drop.releaseAt = new Date(publicReleaseAtMs).toISOString();
+
+  return {
+    persist: true,
+    result: toLiveSession(db, liveSession)
+  };
+}
+
 function listWorkshopLiveSessionArtifactsInDatabase(
   db: BffDatabase,
   account: AccountRecord
@@ -4302,6 +4522,87 @@ function createSubmittedOfferRecord(input: {
   };
 }
 
+function purchaseDropInDatabase(
+  db: BffDatabase,
+  accountId: string,
+  dropId: string,
+  options?: {
+    liveSessionId?: string | null;
+  }
+): {
+  persist: boolean;
+  result: PurchaseReceipt | null;
+} {
+  const account = findAccountById(db, accountId);
+  const drop = findDropById(db, dropId);
+  if (!account || !drop) {
+    return {
+      persist: false,
+      result: null
+    };
+  }
+
+  if (
+    !canAccountCollectDropNow(db, account, drop, {
+      liveSessionId: options?.liveSessionId ?? null
+    })
+  ) {
+    return {
+      persist: false,
+      result: null
+    };
+  }
+
+  const existing = findOwnershipByDrop(db, account.id, drop.id);
+  if (existing) {
+    const existingReceipt = db.receipts.find((entry) => entry.id === existing.receiptId) ?? null;
+    return {
+      persist: false,
+      result: existingReceipt
+        ? buildReceiptWithSettlement(db, existingReceipt)
+        : {
+            id: existing.receiptId,
+            accountId: account.id,
+            dropId: drop.id,
+            amountUsd: 0,
+            subtotalUsd: 0,
+            processingUsd: 0,
+            commissionUsd: 0,
+            payoutUsd: 0,
+            quoteEngineVersion: "quote_engine_v1",
+            ledgerTransactionId: null,
+            lineItems: [],
+            status: "already_owned",
+            purchasedAt: existing.acquiredAt
+          }
+    };
+  }
+
+  const quote = resolveCollectQuote(db, drop);
+  const receipt = issueOwnershipAndReceipt(db, account, drop, {
+    quote
+  });
+
+  db.payments.unshift({
+    id: `pay_${randomUUID()}`,
+    provider: "manual",
+    status: "succeeded",
+    accountId: account.id,
+    dropId: drop.id,
+    amountUsd: quote.totalUsd,
+    quote,
+    currency: "USD",
+    receiptId: receipt.id,
+    createdAt: receipt.purchasedAt,
+    updatedAt: receipt.purchasedAt
+  });
+
+  return {
+    persist: true,
+    result: receipt
+  };
+}
+
 const gatewayMethods: CommerceGateway = {
   async listDrops(viewerAccountId?: string | null): Promise<Drop[]> {
     return withDatabase(async (db) => ({
@@ -4407,6 +4708,13 @@ const gatewayMethods: CommerceGateway = {
         };
       }
 
+      if (!canAccountCollectDropNow(db, account, drop)) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
       const existing = findOwnershipByDrop(db, account.id, drop.id);
       const quote = existing
         ? buildCollectSettlementQuote({ subtotalUsd: 0, processingUsd: 0 })
@@ -4449,65 +4757,11 @@ const gatewayMethods: CommerceGateway = {
   },
 
   async purchaseDrop(accountId: string, dropId: string): Promise<PurchaseReceipt | null> {
-    return withDatabase(async (db) => {
-      const account = findAccountById(db, accountId);
-      const drop = findDropById(db, dropId);
-      if (!account || !drop) {
-        return {
-          persist: false,
-          result: null
-        };
-      }
-
-      const existing = findOwnershipByDrop(db, account.id, drop.id);
-      if (existing) {
-        const existingReceipt = db.receipts.find((entry) => entry.id === existing.receiptId) ?? null;
-        return {
-          persist: false,
-          result: existingReceipt
-            ? buildReceiptWithSettlement(db, existingReceipt)
-            : {
-                id: existing.receiptId,
-                accountId: account.id,
-                dropId: drop.id,
-                amountUsd: 0,
-                subtotalUsd: 0,
-                processingUsd: 0,
-                commissionUsd: 0,
-                payoutUsd: 0,
-                quoteEngineVersion: "quote_engine_v1",
-                ledgerTransactionId: null,
-                lineItems: [],
-                status: "already_owned",
-                purchasedAt: existing.acquiredAt
-              }
-        };
-      }
-
-      const quote = resolveCollectQuote(db, drop);
-      const receipt = issueOwnershipAndReceipt(db, account, drop, {
-        quote
-      });
-
-      db.payments.unshift({
-        id: `pay_${randomUUID()}`,
-        provider: "manual",
-        status: "succeeded",
-        accountId: account.id,
-        dropId: drop.id,
-        amountUsd: quote.totalUsd,
-        quote,
-        currency: "USD",
-        receiptId: receipt.id,
-        createdAt: receipt.purchasedAt,
-        updatedAt: receipt.purchasedAt
-      });
-
-      return {
-        persist: true,
-        result: receipt
-      };
-    });
+    return withDatabase(async (db) =>
+      purchaseDropInDatabase(db, accountId, dropId, {
+        liveSessionId: null
+      })
+    );
   },
 
   async getMyCollection(accountId: string): Promise<MyCollectionSnapshot | null> {
@@ -5151,6 +5405,13 @@ async function createCheckoutSessionForPayment(
       };
     }
 
+    if (!canAccountCollectDropNow(db, account, drop)) {
+      return {
+        persist: false,
+        result: null
+      };
+    }
+
     const existing = findOwnershipByDrop(db, account.id, drop.id);
     if (existing) {
       return {
@@ -5262,6 +5523,13 @@ async function completePendingPaymentById(
       };
     }
 
+    if (!canAccountCollectDropNow(db, account, drop)) {
+      return {
+        persist: false,
+        result: null
+      };
+    }
+
     const existing = findOwnershipByDrop(db, payment.accountId, payment.dropId);
     if (existing) {
       payment.status = "succeeded";
@@ -5331,6 +5599,18 @@ function completePaymentByLookupInDatabase(
   const account = findAccountById(db, payment.accountId);
   const drop = findDropById(db, payment.dropId);
   if (!account || !drop) {
+    payment.status = "failed";
+    return {
+      persist: true,
+      result: {
+        received: true,
+        effect: "payment_failed",
+        paymentId: payment.id
+      }
+    };
+  }
+
+  if (!canAccountCollectDropNow(db, account, drop)) {
     payment.status = "failed";
     return {
       persist: true,
@@ -5480,6 +5760,31 @@ export const commerceBffService = {
   ...gatewayMethods,
 
   createCheckoutSession: createCheckoutSessionForPayment,
+
+  async purchaseDropViaLiveSession(
+    accountId: string,
+    dropId: string,
+    liveSessionId: string
+  ): Promise<PurchaseReceipt | null> {
+    return withDatabase(async (db) =>
+      purchaseDropInDatabase(db, accountId, dropId, {
+        liveSessionId
+      })
+    );
+  },
+
+  async releaseWorkshopLiveSessionDrop(
+    accountId: string,
+    liveSessionId: string,
+    input: {
+      dropId: string;
+      publicReleaseDelayMinutes?: number | null;
+    }
+  ): Promise<LiveSession | null> {
+    return withDatabase(async (db) =>
+      releaseWorkshopLiveSessionDropInDatabase(db, accountId, liveSessionId, input)
+    );
+  },
 
   async completePendingPayment(paymentId: string): Promise<PurchaseReceipt | null> {
     return completePendingPaymentById(paymentId, {
