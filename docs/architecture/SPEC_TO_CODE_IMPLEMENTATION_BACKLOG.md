@@ -1,7 +1,7 @@
 # Spec-to-Code Implementation Backlog (March 8 Authority)
 
 Date opened: 2026-03-17
-Current phase: Phase 1 complete; Phase 2 complete; Phase 3 complete; Phase 4 complete; Phase 5 complete; Phase 6 complete; Phase 7 complete; Phase 8 complete; Phase 9 complete; Phase 10 complete; Phase 11 complete
+Current phase: Phase 1 complete; Phase 2 complete; Phase 3 complete; Phase 4 complete; Phase 5 complete; Phase 6 complete; Phase 7 complete; Phase 8 complete; Phase 9 complete; Phase 10 complete; Phase 11 complete; Phase 12 complete
 
 This backlog converts the March 8 authority pack into concrete file-level implementation work. Items are ordered by dependency, not convenience.
 
@@ -150,6 +150,18 @@ Goal: satisfy Section 5.1 conversation requirement with a `live_session_id`-scop
 | done | `lib/bff/persistence.ts` + `lib/bff/service.ts` | Add persisted live-session conversation message rail and eligibility/active-window access gating. |
 | done | `app/api/v1/live-sessions/[session_id]/conversation/route.ts` | Add GET/POST API for live-session thread retrieval and message creation with strict validation. |
 | done | `tests/proofs/live-session-conversation-rails.test.ts` | Add proof coverage for session-scoped visibility, active-window enforcement, threaded replies, and payload privacy guardrails. |
+
+## Phase 12: Live Session Conversation Moderation + Reporting Rails (Full Launch)
+
+Goal: satisfy the conversation law (`report → case → decision → appeal`) for `live_session_id` chat threads, with creator moderation queue parity.
+
+| Status | File | Change |
+| --- | --- | --- |
+| done | `lib/domain/contracts.ts` | Add live-session conversation moderation resolution, queue item, and case resolve result contracts. |
+| done | `lib/bff/service.ts` | Add live-session conversation report/appeal/resolve methods plus creator moderation queue and case resolution flows. |
+| done | `app/api/v1/live-sessions/[session_id]/conversation/[message_id]/*` | Add report/appeal/resolve endpoints for live-session chat messages. |
+| done | `app/api/v1/workshop/moderation/live-session-conversation/*` | Add creator moderation queue and case resolution routes for live-session conversation messages. |
+| done | `tests/proofs/live-session-conversation-rails.test.ts` | Extend proof coverage with report, moderation decision, appeal, workshop queue, and case-resolution behavior. |
 
 ## Working Rules
 

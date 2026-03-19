@@ -7,7 +7,12 @@ import {
   GET as getLiveSessionConversationRoute,
   POST as postLiveSessionConversationRoute
 } from "../../app/api/v1/live-sessions/[session_id]/conversation/route";
+import { POST as postLiveSessionConversationReportRoute } from "../../app/api/v1/live-sessions/[session_id]/conversation/[message_id]/report/route";
+import { POST as postLiveSessionConversationAppealRoute } from "../../app/api/v1/live-sessions/[session_id]/conversation/[message_id]/appeal/route";
+import { POST as postLiveSessionConversationResolveRoute } from "../../app/api/v1/live-sessions/[session_id]/conversation/[message_id]/resolve/route";
 import { POST as postWorkshopLiveSessionRoute } from "../../app/api/v1/workshop/live-sessions/route";
+import { GET as getWorkshopLiveSessionConversationModerationQueueRoute } from "../../app/api/v1/workshop/moderation/live-session-conversation/route";
+import { POST as postWorkshopLiveSessionConversationModerationResolveRoute } from "../../app/api/v1/workshop/moderation/live-session-conversation/[session_id]/[message_id]/resolve/route";
 import { commerceBffService } from "../../lib/bff/service";
 import type { LiveSessionConversationThread } from "../../lib/domain/contracts";
 
@@ -273,4 +278,261 @@ test("proof: live session conversation thread is scoped to session eligibility a
     withRouteParams({ session_id: expiredLiveSessionId })
   );
   assert.equal(expiredGet.status, 403);
+});
+
+test("proof: live session conversation moderation supports report case decision appeal flow", async (t) => {
+  const dbPath = createIsolatedDbPath();
+  process.env.OOK_BFF_DB_PATH = dbPath;
+  process.env.OOK_BFF_PERSISTENCE_BACKEND = "file";
+
+  t.after(async () => {
+    delete process.env.OOK_BFF_DB_PATH;
+    delete process.env.OOK_BFF_PERSISTENCE_BACKEND;
+    await fs.rm(dbPath, { force: true });
+  });
+
+  const creator = await commerceBffService.createSession({
+    email: "oneofakinde@oneofakinde.com",
+    role: "creator"
+  });
+  const author = await commerceBffService.createSession({
+    email: "collector@oneofakinde.com",
+    role: "collector"
+  });
+  const reporter = await commerceBffService.createSession({
+    email: `live-thread-reporter-${randomUUID()}@oneofakinde.test`,
+    role: "collector"
+  });
+
+  const nowMs = Date.now();
+  const createLiveSessionResponse = await postWorkshopLiveSessionRoute(
+    new Request("http://127.0.0.1:3000/api/v1/workshop/live-sessions", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-ook-session-token": creator.sessionToken
+      },
+      body: JSON.stringify({
+        title: "public moderated live thread",
+        synopsis: "live chat moderation case flow proof",
+        worldId: "dark-matter",
+        startsAt: new Date(nowMs - 5 * 60 * 1000).toISOString(),
+        endsAt: new Date(nowMs + 30 * 60 * 1000).toISOString(),
+        eligibilityRule: "public",
+        type: "event"
+      })
+    })
+  );
+  assert.equal(createLiveSessionResponse.status, 201);
+  const createLiveSessionPayload = await parseJson<{ liveSession: { id: string } }>(
+    createLiveSessionResponse
+  );
+  const liveSessionId = createLiveSessionPayload.liveSession.id;
+
+  const createMessageResponse = await postLiveSessionConversationRoute(
+    new Request(
+      `http://127.0.0.1:3000/api/v1/live-sessions/${encodeURIComponent(liveSessionId)}/conversation`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-ook-session-token": author.sessionToken
+        },
+        body: JSON.stringify({
+          body: "author message for moderation flow."
+        })
+      }
+    ),
+    withRouteParams({ session_id: liveSessionId })
+  );
+  assert.equal(createMessageResponse.status, 201);
+  const createMessagePayload = await parseJson<{ thread: LiveSessionConversationThread }>(
+    createMessageResponse
+  );
+  const createdMessage = createMessagePayload.thread.messages.at(-1);
+  const messageId = createdMessage?.id ?? "";
+  assert.ok(messageId, "expected created live session conversation message id");
+  assert.equal(createdMessage?.canReport, false);
+  assertNoForbiddenKeys(createMessagePayload, [...LIVE_SESSION_CONVERSATION_FORBIDDEN_KEYS]);
+
+  const reportResponse = await postLiveSessionConversationReportRoute(
+    new Request(
+      `http://127.0.0.1:3000/api/v1/live-sessions/${encodeURIComponent(liveSessionId)}/conversation/${messageId}/report`,
+      {
+        method: "POST",
+        headers: {
+          "x-ook-session-token": reporter.sessionToken
+        }
+      }
+    ),
+    withRouteParams({ session_id: liveSessionId, message_id: messageId })
+  );
+  assert.equal(reportResponse.status, 201);
+  const reportPayload = await parseJson<{ thread: LiveSessionConversationThread }>(reportResponse);
+  const reportedMessage = reportPayload.thread.messages.find((entry) => entry.id === messageId);
+  assert.equal(reportedMessage?.reportCount, 1);
+
+  const forbiddenDirectResolve = await postLiveSessionConversationResolveRoute(
+    new Request(
+      `http://127.0.0.1:3000/api/v1/live-sessions/${encodeURIComponent(liveSessionId)}/conversation/${messageId}/resolve`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-ook-session-token": reporter.sessionToken
+        },
+        body: JSON.stringify({
+          resolution: "hide"
+        })
+      }
+    ),
+    withRouteParams({ session_id: liveSessionId, message_id: messageId })
+  );
+  assert.equal(forbiddenDirectResolve.status, 403);
+
+  const hideResponse = await postLiveSessionConversationResolveRoute(
+    new Request(
+      `http://127.0.0.1:3000/api/v1/live-sessions/${encodeURIComponent(liveSessionId)}/conversation/${messageId}/resolve`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-ook-session-token": creator.sessionToken
+        },
+        body: JSON.stringify({
+          resolution: "hide"
+        })
+      }
+    ),
+    withRouteParams({ session_id: liveSessionId, message_id: messageId })
+  );
+  assert.equal(hideResponse.status, 200);
+  const hidePayload = await parseJson<{ thread: LiveSessionConversationThread }>(hideResponse);
+  const hiddenForCreator = hidePayload.thread.messages.find((entry) => entry.id === messageId);
+  assert.equal(hiddenForCreator?.visibility, "hidden");
+  assert.equal(hiddenForCreator?.canModerate, true);
+
+  const appealResponse = await postLiveSessionConversationAppealRoute(
+    new Request(
+      `http://127.0.0.1:3000/api/v1/live-sessions/${encodeURIComponent(liveSessionId)}/conversation/${messageId}/appeal`,
+      {
+        method: "POST",
+        headers: {
+          "x-ook-session-token": author.sessionToken
+        }
+      }
+    ),
+    withRouteParams({ session_id: liveSessionId, message_id: messageId })
+  );
+  assert.equal(appealResponse.status, 201);
+  const appealPayload = await parseJson<{ thread: LiveSessionConversationThread }>(appealResponse);
+  const appealedMessage = appealPayload.thread.messages.find((entry) => entry.id === messageId);
+  assert.ok(appealedMessage);
+  assert.equal(appealedMessage?.appealRequested, true);
+  assert.equal(appealedMessage?.canAppeal, false);
+
+  const forbiddenQueue = await getWorkshopLiveSessionConversationModerationQueueRoute(
+    new Request("http://127.0.0.1:3000/api/v1/workshop/moderation/live-session-conversation", {
+      headers: {
+        "x-ook-session-token": reporter.sessionToken
+      }
+    })
+  );
+  assert.equal(forbiddenQueue.status, 403);
+
+  const moderationQueueResponse = await getWorkshopLiveSessionConversationModerationQueueRoute(
+    new Request(
+      `http://127.0.0.1:3000/api/v1/workshop/moderation/live-session-conversation?session_id=${encodeURIComponent(liveSessionId)}`,
+      {
+        headers: {
+          "x-ook-session-token": creator.sessionToken
+        }
+      }
+    )
+  );
+  assert.equal(moderationQueueResponse.status, 200);
+  const moderationQueuePayload = await parseJson<{
+    queue: Array<{
+      liveSessionId: string;
+      messageId: string;
+      parentMessageId: string | null;
+      reportCount: number;
+      appealRequested: boolean;
+    }>;
+  }>(moderationQueueResponse);
+  const moderationQueueEntry = moderationQueuePayload.queue.find((entry) => entry.messageId === messageId);
+  assert.ok(moderationQueueEntry, "expected appealed live session conversation message in moderation queue");
+  assert.equal(moderationQueueEntry?.liveSessionId, liveSessionId);
+  assert.equal(moderationQueueEntry?.parentMessageId, null);
+  assert.equal(moderationQueueEntry?.reportCount, 0);
+  assert.equal(moderationQueueEntry?.appealRequested, true);
+  assertNoForbiddenKeys(moderationQueuePayload, [...LIVE_SESSION_CONVERSATION_FORBIDDEN_KEYS]);
+
+  const forbiddenCaseResolve = await postWorkshopLiveSessionConversationModerationResolveRoute(
+    new Request(
+      `http://127.0.0.1:3000/api/v1/workshop/moderation/live-session-conversation/${encodeURIComponent(liveSessionId)}/${messageId}/resolve`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-ook-session-token": reporter.sessionToken
+        },
+        body: JSON.stringify({
+          resolution: "dismiss"
+        })
+      }
+    ),
+    withRouteParams({ session_id: liveSessionId, message_id: messageId })
+  );
+  assert.equal(forbiddenCaseResolve.status, 403);
+
+  const dismissCaseResponse = await postWorkshopLiveSessionConversationModerationResolveRoute(
+    new Request(
+      `http://127.0.0.1:3000/api/v1/workshop/moderation/live-session-conversation/${encodeURIComponent(liveSessionId)}/${messageId}/resolve`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-ook-session-token": creator.sessionToken
+        },
+        body: JSON.stringify({
+          resolution: "dismiss"
+        })
+      }
+    ),
+    withRouteParams({ session_id: liveSessionId, message_id: messageId })
+  );
+  assert.equal(dismissCaseResponse.status, 200);
+  const dismissCasePayload = await parseJson<{
+    ok: true;
+    queue: Array<{ messageId: string }>;
+  }>(dismissCaseResponse);
+  assert.equal(dismissCasePayload.ok, true);
+  assert.equal(
+    dismissCasePayload.queue.some((entry) => entry.messageId === messageId),
+    false,
+    "expected dismissed live session conversation case to leave moderation queue"
+  );
+
+  const restoreResponse = await postLiveSessionConversationResolveRoute(
+    new Request(
+      `http://127.0.0.1:3000/api/v1/live-sessions/${encodeURIComponent(liveSessionId)}/conversation/${messageId}/resolve`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-ook-session-token": creator.sessionToken
+        },
+        body: JSON.stringify({
+          resolution: "restore"
+        })
+      }
+    ),
+    withRouteParams({ session_id: liveSessionId, message_id: messageId })
+  );
+  assert.equal(restoreResponse.status, 200);
+  const restorePayload = await parseJson<{ thread: LiveSessionConversationThread }>(restoreResponse);
+  const restoredMessage = restorePayload.thread.messages.find((entry) => entry.id === messageId);
+  assert.equal(restoredMessage?.visibility, "visible");
+  assertNoForbiddenKeys(restorePayload, [...LIVE_SESSION_CONVERSATION_FORBIDDEN_KEYS]);
 });
