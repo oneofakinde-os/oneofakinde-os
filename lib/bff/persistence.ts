@@ -279,6 +279,26 @@ export type TownhallPostRecord = {
   linkedObjectHref: string | null;
 };
 
+export type TownhallPostSaveRecord = {
+  accountId: string;
+  postId: string;
+  savedAt: string;
+};
+
+export type TownhallPostFollowRecord = {
+  accountId: string;
+  postId: string;
+  followedAt: string;
+};
+
+export type TownhallPostShareRecord = {
+  id: string;
+  accountId: string;
+  postId: string;
+  channel: TownhallShareChannel;
+  sharedAt: string;
+};
+
 export type TownhallShareRecord = {
   id: string;
   accountId: string;
@@ -444,6 +464,9 @@ export type BffDatabase = {
   townhallLikes: TownhallLikeRecord[];
   townhallComments: TownhallCommentRecord[];
   townhallPosts: TownhallPostRecord[];
+  townhallPostSaves: TownhallPostSaveRecord[];
+  townhallPostFollows: TownhallPostFollowRecord[];
+  townhallPostShares: TownhallPostShareRecord[];
   townhallShares: TownhallShareRecord[];
   townhallTelemetryEvents: TownhallTelemetryEventRecord[];
   worldConversationMessages: WorldConversationMessageRecord[];
@@ -1033,6 +1056,29 @@ function createSeedDatabase(): BffDatabase {
         linkedObjectHref: "/worlds/dark-matter"
       }
     ],
+    townhallPostSaves: [
+      {
+        accountId,
+        postId: "post_seed_stardust_reflection",
+        savedAt: new Date(now.valueOf() - DAY_MS / 6).toISOString()
+      }
+    ],
+    townhallPostFollows: [
+      {
+        accountId,
+        postId: "post_seed_stardust_reflection",
+        followedAt: new Date(now.valueOf() - DAY_MS / 5).toISOString()
+      }
+    ],
+    townhallPostShares: [
+      {
+        id: "pshr_seed_stardust_reflection_1",
+        accountId,
+        postId: "post_seed_stardust_reflection",
+        channel: "internal_dm",
+        sharedAt: new Date(now.valueOf() - DAY_MS / 7).toISOString()
+      }
+    ],
     townhallShares: [
       {
         id: "shr_seed_stardust_1",
@@ -1199,6 +1245,9 @@ function createCatalogSeedDatabase(): BffDatabase {
     townhallLikes: [],
     townhallComments: [],
     townhallPosts: [],
+    townhallPostSaves: [],
+    townhallPostFollows: [],
+    townhallPostShares: [],
     townhallShares: [],
     townhallTelemetryEvents: [],
     worldConversationMessages: [],
@@ -1245,6 +1294,9 @@ function createEmptyDatabase(): BffDatabase {
     townhallLikes: [],
     townhallComments: [],
     townhallPosts: [],
+    townhallPostSaves: [],
+    townhallPostFollows: [],
+    townhallPostShares: [],
     townhallShares: [],
     townhallTelemetryEvents: [],
     worldConversationMessages: [],
@@ -1294,6 +1346,9 @@ function isValidDb(input: unknown): input is BffDatabase {
     Array.isArray(candidate.townhallLikes) &&
     Array.isArray(candidate.townhallComments) &&
     Array.isArray(candidate.townhallPosts) &&
+    Array.isArray(candidate.townhallPostSaves) &&
+    Array.isArray(candidate.townhallPostFollows) &&
+    Array.isArray(candidate.townhallPostShares) &&
     Array.isArray(candidate.townhallShares) &&
     Array.isArray(candidate.townhallTelemetryEvents) &&
     Array.isArray(candidate.worldConversationMessages) &&
@@ -1325,6 +1380,9 @@ function hasLegacyBaseDbShape(input: unknown): input is Omit<
   | "townhallLikes"
   | "townhallComments"
   | "townhallPosts"
+  | "townhallPostSaves"
+  | "townhallPostFollows"
+  | "townhallPostShares"
   | "townhallShares"
   | "townhallTelemetryEvents"
   | "worldConversationMessages"
@@ -2545,6 +2603,91 @@ function normalizeTownhallPostRecords(records: TownhallPostRecord[]): TownhallPo
   });
 }
 
+function normalizeTownhallShareChannel(value: unknown): TownhallShareChannel {
+  if (value === "sms" || value === "internal_dm" || value === "whatsapp" || value === "telegram") {
+    return value;
+  }
+
+  return "internal_dm";
+}
+
+function normalizeTownhallPostSaveRecords(
+  records: TownhallPostSaveRecord[]
+): TownhallPostSaveRecord[] {
+  return records
+    .map((record) => {
+      const candidate = record as Partial<TownhallPostSaveRecord>;
+      const accountId = typeof candidate.accountId === "string" ? candidate.accountId : "";
+      const postId = typeof candidate.postId === "string" ? candidate.postId : "";
+      if (!accountId || !postId) {
+        return null;
+      }
+
+      return {
+        accountId,
+        postId,
+        savedAt:
+          typeof candidate.savedAt === "string" && candidate.savedAt.trim().length > 0
+            ? candidate.savedAt
+            : new Date().toISOString()
+      } satisfies TownhallPostSaveRecord;
+    })
+    .filter((record): record is TownhallPostSaveRecord => record !== null);
+}
+
+function normalizeTownhallPostFollowRecords(
+  records: TownhallPostFollowRecord[]
+): TownhallPostFollowRecord[] {
+  return records
+    .map((record) => {
+      const candidate = record as Partial<TownhallPostFollowRecord>;
+      const accountId = typeof candidate.accountId === "string" ? candidate.accountId : "";
+      const postId = typeof candidate.postId === "string" ? candidate.postId : "";
+      if (!accountId || !postId) {
+        return null;
+      }
+
+      return {
+        accountId,
+        postId,
+        followedAt:
+          typeof candidate.followedAt === "string" && candidate.followedAt.trim().length > 0
+            ? candidate.followedAt
+            : new Date().toISOString()
+      } satisfies TownhallPostFollowRecord;
+    })
+    .filter((record): record is TownhallPostFollowRecord => record !== null);
+}
+
+function normalizeTownhallPostShareRecords(
+  records: TownhallPostShareRecord[]
+): TownhallPostShareRecord[] {
+  return records
+    .map((record) => {
+      const candidate = record as Partial<TownhallPostShareRecord>;
+      const accountId = typeof candidate.accountId === "string" ? candidate.accountId : "";
+      const postId = typeof candidate.postId === "string" ? candidate.postId : "";
+      if (!accountId || !postId) {
+        return null;
+      }
+
+      return {
+        id:
+          typeof candidate.id === "string" && candidate.id.trim().length > 0
+            ? candidate.id
+            : `pshr_${randomUUID()}`,
+        accountId,
+        postId,
+        channel: normalizeTownhallShareChannel(candidate.channel),
+        sharedAt:
+          typeof candidate.sharedAt === "string" && candidate.sharedAt.trim().length > 0
+            ? candidate.sharedAt
+            : new Date().toISOString()
+      } satisfies TownhallPostShareRecord;
+    })
+    .filter((record): record is TownhallPostShareRecord => record !== null);
+}
+
 function normalizeWorldConversationVisibility(value: unknown): WorldConversationVisibility {
   if (value === "hidden" || value === "restricted" || value === "deleted") {
     return value;
@@ -2843,6 +2986,9 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
       liveSessionArtifacts: normalizeLiveSessionArtifactRecords(input.liveSessionArtifacts),
       townhallComments: normalizeTownhallCommentRecords(input.townhallComments),
       townhallPosts: normalizeTownhallPostRecords(input.townhallPosts),
+      townhallPostSaves: normalizeTownhallPostSaveRecords(input.townhallPostSaves),
+      townhallPostFollows: normalizeTownhallPostFollowRecords(input.townhallPostFollows),
+      townhallPostShares: normalizeTownhallPostShareRecords(input.townhallPostShares),
       townhallTelemetryEvents: normalizeTownhallTelemetryEvents(input.townhallTelemetryEvents),
       worldConversationMessages: normalizeWorldConversationMessageRecords(
         input.worldConversationMessages
@@ -2934,6 +3080,17 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         : [],
       townhallPosts: Array.isArray(candidate.townhallPosts)
         ? normalizeTownhallPostRecords(candidate.townhallPosts as TownhallPostRecord[])
+        : [],
+      townhallPostSaves: Array.isArray(candidate.townhallPostSaves)
+        ? normalizeTownhallPostSaveRecords(candidate.townhallPostSaves as TownhallPostSaveRecord[])
+        : [],
+      townhallPostFollows: Array.isArray(candidate.townhallPostFollows)
+        ? normalizeTownhallPostFollowRecords(
+            candidate.townhallPostFollows as TownhallPostFollowRecord[]
+          )
+        : [],
+      townhallPostShares: Array.isArray(candidate.townhallPostShares)
+        ? normalizeTownhallPostShareRecords(candidate.townhallPostShares as TownhallPostShareRecord[])
         : [],
       townhallShares: Array.isArray(candidate.townhallShares)
         ? (candidate.townhallShares as TownhallShareRecord[])
@@ -3856,6 +4013,24 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
         linkedObjectHref: row.linkedObjectHref
       }))
     ),
+    townhallPostSaves: normalizeTownhallPostSaveRecords(
+      parseMetaJsonValue<TownhallPostSaveRecord[]>(
+        meta.get("townhall_post_saves_json"),
+        []
+      )
+    ),
+    townhallPostFollows: normalizeTownhallPostFollowRecords(
+      parseMetaJsonValue<TownhallPostFollowRecord[]>(
+        meta.get("townhall_post_follows_json"),
+        []
+      )
+    ),
+    townhallPostShares: normalizeTownhallPostShareRecords(
+      parseMetaJsonValue<TownhallPostShareRecord[]>(
+        meta.get("townhall_post_shares_json"),
+        []
+      )
+    ),
     townhallShares: townhallSharesResult.rows,
     townhallTelemetryEvents: townhallTelemetryEventsResult.rows.map((row) => ({
       id: row.id,
@@ -4050,6 +4225,18 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
   await client.query("INSERT INTO bff_meta (key, value) VALUES ($1, $2)", [
     "live_session_conversation_messages_json",
     JSON.stringify(db.liveSessionConversationMessages)
+  ]);
+  await client.query("INSERT INTO bff_meta (key, value) VALUES ($1, $2)", [
+    "townhall_post_saves_json",
+    JSON.stringify(db.townhallPostSaves)
+  ]);
+  await client.query("INSERT INTO bff_meta (key, value) VALUES ($1, $2)", [
+    "townhall_post_follows_json",
+    JSON.stringify(db.townhallPostFollows)
+  ]);
+  await client.query("INSERT INTO bff_meta (key, value) VALUES ($1, $2)", [
+    "townhall_post_shares_json",
+    JSON.stringify(db.townhallPostShares)
   ]);
 
   for (const drop of db.catalog.drops) {

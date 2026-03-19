@@ -4,6 +4,7 @@ import { formatUsd } from "@/features/shared/format";
 import type {
   Drop,
   TownhallPost,
+  TownhallPostsFilter,
   TownhallPostLinkedObjectKind,
   TownhallDropSocialSnapshot,
   TownhallShareChannel,
@@ -121,9 +122,21 @@ type FeedPagePayload = {
 type TownhallPostsPayload = {
   posts?: TownhallPost[];
   post?: TownhallPost;
+  filter?: TownhallPostsFilter;
 };
 
-type TownhallPostAction = "report" | "appeal" | "hide" | "restrict" | "delete" | "restore";
+type TownhallPostAction =
+  | "report"
+  | "appeal"
+  | "save"
+  | "unsave"
+  | "follow"
+  | "unfollow"
+  | "share"
+  | "hide"
+  | "restrict"
+  | "delete"
+  | "restore";
 
 type ShowroomModeOption = {
   value: TownhallShowroomMediaFilter;
@@ -340,6 +353,7 @@ export function TownhallFeedScreen({
   const [shareNotice, setShareNotice] = useState("");
   const [shareOrigin, setShareOrigin] = useState("https://oneofakinde-os.vercel.app");
   const [townhallPosts, setTownhallPosts] = useState<TownhallPost[]>([]);
+  const [postsFilter, setPostsFilter] = useState<TownhallPostsFilter>("all");
   const [isPostsPanelOpen, setIsPostsPanelOpen] = useState(false);
   const [isLoadingPosts, setIsLoadingPosts] = useState(false);
   const [postsError, setPostsError] = useState("");
@@ -1025,15 +1039,18 @@ export function TownhallFeedScreen({
     });
   }
 
-  async function loadTownhallPosts(limit = 20) {
+  async function loadTownhallPosts(limit = 20, filter: TownhallPostsFilter = postsFilter) {
     setIsLoadingPosts(true);
     setPostsError("");
 
     try {
-      const response = await fetch(`/api/v1/townhall/posts?limit=${encodeURIComponent(String(limit))}`, {
-        method: "GET",
-        cache: "no-store"
-      });
+      const response = await fetch(
+        `/api/v1/townhall/posts?limit=${encodeURIComponent(String(limit))}&filter=${encodeURIComponent(filter)}`,
+        {
+          method: "GET",
+          cache: "no-store"
+        }
+      );
       if (!response.ok) {
         throw new Error(`failed to load townhall posts (${response.status})`);
       }
@@ -1056,20 +1073,30 @@ export function TownhallFeedScreen({
     setIsPostsPanelOpen(nextOpen);
 
     if (nextOpen) {
-      void loadTownhallPosts();
+      void loadTownhallPosts(20, postsFilter);
+    }
+  }
+
+  function handlePostsFilterChange(nextFilter: TownhallPostsFilter) {
+    setPostsFilter(nextFilter);
+    if (isPostsPanelOpen) {
+      void loadTownhallPosts(20, nextFilter);
     }
   }
 
   async function postTownhallPostAction(
     postId: string,
-    action: TownhallPostAction
+    input: {
+      action: TownhallPostAction;
+      channel?: TownhallShareChannel;
+    }
   ): Promise<TownhallPost | null> {
     const response = await fetch(`/api/v1/townhall/posts/${encodeURIComponent(postId)}`, {
       method: "POST",
       headers: {
         "content-type": "application/json"
       },
-      body: JSON.stringify({ action })
+      body: JSON.stringify(input)
     });
     if (!response.ok) {
       return null;
@@ -1079,13 +1106,17 @@ export function TownhallFeedScreen({
     return payload.post ?? null;
   }
 
-  async function handleTownhallPostAction(postId: string, action: TownhallPostAction) {
+  async function handleTownhallPostAction(
+    postId: string,
+    action: TownhallPostAction,
+    channel?: TownhallShareChannel
+  ) {
     if (!viewer) {
       redirectToSignInForInteraction();
       return;
     }
 
-    const post = await postTownhallPostAction(postId, action);
+    const post = await postTownhallPostAction(postId, { action, channel });
     if (post) {
       applyTownhallPost(post);
     }
@@ -2118,6 +2149,21 @@ export function TownhallFeedScreen({
 
             {isLoadingPosts ? <p className="townhall-post-state">loading notes...</p> : null}
             {postsError ? <p className="townhall-post-state">{postsError}</p> : null}
+            <div className="townhall-post-filter-row">
+              <label htmlFor="townhall-post-filter">view</label>
+              <select
+                id="townhall-post-filter"
+                data-testid="townhall-post-filter"
+                value={postsFilter}
+                onChange={(event) =>
+                  handlePostsFilterChange(event.target.value as TownhallPostsFilter)
+                }
+              >
+                <option value="all">all notes</option>
+                <option value="following">followed threads</option>
+                <option value="saved">saved threads</option>
+              </select>
+            </div>
 
             <ul className="townhall-post-list">
               {townhallPosts.map((post) => (
@@ -2139,7 +2185,44 @@ export function TownhallFeedScreen({
                       linked {post.linkedObject.kind}: {post.linkedObject.label}
                     </a>
                   ) : null}
+                  <p className="townhall-post-engagement" data-testid="townhall-post-engagement">
+                    {post.saveCount} saves · {post.followCount} follows · {post.shareCount} shares
+                  </p>
                   <div className="townhall-post-actions">
+                    {viewer ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void handleTownhallPostAction(
+                              post.id,
+                              post.savedByViewer ? "unsave" : "save"
+                            );
+                          }}
+                        >
+                          {post.savedByViewer ? "unsave thread" : "save thread"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void handleTownhallPostAction(
+                              post.id,
+                              post.followedByViewer ? "unfollow" : "follow"
+                            );
+                          }}
+                        >
+                          {post.followedByViewer ? "unfollow thread" : "follow thread"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void handleTownhallPostAction(post.id, "share", "internal_dm");
+                          }}
+                        >
+                          share thread
+                        </button>
+                      </>
+                    ) : null}
                     {post.canReport ? (
                       <button
                         type="button"

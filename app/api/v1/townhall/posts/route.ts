@@ -1,7 +1,7 @@
 import { getRequestSession, requireRequestSession } from "@/lib/bff/auth";
 import { badRequest, getRequiredBodyString, ok, safeJson } from "@/lib/bff/http";
 import { commerceBffService } from "@/lib/bff/service";
-import type { TownhallPostLinkedObjectKind } from "@/lib/domain/contracts";
+import type { TownhallPostLinkedObjectKind, TownhallPostsFilter } from "@/lib/domain/contracts";
 
 type CreatePostBody = {
   body?: string;
@@ -26,6 +26,14 @@ function parseLimit(raw: string | null): number {
   return Math.min(40, Math.max(1, Math.floor(parsed)));
 }
 
+function parseFilter(raw: string | null): TownhallPostsFilter {
+  if (raw === "following" || raw === "saved") {
+    return raw;
+  }
+
+  return "all";
+}
+
 function isLinkedObjectKind(value: string): value is TownhallPostLinkedObjectKind {
   return value === "drop" || value === "world" || value === "studio";
 }
@@ -34,7 +42,8 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const session = await getRequestSession(request);
   const posts = await commerceBffService.getTownhallPosts(session?.accountId ?? null, {
-    limit: parseLimit(url.searchParams.get("limit"))
+    limit: parseLimit(url.searchParams.get("limit")),
+    filter: parseFilter(url.searchParams.get("filter"))
   });
 
   return ok(posts);

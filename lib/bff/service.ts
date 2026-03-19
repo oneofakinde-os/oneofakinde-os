@@ -65,6 +65,7 @@ import type {
   TownhallPost,
   TownhallPostLinkedObject,
   TownhallPostLinkedObjectKind,
+  TownhallPostsFilter,
   TownhallPostsSnapshot,
   TownhallDropSocialSnapshot,
   TownhallModerationQueueItem,
@@ -145,7 +146,10 @@ import {
   type ReceiptBadgeRecord,
   type PaymentRecord,
   type TownhallCommentRecord,
+  type TownhallPostFollowRecord,
   type TownhallPostRecord,
+  type TownhallPostSaveRecord,
+  type TownhallPostShareRecord,
   type TownhallTelemetryEventRecord
 } from "@/lib/bff/persistence";
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
@@ -158,6 +162,9 @@ const TOWNHALL_COMMENTS_PREVIEW_LIMIT = 24;
 const TOWNHALL_POST_MAX_LENGTH = 1200;
 const TOWNHALL_POSTS_PREVIEW_LIMIT = 40;
 const TOWNHALL_POST_LOG_LIMIT = 50_000;
+const TOWNHALL_POST_SAVE_LOG_LIMIT = 50_000;
+const TOWNHALL_POST_FOLLOW_LOG_LIMIT = 50_000;
+const TOWNHALL_POST_SHARE_LOG_LIMIT = 100_000;
 const WORLD_CONVERSATION_MESSAGE_MAX_LENGTH = 600;
 const WORLD_CONVERSATION_MESSAGES_PREVIEW_LIMIT = 200;
 const WORLD_CONVERSATION_MESSAGE_LOG_LIMIT = 50_000;
@@ -241,6 +248,7 @@ const TOWNHALL_POST_LINKED_OBJECT_KIND_SET = new Set<TownhallPostLinkedObjectKin
   "world",
   "studio"
 ]);
+const TOWNHALL_POSTS_FILTER_SET = new Set<TownhallPostsFilter>(["all", "following", "saved"]);
 const WORLD_CONVERSATION_MODERATION_RESOLUTION_SET = new Set<WorldConversationModerationResolution>([
   "hide",
   "restrict",
@@ -1874,6 +1882,10 @@ function isTownhallShareChannel(value: string): value is TownhallShareChannel {
   return TOWNHALL_SHARE_CHANNEL_SET.has(value as TownhallShareChannel);
 }
 
+function isTownhallPostsFilter(value: string): value is TownhallPostsFilter {
+  return TOWNHALL_POSTS_FILTER_SET.has(value as TownhallPostsFilter);
+}
+
 function isTownhallTelemetryEventType(value: string): value is TownhallTelemetryEventType {
   return TOWNHALL_TELEMETRY_EVENT_SET.has(value as TownhallTelemetryEventType);
 }
@@ -2086,6 +2098,24 @@ function trimTownhallPosts(db: BffDatabase): void {
   }
 }
 
+function trimTownhallPostSaves(db: BffDatabase): void {
+  if (db.townhallPostSaves.length > TOWNHALL_POST_SAVE_LOG_LIMIT) {
+    db.townhallPostSaves.length = TOWNHALL_POST_SAVE_LOG_LIMIT;
+  }
+}
+
+function trimTownhallPostFollows(db: BffDatabase): void {
+  if (db.townhallPostFollows.length > TOWNHALL_POST_FOLLOW_LOG_LIMIT) {
+    db.townhallPostFollows.length = TOWNHALL_POST_FOLLOW_LOG_LIMIT;
+  }
+}
+
+function trimTownhallPostShares(db: BffDatabase): void {
+  if (db.townhallPostShares.length > TOWNHALL_POST_SHARE_LOG_LIMIT) {
+    db.townhallPostShares.length = TOWNHALL_POST_SHARE_LOG_LIMIT;
+  }
+}
+
 function canAccountModerateTownhallPost(
   account: AccountRecord | null,
   post: TownhallPostRecord
@@ -2129,6 +2159,25 @@ function canAccountAppealTownhallPost(
   }
 
   return !post.appealRequestedAt;
+}
+
+function canAccountViewTownhallPost(
+  account: AccountRecord | null,
+  post: TownhallPostRecord
+): boolean {
+  if (post.visibility === "visible") {
+    return true;
+  }
+
+  if (!account) {
+    return false;
+  }
+
+  if (post.accountId === account.id) {
+    return true;
+  }
+
+  return canAccountModerateTownhallPost(account, post);
 }
 
 type TownhallPostLinkedObjectInput = {
@@ -2789,13 +2838,55 @@ function toTownhallComment(
   };
 }
 
+type TownhallPostEngagementState = {
+  saveCount: number;
+  shareCount: number;
+  followCount: number;
+  savedByViewer: boolean;
+  followedByViewer: boolean;
+};
+
+function buildTownhallPostEngagementState(
+  db: BffDatabase,
+  postId: string,
+  viewerAccountId: string | null
+): TownhallPostEngagementState {
+  const saveCount = db.townhallPostSaves.filter((entry) => entry.postId === postId).length;
+  const shareCount = db.townhallPostShares.filter((entry) => entry.postId === postId).length;
+  const followCount = db.townhallPostFollows.filter((entry) => entry.postId === postId).length;
+  const savedByViewer = viewerAccountId
+    ? db.townhallPostSaves.some(
+        (entry) => entry.postId === postId && entry.accountId === viewerAccountId
+      )
+    : false;
+  const followedByViewer = viewerAccountId
+    ? db.townhallPostFollows.some(
+        (entry) => entry.postId === postId && entry.accountId === viewerAccountId
+      )
+    : false;
+
+  return {
+    saveCount,
+    shareCount,
+    followCount,
+    savedByViewer,
+    followedByViewer
+  };
+}
+
 function toTownhallPost(
+  db: BffDatabase,
   record: TownhallPostRecord,
   accountHandleById: Map<string, string>,
   viewerAccount: AccountRecord | null
 ): TownhallPost {
   const canModerate = canAccountModerateTownhallPost(viewerAccount, record);
   const isAuthor = Boolean(viewerAccount && viewerAccount.id === record.accountId);
+  const engagement = buildTownhallPostEngagementState(
+    db,
+    record.id,
+    viewerAccount?.id ?? null
+  );
   return {
     id: record.id,
     authorHandle: accountHandleById.get(record.accountId) ?? "community",
@@ -2810,6 +2901,11 @@ function toTownhallPost(
     createdAt: record.createdAt,
     visibility: record.visibility,
     reportCount: record.reportCount,
+    saveCount: engagement.saveCount,
+    shareCount: engagement.shareCount,
+    followCount: engagement.followCount,
+    savedByViewer: engagement.savedByViewer,
+    followedByViewer: engagement.followedByViewer,
     linkedObject: toTownhallPostLinkedObject(record),
     canModerate,
     canReport: canAccountReportTownhallPost(viewerAccount, record),
@@ -2821,12 +2917,22 @@ function toTownhallPost(
 function buildTownhallPostsSnapshot(
   db: BffDatabase,
   accountId: string | null,
-  limit = TOWNHALL_POSTS_PREVIEW_LIMIT
+  options?: {
+    limit?: number;
+    filter?: TownhallPostsFilter;
+  }
 ): TownhallPostsSnapshot {
   const viewerAccount = accountId ? findAccountById(db, accountId) : null;
   const accountHandleById = new Map(db.accounts.map((account) => [account.id, account.handle]));
+  const normalizedFilter = isTownhallPostsFilter(options?.filter ?? "all")
+    ? (options?.filter ?? "all")
+    : "all";
+  const normalizedLimit =
+    typeof options?.limit === "number" && Number.isFinite(options.limit)
+      ? Math.min(TOWNHALL_POSTS_PREVIEW_LIMIT, Math.max(1, Math.floor(options.limit)))
+      : TOWNHALL_POSTS_PREVIEW_LIMIT;
 
-  const posts = db.townhallPosts
+  const visiblePosts = db.townhallPosts
     .filter((record) => {
       if (record.visibility === "visible") {
         return true;
@@ -2837,13 +2943,69 @@ function buildTownhallPostsSnapshot(
       }
 
       return canAccountModerateTownhallPost(viewerAccount, record);
+    });
+
+  const activityTimestampByPostId = new Map<string, number>();
+  let filteredPosts: TownhallPostRecord[] = visiblePosts;
+
+  if (normalizedFilter === "following") {
+    if (!viewerAccount) {
+      return {
+        posts: [],
+        filter: normalizedFilter
+      };
+    }
+
+    for (const follow of db.townhallPostFollows) {
+      if (follow.accountId !== viewerAccount.id) {
+        continue;
+      }
+
+      const timestamp = Date.parse(follow.followedAt);
+      const safeTimestamp = Number.isFinite(timestamp) ? timestamp : 0;
+      const previous = activityTimestampByPostId.get(follow.postId) ?? 0;
+      activityTimestampByPostId.set(follow.postId, Math.max(previous, safeTimestamp));
+    }
+
+    filteredPosts = visiblePosts.filter((record) => activityTimestampByPostId.has(record.id));
+  } else if (normalizedFilter === "saved") {
+    if (!viewerAccount) {
+      return {
+        posts: [],
+        filter: normalizedFilter
+      };
+    }
+
+    for (const save of db.townhallPostSaves) {
+      if (save.accountId !== viewerAccount.id) {
+        continue;
+      }
+
+      const timestamp = Date.parse(save.savedAt);
+      const safeTimestamp = Number.isFinite(timestamp) ? timestamp : 0;
+      const previous = activityTimestampByPostId.get(save.postId) ?? 0;
+      activityTimestampByPostId.set(save.postId, Math.max(previous, safeTimestamp));
+    }
+
+    filteredPosts = visiblePosts.filter((record) => activityTimestampByPostId.has(record.id));
+  }
+
+  const posts = filteredPosts
+    .sort((a, b) => {
+      const activityA = activityTimestampByPostId.get(a.id) ?? 0;
+      const activityB = activityTimestampByPostId.get(b.id) ?? 0;
+      if (activityA !== activityB) {
+        return activityB - activityA;
+      }
+
+      return Date.parse(b.createdAt) - Date.parse(a.createdAt);
     })
-    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
-    .slice(0, Math.max(1, Math.floor(limit)))
-    .map((record) => toTownhallPost(record, accountHandleById, viewerAccount));
+    .slice(0, normalizedLimit)
+    .map((record) => toTownhallPost(db, record, accountHandleById, viewerAccount));
 
   return {
-    posts
+    posts,
+    filter: normalizedFilter
   };
 }
 
@@ -2923,6 +3085,7 @@ function resolveStudioConversationLinkedObjectRecord(
 }
 
 function toStudioConversationPost(
+  db: BffDatabase,
   record: TownhallPostRecord,
   accountHandleById: Map<string, string>,
   viewerAccount: AccountRecord | null,
@@ -2930,6 +3093,11 @@ function toStudioConversationPost(
 ): TownhallPost {
   const canModerate = canAccountModerateStudioConversationPost(viewerAccount, studio, record);
   const isAuthor = Boolean(viewerAccount && viewerAccount.id === record.accountId);
+  const engagement = buildTownhallPostEngagementState(
+    db,
+    record.id,
+    viewerAccount?.id ?? null
+  );
   return {
     id: record.id,
     authorHandle: accountHandleById.get(record.accountId) ?? "community",
@@ -2944,6 +3112,11 @@ function toStudioConversationPost(
     createdAt: record.createdAt,
     visibility: record.visibility,
     reportCount: record.reportCount,
+    saveCount: engagement.saveCount,
+    shareCount: engagement.shareCount,
+    followCount: engagement.followCount,
+    savedByViewer: engagement.savedByViewer,
+    followedByViewer: engagement.followedByViewer,
     linkedObject: toTownhallPostLinkedObject(record),
     canModerate,
     canReport: canAccountReportTownhallPost(viewerAccount, record),
@@ -2976,7 +3149,7 @@ function buildStudioConversationThread(
     })
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
     .slice(0, Math.max(1, Math.floor(limit)))
-    .map((record) => toStudioConversationPost(record, accountHandleById, viewerAccount, studio));
+    .map((record) => toStudioConversationPost(db, record, accountHandleById, viewerAccount, studio));
 
   return {
     studioHandle: studio.handle,
@@ -9417,18 +9590,23 @@ export const commerceBffService = {
 
   async getTownhallPosts(
     accountId: string | null,
-    options?: { limit?: number }
+    options?: {
+      limit?: number;
+      filter?: TownhallPostsFilter;
+    }
   ): Promise<TownhallPostsSnapshot> {
     return withDatabase<TownhallPostsSnapshot>(async (db) => {
       const viewerAccount = accountId ? findAccountById(db, accountId) : null;
-      const normalizedLimit =
-        typeof options?.limit === "number" && Number.isFinite(options.limit)
-          ? Math.min(TOWNHALL_POSTS_PREVIEW_LIMIT, Math.max(1, Math.floor(options.limit)))
-          : TOWNHALL_POSTS_PREVIEW_LIMIT;
+      const normalizedFilter = isTownhallPostsFilter(options?.filter ?? "all")
+        ? (options?.filter ?? "all")
+        : "all";
 
       return {
         persist: false,
-        result: buildTownhallPostsSnapshot(db, viewerAccount?.id ?? null, normalizedLimit)
+        result: buildTownhallPostsSnapshot(db, viewerAccount?.id ?? null, {
+          limit: options?.limit,
+          filter: normalizedFilter
+        })
       };
     });
   },
@@ -9447,13 +9625,7 @@ export const commerceBffService = {
         };
       }
 
-      if (
-        post.visibility !== "visible" &&
-        !(
-          viewerAccount &&
-          (viewerAccount.id === post.accountId || canAccountModerateTownhallPost(viewerAccount, post))
-        )
-      ) {
+      if (!canAccountViewTownhallPost(viewerAccount, post)) {
         return {
           persist: false,
           result: null
@@ -9462,7 +9634,7 @@ export const commerceBffService = {
 
       return {
         persist: false,
-        result: toTownhallPost(post, accountHandleLookup(db), viewerAccount)
+        result: toTownhallPost(db, post, accountHandleLookup(db), viewerAccount)
       };
     });
   },
@@ -9522,7 +9694,160 @@ export const commerceBffService = {
 
       return {
         persist: true,
-        result: toTownhallPost(record, accountHandleLookup(db), account)
+        result: toTownhallPost(db, record, accountHandleLookup(db), account)
+      };
+    });
+  },
+
+  async saveTownhallPost(accountId: string, postId: string): Promise<TownhallPost | null> {
+    return withDatabase<TownhallPost | null>(async (db): Promise<TownhallPostMutationResult> => {
+      const account = findAccountById(db, accountId);
+      const post = findTownhallPostById(db, postId);
+      if (!account || !post || !canAccountViewTownhallPost(account, post)) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const alreadySaved = db.townhallPostSaves.some(
+        (entry) => entry.accountId === account.id && entry.postId === post.id
+      );
+      if (alreadySaved) {
+        return {
+          persist: false,
+          result: toTownhallPost(db, post, accountHandleLookup(db), account)
+        };
+      }
+
+      db.townhallPostSaves.unshift({
+        accountId: account.id,
+        postId: post.id,
+        savedAt: new Date().toISOString()
+      } satisfies TownhallPostSaveRecord);
+      trimTownhallPostSaves(db);
+
+      return {
+        persist: true,
+        result: toTownhallPost(db, post, accountHandleLookup(db), account)
+      };
+    });
+  },
+
+  async unsaveTownhallPost(accountId: string, postId: string): Promise<TownhallPost | null> {
+    return withDatabase<TownhallPost | null>(async (db): Promise<TownhallPostMutationResult> => {
+      const account = findAccountById(db, accountId);
+      const post = findTownhallPostById(db, postId);
+      if (!account || !post || !canAccountViewTownhallPost(account, post)) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const nextSaves = db.townhallPostSaves.filter(
+        (entry) => !(entry.accountId === account.id && entry.postId === post.id)
+      );
+      const didChange = nextSaves.length !== db.townhallPostSaves.length;
+      if (didChange) {
+        db.townhallPostSaves = nextSaves;
+      }
+
+      return {
+        persist: didChange,
+        result: toTownhallPost(db, post, accountHandleLookup(db), account)
+      };
+    });
+  },
+
+  async followTownhallPost(accountId: string, postId: string): Promise<TownhallPost | null> {
+    return withDatabase<TownhallPost | null>(async (db): Promise<TownhallPostMutationResult> => {
+      const account = findAccountById(db, accountId);
+      const post = findTownhallPostById(db, postId);
+      if (!account || !post || !canAccountViewTownhallPost(account, post)) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const alreadyFollowing = db.townhallPostFollows.some(
+        (entry) => entry.accountId === account.id && entry.postId === post.id
+      );
+      if (alreadyFollowing) {
+        return {
+          persist: false,
+          result: toTownhallPost(db, post, accountHandleLookup(db), account)
+        };
+      }
+
+      db.townhallPostFollows.unshift({
+        accountId: account.id,
+        postId: post.id,
+        followedAt: new Date().toISOString()
+      } satisfies TownhallPostFollowRecord);
+      trimTownhallPostFollows(db);
+
+      return {
+        persist: true,
+        result: toTownhallPost(db, post, accountHandleLookup(db), account)
+      };
+    });
+  },
+
+  async unfollowTownhallPost(accountId: string, postId: string): Promise<TownhallPost | null> {
+    return withDatabase<TownhallPost | null>(async (db): Promise<TownhallPostMutationResult> => {
+      const account = findAccountById(db, accountId);
+      const post = findTownhallPostById(db, postId);
+      if (!account || !post || !canAccountViewTownhallPost(account, post)) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const nextFollows = db.townhallPostFollows.filter(
+        (entry) => !(entry.accountId === account.id && entry.postId === post.id)
+      );
+      const didChange = nextFollows.length !== db.townhallPostFollows.length;
+      if (didChange) {
+        db.townhallPostFollows = nextFollows;
+      }
+
+      return {
+        persist: didChange,
+        result: toTownhallPost(db, post, accountHandleLookup(db), account)
+      };
+    });
+  },
+
+  async recordTownhallPostShare(
+    accountId: string,
+    postId: string,
+    channel: TownhallShareChannel
+  ): Promise<TownhallPost | null> {
+    return withDatabase<TownhallPost | null>(async (db): Promise<TownhallPostMutationResult> => {
+      const account = findAccountById(db, accountId);
+      const post = findTownhallPostById(db, postId);
+      if (!account || !post || !canAccountViewTownhallPost(account, post) || !isTownhallShareChannel(channel)) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      db.townhallPostShares.unshift({
+        id: `pshr_${randomUUID()}`,
+        accountId: account.id,
+        postId: post.id,
+        channel,
+        sharedAt: new Date().toISOString()
+      } satisfies TownhallPostShareRecord);
+      trimTownhallPostShares(db);
+
+      return {
+        persist: true,
+        result: toTownhallPost(db, post, accountHandleLookup(db), account)
       };
     });
   },
@@ -9541,7 +9866,7 @@ export const commerceBffService = {
       if (!canAccountReportTownhallPost(account, post)) {
         return {
           persist: false,
-          result: toTownhallPost(post, accountHandleLookup(db), account)
+          result: toTownhallPost(db, post, accountHandleLookup(db), account)
         };
       }
 
@@ -9550,7 +9875,7 @@ export const commerceBffService = {
 
       return {
         persist: true,
-        result: toTownhallPost(post, accountHandleLookup(db), account)
+        result: toTownhallPost(db, post, accountHandleLookup(db), account)
       };
     });
   },
@@ -9573,7 +9898,7 @@ export const commerceBffService = {
       if (!canAccountModerateTownhallPost(account, post)) {
         return {
           persist: false,
-          result: toTownhallPost(post, accountHandleLookup(db), account)
+          result: toTownhallPost(db, post, accountHandleLookup(db), account)
         };
       }
 
@@ -9597,7 +9922,7 @@ export const commerceBffService = {
 
       return {
         persist: true,
-        result: toTownhallPost(post, accountHandleLookup(db), account)
+        result: toTownhallPost(db, post, accountHandleLookup(db), account)
       };
     });
   },
@@ -9616,7 +9941,7 @@ export const commerceBffService = {
       if (!canAccountAppealTownhallPost(account, post)) {
         return {
           persist: false,
-          result: toTownhallPost(post, accountHandleLookup(db), account)
+          result: toTownhallPost(db, post, accountHandleLookup(db), account)
         };
       }
 
@@ -9625,7 +9950,7 @@ export const commerceBffService = {
 
       return {
         persist: true,
-        result: toTownhallPost(post, accountHandleLookup(db), account)
+        result: toTownhallPost(db, post, accountHandleLookup(db), account)
       };
     });
   },

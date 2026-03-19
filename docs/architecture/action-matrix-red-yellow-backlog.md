@@ -83,3 +83,22 @@ Acceptance:
 - Library snapshot includes explicit read/listen queue ordering.
 - Queue progression and resume metadata are visible in UI.
 - Saved drops surface eligibility-state deltas as access unlocks.
+
+### RY-05 Townhall Thread Actions + Follow-State Recall (in progress)
+Goal:
+- Move `master_matrix!15` from yellow to green by adding explicit thread save/follow/share actions plus recall filters for followed and saved threads.
+
+File backlog:
+- `lib/domain/contracts.ts`
+- `lib/bff/persistence.ts`
+- `lib/bff/service.ts`
+- `app/api/v1/townhall/posts/route.ts`
+- `app/api/v1/townhall/posts/[post_id]/route.ts`
+- `features/townhall/townhall-feed-screen.tsx`
+- `app/globals.css`
+- `tests/proofs/townhall-standalone-posts.test.ts`
+
+Acceptance:
+- Townhall standalone posts expose save/follow/share actions with viewer-specific state and aggregate counts.
+- `/api/v1/townhall/posts` supports recall filtering for `following` and `saved` thread views.
+- Proof coverage locks mutation flow and recall filtering behavior.
