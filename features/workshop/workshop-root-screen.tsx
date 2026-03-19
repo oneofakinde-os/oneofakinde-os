@@ -12,18 +12,29 @@ import type {
   World
 } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
+import {
+  WORKSHOP_PREVIEW_POLICY_OPTIONS,
+  WORKSHOP_VISIBILITY_OPTIONS,
+  type WorkshopPublishDraftState,
+  type WorkshopPublishValidationSummary,
+  type WorkshopWorldBuilderState
+} from "@/lib/server/workshop";
 import Link from "next/link";
 
 type WorkshopRootScreenProps = {
   session: Session;
   channelTitle: string;
   channelSynopsis: string;
+  publishDraft: WorkshopPublishDraftState;
+  publishValidation: WorkshopPublishValidationSummary;
+  worldBuilder: WorkshopWorldBuilderState;
   worlds: World[];
   drops: Drop[];
   liveSessions: LiveSession[];
   patronTierConfigs: PatronTierConfig[];
   worldReleaseQueue: WorldReleaseQueueItem[];
   moderationQueue: TownhallModerationQueueItem[];
+  publishNotice: string | null;
   eventNotice: string | null;
   patronNotice: string | null;
   releaseNotice: string | null;
@@ -31,6 +42,7 @@ type WorkshopRootScreenProps = {
   derivativeNotice: string | null;
   moderationNotice: string | null;
   analyticsPanel: WorkshopAnalyticsPanel | null;
+  validatePublishGateAction: (formData: FormData) => Promise<void>;
   createLiveSessionAction: (formData: FormData) => Promise<void>;
   upsertPatronTierConfigAction: (formData: FormData) => Promise<void>;
   createWorldReleaseAction: (formData: FormData) => Promise<void>;
@@ -53,12 +65,16 @@ export function WorkshopRootScreen({
   session,
   channelTitle,
   channelSynopsis,
+  publishDraft,
+  publishValidation,
+  worldBuilder,
   worlds,
   drops,
   liveSessions,
   patronTierConfigs,
   worldReleaseQueue,
   moderationQueue,
+  publishNotice,
   eventNotice,
   patronNotice,
   releaseNotice,
@@ -66,6 +82,7 @@ export function WorkshopRootScreen({
   derivativeNotice,
   moderationNotice,
   analyticsPanel,
+  validatePublishGateAction,
   createLiveSessionAction,
   upsertPatronTierConfigAction,
   createWorldReleaseAction,
@@ -109,6 +126,245 @@ export function WorkshopRootScreen({
             open townhall
           </Link>
         </div>
+      </section>
+
+      <section className="slice-panel" data-testid="workshop-publish-stepper">
+        <p className="slice-label">publish stepper</p>
+        <p className="slice-copy">
+          publish requires complete culture, access, and economics sections. access requires visibility and
+          preview policy.
+        </p>
+        {publishNotice ? (
+          <p className="slice-banner" role="status" aria-live="polite">
+            {publishNotice}
+          </p>
+        ) : null}
+
+        <div className="slice-button-row">
+          <Link href="/workshop?compose=drop" className="slice-button">
+            create drop flow
+          </Link>
+          <Link href="/workshop?compose=world" className="slice-button alt">
+            create world flow
+          </Link>
+          <Link href={routes.create()} className="slice-button ghost">
+            open create
+          </Link>
+        </div>
+
+        {publishDraft.compose === "drop" ? (
+          <>
+            <p className="slice-meta">active flow: create drop</p>
+            <form
+              action={validatePublishGateAction}
+              className="slice-form"
+              data-testid="workshop-publish-gate-form"
+            >
+              <input type="hidden" name="compose" value="drop" />
+              <input
+                type="hidden"
+                name="world_visual_identity_complete"
+                value={worldBuilder.visualIdentityComplete ? "1" : "0"}
+              />
+              <input
+                type="hidden"
+                name="world_lore_complete"
+                value={worldBuilder.loreComplete ? "1" : "0"}
+              />
+              <input
+                type="hidden"
+                name="world_entry_rule_complete"
+                value={worldBuilder.entryRuleComplete ? "1" : "0"}
+              />
+
+              <label className="slice-field">
+                <span className="slice-meta">culture section complete</span>
+                <input
+                  type="checkbox"
+                  name="culture_complete"
+                  value="1"
+                  defaultChecked={publishDraft.cultureComplete}
+                />
+              </label>
+
+              <label className="slice-field">
+                <span className="slice-meta">access section complete</span>
+                <input
+                  type="checkbox"
+                  name="access_complete"
+                  value="1"
+                  defaultChecked={publishDraft.accessComplete}
+                />
+              </label>
+
+              <label className="slice-field">
+                visibility
+                <select
+                  name="visibility"
+                  className="slice-select"
+                  defaultValue={publishDraft.visibility}
+                  data-testid="workshop-visibility-selector"
+                >
+                  {WORKSHOP_VISIBILITY_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option === "world_members"
+                        ? "world members"
+                        : option === "collectors_only"
+                          ? "collectors"
+                          : "public"}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="slice-field">
+                preview policy
+                <select
+                  name="preview_policy"
+                  className="slice-select"
+                  defaultValue={publishDraft.previewPolicy}
+                  data-testid="workshop-preview-policy-selector"
+                >
+                  {WORKSHOP_PREVIEW_POLICY_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="slice-field">
+                <span className="slice-meta">economics section complete</span>
+                <input
+                  type="checkbox"
+                  name="economics_complete"
+                  value="1"
+                  defaultChecked={publishDraft.economicsComplete}
+                />
+              </label>
+
+              <label className="slice-field">
+                collaborator splits
+                <input
+                  name="collaborator_splits"
+                  className="slice-input"
+                  defaultValue={publishDraft.collaboratorSplitsRaw || `${session.handle}:100`}
+                  placeholder="oneofakinde:70, collaborator:30"
+                />
+              </label>
+
+              <div className="slice-button-row">
+                <button type="submit" className="slice-button">
+                  validate publish gate
+                </button>
+              </div>
+            </form>
+
+            <ul className="slice-list" aria-label="publish gate summary">
+              <li>
+                <span>culture</span>
+                <span>{publishDraft.cultureComplete ? "complete" : "missing"}</span>
+              </li>
+              <li>
+                <span>access</span>
+                <span>{publishDraft.accessComplete ? "complete" : "missing"}</span>
+              </li>
+              <li>
+                <span>economics</span>
+                <span>{publishDraft.economicsComplete ? "complete" : "missing"}</span>
+              </li>
+              <li>
+                <span>collaborator split total</span>
+                <span>
+                  {publishValidation.collaboratorSplitsTotal === null
+                    ? "invalid"
+                    : `${publishValidation.collaboratorSplitsTotal}%`}
+                </span>
+              </li>
+            </ul>
+
+            {publishValidation.blockingReasons.length > 0 ? (
+              <p className="slice-meta">
+                blockers: {publishValidation.blockingReasons.join(" ")}
+              </p>
+            ) : null}
+          </>
+        ) : (
+          <>
+            <p className="slice-meta">active flow: create world</p>
+            <form
+              action={validatePublishGateAction}
+              className="slice-form"
+              data-testid="workshop-world-stepper-form"
+            >
+              <input type="hidden" name="compose" value="world" />
+              <input type="hidden" name="culture_complete" value={publishDraft.cultureComplete ? "1" : "0"} />
+              <input type="hidden" name="access_complete" value={publishDraft.accessComplete ? "1" : "0"} />
+              <input
+                type="hidden"
+                name="economics_complete"
+                value={publishDraft.economicsComplete ? "1" : "0"}
+              />
+              <input type="hidden" name="visibility" value={publishDraft.visibility} />
+              <input type="hidden" name="preview_policy" value={publishDraft.previewPolicy} />
+              <input type="hidden" name="collaborator_splits" value={publishDraft.collaboratorSplitsRaw} />
+
+              <label className="slice-field">
+                <span className="slice-meta">visual identity configured</span>
+                <input
+                  type="checkbox"
+                  name="world_visual_identity_complete"
+                  value="1"
+                  defaultChecked={worldBuilder.visualIdentityComplete}
+                />
+              </label>
+
+              <label className="slice-field">
+                <span className="slice-meta">lore configured</span>
+                <input
+                  type="checkbox"
+                  name="world_lore_complete"
+                  value="1"
+                  defaultChecked={worldBuilder.loreComplete}
+                />
+              </label>
+
+              <label className="slice-field">
+                <span className="slice-meta">entry rule configured</span>
+                <input
+                  type="checkbox"
+                  name="world_entry_rule_complete"
+                  value="1"
+                  defaultChecked={worldBuilder.entryRuleComplete}
+                />
+              </label>
+
+              <div className="slice-button-row">
+                <button type="submit" className="slice-button">
+                  update world builder
+                </button>
+                <Link href={routes.spaceSetup()} className="slice-button ghost">
+                  open space setup
+                </Link>
+              </div>
+            </form>
+
+            <ul className="slice-list" aria-label="world builder summary">
+              <li>
+                <span>visual identity</span>
+                <span>{worldBuilder.visualIdentityComplete ? "complete" : "missing"}</span>
+              </li>
+              <li>
+                <span>lore</span>
+                <span>{worldBuilder.loreComplete ? "complete" : "missing"}</span>
+              </li>
+              <li>
+                <span>entry rule</span>
+                <span>{worldBuilder.entryRuleComplete ? "complete" : "missing"}</span>
+              </li>
+            </ul>
+          </>
+        )}
       </section>
 
       {analyticsPanel ? (

@@ -4,11 +4,13 @@ import type {
   AuthorizedDerivativeKind,
   CreateAuthorizedDerivativeInput,
   CreateDropVersionInput,
+  DropVisibility,
   DropVersionLabel,
   CreateWorkshopWorldReleaseInput,
   CreateWorkshopLiveSessionInput,
   LiveSessionEligibilityRule,
   PatronTierStatus,
+  PreviewPolicy,
   TownhallModerationCaseResolution,
   UpsertWorkshopPatronTierConfigInput,
   WorldReleaseQueuePacingMode,
@@ -16,6 +18,14 @@ import type {
 } from "@/lib/domain/contracts";
 import { gateway } from "@/lib/gateway";
 import { requireSessionRoles } from "@/lib/server/session";
+import {
+  buildWorkshopPublishValidationSummary,
+  normalizeWorkshopComposeTarget,
+  resolveWorkshopPublishDraftState,
+  resolveWorkshopWorldBuilderState,
+  type WorkshopComposeTarget
+} from "@/lib/server/workshop";
+import type { Route } from "next";
 import { redirect } from "next/navigation";
 
 const LIVE_ELIGIBILITY_RULES = new Set<LiveSessionEligibilityRule>([
@@ -65,6 +75,92 @@ function getOptionalFormString(formData: FormData, key: string): string | null {
     return null;
   }
   return value;
+}
+
+function getFormFlag(formData: FormData, key: string): boolean {
+  const value = formData.get(key);
+  if (typeof value !== "string") {
+    return false;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "on" || normalized === "yes";
+}
+
+function parseWorkshopCollaboratorSplits(
+  formData: FormData
+): {
+  raw: string;
+  total: number | null;
+} {
+  const raw = getOptionalFormString(formData, "collaborator_splits") ?? "";
+  if (!raw) {
+    return {
+      raw: "",
+      total: 100
+    };
+  }
+
+  const parsed = parseRevenueSplits(raw);
+  if (!parsed) {
+    return {
+      raw,
+      total: null
+    };
+  }
+
+  return {
+    raw,
+    total: Number(parsed.reduce((sum, entry) => sum + entry.sharePercent, 0).toFixed(2))
+  };
+}
+
+function buildWorkshopComposeRedirectPath(input: {
+  compose: WorkshopComposeTarget;
+  cultureComplete: boolean;
+  accessComplete: boolean;
+  economicsComplete: boolean;
+  visibility: DropVisibility;
+  previewPolicy: PreviewPolicy;
+  collaboratorSplitsRaw: string;
+  collaboratorSplitsTotal: number | null;
+  worldVisualIdentityComplete: boolean;
+  worldLoreComplete: boolean;
+  worldEntryRuleComplete: boolean;
+  publishStatus: string;
+  missingSections?: string[];
+  blockingReasons?: string[];
+  missingWorldSections?: string[];
+}): string {
+  const params = new URLSearchParams();
+  params.set("compose", input.compose);
+  params.set("culture_complete", input.cultureComplete ? "1" : "0");
+  params.set("access_complete", input.accessComplete ? "1" : "0");
+  params.set("economics_complete", input.economicsComplete ? "1" : "0");
+  params.set("visibility", input.visibility);
+  params.set("preview_policy", input.previewPolicy);
+  params.set("world_visual_identity_complete", input.worldVisualIdentityComplete ? "1" : "0");
+  params.set("world_lore_complete", input.worldLoreComplete ? "1" : "0");
+  params.set("world_entry_rule_complete", input.worldEntryRuleComplete ? "1" : "0");
+  params.set("publish_status", input.publishStatus);
+
+  if (input.collaboratorSplitsRaw) {
+    params.set("collaborator_splits", input.collaboratorSplitsRaw);
+  }
+  if (typeof input.collaboratorSplitsTotal === "number") {
+    params.set("splits_total", String(input.collaboratorSplitsTotal));
+  }
+  if (input.missingSections && input.missingSections.length > 0) {
+    params.set("publish_missing", input.missingSections.join(","));
+  }
+  if (input.blockingReasons && input.blockingReasons.length > 0) {
+    params.set("publish_blockers", input.blockingReasons.join(" | "));
+  }
+  if (input.missingWorldSections && input.missingWorldSections.length > 0) {
+    params.set("world_missing", input.missingWorldSections.join(","));
+  }
+
+  return `/workshop?${params.toString()}`;
 }
 
 function parseCreateLiveSessionInput(formData: FormData): CreateWorkshopLiveSessionInput | null {
@@ -289,6 +385,70 @@ function parseWorldReleaseStatus(
   }
 
   return normalized as Exclude<WorldReleaseQueueStatus, "scheduled">;
+}
+
+export async function validateWorkshopPublishGateAction(formData: FormData): Promise<void> {
+  await requireSessionRoles("/workshop", ["creator"]);
+
+  const compose = normalizeWorkshopComposeTarget(getOptionalFormString(formData, "compose"));
+  const collaboratorSplits = parseWorkshopCollaboratorSplits(formData);
+
+  const publishDraft = resolveWorkshopPublishDraftState({
+    compose,
+    cultureComplete: getFormFlag(formData, "culture_complete"),
+    accessComplete: getFormFlag(formData, "access_complete"),
+    economicsComplete: getFormFlag(formData, "economics_complete"),
+    visibility: getOptionalFormString(formData, "visibility"),
+    previewPolicy: getOptionalFormString(formData, "preview_policy"),
+    collaboratorSplitsTotal: collaboratorSplits.total,
+    collaboratorSplitsRaw: collaboratorSplits.raw
+  });
+  const publishValidation = buildWorkshopPublishValidationSummary(publishDraft);
+
+  const worldBuilder = resolveWorkshopWorldBuilderState({
+    worldVisualIdentityComplete: getFormFlag(formData, "world_visual_identity_complete"),
+    worldLoreComplete: getFormFlag(formData, "world_lore_complete"),
+    worldEntryRuleComplete: getFormFlag(formData, "world_entry_rule_complete")
+  });
+
+  if (compose === "world") {
+    redirect(
+      buildWorkshopComposeRedirectPath({
+        compose,
+        cultureComplete: publishDraft.cultureComplete,
+        accessComplete: publishDraft.accessComplete,
+        economicsComplete: publishDraft.economicsComplete,
+        visibility: publishDraft.visibility,
+        previewPolicy: publishDraft.previewPolicy,
+        collaboratorSplitsRaw: publishDraft.collaboratorSplitsRaw,
+        collaboratorSplitsTotal: publishDraft.collaboratorSplitsTotal,
+        worldVisualIdentityComplete: worldBuilder.visualIdentityComplete,
+        worldLoreComplete: worldBuilder.loreComplete,
+        worldEntryRuleComplete: worldBuilder.entryRuleComplete,
+        publishStatus: worldBuilder.ready ? "world_ready" : "world_incomplete",
+        missingWorldSections: worldBuilder.missingSections
+      }) as Route
+    );
+  }
+
+  redirect(
+    buildWorkshopComposeRedirectPath({
+      compose,
+      cultureComplete: publishDraft.cultureComplete,
+      accessComplete: publishDraft.accessComplete,
+      economicsComplete: publishDraft.economicsComplete,
+      visibility: publishDraft.visibility,
+      previewPolicy: publishDraft.previewPolicy,
+      collaboratorSplitsRaw: publishDraft.collaboratorSplitsRaw,
+      collaboratorSplitsTotal: publishDraft.collaboratorSplitsTotal,
+      worldVisualIdentityComplete: worldBuilder.visualIdentityComplete,
+      worldLoreComplete: worldBuilder.loreComplete,
+      worldEntryRuleComplete: worldBuilder.entryRuleComplete,
+      publishStatus: publishValidation.canPublish ? "ready" : "blocked",
+      missingSections: publishValidation.missingSections,
+      blockingReasons: publishValidation.blockingReasons
+    }) as Route
+  );
 }
 
 export async function createWorkshopLiveSessionAction(formData: FormData): Promise<void> {

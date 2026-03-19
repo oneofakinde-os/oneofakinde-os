@@ -5,6 +5,7 @@ import {
   createAuthorizedDerivativeAction,
   createDropVersionAction,
   upsertWorkshopPatronTierConfigAction,
+  validateWorkshopPublishGateAction,
   createWorkshopWorldReleaseAction,
   createWorkshopLiveSessionAction,
   updateWorkshopWorldReleaseStatusAction,
@@ -25,6 +26,21 @@ type WorkshopPageProps = {
     patron_config_id?: string | string[];
     moderation_status?: string | string[];
     moderation_comment_id?: string | string[];
+    compose?: string | string[];
+    culture_complete?: string | string[];
+    access_complete?: string | string[];
+    economics_complete?: string | string[];
+    visibility?: string | string[];
+    preview_policy?: string | string[];
+    collaborator_splits?: string | string[];
+    splits_total?: string | string[];
+    world_visual_identity_complete?: string | string[];
+    world_lore_complete?: string | string[];
+    world_entry_rule_complete?: string | string[];
+    publish_status?: string | string[];
+    publish_missing?: string | string[];
+    publish_blockers?: string | string[];
+    world_missing?: string | string[];
   }>;
 };
 
@@ -34,6 +50,15 @@ function firstParam(value: string | string[] | undefined): string | null {
   }
 
   return Array.isArray(value) ? value[0] ?? null : value;
+}
+
+function parseFlag(value: string | null): boolean {
+  if (!value) {
+    return false;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "on" || normalized === "yes";
 }
 
 function toEventNotice(eventStatus: string | null, eventId: string | null): string | null {
@@ -188,6 +213,39 @@ function toPatronNotice(patronStatus: string | null, patronConfigId: string | nu
   return "patron tier config updated.";
 }
 
+function toPublishNotice(
+  publishStatus: string | null,
+  missingSections: string | null,
+  blockers: string | null,
+  missingWorldSections: string | null
+): string | null {
+  if (!publishStatus) {
+    return null;
+  }
+
+  if (publishStatus === "ready") {
+    return "publish gate passed: culture, access, and economics are complete.";
+  }
+
+  if (publishStatus === "blocked") {
+    const sectionCopy = missingSections ? ` missing sections: ${missingSections.replaceAll(",", ", ")}.` : "";
+    const blockerCopy = blockers ? ` blockers: ${blockers}.` : "";
+    return `publish blocked by hard gate.${sectionCopy}${blockerCopy}`;
+  }
+
+  if (publishStatus === "world_ready") {
+    return "world builder is complete: visual identity, lore, and entry rule are all set.";
+  }
+
+  if (publishStatus === "world_incomplete") {
+    return missingWorldSections
+      ? `world builder is incomplete. missing: ${missingWorldSections.replaceAll(",", ", ")}.`
+      : "world builder is incomplete. complete visual identity, lore, and entry rule.";
+  }
+
+  return "workshop publish stepper updated.";
+}
+
 export default async function WorkshopPage({ searchParams }: WorkshopPageProps) {
   const session = await requireSessionRoles("/workshop", ["creator"]);
   const resolvedSearchParams = await searchParams;
@@ -203,17 +261,54 @@ export default async function WorkshopPage({ searchParams }: WorkshopPageProps) 
   const patronConfigId = firstParam(resolvedSearchParams.patron_config_id);
   const moderationStatus = firstParam(resolvedSearchParams.moderation_status);
   const moderationCommentId = firstParam(resolvedSearchParams.moderation_comment_id);
-  const context = await loadWorkshopContext(session);
+  const compose = firstParam(resolvedSearchParams.compose);
+  const cultureComplete = parseFlag(firstParam(resolvedSearchParams.culture_complete));
+  const accessComplete = parseFlag(firstParam(resolvedSearchParams.access_complete));
+  const economicsComplete = parseFlag(firstParam(resolvedSearchParams.economics_complete));
+  const visibility = firstParam(resolvedSearchParams.visibility);
+  const previewPolicy = firstParam(resolvedSearchParams.preview_policy);
+  const collaboratorSplitsRaw = firstParam(resolvedSearchParams.collaborator_splits);
+  const splitsTotalRaw = firstParam(resolvedSearchParams.splits_total);
+  const worldVisualIdentityComplete = parseFlag(
+    firstParam(resolvedSearchParams.world_visual_identity_complete)
+  );
+  const worldLoreComplete = parseFlag(firstParam(resolvedSearchParams.world_lore_complete));
+  const worldEntryRuleComplete = parseFlag(
+    firstParam(resolvedSearchParams.world_entry_rule_complete)
+  );
+  const publishStatus = firstParam(resolvedSearchParams.publish_status);
+  const publishMissing = firstParam(resolvedSearchParams.publish_missing);
+  const publishBlockers = firstParam(resolvedSearchParams.publish_blockers);
+  const worldMissing = firstParam(resolvedSearchParams.world_missing);
+
+  const parsedSplitsTotal = splitsTotalRaw ? Number(splitsTotalRaw) : undefined;
+  const context = await loadWorkshopContext(session, {
+    compose,
+    cultureComplete,
+    accessComplete,
+    economicsComplete,
+    visibility,
+    previewPolicy,
+    collaboratorSplitsRaw,
+    collaboratorSplitsTotal: Number.isFinite(parsedSplitsTotal ?? Number.NaN)
+      ? parsedSplitsTotal
+      : undefined,
+    worldVisualIdentityComplete,
+    worldLoreComplete,
+    worldEntryRuleComplete
+  });
 
   return (
     <WorkshopRootScreen
       session={session}
+      publishNotice={toPublishNotice(publishStatus, publishMissing, publishBlockers, worldMissing)}
       eventNotice={toEventNotice(eventStatus, eventId)}
       releaseNotice={toReleaseNotice(releaseStatus, releaseId)}
       versionNotice={toVersionNotice(versionStatus, versionId)}
       derivativeNotice={toDerivativeNotice(derivativeStatus, derivativeId)}
       patronNotice={toPatronNotice(patronStatus, patronConfigId)}
       moderationNotice={toModerationNotice(moderationStatus, moderationCommentId)}
+      validatePublishGateAction={validateWorkshopPublishGateAction}
       createLiveSessionAction={createWorkshopLiveSessionAction}
       upsertPatronTierConfigAction={upsertWorkshopPatronTierConfigAction}
       createWorldReleaseAction={createWorkshopWorldReleaseAction}
