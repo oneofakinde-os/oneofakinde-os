@@ -2048,7 +2048,7 @@ export const commerceGateway: CommerceGateway = {
       }
     }
 
-    let sourceDropId = input.sourceDropId ?? liveSession.dropId ?? null;
+    const sourceDropId = input.sourceDropId ?? liveSession.dropId ?? null;
     if (sourceDropId) {
       const sourceDrop = store.drops.get(sourceDropId);
       if (!sourceDrop || sourceDrop.studioHandle !== account.handle) {
@@ -2105,7 +2105,7 @@ export const commerceGateway: CommerceGateway = {
       (artifact.sourceDropId ? store.drops.get(artifact.sourceDropId) ?? null : null) ??
       (liveSession?.dropId ? store.drops.get(liveSession.dropId) ?? null : null);
 
-    let worldId = artifact.worldId ?? liveSession?.worldId ?? sourceDrop?.worldId ?? null;
+    const worldId = artifact.worldId ?? liveSession?.worldId ?? sourceDrop?.worldId ?? null;
     if (!worldId) {
       return null;
     }
