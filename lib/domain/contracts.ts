@@ -843,6 +843,35 @@ export type TownhallComment = {
   appealRequested: boolean;
 };
 
+export type TownhallPostLinkedObjectKind = "drop" | "world" | "studio";
+
+export type TownhallPostVisibility = TownhallCommentVisibility;
+
+export type TownhallPostLinkedObject = {
+  kind: TownhallPostLinkedObjectKind;
+  id: string;
+  label: string;
+  href: string;
+};
+
+export type TownhallPost = {
+  id: string;
+  authorHandle: string;
+  body: string;
+  createdAt: string;
+  visibility: TownhallPostVisibility;
+  reportCount: number;
+  linkedObject: TownhallPostLinkedObject | null;
+  canModerate: boolean;
+  canReport: boolean;
+  canAppeal: boolean;
+  appealRequested: boolean;
+};
+
+export type TownhallPostsSnapshot = {
+  posts: TownhallPost[];
+};
+
 export type TownhallDropSocialSnapshot = {
   dropId: string;
   likeCount: number;

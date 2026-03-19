@@ -56,6 +56,10 @@ import type {
   TownhallModerationCaseResolution,
   TownhallModerationCaseResolveResult,
   TownhallComment,
+  TownhallPost,
+  TownhallPostLinkedObject,
+  TownhallPostLinkedObjectKind,
+  TownhallPostsSnapshot,
   TownhallDropSocialSnapshot,
   TownhallModerationQueueItem,
   TownhallShareChannel,
@@ -134,6 +138,7 @@ import {
   type ReceiptBadgeRecord,
   type PaymentRecord,
   type TownhallCommentRecord,
+  type TownhallPostRecord,
   type TownhallTelemetryEventRecord
 } from "@/lib/bff/persistence";
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
@@ -143,6 +148,9 @@ const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 const STRIPE_WEBHOOK_EVENT_LOG_LIMIT = 1000;
 const TOWNHALL_COMMENT_MAX_LENGTH = 600;
 const TOWNHALL_COMMENTS_PREVIEW_LIMIT = 24;
+const TOWNHALL_POST_MAX_LENGTH = 1200;
+const TOWNHALL_POSTS_PREVIEW_LIMIT = 40;
+const TOWNHALL_POST_LOG_LIMIT = 50_000;
 const WORLD_CONVERSATION_MESSAGE_MAX_LENGTH = 600;
 const WORLD_CONVERSATION_MESSAGES_PREVIEW_LIMIT = 200;
 const WORLD_CONVERSATION_MESSAGE_LOG_LIMIT = 50_000;
@@ -218,6 +226,11 @@ const TOWNHALL_MODERATION_RESOLUTION_SET = new Set<TownhallModerationCaseResolut
   "delete",
   "restore",
   "dismiss"
+]);
+const TOWNHALL_POST_LINKED_OBJECT_KIND_SET = new Set<TownhallPostLinkedObjectKind>([
+  "drop",
+  "world",
+  "studio"
 ]);
 const WORLD_CONVERSATION_MODERATION_RESOLUTION_SET = new Set<WorldConversationModerationResolution>([
   "hide",
@@ -300,6 +313,11 @@ type TownhallSocialMutationResult = {
 type TownhallTelemetryMutationResult = {
   persist: boolean;
   result: boolean;
+};
+
+type TownhallPostMutationResult = {
+  persist: boolean;
+  result: TownhallPost | null;
 };
 
 type TownhallCommentModerationResult =
@@ -1853,6 +1871,156 @@ function normalizeTownhallCommentBody(value: string): string {
   return value.trim().slice(0, TOWNHALL_COMMENT_MAX_LENGTH);
 }
 
+function normalizeTownhallPostBody(value: string): string {
+  return value.trim().slice(0, TOWNHALL_POST_MAX_LENGTH);
+}
+
+function trimTownhallPosts(db: BffDatabase): void {
+  if (db.townhallPosts.length > TOWNHALL_POST_LOG_LIMIT) {
+    db.townhallPosts.length = TOWNHALL_POST_LOG_LIMIT;
+  }
+}
+
+function canAccountModerateTownhallPost(
+  account: AccountRecord | null,
+  post: TownhallPostRecord
+): boolean {
+  if (!account) {
+    return false;
+  }
+
+  if (post.accountId === account.id) {
+    return true;
+  }
+
+  return account.roles.includes("creator");
+}
+
+function canAccountReportTownhallPost(
+  account: AccountRecord | null,
+  post: TownhallPostRecord
+): boolean {
+  if (!account) {
+    return false;
+  }
+
+  return post.accountId !== account.id && post.visibility === "visible";
+}
+
+function canAccountAppealTownhallPost(
+  account: AccountRecord | null,
+  post: TownhallPostRecord
+): boolean {
+  if (!account) {
+    return false;
+  }
+
+  if (post.accountId !== account.id) {
+    return false;
+  }
+
+  if (post.visibility !== "hidden" && post.visibility !== "restricted" && post.visibility !== "deleted") {
+    return false;
+  }
+
+  return !post.appealRequestedAt;
+}
+
+type TownhallPostLinkedObjectInput = {
+  kind: TownhallPostLinkedObjectKind;
+  id: string;
+  label?: string;
+  href?: string;
+};
+
+type ResolvedTownhallPostLinkedObjectRecord = {
+  kind: TownhallPostLinkedObjectKind;
+  id: string;
+  label: string;
+  href: string;
+};
+
+function resolveTownhallPostLinkedObjectRecord(
+  db: BffDatabase,
+  linkedObject: TownhallPostLinkedObjectInput | null | undefined
+): ResolvedTownhallPostLinkedObjectRecord | null {
+  if (!linkedObject) {
+    return null;
+  }
+
+  if (!TOWNHALL_POST_LINKED_OBJECT_KIND_SET.has(linkedObject.kind)) {
+    return null;
+  }
+
+  const normalizedId = linkedObject.id.trim();
+  if (!normalizedId) {
+    return null;
+  }
+
+  if (linkedObject.kind === "drop") {
+    const drop = findDropById(db, normalizedId);
+    if (!drop) {
+      return null;
+    }
+
+    return {
+      kind: "drop",
+      id: drop.id,
+      label: linkedObject.label?.trim() || drop.title,
+      href: linkedObject.href?.trim() || `/drops/${drop.id}`
+    };
+  }
+
+  if (linkedObject.kind === "world") {
+    const world = findWorldById(db, normalizedId);
+    if (!world) {
+      return null;
+    }
+
+    return {
+      kind: "world",
+      id: world.id,
+      label: linkedObject.label?.trim() || world.title,
+      href: linkedObject.href?.trim() || `/worlds/${world.id}`
+    };
+  }
+
+  const studio = db.catalog.studios.find((entry) => entry.handle === normalizedId) ?? null;
+  if (!studio) {
+    return null;
+  }
+
+  return {
+    kind: "studio",
+    id: studio.handle,
+    label: linkedObject.label?.trim() || studio.title,
+    href: linkedObject.href?.trim() || `/studio/${studio.handle}`
+  };
+}
+
+function toTownhallPostLinkedObject(record: TownhallPostRecord): TownhallPostLinkedObject | null {
+  if (!record.linkedObjectKind || !record.linkedObjectId || !record.linkedObjectLabel) {
+    return null;
+  }
+
+  if (!TOWNHALL_POST_LINKED_OBJECT_KIND_SET.has(record.linkedObjectKind)) {
+    return null;
+  }
+
+  return {
+    kind: record.linkedObjectKind,
+    id: record.linkedObjectId,
+    label: record.linkedObjectLabel,
+    href:
+      record.linkedObjectHref ??
+      (record.linkedObjectKind === "drop"
+        ? `/drops/${record.linkedObjectId}`
+        : record.linkedObjectKind === "world"
+          ? `/worlds/${record.linkedObjectId}`
+          : `/studio/${record.linkedObjectId}`)
+  };
+}
+
 function canAccountModerateTownhallComment(
   account: AccountRecord | null,
   drop: Drop,
@@ -2416,6 +2584,64 @@ function toTownhallComment(
   };
 }
 
+function toTownhallPost(
+  record: TownhallPostRecord,
+  accountHandleById: Map<string, string>,
+  viewerAccount: AccountRecord | null
+): TownhallPost {
+  const canModerate = canAccountModerateTownhallPost(viewerAccount, record);
+  const isAuthor = Boolean(viewerAccount && viewerAccount.id === record.accountId);
+  return {
+    id: record.id,
+    authorHandle: accountHandleById.get(record.accountId) ?? "community",
+    body:
+      !canModerate && !isAuthor && record.visibility === "hidden"
+        ? "post hidden by moderation."
+        : !canModerate && !isAuthor && record.visibility === "restricted"
+          ? "post restricted by moderation."
+          : !canModerate && !isAuthor && record.visibility === "deleted"
+            ? "post deleted by moderation."
+            : record.body,
+    createdAt: record.createdAt,
+    visibility: record.visibility,
+    reportCount: record.reportCount,
+    linkedObject: toTownhallPostLinkedObject(record),
+    canModerate,
+    canReport: canAccountReportTownhallPost(viewerAccount, record),
+    canAppeal: canAccountAppealTownhallPost(viewerAccount, record),
+    appealRequested: Boolean(record.appealRequestedAt)
+  };
+}
+
+function buildTownhallPostsSnapshot(
+  db: BffDatabase,
+  accountId: string | null,
+  limit = TOWNHALL_POSTS_PREVIEW_LIMIT
+): TownhallPostsSnapshot {
+  const viewerAccount = accountId ? findAccountById(db, accountId) : null;
+  const accountHandleById = new Map(db.accounts.map((account) => [account.id, account.handle]));
+
+  const posts = db.townhallPosts
+    .filter((record) => {
+      if (record.visibility === "visible") {
+        return true;
+      }
+
+      if (viewerAccount && record.accountId === viewerAccount.id) {
+        return true;
+      }
+
+      return canAccountModerateTownhallPost(viewerAccount, record);
+    })
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+    .slice(0, Math.max(1, Math.floor(limit)))
+    .map((record) => toTownhallPost(record, accountHandleById, viewerAccount));
+
+  return {
+    posts
+  };
+}
+
 function buildTownhallCommentsView(
   comments: TownhallCommentRecord[],
   accountHandleById: Map<string, string>,
@@ -2523,6 +2749,10 @@ function findTownhallCommentById(
   return (
     db.townhallComments.find((entry) => entry.dropId === dropId && entry.id === commentId) ?? null
   );
+}
+
+function findTownhallPostById(db: BffDatabase, postId: string): TownhallPostRecord | null {
+  return db.townhallPosts.find((entry) => entry.id === postId) ?? null;
 }
 
 function findWorldConversationMessageById(
@@ -8530,6 +8760,221 @@ export const commerceBffService = {
       return {
         persist: true,
         result: buildCollectDropOffersView(db, offer.dropId, account.id)
+      };
+    });
+  },
+
+  async getTownhallPosts(
+    accountId: string | null,
+    options?: { limit?: number }
+  ): Promise<TownhallPostsSnapshot> {
+    return withDatabase<TownhallPostsSnapshot>(async (db) => {
+      const viewerAccount = accountId ? findAccountById(db, accountId) : null;
+      const normalizedLimit =
+        typeof options?.limit === "number" && Number.isFinite(options.limit)
+          ? Math.min(TOWNHALL_POSTS_PREVIEW_LIMIT, Math.max(1, Math.floor(options.limit)))
+          : TOWNHALL_POSTS_PREVIEW_LIMIT;
+
+      return {
+        persist: false,
+        result: buildTownhallPostsSnapshot(db, viewerAccount?.id ?? null, normalizedLimit)
+      };
+    });
+  },
+
+  async getTownhallPost(
+    accountId: string | null,
+    postId: string
+  ): Promise<TownhallPost | null> {
+    return withDatabase<TownhallPost | null>(async (db): Promise<TownhallPostMutationResult> => {
+      const viewerAccount = accountId ? findAccountById(db, accountId) : null;
+      const post = findTownhallPostById(db, postId);
+      if (!post) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      if (
+        post.visibility !== "visible" &&
+        !(
+          viewerAccount &&
+          (viewerAccount.id === post.accountId || canAccountModerateTownhallPost(viewerAccount, post))
+        )
+      ) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      return {
+        persist: false,
+        result: toTownhallPost(post, accountHandleLookup(db), viewerAccount)
+      };
+    });
+  },
+
+  async createTownhallPost(
+    accountId: string,
+    input: {
+      body: string;
+      linkedObject?: TownhallPostLinkedObjectInput | null;
+    }
+  ): Promise<TownhallPost | null> {
+    return withDatabase<TownhallPost | null>(async (db): Promise<TownhallPostMutationResult> => {
+      const account = findAccountById(db, accountId);
+      if (!account) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const normalizedBody = normalizeTownhallPostBody(input.body);
+      if (!normalizedBody) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const linkedObject = resolveTownhallPostLinkedObjectRecord(db, input.linkedObject);
+      if (input.linkedObject && !linkedObject) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const record: TownhallPostRecord = {
+        id: `post_${randomUUID()}`,
+        accountId: account.id,
+        body: normalizedBody,
+        createdAt: new Date().toISOString(),
+        visibility: "visible",
+        reportCount: 0,
+        reportedAt: null,
+        moderatedAt: null,
+        moderatedByAccountId: null,
+        appealRequestedAt: null,
+        appealRequestedByAccountId: null,
+        linkedObjectKind: linkedObject?.kind ?? null,
+        linkedObjectId: linkedObject?.id ?? null,
+        linkedObjectLabel: linkedObject?.label ?? null,
+        linkedObjectHref: linkedObject?.href ?? null
+      };
+
+      db.townhallPosts.unshift(record);
+      trimTownhallPosts(db);
+
+      return {
+        persist: true,
+        result: toTownhallPost(record, accountHandleLookup(db), account)
+      };
+    });
+  },
+
+  async reportTownhallPost(accountId: string, postId: string): Promise<TownhallPost | null> {
+    return withDatabase<TownhallPost | null>(async (db): Promise<TownhallPostMutationResult> => {
+      const account = findAccountById(db, accountId);
+      const post = findTownhallPostById(db, postId);
+      if (!account || !post) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      if (!canAccountReportTownhallPost(account, post)) {
+        return {
+          persist: false,
+          result: toTownhallPost(post, accountHandleLookup(db), account)
+        };
+      }
+
+      post.reportCount += 1;
+      post.reportedAt = new Date().toISOString();
+
+      return {
+        persist: true,
+        result: toTownhallPost(post, accountHandleLookup(db), account)
+      };
+    });
+  },
+
+  async moderateTownhallPost(
+    accountId: string,
+    postId: string,
+    action: "hide" | "restrict" | "delete" | "restore"
+  ): Promise<TownhallPost | null> {
+    return withDatabase<TownhallPost | null>(async (db): Promise<TownhallPostMutationResult> => {
+      const account = findAccountById(db, accountId);
+      const post = findTownhallPostById(db, postId);
+      if (!account || !post) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      if (!canAccountModerateTownhallPost(account, post)) {
+        return {
+          persist: false,
+          result: toTownhallPost(post, accountHandleLookup(db), account)
+        };
+      }
+
+      if (action === "hide") {
+        post.visibility = "hidden";
+      } else if (action === "restrict") {
+        post.visibility = "restricted";
+      } else if (action === "delete") {
+        post.visibility = "deleted";
+      } else {
+        post.visibility = "visible";
+      }
+
+      const nowIso = new Date().toISOString();
+      post.moderatedAt = nowIso;
+      post.moderatedByAccountId = account.id;
+      post.appealRequestedAt = null;
+      post.appealRequestedByAccountId = null;
+      post.reportCount = 0;
+      post.reportedAt = null;
+
+      return {
+        persist: true,
+        result: toTownhallPost(post, accountHandleLookup(db), account)
+      };
+    });
+  },
+
+  async appealTownhallPost(accountId: string, postId: string): Promise<TownhallPost | null> {
+    return withDatabase<TownhallPost | null>(async (db): Promise<TownhallPostMutationResult> => {
+      const account = findAccountById(db, accountId);
+      const post = findTownhallPostById(db, postId);
+      if (!account || !post) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      if (!canAccountAppealTownhallPost(account, post)) {
+        return {
+          persist: false,
+          result: toTownhallPost(post, accountHandleLookup(db), account)
+        };
+      }
+
+      post.appealRequestedAt = new Date().toISOString();
+      post.appealRequestedByAccountId = account.id;
+
+      return {
+        persist: true,
+        result: toTownhallPost(post, accountHandleLookup(db), account)
       };
     });
   },

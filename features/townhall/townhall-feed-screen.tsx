@@ -3,6 +3,8 @@
 import { formatUsd } from "@/features/shared/format";
 import type {
   Drop,
+  TownhallPost,
+  TownhallPostLinkedObjectKind,
   TownhallDropSocialSnapshot,
   TownhallShareChannel,
   TownhallTelemetryMetadata,
@@ -115,6 +117,13 @@ type FeedPagePayload = {
   ownedDropIds?: string[];
   socialByDropId?: Record<string, TownhallDropSocialSnapshot>;
 };
+
+type TownhallPostsPayload = {
+  posts?: TownhallPost[];
+  post?: TownhallPost;
+};
+
+type TownhallPostAction = "report" | "appeal" | "hide" | "restrict" | "delete" | "restore";
 
 type ShowroomModeOption = {
   value: TownhallShowroomMediaFilter;
@@ -330,6 +339,18 @@ export function TownhallFeedScreen({
   const [replyToCommentId, setReplyToCommentId] = useState<string | null>(null);
   const [shareNotice, setShareNotice] = useState("");
   const [shareOrigin, setShareOrigin] = useState("https://oneofakinde-os.vercel.app");
+  const [townhallPosts, setTownhallPosts] = useState<TownhallPost[]>([]);
+  const [isPostsPanelOpen, setIsPostsPanelOpen] = useState(false);
+  const [isLoadingPosts, setIsLoadingPosts] = useState(false);
+  const [postsError, setPostsError] = useState("");
+  const [postDraft, setPostDraft] = useState("");
+  const [postLinkedObjectKind, setPostLinkedObjectKind] = useState<TownhallPostLinkedObjectKind | "none">(
+    "none"
+  );
+  const [postLinkedObjectId, setPostLinkedObjectId] = useState("");
+  const [postLinkedObjectLabel, setPostLinkedObjectLabel] = useState("");
+  const [postLinkedObjectHref, setPostLinkedObjectHref] = useState("");
+  const [isPublishingPost, setIsPublishingPost] = useState(false);
   const [failedPreviewAssetKeys, setFailedPreviewAssetKeys] = useState<string[]>([]);
   const [revealedVideoDropIds, setRevealedVideoDropIds] = useState<string[]>([]);
 
@@ -710,6 +731,7 @@ export function TownhallFeedScreen({
 
     setIsImmersive(false);
     setShowControls(false);
+    setIsPostsPanelOpen(false);
     setOpenPanel(panel);
     setPanelDropId(dropId);
     setShareNotice("");
@@ -990,6 +1012,141 @@ export function TownhallFeedScreen({
     }));
   }
 
+  function applyTownhallPost(post: TownhallPost) {
+    setTownhallPosts((current) => {
+      const existingIndex = current.findIndex((entry) => entry.id === post.id);
+      if (existingIndex >= 0) {
+        const next = [...current];
+        next[existingIndex] = post;
+        return next;
+      }
+
+      return [post, ...current];
+    });
+  }
+
+  async function loadTownhallPosts(limit = 20) {
+    setIsLoadingPosts(true);
+    setPostsError("");
+
+    try {
+      const response = await fetch(`/api/v1/townhall/posts?limit=${encodeURIComponent(String(limit))}`, {
+        method: "GET",
+        cache: "no-store"
+      });
+      if (!response.ok) {
+        throw new Error(`failed to load townhall posts (${response.status})`);
+      }
+
+      const payload = (await response.json()) as TownhallPostsPayload;
+      setTownhallPosts(payload.posts ?? []);
+    } catch {
+      setPostsError("townhall notes are temporarily unavailable.");
+    } finally {
+      setIsLoadingPosts(false);
+    }
+  }
+
+  function togglePostsPanel() {
+    const nextOpen = !isPostsPanelOpen;
+    setIsImmersive(false);
+    setShowControls(false);
+    setOpenPanel(null);
+    setPanelDropId(null);
+    setIsPostsPanelOpen(nextOpen);
+
+    if (nextOpen) {
+      void loadTownhallPosts();
+    }
+  }
+
+  async function postTownhallPostAction(
+    postId: string,
+    action: TownhallPostAction
+  ): Promise<TownhallPost | null> {
+    const response = await fetch(`/api/v1/townhall/posts/${encodeURIComponent(postId)}`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({ action })
+    });
+    if (!response.ok) {
+      return null;
+    }
+
+    const payload = (await response.json()) as TownhallPostsPayload;
+    return payload.post ?? null;
+  }
+
+  async function handleTownhallPostAction(postId: string, action: TownhallPostAction) {
+    if (!viewer) {
+      redirectToSignInForInteraction();
+      return;
+    }
+
+    const post = await postTownhallPostAction(postId, action);
+    if (post) {
+      applyTownhallPost(post);
+    }
+  }
+
+  async function handleTownhallPostSubmit() {
+    const body = postDraft.trim();
+    if (!body) {
+      return;
+    }
+
+    if (!viewer) {
+      redirectToSignInForInteraction();
+      return;
+    }
+
+    setIsPublishingPost(true);
+    setPostsError("");
+
+    try {
+      const linkedObject =
+        postLinkedObjectKind !== "none" && postLinkedObjectId.trim()
+          ? {
+              kind: postLinkedObjectKind,
+              id: postLinkedObjectId.trim(),
+              ...(postLinkedObjectLabel.trim() ? { label: postLinkedObjectLabel.trim() } : {}),
+              ...(postLinkedObjectHref.trim() ? { href: postLinkedObjectHref.trim() } : {})
+            }
+          : null;
+
+      const response = await fetch("/api/v1/townhall/posts", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({
+          body,
+          ...(linkedObject ? { linkedObject } : {})
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`failed to publish post (${response.status})`);
+      }
+
+      const payload = (await response.json()) as TownhallPostsPayload;
+      if (payload.post) {
+        applyTownhallPost(payload.post);
+      }
+      setPostDraft("");
+      setPostLinkedObjectKind("none");
+      setPostLinkedObjectId("");
+      setPostLinkedObjectLabel("");
+      setPostLinkedObjectHref("");
+    } catch {
+      setPostsError("post could not be published.");
+    } finally {
+      setIsPublishingPost(false);
+    }
+  }
+
   async function postSocialMutation(
     pathname: string,
     body?: Record<string, unknown>
@@ -1224,6 +1381,15 @@ export function TownhallFeedScreen({
           >
             <PlusIcon className="townhall-ui-icon" />
           </Link>
+          <button
+            type="button"
+            className={`townhall-posts-toggle ${isPostsPanelOpen ? "active" : ""}`}
+            aria-label="open townhall notes"
+            data-no-immersive-toggle="true"
+            onClick={togglePostsPanel}
+          >
+            notes
+          </button>
           <form
             action={routes.townhallSearch()}
             method="get"
@@ -1865,6 +2031,194 @@ export function TownhallFeedScreen({
           ) : null}
         </div>
 
+        {isPostsPanelOpen ? (
+          <section
+            className="townhall-overlay-panel townhall-overlay-panel-posts"
+            aria-label="townhall notes"
+            data-no-immersive-toggle="true"
+            data-testid="townhall-posts-panel"
+          >
+            <div className="townhall-overlay-head">
+              <h2>townhall notes</h2>
+              <button type="button" onClick={togglePostsPanel} aria-label="close townhall notes">
+                close
+              </button>
+            </div>
+
+            {viewer ? (
+              <div className="townhall-post-compose">
+                <textarea
+                  value={postDraft}
+                  onChange={(event) => setPostDraft(event.target.value)}
+                  placeholder="share an artist note or collector reflection"
+                  aria-label="write townhall note"
+                />
+                <div className="townhall-post-link-controls">
+                  <select
+                    value={postLinkedObjectKind}
+                    onChange={(event) => {
+                      const nextKind = event.target.value as TownhallPostLinkedObjectKind | "none";
+                      setPostLinkedObjectKind(nextKind);
+                      if (nextKind === "none") {
+                        setPostLinkedObjectId("");
+                        setPostLinkedObjectLabel("");
+                        setPostLinkedObjectHref("");
+                      }
+                    }}
+                  >
+                    <option value="none">no link</option>
+                    <option value="drop">link drop</option>
+                    <option value="world">link world</option>
+                    <option value="studio">link studio</option>
+                  </select>
+                  {postLinkedObjectKind !== "none" ? (
+                    <>
+                      <input
+                        value={postLinkedObjectId}
+                        onChange={(event) => setPostLinkedObjectId(event.target.value)}
+                        placeholder={
+                          postLinkedObjectKind === "drop"
+                            ? "drop id"
+                            : postLinkedObjectKind === "world"
+                              ? "world id"
+                              : "studio handle"
+                        }
+                        aria-label="linked object id"
+                      />
+                      <input
+                        value={postLinkedObjectLabel}
+                        onChange={(event) => setPostLinkedObjectLabel(event.target.value)}
+                        placeholder="custom label (optional)"
+                        aria-label="linked object label"
+                      />
+                      <input
+                        value={postLinkedObjectHref}
+                        onChange={(event) => setPostLinkedObjectHref(event.target.value)}
+                        placeholder="custom href (optional)"
+                        aria-label="linked object href"
+                      />
+                    </>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void handleTownhallPostSubmit();
+                  }}
+                  disabled={isPublishingPost || !postDraft.trim()}
+                >
+                  {isPublishingPost ? "publishing..." : "publish note"}
+                </button>
+              </div>
+            ) : (
+              <p className="townhall-post-sign-in-note">
+                sign in to publish notes. <Link href={routes.signIn(routes.townhall())}>open sign in</Link>
+              </p>
+            )}
+
+            {isLoadingPosts ? <p className="townhall-post-state">loading notes...</p> : null}
+            {postsError ? <p className="townhall-post-state">{postsError}</p> : null}
+
+            <ul className="townhall-post-list">
+              {townhallPosts.map((post) => (
+                <li key={post.id} className="townhall-post-item">
+                  <p className="townhall-post-meta">
+                    <strong>@{post.authorHandle}</strong> · {formatRelativeAge(post.createdAt)}
+                  </p>
+                  <p className={post.visibility !== "visible" ? "townhall-comment-hidden" : undefined}>
+                    {post.visibility === "hidden"
+                      ? "post hidden by moderation."
+                      : post.visibility === "restricted"
+                        ? "post restricted by moderation."
+                        : post.visibility === "deleted"
+                          ? "post deleted by moderation."
+                          : post.body}
+                  </p>
+                  {post.linkedObject ? (
+                    <a href={post.linkedObject.href} className="townhall-post-linked-object">
+                      linked {post.linkedObject.kind}: {post.linkedObject.label}
+                    </a>
+                  ) : null}
+                  <div className="townhall-post-actions">
+                    {post.canReport ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void handleTownhallPostAction(post.id, "report");
+                        }}
+                      >
+                        report
+                      </button>
+                    ) : null}
+                    {post.canAppeal ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void handleTownhallPostAction(post.id, "appeal");
+                        }}
+                      >
+                        appeal
+                      </button>
+                    ) : null}
+                    {post.canModerate ? (
+                      <>
+                        {post.visibility !== "visible" ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              void handleTownhallPostAction(post.id, "restore");
+                            }}
+                          >
+                            restore
+                          </button>
+                        ) : null}
+                        {post.visibility !== "hidden" ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              void handleTownhallPostAction(post.id, "hide");
+                            }}
+                          >
+                            hide
+                          </button>
+                        ) : null}
+                        {post.visibility !== "restricted" ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              void handleTownhallPostAction(post.id, "restrict");
+                            }}
+                          >
+                            restrict
+                          </button>
+                        ) : null}
+                        {post.visibility !== "deleted" ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              void handleTownhallPostAction(post.id, "delete");
+                            }}
+                          >
+                            delete
+                          </button>
+                        ) : null}
+                      </>
+                    ) : null}
+                  </div>
+                  {post.reportCount > 0 ? (
+                    <p className="townhall-comment-appeal-state">
+                      reports {post.reportCount}
+                      {post.appealRequested ? " · appeal pending" : ""}
+                    </p>
+                  ) : post.appealRequested ? (
+                    <p className="townhall-comment-appeal-state">appeal pending review</p>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
         <TownhallBottomNav activeMode={modeNav(mode)} noImmersiveToggle />
       </section>
 
@@ -1872,6 +2226,7 @@ export function TownhallFeedScreen({
         <h2>townhall shell</h2>
         <p>smooth snap feed with one drop at a time, autoplay preview, and tap-to-immerse behavior.</p>
         <p>social lane now supports like, comments, collect, send, and save-to-private-library interactions.</p>
+        <p>notes panel supports standalone artist notes + collector reflections with linked object references.</p>
       </aside>
     </main>
   );
