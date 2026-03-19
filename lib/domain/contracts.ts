@@ -149,6 +149,29 @@ export type WorldConversationThread = {
   messages: WorldConversationMessage[];
 };
 
+export type LiveSessionConversationMessage = {
+  id: string;
+  liveSessionId: string;
+  parentMessageId: string | null;
+  depth: number;
+  replyCount: number;
+  authorHandle: string;
+  body: string;
+  createdAt: string;
+  visibility: WorldConversationVisibility;
+  reportCount: number;
+  canModerate: boolean;
+  canReport: boolean;
+  canReply: boolean;
+  canAppeal: boolean;
+  appealRequested: boolean;
+};
+
+export type LiveSessionConversationThread = {
+  liveSessionId: string;
+  messages: LiveSessionConversationMessage[];
+};
+
 export type WorldConversationModerationResolution =
   | "hide"
   | "restrict"
