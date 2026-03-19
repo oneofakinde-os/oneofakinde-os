@@ -1,7 +1,7 @@
 # Spec-to-Code Implementation Backlog (March 8 Authority)
 
 Date opened: 2026-03-17
-Current phase: Phase 1 complete; Phase 2 complete; Phase 3 complete; Phase 4 complete; Phase 5 complete; Phase 6 complete; Phase 7 complete
+Current phase: Phase 1 complete; Phase 2 complete; Phase 3 complete; Phase 4 complete; Phase 5 complete; Phase 6 complete; Phase 7 complete; Phase 8 complete
 
 This backlog converts the March 8 authority pack into concrete file-level implementation work. Items are ordered by dependency, not convenience.
 
@@ -100,6 +100,22 @@ Goal: prove compliance against launch checklist using staging evidence.
 | done | `docs/architecture/release-candidate-dry-run.md` | Update with March 8 checklist traceability links and evidence capture fields. |
 | done | `scripts/rc-verify.ts` + `package.json` | Add authority-alignment checks (route map, terminology, API shape) to verification gate. |
 | done | `tests/proofs/taste-graph-isolation.test.ts` + `tests/proofs/rc-governance-execution.test.ts` | Add missing proofs called out by March 8 checklist (including taste-graph isolation checks). |
+
+## Phase 8: Full Launch Gate Parity + Onboarding Discovery
+
+Goal: satisfy Full Launch proof naming and onboarding discovery requirements in the authority checklist.
+
+| Status | File | Change |
+| --- | --- | --- |
+| done | `package.json` | Add `test:showroom:smoke` script alias to match Section 8 checklist command name exactly. |
+| done | `tests/proofs/integration-collect-certificate-watch.test.ts` | Align proof filename with Section 1/7 authority naming. |
+| done | `tests/proofs/entitlement-consistency.test.ts` | Add explicit Full Launch entitlement consistency proof (collect grant → refund revoke). |
+| done | `tests/proofs/collaborator-split-sum.test.ts` | Add explicit collaborator split-sum proof name for Full Launch economics gate. |
+| done | `tests/proofs/collaborator-ledger-routing.test.ts` | Add explicit collaborator ledger-routing proof name for Full Launch economics gate. |
+| done | `lib/onboarding/discovery-cards.ts` | Define 5–7 taste-first onboarding cards and normalized seed mapping. |
+| done | `app/(setup)/onboarding/profile-setup/page.tsx` + `app/globals.css` | Implement visual taste-first onboarding card surface with no wallet-first prompt semantics. |
+| done | `app/(setup)/onboarding/profile-setup/actions.ts` + `lib/bff/service.ts` | Seed onboarding selections into internal taste/follow rails silently at onboarding completion. |
+| done | `lib/townhall/feed-api.ts` + `tests/proofs/onboarding-discovery-contract.test.ts` | Ensure onboarding-seeded library signals enable `for_you` ordering for new collectors and lock contract behavior in proof coverage. |
 
 ## Working Rules
 

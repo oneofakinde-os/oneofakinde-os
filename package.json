@@ -26,7 +26,8 @@
     "rc:verify": "node --import tsx scripts/rc-verify.ts",
     "generate:policy-tests": "node --import tsx scripts/generate-route-policy-tests.ts",
     "check:surface-sync": "node --import tsx scripts/check-surface-route-sync.ts",
-    "test:smoke:showroom": "playwright test --config=playwright.config.ts"
+    "test:smoke:showroom": "playwright test --config=playwright.config.ts",
+    "test:showroom:smoke": "playwright test --config=playwright.config.ts"
   },
   "dependencies": {
     "next": "15.5.12",

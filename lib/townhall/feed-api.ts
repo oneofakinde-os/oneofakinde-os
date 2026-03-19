@@ -2,7 +2,6 @@ import type { FeedResponse } from "@/lib/bff/contracts";
 import { getRequestSession } from "@/lib/bff/auth";
 import { commerceBffService } from "@/lib/bff/service";
 import type { TownhallDropSocialSnapshot } from "@/lib/domain/contracts";
-import { gateway } from "@/lib/gateway";
 import { emitOperationalEvent } from "@/lib/ops/observability";
 import {
   paginateTownhallFeed,
@@ -75,8 +74,15 @@ export async function buildTownhallFeedPayload(request: Request): Promise<BuildT
     collectListingsByDropId: buildCollectListingsByDropId(collectInventory.listings)
   });
 
-  const collection = session ? await gateway.getMyCollection(session.accountId) : null;
-  const viewerHasTasteSignals = Boolean((collection?.ownedDrops ?? []).length);
+  const [collection, library] = session
+    ? await Promise.all([
+        commerceBffService.getMyCollection(session.accountId),
+        commerceBffService.getLibrary(session.accountId)
+      ])
+    : [null, null];
+  const viewerHasTasteSignals = Boolean(
+    (collection?.ownedDrops ?? []).length || (library?.savedDrops ?? []).length
+  );
   const effectiveOrdering = resolveEffectiveOrdering(ordering, Boolean(session), viewerHasTasteSignals);
 
   const telemetryByDropId = await commerceBffService.getTownhallTelemetrySignals(

@@ -1,6 +1,7 @@
 import { requireSession } from "@/lib/server/session";
 import { normalizeReturnTo } from "@/lib/session";
 import { routes } from "@/lib/routes";
+import { ONBOARDING_DISCOVERY_CARDS } from "@/lib/onboarding/discovery-cards";
 import Link from "next/link";
 import { completeProfileSetupAction } from "./actions";
 
@@ -25,12 +26,38 @@ export default async function ProfileSetupPage({ searchParams }: ProfileSetupPag
       <section className="identity-frame" aria-label="identity setup">
         <header className="identity-head">
           <p className="identity-brand">oneofakinde</p>
-          <h1 className="identity-title">let&apos;s build your identity</h1>
-          <p className="identity-copy">finalize your studio presence, @{session.handle}.</p>
+          <h1 className="identity-title">choose your taste direction</h1>
+          <p className="identity-copy">
+            start with discovery cards first. we&apos;ll quietly seed your showroom and following rails, @{session.handle}.
+          </p>
         </header>
 
         <form className="identity-form" action={completeProfileSetupAction}>
           <input type="hidden" name="returnTo" value={returnTo} />
+
+          <fieldset className="identity-discovery" aria-label="taste-first discovery">
+            <legend>pick up to three cards</legend>
+            <div className="identity-discovery-grid">
+              {ONBOARDING_DISCOVERY_CARDS.map((card, index) => (
+                <label
+                  key={card.id}
+                  className="identity-discovery-card"
+                  style={{
+                    background: `linear-gradient(140deg, ${card.accent})`
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    name="taste_card_ids"
+                    value={card.id}
+                    defaultChecked={index < 3}
+                  />
+                  <span className="identity-discovery-title">{card.title}</span>
+                  <span className="identity-discovery-copy">{card.description}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
 
           <label className="identity-field">
             <span className="identity-label">choose your avatar image</span>

@@ -85,6 +85,7 @@ import {
   listCollectInventoryByLane,
   resolveCollectListingTypeByDropId
 } from "@/lib/collect/market-lanes";
+import { resolveOnboardingDiscoverySeed } from "@/lib/onboarding/discovery-cards";
 import {
   buildWorldCollectBundleOptions,
   getActiveWorldCollectOwnership
@@ -1308,6 +1309,106 @@ function hasValidRevenueSplitTotal(
     splits.reduce((sum, entry) => sum + Number(entry.sharePercent ?? 0), 0).toFixed(2)
   );
   return Math.abs(total - 100) <= 0.01;
+}
+
+function seedOnboardingDiscoverySignalsInDatabase(
+  db: BffDatabase,
+  accountId: string,
+  cardIds: string[]
+): {
+  persist: boolean;
+  result: {
+    savedDropsSeeded: number;
+    followSignalsSeeded: number;
+    telemetrySignalsSeeded: number;
+  };
+} {
+  const account = findAccountById(db, accountId);
+  if (!account) {
+    return {
+      persist: false,
+      result: {
+        savedDropsSeeded: 0,
+        followSignalsSeeded: 0,
+        telemetrySignalsSeeded: 0
+      }
+    };
+  }
+
+  const seed = resolveOnboardingDiscoverySeed(cardIds);
+  if (seed.dropIds.length === 0) {
+    return {
+      persist: false,
+      result: {
+        savedDropsSeeded: 0,
+        followSignalsSeeded: 0,
+        telemetrySignalsSeeded: 0
+      }
+    };
+  }
+
+  const nowIso = new Date().toISOString();
+  let savedDropsSeeded = 0;
+  let followSignalsSeeded = 0;
+  let telemetrySignalsSeeded = 0;
+
+  for (const dropId of seed.dropIds) {
+    const drop = findDropById(db, dropId);
+    if (!drop) {
+      continue;
+    }
+
+    const alreadySaved = db.savedDrops.some(
+      (entry) => entry.accountId === account.id && entry.dropId === drop.id
+    );
+    if (!alreadySaved) {
+      db.savedDrops.unshift({
+        accountId: account.id,
+        dropId: drop.id,
+        savedAt: nowIso
+      });
+      savedDropsSeeded += 1;
+
+      db.townhallTelemetryEvents.unshift({
+        id: `tel_${randomUUID()}`,
+        accountId: account.id,
+        dropId: drop.id,
+        eventType: "interaction_save",
+        watchTimeSeconds: 0,
+        completionPercent: 0,
+        metadata: {
+          source: "showroom",
+          surface: "townhall",
+          action: "toggle"
+        },
+        occurredAt: nowIso
+      } satisfies TownhallTelemetryEventRecord);
+      telemetrySignalsSeeded += 1;
+    }
+  }
+
+  const followedStudios = new Set(
+    db.savedDrops
+      .filter((entry) => entry.accountId === account.id)
+      .map((entry) => findDropById(db, entry.dropId)?.studioHandle ?? null)
+      .filter((studioHandle): studioHandle is string => Boolean(studioHandle))
+  );
+  followSignalsSeeded = seed.studioHandles.reduce((count, studioHandle) => {
+    return followedStudios.has(studioHandle) ? count + 1 : count;
+  }, 0);
+
+  if (db.townhallTelemetryEvents.length > TOWNHALL_TELEMETRY_EVENT_LOG_LIMIT) {
+    db.townhallTelemetryEvents.length = TOWNHALL_TELEMETRY_EVENT_LOG_LIMIT;
+  }
+
+  return {
+    persist: savedDropsSeeded > 0 || telemetrySignalsSeeded > 0,
+    result: {
+      savedDropsSeeded,
+      followSignalsSeeded,
+      telemetrySignalsSeeded
+    }
+  };
 }
 
 function issueOwnershipAndReceipt(
@@ -4533,6 +4634,17 @@ export const commerceBffService = {
       expectedAccountId: accountId,
       allowedProviders: ["manual"]
     });
+  },
+
+  async seedOnboardingDiscoverySignals(
+    accountId: string,
+    cardIds: string[]
+  ): Promise<{
+    savedDropsSeeded: number;
+    followSignalsSeeded: number;
+    telemetrySignalsSeeded: number;
+  }> {
+    return withDatabase((db) => seedOnboardingDiscoverySignalsInDatabase(db, accountId, cardIds));
   },
 
   async issueLiveSessionJoinToken(
