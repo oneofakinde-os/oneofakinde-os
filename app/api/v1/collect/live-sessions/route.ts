@@ -12,8 +12,14 @@ export async function GET(request: Request) {
   const liveSessions = await commerceBffService.listCollectLiveSessions(
     guard.session.accountId
   );
+  const eligibleSessions = liveSessions.filter((entry) => entry.eligibility.eligible).length;
 
   return ok<CollectLiveSessionsResponse>({
-    liveSessions
+    liveSessions,
+    opportunitySummary: {
+      totalSessions: liveSessions.length,
+      eligibleSessions,
+      ineligibleSessions: Math.max(0, liveSessions.length - eligibleSessions)
+    }
   });
 }
