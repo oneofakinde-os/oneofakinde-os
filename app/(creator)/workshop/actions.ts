@@ -10,6 +10,7 @@ import type {
   CreateWorkshopWorldReleaseInput,
   CreateWorkshopLiveSessionInput,
   LiveSessionEligibilityRule,
+  LiveSessionType,
   PatronTierStatus,
   PreviewPolicy,
   TownhallModerationCaseResolution,
@@ -35,6 +36,7 @@ const LIVE_ELIGIBILITY_RULES = new Set<LiveSessionEligibilityRule>([
   "membership_active",
   "drop_owner"
 ]);
+const LIVE_SESSION_TYPES = new Set<LiveSessionType>(["opening", "event", "studio_session"]);
 const DROP_VERSION_LABELS = new Set<DropVersionLabel>([
   "v1",
   "v2",
@@ -170,6 +172,7 @@ function parseCreateLiveSessionInput(formData: FormData): CreateWorkshopLiveSess
   const title = getRequiredFormString(formData, "title");
   const startsAt = getRequiredFormString(formData, "starts_at");
   const eligibilityRule = getRequiredFormString(formData, "eligibility_rule");
+  const sessionType = getOptionalFormString(formData, "session_type");
   const capacityRaw = getOptionalFormString(formData, "capacity");
   const capacity = capacityRaw ? parsePositiveInteger(capacityRaw) : null;
 
@@ -178,6 +181,10 @@ function parseCreateLiveSessionInput(formData: FormData): CreateWorkshopLiveSess
   }
 
   if (!LIVE_ELIGIBILITY_RULES.has(eligibilityRule as LiveSessionEligibilityRule)) {
+    return null;
+  }
+
+  if (sessionType && !LIVE_SESSION_TYPES.has(sessionType as LiveSessionType)) {
     return null;
   }
 
@@ -211,6 +218,7 @@ function parseCreateLiveSessionInput(formData: FormData): CreateWorkshopLiveSess
     startsAt: new Date(startsAtMs).toISOString(),
     endsAt: endsAtRaw ? new Date(Date.parse(endsAtRaw)).toISOString() : null,
     eligibilityRule: eligibilityRule as LiveSessionEligibilityRule,
+    type: sessionType ? (sessionType as LiveSessionType) : undefined,
     spatialAudio: getFormFlag(formData, "spatial_audio"),
     capacity: capacity ?? undefined
   };

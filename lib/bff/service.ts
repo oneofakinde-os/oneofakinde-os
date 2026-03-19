@@ -30,6 +30,7 @@ import type {
   LiveSessionArtifact,
   LiveSessionEligibility,
   LiveSessionJoinSnapshot,
+  LiveSessionType,
   MyCollectionAnalyticsPanel,
   DropOwnershipHistory,
   MyCollectionSnapshot,
@@ -106,6 +107,7 @@ import {
   type LedgerLineItemRecord,
   type LedgerTransactionRecord,
   type LiveSessionRecord,
+  type LiveSessionAttendeeRecord,
   type LiveSessionArtifactRecord,
   type MembershipEntitlementRecord,
   type PatronCommitmentRecord,
@@ -150,6 +152,7 @@ const PATRON_ROSTER_LOG_LIMIT = 20_000;
 const PATRON_COMMITMENT_LOG_LIMIT = 50_000;
 const PATRON_TIER_CONFIG_LOG_LIMIT = 2_000;
 const LIVE_SESSION_ARTIFACT_LOG_LIMIT = 20_000;
+const LIVE_SESSION_ATTENDANCE_LOG_LIMIT = 50_000;
 const WORKSHOP_PRO_PROFILE_LOG_LIMIT = 2_000;
 const DEFAULT_PATRON_COMMITMENT_AMOUNT_CENTS = 500;
 const DEFAULT_PATRON_COMMITMENT_PERIOD_DAYS = 30;
@@ -339,7 +342,7 @@ type LiveSessionJoinIssueResult =
     }
   | {
       ok: false;
-      reason: "not_found" | "not_eligible" | "window_closed" | "drop_unavailable";
+      reason: "not_found" | "not_eligible" | "window_closed" | "drop_unavailable" | "at_capacity";
     };
 
 type LiveSessionJoinConsumeResult =
@@ -3077,6 +3080,17 @@ function resolveLiveSessionType(liveSession: LiveSessionRecord): LiveSession["ty
   return "event";
 }
 
+function resolveCreateLiveSessionType(
+  type: CreateWorkshopLiveSessionInput["type"],
+  eligibilityRule: CreateWorkshopLiveSessionInput["eligibilityRule"]
+): LiveSessionType {
+  if (type === "opening" || type === "event" || type === "studio_session") {
+    return type;
+  }
+
+  return eligibilityRule === "public" ? "studio_session" : "opening";
+}
+
 function resolveLiveSessionAudienceEligibility(
   liveSession: LiveSessionRecord
 ): LiveSession["eligibility"] {
@@ -3148,6 +3162,32 @@ function trimLiveSessionArtifacts(db: BffDatabase): void {
   if (db.liveSessionArtifacts.length > LIVE_SESSION_ARTIFACT_LOG_LIMIT) {
     db.liveSessionArtifacts.length = LIVE_SESSION_ARTIFACT_LOG_LIMIT;
   }
+}
+
+function trimLiveSessionAttendees(db: BffDatabase): void {
+  if (db.liveSessionAttendees.length > LIVE_SESSION_ATTENDANCE_LOG_LIMIT) {
+    db.liveSessionAttendees.length = LIVE_SESSION_ATTENDANCE_LOG_LIMIT;
+  }
+}
+
+function hasLiveSessionAttendance(
+  db: BffDatabase,
+  liveSessionId: string,
+  accountId: string
+): boolean {
+  return db.liveSessionAttendees.some(
+    (attendee) => attendee.liveSessionId === liveSessionId && attendee.accountId === accountId
+  );
+}
+
+function countLiveSessionAttendees(db: BffDatabase, liveSessionId: string): number {
+  const uniqueAccountIds = new Set<string>();
+  for (const attendee of db.liveSessionAttendees) {
+    if (attendee.liveSessionId === liveSessionId) {
+      uniqueAccountIds.add(attendee.accountId);
+    }
+  }
+  return uniqueAccountIds.size;
 }
 
 function resolveLiveSessionEligibilityInDatabase(
@@ -3350,7 +3390,7 @@ function createWorkshopLiveSessionInDatabase(
     endsAt,
     mode: "live",
     eligibilityRule: input.eligibilityRule,
-    type: input.eligibilityRule === "public" ? "studio_session" : "opening",
+    type: resolveCreateLiveSessionType(input.type, input.eligibilityRule),
     eligibility:
       input.eligibilityRule === "membership_active"
         ? "membership"
@@ -5177,6 +5217,21 @@ export const commerceBffService = {
         };
       }
 
+      const capacity =
+        typeof liveSession.capacity === "number" && Number.isFinite(liveSession.capacity)
+          ? Math.max(1, Math.floor(liveSession.capacity))
+          : 200;
+      const alreadyJoined = hasLiveSessionAttendance(db, liveSession.id, account.id);
+      if (!alreadyJoined && countLiveSessionAttendees(db, liveSession.id) >= capacity) {
+        return {
+          persist: false,
+          result: {
+            ok: false,
+            reason: "at_capacity"
+          }
+        };
+      }
+
       const exclusiveWindowEndMs = getLiveSessionExclusiveWindowEndMs(liveSession);
       const tokenTtlMs = resolveLiveSessionJoinTokenTtlSeconds() * 1000;
       const expiresAtMs = Math.min(exclusiveWindowEndMs, nowMs + tokenTtlMs);
@@ -5200,8 +5255,21 @@ export const commerceBffService = {
         exp: Math.floor(expiresAtMs / 1000)
       };
 
+      let persist = false;
+      if (!alreadyJoined) {
+        const attendee: LiveSessionAttendeeRecord = {
+          id: `lsatt_${randomUUID()}`,
+          liveSessionId: liveSession.id,
+          accountId: account.id,
+          joinedAt: new Date(nowMs).toISOString()
+        };
+        db.liveSessionAttendees.unshift(attendee);
+        trimLiveSessionAttendees(db);
+        persist = true;
+      }
+
       return {
-        persist: false,
+        persist,
         result: {
           ok: true,
           result: {

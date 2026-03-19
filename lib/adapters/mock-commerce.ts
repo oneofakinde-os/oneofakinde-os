@@ -1403,6 +1403,12 @@ function createWorkshopLiveSessionRecord(
       ? Math.max(1, Math.floor(input.capacity))
       : 200;
   const spatialAudio = Boolean(input.spatialAudio);
+  const sessionType =
+    input.type === "opening" || input.type === "event" || input.type === "studio_session"
+      ? input.type
+      : input.eligibilityRule === "public"
+        ? "studio_session"
+        : "opening";
 
   return {
     id: `live_workshop_${randomUUID()}`,
@@ -1415,7 +1421,7 @@ function createWorkshopLiveSessionRecord(
     endsAt,
     mode: "live",
     eligibilityRule: input.eligibilityRule,
-    type: input.eligibilityRule === "public" ? "studio_session" : "opening",
+    type: sessionType,
     eligibility:
       input.eligibilityRule === "membership_active"
         ? "membership"

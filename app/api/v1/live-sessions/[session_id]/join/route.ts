@@ -62,6 +62,10 @@ export async function POST(
       return conflict("live session has no collectible drop");
     }
 
+    if (issued.reason === "at_capacity") {
+      return conflict("live session is at capacity");
+    }
+
     return forbidden("live session eligibility required");
   }
 

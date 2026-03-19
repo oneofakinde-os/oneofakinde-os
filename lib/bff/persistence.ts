@@ -198,6 +198,13 @@ export type LiveSessionRecord = {
   capacity?: number;
 };
 
+export type LiveSessionAttendeeRecord = {
+  id: string;
+  liveSessionId: string;
+  accountId: string;
+  joinedAt: string;
+};
+
 export type LiveSessionArtifactRecord = {
   id: string;
   liveSessionId: string;
@@ -388,6 +395,7 @@ export type BffDatabase = {
   patronTierConfigs: PatronTierConfigRecord[];
   workshopProProfiles: WorkshopProProfileRecord[];
   liveSessions: LiveSessionRecord[];
+  liveSessionAttendees: LiveSessionAttendeeRecord[];
   liveSessionArtifacts: LiveSessionArtifactRecord[];
   townhallLikes: TownhallLikeRecord[];
   townhallComments: TownhallCommentRecord[];
@@ -916,6 +924,7 @@ function createSeedDatabase(): BffDatabase {
         capacity: 80
       }
     ],
+    liveSessionAttendees: [],
     liveSessionArtifacts: [],
     townhallLikes: [
       {
@@ -1100,6 +1109,7 @@ function createCatalogSeedDatabase(): BffDatabase {
     patronTierConfigs: seeded.patronTierConfigs,
     workshopProProfiles: seeded.workshopProProfiles,
     liveSessions: seeded.liveSessions,
+    liveSessionAttendees: [],
     liveSessionArtifacts: [],
     townhallLikes: [],
     townhallComments: [],
@@ -1142,6 +1152,7 @@ function createEmptyDatabase(): BffDatabase {
     patronTierConfigs: [],
     workshopProProfiles: [],
     liveSessions: [],
+    liveSessionAttendees: [],
     liveSessionArtifacts: [],
     townhallLikes: [],
     townhallComments: [],
@@ -1187,6 +1198,7 @@ function isValidDb(input: unknown): input is BffDatabase {
     Array.isArray(candidate.patronTierConfigs) &&
     Array.isArray(candidate.workshopProProfiles) &&
     Array.isArray(candidate.liveSessions) &&
+    Array.isArray(candidate.liveSessionAttendees) &&
     Array.isArray(candidate.liveSessionArtifacts) &&
     Array.isArray(candidate.townhallLikes) &&
     Array.isArray(candidate.townhallComments) &&
@@ -1215,6 +1227,7 @@ function hasLegacyBaseDbShape(input: unknown): input is Omit<
   | "patronTierConfigs"
   | "workshopProProfiles"
   | "liveSessions"
+  | "liveSessionAttendees"
   | "liveSessionArtifacts"
   | "townhallLikes"
   | "townhallComments"
@@ -1573,6 +1586,26 @@ function normalizeLiveSessionRecords(records: LiveSessionRecord[]): LiveSessionR
       exclusiveDropWindowDropId,
       exclusiveDropWindowDelay,
       capacity
+    };
+  });
+}
+
+function normalizeLiveSessionAttendeeRecords(
+  records: LiveSessionAttendeeRecord[]
+): LiveSessionAttendeeRecord[] {
+  return records.map((record) => {
+    const candidate = record as Partial<LiveSessionAttendeeRecord>;
+    return {
+      id:
+        typeof candidate.id === "string" && candidate.id.trim().length > 0
+          ? candidate.id
+          : `lsatt_${randomUUID()}`,
+      liveSessionId: typeof candidate.liveSessionId === "string" ? candidate.liveSessionId : "",
+      accountId: typeof candidate.accountId === "string" ? candidate.accountId : "",
+      joinedAt:
+        typeof candidate.joinedAt === "string" && candidate.joinedAt.trim().length > 0
+          ? candidate.joinedAt
+          : new Date().toISOString()
     };
   });
 }
@@ -2535,6 +2568,7 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
       patronTierConfigs: normalizePatronTierConfigRecords(input.patronTierConfigs),
       workshopProProfiles: normalizeWorkshopProProfileRecords(input.workshopProProfiles),
       liveSessions: normalizeLiveSessionRecords(input.liveSessions),
+      liveSessionAttendees: normalizeLiveSessionAttendeeRecords(input.liveSessionAttendees),
       liveSessionArtifacts: normalizeLiveSessionArtifactRecords(input.liveSessionArtifacts),
       townhallComments: normalizeTownhallCommentRecords(input.townhallComments),
       townhallTelemetryEvents: normalizeTownhallTelemetryEvents(input.townhallTelemetryEvents),
@@ -2601,6 +2635,11 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         : [],
       liveSessions: Array.isArray(candidate.liveSessions)
         ? normalizeLiveSessionRecords(candidate.liveSessions as LiveSessionRecord[])
+        : [],
+      liveSessionAttendees: Array.isArray(candidate.liveSessionAttendees)
+        ? normalizeLiveSessionAttendeeRecords(
+            candidate.liveSessionAttendees as LiveSessionAttendeeRecord[]
+          )
         : [],
       liveSessionArtifacts: Array.isArray(candidate.liveSessionArtifacts)
         ? normalizeLiveSessionArtifactRecords(
@@ -3469,6 +3508,12 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
           row.capacity === null || row.capacity === undefined ? undefined : Number(row.capacity)
       }))
     ),
+    liveSessionAttendees: normalizeLiveSessionAttendeeRecords(
+      parseMetaJsonValue<LiveSessionAttendeeRecord[]>(
+        meta.get("live_session_attendees_json"),
+        []
+      )
+    ),
     liveSessionArtifacts: normalizeLiveSessionArtifactRecords(
       parseMetaJsonValue<LiveSessionArtifactRecord[]>(
         meta.get("live_session_artifacts_json"),
@@ -3648,6 +3693,10 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
   await client.query("INSERT INTO bff_meta (key, value) VALUES ($1, $2)", [
     "workshop_pro_profiles_json",
     JSON.stringify(db.workshopProProfiles)
+  ]);
+  await client.query("INSERT INTO bff_meta (key, value) VALUES ($1, $2)", [
+    "live_session_attendees_json",
+    JSON.stringify(db.liveSessionAttendees)
   ]);
   await client.query("INSERT INTO bff_meta (key, value) VALUES ($1, $2)", [
     "live_session_artifacts_json",

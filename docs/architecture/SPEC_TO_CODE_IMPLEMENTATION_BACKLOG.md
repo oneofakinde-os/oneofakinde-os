@@ -1,7 +1,7 @@
 # Spec-to-Code Implementation Backlog (March 8 Authority)
 
 Date opened: 2026-03-17
-Current phase: Phase 1 complete; Phase 2 complete; Phase 3 complete; Phase 4 complete; Phase 5 complete; Phase 6 complete; Phase 7 complete; Phase 8 complete
+Current phase: Phase 1 complete; Phase 2 complete; Phase 3 complete; Phase 4 complete; Phase 5 complete; Phase 6 complete; Phase 7 complete; Phase 8 complete; Phase 9 complete; Phase 10 complete
 
 This backlog converts the March 8 authority pack into concrete file-level implementation work. Items are ordered by dependency, not convenience.
 
@@ -116,6 +116,29 @@ Goal: satisfy Full Launch proof naming and onboarding discovery requirements in 
 | done | `app/(setup)/onboarding/profile-setup/page.tsx` + `app/globals.css` | Implement visual taste-first onboarding card surface with no wallet-first prompt semantics. |
 | done | `app/(setup)/onboarding/profile-setup/actions.ts` + `lib/bff/service.ts` | Seed onboarding selections into internal taste/follow rails silently at onboarding completion. |
 | done | `lib/townhall/feed-api.ts` + `tests/proofs/onboarding-discovery-contract.test.ts` | Ensure onboarding-seeded library signals enable `for_you` ordering for new collectors and lock contract behavior in proof coverage. |
+
+## Phase 9: Live Session Artifacts + Workshop Pro State (Full Launch)
+
+Goal: satisfy Section 5.3 and Section 6.2 rails for artifact approval flow and workshop pro transition law.
+
+| Status | File | Change |
+| --- | --- | --- |
+| done | `lib/domain/contracts.ts` + `lib/domain/ports.ts` + `lib/bff/contracts.ts` + `lib/gateway/bff-client.ts` | Add live-session artifact and workshop pro state contracts/ports. |
+| done | `lib/bff/service.ts` + `lib/bff/persistence.ts` | Add artifact capture/approval and workshop pro state transition engine with persistence. |
+| done | `app/api/v1/workshop/live-session-artifacts/*` + `app/api/v1/workshop/pro-state/route.ts` | Add workshop artifact and pro-state APIs. |
+| done | `app/(creator)/workshop/actions.ts` + `features/workshop/workshop-root-screen.tsx` + `app/(creator)/workshop/page.tsx` | Expose artifact review/approval and pro-state controls in workshop. |
+| done | `tests/proofs/workshop-live-session-artifacts.test.ts` + `tests/proofs/workshop-pro-state-machine.test.ts` | Add proof coverage for artifact hold/approve flow and pro-state transition law. |
+
+## Phase 10: Live Session Lifecycle Capacity + Type Controls (Full Launch)
+
+Goal: satisfy remaining Section 5.1 lifecycle checks for explicit session typing and hard capacity enforcement on join.
+
+| Status | File | Change |
+| --- | --- | --- |
+| done | `lib/domain/contracts.ts` + `app/api/v1/workshop/live-sessions/route.ts` + `app/(creator)/workshop/actions.ts` | Accept and validate explicit live session `type` (`opening`, `event`, `studio_session`) in workshop create flow. |
+| done | `features/workshop/workshop-root-screen.tsx` | Add session type selector and render type/capacity/spatial state in workshop live-session list. |
+| done | `lib/bff/persistence.ts` + `lib/bff/service.ts` + `app/api/v1/live-sessions/[session_id]/join/route.ts` | Add persisted attendee rail and enforce live-session capacity ceiling with `409` on overflow joins. |
+| done | `tests/proofs/live-session-capacity-and-type.test.ts` | Add proofs for join capacity ceiling behavior and explicit session type persistence. |
 
 ## Working Rules
 
