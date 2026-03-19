@@ -1998,6 +1998,27 @@ a {
   line-height: 1.35;
 }
 
+.townhall-post-filter-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #9fb6c5;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.townhall-post-filter-row select {
+  border-radius: 999px;
+  border: 1px solid #3f5565;
+  background: rgba(8, 13, 18, 0.78);
+  color: #d5e5f1;
+  padding: 5px 10px;
+  font-size: 0.68rem;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
 .townhall-post-list {
   list-style: none;
   margin: 0;
@@ -2026,6 +2047,14 @@ a {
   color: #b6cad8;
   font-size: 0.73rem;
   line-height: 1.35;
+}
+
+.townhall-post-engagement {
+  margin: 0;
+  color: #89a6b8;
+  font-size: 0.64rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 .townhall-post-linked-object {

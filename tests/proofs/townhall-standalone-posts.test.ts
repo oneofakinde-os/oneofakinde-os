@@ -90,6 +90,11 @@ test("proof: townhall standalone posts support compose, link references, and mod
   assert.equal(createPayload.post.visibility, "visible");
   assert.equal(createPayload.post.linkedObject?.kind, "drop");
   assert.equal(createPayload.post.linkedObject?.id, drop.id);
+  assert.equal(createPayload.post.saveCount, 0);
+  assert.equal(createPayload.post.followCount, 0);
+  assert.equal(createPayload.post.shareCount, 0);
+  assert.equal(createPayload.post.savedByViewer, false);
+  assert.equal(createPayload.post.followedByViewer, false);
   const createdPostId = createPayload.post.id;
   assert.ok(createdPostId, "expected created post id");
 
@@ -102,6 +107,140 @@ test("proof: townhall standalone posts support compose, link references, and mod
     withRouteParams({ post_id: createdPostId })
   );
   assert.equal(readPostResponse.status, 200);
+
+  const saveResponse = await postTownhallPostActionRoute(
+    new Request(`http://127.0.0.1:3000/api/v1/townhall/posts/${createdPostId}`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-ook-session-token": reporterSession.sessionToken
+      },
+      body: JSON.stringify({
+        action: "save"
+      })
+    }),
+    withRouteParams({ post_id: createdPostId })
+  );
+  assert.equal(saveResponse.status, 201);
+  const savePayload = await parseJson<{ post: TownhallPost }>(saveResponse);
+  assert.equal(savePayload.post.savedByViewer, true);
+  assert.equal(savePayload.post.saveCount, 1);
+
+  const followResponse = await postTownhallPostActionRoute(
+    new Request(`http://127.0.0.1:3000/api/v1/townhall/posts/${createdPostId}`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-ook-session-token": reporterSession.sessionToken
+      },
+      body: JSON.stringify({
+        action: "follow"
+      })
+    }),
+    withRouteParams({ post_id: createdPostId })
+  );
+  assert.equal(followResponse.status, 201);
+  const followPayload = await parseJson<{ post: TownhallPost }>(followResponse);
+  assert.equal(followPayload.post.followedByViewer, true);
+  assert.equal(followPayload.post.followCount, 1);
+
+  const shareResponse = await postTownhallPostActionRoute(
+    new Request(`http://127.0.0.1:3000/api/v1/townhall/posts/${createdPostId}`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-ook-session-token": reporterSession.sessionToken
+      },
+      body: JSON.stringify({
+        action: "share",
+        channel: "telegram"
+      })
+    }),
+    withRouteParams({ post_id: createdPostId })
+  );
+  assert.equal(shareResponse.status, 201);
+  const sharePayload = await parseJson<{ post: TownhallPost }>(shareResponse);
+  assert.equal(sharePayload.post.shareCount, 1);
+
+  const followingPostsResponse = await getTownhallPostsRoute(
+    new Request("http://127.0.0.1:3000/api/v1/townhall/posts?limit=20&filter=following", {
+      headers: {
+        "x-ook-session-token": reporterSession.sessionToken
+      }
+    })
+  );
+  assert.equal(followingPostsResponse.status, 200);
+  const followingPostsPayload = await parseJson<{ posts: TownhallPost[]; filter: string }>(
+    followingPostsResponse
+  );
+  assert.equal(followingPostsPayload.filter, "following");
+  assert.equal(
+    followingPostsPayload.posts.some((post) => post.id === createdPostId),
+    true
+  );
+
+  const savedPostsResponse = await getTownhallPostsRoute(
+    new Request("http://127.0.0.1:3000/api/v1/townhall/posts?limit=20&filter=saved", {
+      headers: {
+        "x-ook-session-token": reporterSession.sessionToken
+      }
+    })
+  );
+  assert.equal(savedPostsResponse.status, 200);
+  const savedPostsPayload = await parseJson<{ posts: TownhallPost[]; filter: string }>(
+    savedPostsResponse
+  );
+  assert.equal(savedPostsPayload.filter, "saved");
+  assert.equal(
+    savedPostsPayload.posts.some((post) => post.id === createdPostId),
+    true
+  );
+
+  const anonymousFollowingResponse = await getTownhallPostsRoute(
+    new Request("http://127.0.0.1:3000/api/v1/townhall/posts?limit=20&filter=following")
+  );
+  assert.equal(anonymousFollowingResponse.status, 200);
+  const anonymousFollowingPayload = await parseJson<{ posts: TownhallPost[]; filter: string }>(
+    anonymousFollowingResponse
+  );
+  assert.equal(anonymousFollowingPayload.filter, "following");
+  assert.equal(anonymousFollowingPayload.posts.length, 0);
+
+  const unsaveResponse = await postTownhallPostActionRoute(
+    new Request(`http://127.0.0.1:3000/api/v1/townhall/posts/${createdPostId}`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-ook-session-token": reporterSession.sessionToken
+      },
+      body: JSON.stringify({
+        action: "unsave"
+      })
+    }),
+    withRouteParams({ post_id: createdPostId })
+  );
+  assert.equal(unsaveResponse.status, 200);
+  const unsavePayload = await parseJson<{ post: TownhallPost }>(unsaveResponse);
+  assert.equal(unsavePayload.post.savedByViewer, false);
+  assert.equal(unsavePayload.post.saveCount, 0);
+
+  const unfollowResponse = await postTownhallPostActionRoute(
+    new Request(`http://127.0.0.1:3000/api/v1/townhall/posts/${createdPostId}`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-ook-session-token": reporterSession.sessionToken
+      },
+      body: JSON.stringify({
+        action: "unfollow"
+      })
+    }),
+    withRouteParams({ post_id: createdPostId })
+  );
+  assert.equal(unfollowResponse.status, 200);
+  const unfollowPayload = await parseJson<{ post: TownhallPost }>(unfollowResponse);
+  assert.equal(unfollowPayload.post.followedByViewer, false);
+  assert.equal(unfollowPayload.post.followCount, 0);
 
   const reportResponse = await postTownhallPostActionRoute(
     new Request(`http://127.0.0.1:3000/api/v1/townhall/posts/${createdPostId}`, {
@@ -171,4 +310,17 @@ test("proof: townhall standalone posts support compose, link references, and mod
   const restorePayload = await parseJson<{ post: TownhallPost }>(restoreResponse);
   assert.equal(restorePayload.post.visibility, "visible");
   assert.equal(restorePayload.post.reportCount, 0);
+});
+
+test("proof: townhall posts panel exposes recall filter and thread action controls", async () => {
+  const sourcePath = path.join(
+    process.cwd(),
+    "features/townhall/townhall-feed-screen.tsx"
+  );
+  const source = await fs.readFile(sourcePath, "utf8");
+  assert.match(source, /data-testid=\"townhall-post-filter\"/);
+  assert.match(source, /data-testid=\"townhall-post-engagement\"/);
+  assert.match(source, /save thread/);
+  assert.match(source, /follow thread/);
+  assert.match(source, /share thread/);
 });

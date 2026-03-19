@@ -901,6 +901,11 @@ export type TownhallPost = {
   createdAt: string;
   visibility: TownhallPostVisibility;
   reportCount: number;
+  saveCount: number;
+  shareCount: number;
+  followCount: number;
+  savedByViewer: boolean;
+  followedByViewer: boolean;
   linkedObject: TownhallPostLinkedObject | null;
   canModerate: boolean;
   canReport: boolean;
@@ -908,8 +913,11 @@ export type TownhallPost = {
   appealRequested: boolean;
 };
 
+export type TownhallPostsFilter = "all" | "following" | "saved";
+
 export type TownhallPostsSnapshot = {
   posts: TownhallPost[];
+  filter: TownhallPostsFilter;
 };
 
 export type TownhallDropSocialSnapshot = {
