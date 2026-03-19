@@ -47,6 +47,7 @@ import type {
   CatalogWorldDropsResponse,
   CatalogWorldResponse,
   CatalogWorldsResponse,
+  MembershipEntitlementsResponse,
   CollectLiveSessionEligibilityResponse,
   CollectLiveSessionsResponse,
   WorkshopLiveSessionArtifactResponse,
@@ -421,7 +422,7 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
 
     async listMembershipEntitlements(_accountId: string): Promise<MembershipEntitlement[]> {
       void _accountId;
-      const response = await requestJson<{ entitlements: MembershipEntitlement[] }>(
+      const response = await requestJson<MembershipEntitlementsResponse>(
         options,
         "/api/v1/memberships"
       );

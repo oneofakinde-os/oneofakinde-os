@@ -1,11 +1,14 @@
 import type {
   CheckoutSession,
+  CollectInventoryListing,
+  CollectMarketLane,
   CollectLiveSessionSnapshot,
   Drop,
   DropLiveArtifactsSnapshot,
   LiveSession,
   LiveSessionArtifact,
   LiveSessionEligibility,
+  MembershipEntitlement,
   Studio,
   WorkshopProProfile,
   World
@@ -55,8 +58,35 @@ export type CatalogSearchResponse = {
   total: number;
 };
 
+export type CollectInventoryResponse = {
+  lane: CollectMarketLane;
+  laneMetadata: {
+    requestedLane: string | null;
+    resolvedLane: CollectMarketLane;
+    availableLanes: CollectMarketLane[];
+    totalListings: number;
+    generatedAt: string;
+  };
+  listings: CollectInventoryListing[];
+};
+
+export type MembershipEntitlementsResponse = {
+  entitlements: MembershipEntitlement[];
+  opportunitySummary: {
+    totalEntitlements: number;
+    activeEntitlements: number;
+    worldScopedEntitlements: number;
+    studioScopedEntitlements: number;
+  };
+};
+
 export type CollectLiveSessionsResponse = {
   liveSessions: CollectLiveSessionSnapshot[];
+  opportunitySummary: {
+    totalSessions: number;
+    eligibleSessions: number;
+    ineligibleSessions: number;
+  };
 };
 
 export type CollectLiveSessionEligibilityResponse = {

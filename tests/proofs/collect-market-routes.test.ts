@@ -53,9 +53,21 @@ test("proof: collect inventory route enforces session and lane filtering", async
 
   const payload = await parseJson<{
     lane: string;
+    laneMetadata: {
+      requestedLane: string | null;
+      resolvedLane: string;
+      availableLanes: string[];
+      totalListings: number;
+      generatedAt: string;
+    };
     listings: Array<{ lane: string }>;
   }>(response);
   assert.equal(payload.lane, "auction");
+  assert.equal(payload.laneMetadata.requestedLane, "auction");
+  assert.equal(payload.laneMetadata.resolvedLane, "auction");
+  assert.deepEqual(payload.laneMetadata.availableLanes, ["all", "sale", "auction", "resale"]);
+  assert.ok(payload.laneMetadata.totalListings >= payload.listings.length);
+  assert.ok(Date.parse(payload.laneMetadata.generatedAt) > 0);
   assert.ok(payload.listings.length > 0);
   assert.ok(payload.listings.every((entry) => entry.lane === "auction"));
 });

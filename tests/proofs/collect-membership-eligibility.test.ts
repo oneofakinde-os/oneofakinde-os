@@ -56,11 +56,27 @@ test("proof: membership and collect live routes enforce session and resolve elig
     })
   );
   assert.equal(membershipsResponse.status, 200);
-  const membershipsPayload = await parseJson<{ entitlements: MembershipEntitlement[] }>(
+  const membershipsPayload = await parseJson<{
+    entitlements: MembershipEntitlement[];
+    opportunitySummary: {
+      totalEntitlements: number;
+      activeEntitlements: number;
+      worldScopedEntitlements: number;
+      studioScopedEntitlements: number;
+    };
+  }>(
     membershipsResponse
   );
   assert.ok(membershipsPayload.entitlements.length >= 1);
   assert.equal(membershipsPayload.entitlements[0]?.isActive, true);
+  assert.equal(
+    membershipsPayload.opportunitySummary.totalEntitlements,
+    membershipsPayload.entitlements.length
+  );
+  assert.ok(
+    membershipsPayload.opportunitySummary.activeEntitlements <=
+      membershipsPayload.opportunitySummary.totalEntitlements
+  );
 
   const seededLiveSessionsResponse = await getCollectLiveSessionsRoute(
     new Request("http://127.0.0.1:3000/api/v1/collect/live-sessions", {
@@ -70,8 +86,20 @@ test("proof: membership and collect live routes enforce session and resolve elig
     })
   );
   assert.equal(seededLiveSessionsResponse.status, 200);
-  const seededPayload = await parseJson<{ liveSessions: CollectLiveSessionSnapshot[] }>(
+  const seededPayload = await parseJson<{
+    liveSessions: CollectLiveSessionSnapshot[];
+    opportunitySummary: {
+      totalSessions: number;
+      eligibleSessions: number;
+      ineligibleSessions: number;
+    };
+  }>(
     seededLiveSessionsResponse
+  );
+  assert.equal(seededPayload.opportunitySummary.totalSessions, seededPayload.liveSessions.length);
+  assert.equal(
+    seededPayload.opportunitySummary.totalSessions,
+    seededPayload.opportunitySummary.eligibleSessions + seededPayload.opportunitySummary.ineligibleSessions
   );
   const seededById = new Map(
     seededPayload.liveSessions.map((entry) => [entry.liveSession.id, entry.eligibility])
@@ -95,8 +123,20 @@ test("proof: membership and collect live routes enforce session and resolve elig
     })
   );
   assert.equal(freshLiveSessionsResponse.status, 200);
-  const freshPayload = await parseJson<{ liveSessions: CollectLiveSessionSnapshot[] }>(
+  const freshPayload = await parseJson<{
+    liveSessions: CollectLiveSessionSnapshot[];
+    opportunitySummary: {
+      totalSessions: number;
+      eligibleSessions: number;
+      ineligibleSessions: number;
+    };
+  }>(
     freshLiveSessionsResponse
+  );
+  assert.equal(freshPayload.opportunitySummary.totalSessions, freshPayload.liveSessions.length);
+  assert.equal(
+    freshPayload.opportunitySummary.totalSessions,
+    freshPayload.opportunitySummary.eligibleSessions + freshPayload.opportunitySummary.ineligibleSessions
   );
   const freshById = new Map(
     freshPayload.liveSessions.map((entry) => [entry.liveSession.id, entry.eligibility])
