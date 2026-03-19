@@ -28,6 +28,9 @@ import type {
   LedgerTransaction,
   LiveSession,
   LiveSessionConversationMessage,
+  LiveSessionConversationModerationCaseResolveResult,
+  LiveSessionConversationModerationQueueItem,
+  LiveSessionConversationModerationResolution,
   LiveSessionConversationThread,
   LiveSessionArtifact,
   LiveSessionEligibility,
@@ -147,6 +150,7 @@ const LIVE_SESSION_CONVERSATION_MESSAGE_MAX_LENGTH = 600;
 const LIVE_SESSION_CONVERSATION_MESSAGES_PREVIEW_LIMIT = 200;
 const LIVE_SESSION_CONVERSATION_MESSAGE_LOG_LIMIT = 50_000;
 const WORLD_CONVERSATION_MODERATION_QUEUE_LIMIT = 500;
+const LIVE_SESSION_CONVERSATION_MODERATION_QUEUE_LIMIT = 500;
 const COLLECT_OFFERS_LOG_LIMIT = 50_000;
 const COLLECT_ENFORCEMENT_SIGNAL_LOG_LIMIT = 10_000;
 const COLLECT_INTEGRITY_RECENT_SIGNAL_LIMIT = 100;
@@ -221,6 +225,14 @@ const WORLD_CONVERSATION_MODERATION_RESOLUTION_SET = new Set<WorldConversationMo
   "restore",
   "dismiss"
 ]);
+const LIVE_SESSION_CONVERSATION_MODERATION_RESOLUTION_SET =
+  new Set<LiveSessionConversationModerationResolution>([
+    "hide",
+    "restrict",
+    "delete",
+    "restore",
+    "dismiss"
+  ]);
 const TOWNHALL_TELEMETRY_EVENT_SET = new Set<TownhallTelemetryEventType>([
   "watch_time",
   "completion",
@@ -2001,6 +2013,17 @@ function canAccountModerateLiveSessionConversationMessage(
   return account.roles.includes("creator") && account.handle === liveSession.studioHandle;
 }
 
+function canAccountResolveLiveSessionConversationModerationCase(
+  account: AccountRecord | null,
+  liveSession: LiveSessionRecord
+): boolean {
+  if (!account) {
+    return false;
+  }
+
+  return account.roles.includes("creator") && account.handle === liveSession.studioHandle;
+}
+
 function canAccountReportLiveSessionConversationMessage(
   account: AccountRecord | null,
   message: LiveSessionConversationMessageRecord
@@ -2041,6 +2064,49 @@ function applyWorldConversationModerationResolution(
   message: WorldConversationMessageRecord,
   actorAccountId: string,
   resolution: WorldConversationModerationResolution
+): void {
+  if (resolution === "dismiss") {
+    const nowIso = new Date().toISOString();
+    message.moderatedAt = nowIso;
+    message.moderatedByAccountId = actorAccountId;
+    message.reportCount = 0;
+    message.reportedAt = null;
+    message.appealRequestedAt = null;
+    message.appealRequestedByAccountId = null;
+    return;
+  }
+
+  if (resolution === "hide") {
+    message.visibility = "hidden";
+  } else if (resolution === "restrict") {
+    message.visibility = "restricted";
+  } else if (resolution === "delete") {
+    message.visibility = "deleted";
+  } else if (resolution === "restore") {
+    message.visibility = "visible";
+  }
+
+  const nowIso = new Date().toISOString();
+  message.moderatedAt = nowIso;
+  message.moderatedByAccountId = actorAccountId;
+  message.reportCount = 0;
+  message.reportedAt = null;
+  message.appealRequestedAt = null;
+  message.appealRequestedByAccountId = null;
+}
+
+function isLiveSessionConversationModerationResolution(
+  value: string
+): value is LiveSessionConversationModerationResolution {
+  return LIVE_SESSION_CONVERSATION_MODERATION_RESOLUTION_SET.has(
+    value as LiveSessionConversationModerationResolution
+  );
+}
+
+function applyLiveSessionConversationModerationResolution(
+  message: LiveSessionConversationMessageRecord,
+  actorAccountId: string,
+  resolution: LiveSessionConversationModerationResolution
 ): void {
   if (resolution === "dismiss") {
     const nowIso = new Date().toISOString();
@@ -2552,6 +2618,59 @@ function buildWorldConversationModerationQueue(
       return bRank - aRank;
     })
     .slice(0, WORLD_CONVERSATION_MODERATION_QUEUE_LIMIT);
+}
+
+function buildLiveSessionConversationModerationQueue(
+  db: BffDatabase,
+  account: AccountRecord,
+  liveSessionId?: string | null
+): LiveSessionConversationModerationQueueItem[] {
+  if (!account.roles.includes("creator")) {
+    return [];
+  }
+
+  const creatorLiveSessions = db.liveSessions.filter(
+    (liveSession) => liveSession.studioHandle === account.handle
+  );
+  const creatorLiveSessionById = new Map(
+    creatorLiveSessions
+      .filter((liveSession) => (liveSessionId ? liveSession.id === liveSessionId : true))
+      .map((liveSession) => [liveSession.id, liveSession])
+  );
+
+  if (liveSessionId && !creatorLiveSessionById.has(liveSessionId)) {
+    return [];
+  }
+
+  const accountHandleById = new Map(db.accounts.map((entry) => [entry.id, entry.handle]));
+
+  return db.liveSessionConversationMessages
+    .filter((message) => creatorLiveSessionById.has(message.liveSessionId))
+    .filter((message) => message.reportCount > 0 || message.appealRequestedAt !== null)
+    .map((message) => {
+      const liveSession = creatorLiveSessionById.get(message.liveSessionId)!;
+      return {
+        liveSessionId: liveSession.id,
+        liveSessionTitle: liveSession.title,
+        messageId: message.id,
+        parentMessageId: message.parentMessageId,
+        authorHandle: accountHandleById.get(message.accountId) ?? "community",
+        body: message.body,
+        visibility: message.visibility,
+        reportCount: message.reportCount,
+        reportedAt: message.reportedAt,
+        moderatedAt: message.moderatedAt,
+        appealRequested: Boolean(message.appealRequestedAt),
+        appealRequestedAt: message.appealRequestedAt,
+        createdAt: message.createdAt
+      } satisfies LiveSessionConversationModerationQueueItem;
+    })
+    .sort((a, b) => {
+      const aRank = Date.parse(a.appealRequestedAt ?? a.reportedAt ?? a.createdAt);
+      const bRank = Date.parse(b.appealRequestedAt ?? b.reportedAt ?? b.createdAt);
+      return bRank - aRank;
+    })
+    .slice(0, LIVE_SESSION_CONVERSATION_MODERATION_QUEUE_LIMIT);
 }
 
 function buildTownhallSocialSnapshot(
@@ -5921,6 +6040,262 @@ export const commerceBffService = {
         result: {
           ok: true as const,
           thread: buildLiveSessionConversationThread(db, liveSession, account)
+        }
+      };
+    });
+  },
+
+  async reportLiveSessionConversationMessage(
+    accountId: string,
+    liveSessionId: string,
+    messageId: string
+  ): Promise<
+    | {
+        ok: true;
+        thread: LiveSessionConversationThread;
+      }
+    | { ok: false; reason: "not_found" | "forbidden" }
+  > {
+    return withDatabase<
+      | {
+          ok: true;
+          thread: LiveSessionConversationThread;
+        }
+      | { ok: false; reason: "not_found" | "forbidden" }
+    >(async (db) => {
+      const account = findAccountById(db, accountId);
+      const liveSession = db.liveSessions.find((entry) => entry.id === liveSessionId) ?? null;
+      const message = findLiveSessionConversationMessageById(db, liveSessionId, messageId);
+      if (!account || !liveSession || !message) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "not_found" as const
+          }
+        };
+      }
+
+      const nowMs = Date.now();
+      if (!canAccessLiveSessionConversationThread(db, account, liveSession, nowMs)) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "forbidden" as const
+          }
+        };
+      }
+
+      if (!canAccountReportLiveSessionConversationMessage(account, message)) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "forbidden" as const
+          }
+        };
+      }
+
+      message.reportCount += 1;
+      message.reportedAt = new Date().toISOString();
+
+      return {
+        persist: true,
+        result: {
+          ok: true as const,
+          thread: buildLiveSessionConversationThread(db, liveSession, account)
+        }
+      };
+    });
+  },
+
+  async appealLiveSessionConversationMessage(
+    accountId: string,
+    liveSessionId: string,
+    messageId: string
+  ): Promise<
+    | {
+        ok: true;
+        thread: LiveSessionConversationThread;
+      }
+    | { ok: false; reason: "not_found" | "forbidden" }
+  > {
+    return withDatabase<
+      | {
+          ok: true;
+          thread: LiveSessionConversationThread;
+        }
+      | { ok: false; reason: "not_found" | "forbidden" }
+    >(async (db) => {
+      const account = findAccountById(db, accountId);
+      const liveSession = db.liveSessions.find((entry) => entry.id === liveSessionId) ?? null;
+      const message = findLiveSessionConversationMessageById(db, liveSessionId, messageId);
+      if (!account || !liveSession || !message) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "not_found" as const
+          }
+        };
+      }
+
+      const nowMs = Date.now();
+      if (!canAccessLiveSessionConversationThread(db, account, liveSession, nowMs)) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "forbidden" as const
+          }
+        };
+      }
+
+      if (!canAccountAppealLiveSessionConversationMessage(account, message)) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "forbidden" as const
+          }
+        };
+      }
+
+      message.appealRequestedAt = new Date().toISOString();
+      message.appealRequestedByAccountId = account.id;
+
+      return {
+        persist: true,
+        result: {
+          ok: true as const,
+          thread: buildLiveSessionConversationThread(db, liveSession, account)
+        }
+      };
+    });
+  },
+
+  async resolveLiveSessionConversationModeration(
+    accountId: string,
+    liveSessionId: string,
+    messageId: string,
+    resolution: LiveSessionConversationModerationResolution
+  ): Promise<
+    | {
+        ok: true;
+        thread: LiveSessionConversationThread;
+      }
+    | { ok: false; reason: "not_found" | "forbidden" | "invalid" }
+  > {
+    return withDatabase<
+      | {
+          ok: true;
+          thread: LiveSessionConversationThread;
+        }
+      | { ok: false; reason: "not_found" | "forbidden" | "invalid" }
+    >(async (db) => {
+      const account = findAccountById(db, accountId);
+      const liveSession = db.liveSessions.find((entry) => entry.id === liveSessionId) ?? null;
+      const message = findLiveSessionConversationMessageById(db, liveSessionId, messageId);
+      if (!account || !liveSession || !message) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "not_found" as const
+          }
+        };
+      }
+
+      if (!isLiveSessionConversationModerationResolution(resolution)) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "invalid" as const
+          }
+        };
+      }
+
+      if (!canAccountResolveLiveSessionConversationModerationCase(account, liveSession)) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "forbidden" as const
+          }
+        };
+      }
+
+      applyLiveSessionConversationModerationResolution(message, account.id, resolution);
+
+      return {
+        persist: true,
+        result: {
+          ok: true as const,
+          thread: buildLiveSessionConversationThread(db, liveSession, account)
+        }
+      };
+    });
+  },
+
+  async listLiveSessionConversationModerationQueue(
+    accountId: string,
+    liveSessionId?: string | null
+  ): Promise<LiveSessionConversationModerationQueueItem[]> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account) {
+        return {
+          persist: false,
+          result: []
+        };
+      }
+
+      return {
+        persist: false,
+        result: buildLiveSessionConversationModerationQueue(db, account, liveSessionId)
+      };
+    });
+  },
+
+  async resolveLiveSessionConversationModerationCase(
+    accountId: string,
+    liveSessionId: string,
+    messageId: string,
+    resolution: LiveSessionConversationModerationResolution
+  ): Promise<LiveSessionConversationModerationCaseResolveResult> {
+    return withDatabase<LiveSessionConversationModerationCaseResolveResult>(async (db) => {
+      const account = findAccountById(db, accountId);
+      const liveSession = db.liveSessions.find((entry) => entry.id === liveSessionId) ?? null;
+      const message = findLiveSessionConversationMessageById(db, liveSessionId, messageId);
+      if (!account || !liveSession || !message || !isLiveSessionConversationModerationResolution(resolution)) {
+        return {
+          persist: false,
+          result: {
+            ok: false,
+            reason: "not_found"
+          }
+        };
+      }
+
+      if (!canAccountResolveLiveSessionConversationModerationCase(account, liveSession)) {
+        return {
+          persist: false,
+          result: {
+            ok: false,
+            reason: "forbidden"
+          }
+        };
+      }
+
+      applyLiveSessionConversationModerationResolution(message, account.id, resolution);
+
+      return {
+        persist: true,
+        result: {
+          ok: true,
+          queue: buildLiveSessionConversationModerationQueue(db, account, liveSession.id)
         }
       };
     });

@@ -205,6 +205,39 @@ export type WorldConversationModerationCaseResolveResult =
       reason: "forbidden" | "not_found";
     };
 
+export type LiveSessionConversationModerationResolution =
+  | "hide"
+  | "restrict"
+  | "delete"
+  | "restore"
+  | "dismiss";
+
+export type LiveSessionConversationModerationQueueItem = {
+  liveSessionId: string;
+  liveSessionTitle: string;
+  messageId: string;
+  parentMessageId: string | null;
+  authorHandle: string;
+  body: string;
+  visibility: WorldConversationVisibility;
+  reportCount: number;
+  reportedAt: string | null;
+  moderatedAt: string | null;
+  appealRequested: boolean;
+  appealRequestedAt: string | null;
+  createdAt: string;
+};
+
+export type LiveSessionConversationModerationCaseResolveResult =
+  | {
+      ok: true;
+      queue: LiveSessionConversationModerationQueueItem[];
+    }
+  | {
+      ok: false;
+      reason: "forbidden" | "not_found";
+    };
+
 export type LiveSessionEligibilityRule = "public" | "membership_active" | "drop_owner";
 
 export type LiveSessionType = "opening" | "event" | "studio_session";
