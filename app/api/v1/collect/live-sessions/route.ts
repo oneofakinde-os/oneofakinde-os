@@ -1,4 +1,5 @@
 import { requireRequestSession } from "@/lib/bff/auth";
+import type { CollectLiveSessionsResponse } from "@/lib/bff/contracts";
 import { ok } from "@/lib/bff/http";
 import { commerceBffService } from "@/lib/bff/service";
 
@@ -12,7 +13,7 @@ export async function GET(request: Request) {
     guard.session.accountId
   );
 
-  return ok({
+  return ok<CollectLiveSessionsResponse>({
     liveSessions
   });
 }

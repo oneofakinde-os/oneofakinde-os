@@ -1,4 +1,5 @@
 import { getRequestSession } from "@/lib/bff/auth";
+import type { CatalogDropResponse } from "@/lib/bff/contracts";
 import { commerceBffService } from "@/lib/bff/service";
 import { badRequest, getRequiredRouteParam, notFound, ok, type RouteContext } from "@/lib/bff/http";
 
@@ -18,5 +19,5 @@ export async function GET(request: Request, context: RouteContext<Params>) {
     return notFound("drop not found");
   }
 
-  return ok({ drop });
+  return ok<CatalogDropResponse>({ drop });
 }

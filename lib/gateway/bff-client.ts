@@ -33,6 +33,19 @@ import type {
   Studio,
   World
 } from "@/lib/domain/contracts";
+import type {
+  CatalogDropResponse,
+  CatalogDropsResponse,
+  CatalogStudioDropsResponse,
+  CatalogStudioResponse,
+  CatalogWorldDropsResponse,
+  CatalogWorldResponse,
+  CatalogWorldsResponse,
+  CollectLiveSessionEligibilityResponse,
+  CollectLiveSessionsResponse,
+  WorkshopLiveSessionResponse,
+  WorkshopLiveSessionsResponse
+} from "@/lib/bff/contracts";
 import type { CommerceGateway } from "@/lib/domain/ports";
 import { SESSION_COOKIE } from "@/lib/session";
 
@@ -142,19 +155,20 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
 
   return {
     async listDrops(_viewerAccountId?: string | null): Promise<Drop[]> {
-      const response = await requestJson<{ drops: Drop[] }>(options, "/api/v1/catalog/drops");
+      void _viewerAccountId;
+      const response = await requestJson<CatalogDropsResponse>(options, "/api/v1/catalog/drops");
       if (!response.ok || !response.payload) return [];
       return response.payload.drops;
     },
 
     async listWorlds(): Promise<World[]> {
-      const response = await requestJson<{ worlds: World[] }>(options, "/api/v1/catalog/worlds");
+      const response = await requestJson<CatalogWorldsResponse>(options, "/api/v1/catalog/worlds");
       if (!response.ok || !response.payload) return [];
       return response.payload.worlds;
     },
 
     async getWorldById(worldId: string): Promise<World | null> {
-      const response = await requestJson<{ world: World }>(
+      const response = await requestJson<CatalogWorldResponse>(
         options,
         `/api/v1/catalog/worlds/${encodeURIComponent(worldId)}`
       );
@@ -163,7 +177,8 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
     },
 
     async listDropsByWorldId(worldId: string, _viewerAccountId?: string | null): Promise<Drop[]> {
-      const response = await requestJson<{ drops: Drop[] }>(
+      void _viewerAccountId;
+      const response = await requestJson<CatalogWorldDropsResponse>(
         options,
         `/api/v1/catalog/worlds/${encodeURIComponent(worldId)}/drops`
       );
@@ -172,7 +187,7 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
     },
 
     async getStudioByHandle(handle: string): Promise<Studio | null> {
-      const response = await requestJson<{ studio: Studio }>(
+      const response = await requestJson<CatalogStudioResponse>(
         options,
         `/api/v1/catalog/studios/${encodeURIComponent(handle)}`
       );
@@ -181,7 +196,8 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
     },
 
     async listDropsByStudioHandle(handle: string, _viewerAccountId?: string | null): Promise<Drop[]> {
-      const response = await requestJson<{ drops: Drop[] }>(
+      void _viewerAccountId;
+      const response = await requestJson<CatalogStudioDropsResponse>(
         options,
         `/api/v1/catalog/studios/${encodeURIComponent(handle)}/drops`
       );
@@ -190,7 +206,8 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
     },
 
     async getDropById(dropId: string, _viewerAccountId?: string | null): Promise<Drop | null> {
-      const response = await requestJson<{ drop: Drop }>(
+      void _viewerAccountId;
+      const response = await requestJson<CatalogDropResponse>(
         options,
         `/api/v1/catalog/drops/${encodeURIComponent(dropId)}`
       );
@@ -385,7 +402,7 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
 
     async listCollectLiveSessions(_accountId: string): Promise<CollectLiveSessionSnapshot[]> {
       void _accountId;
-      const response = await requestJson<{ liveSessions: CollectLiveSessionSnapshot[] }>(
+      const response = await requestJson<CollectLiveSessionsResponse>(
         options,
         "/api/v1/collect/live-sessions"
       );
@@ -397,7 +414,7 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
       _accountId: string,
       liveSessionId: string
     ): Promise<LiveSessionEligibility | null> {
-      const response = await requestJson<{ eligibility: LiveSessionEligibility }>(
+      const response = await requestJson<CollectLiveSessionEligibilityResponse>(
         options,
         `/api/v1/collect/live-sessions/${encodeURIComponent(liveSessionId)}/eligibility`
       );
@@ -407,7 +424,7 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
 
     async listWorkshopLiveSessions(_accountId: string): Promise<LiveSession[]> {
       void _accountId;
-      const response = await requestJson<{ liveSessions: LiveSession[] }>(
+      const response = await requestJson<WorkshopLiveSessionsResponse>(
         options,
         "/api/v1/workshop/live-sessions"
       );
@@ -447,7 +464,7 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
       input: CreateWorkshopLiveSessionInput
     ): Promise<LiveSession | null> {
       void _accountId;
-      const response = await requestJson<{ liveSession: LiveSession }>(
+      const response = await requestJson<WorkshopLiveSessionResponse>(
         options,
         "/api/v1/workshop/live-sessions",
         {

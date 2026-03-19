@@ -1,4 +1,8 @@
 import { requireRequestSession } from "@/lib/bff/auth";
+import type {
+  WorkshopLiveSessionResponse,
+  WorkshopLiveSessionsResponse
+} from "@/lib/bff/contracts";
 import { badRequest, forbidden, getRequiredBodyString, ok, safeJson } from "@/lib/bff/http";
 import { commerceBffService } from "@/lib/bff/service";
 import type {
@@ -133,7 +137,7 @@ export async function GET(request: Request) {
     guard.session.accountId
   );
 
-  return ok({
+  return ok<WorkshopLiveSessionsResponse>({
     liveSessions
   });
 }
@@ -164,7 +168,7 @@ export async function POST(request: Request) {
     return badRequest("workshop live session could not be created");
   }
 
-  return ok(
+  return ok<WorkshopLiveSessionResponse>(
     {
       liveSession
     },
