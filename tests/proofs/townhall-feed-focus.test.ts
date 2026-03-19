@@ -5,6 +5,7 @@ import {
   parseTownhallFeedFocusDrop,
   parseTownhallFeedFocusPosition,
   resolveTownhallFeedActiveIndex,
+  routeForFeedMediaFilter,
   routeForTownhallMediaFilter
 } from "../../lib/townhall/feed-focus";
 
@@ -51,6 +52,8 @@ test("proof: townhall return href keeps mode lane, ordering, and feed focus", ()
   assert.equal(routeForTownhallMediaFilter("watch"), "/townhall/watch");
   assert.equal(routeForTownhallMediaFilter("agora"), "/townhall");
   assert.equal(routeForTownhallMediaFilter("all"), "/townhall");
+  assert.equal(routeForFeedMediaFilter("watch", "showroom"), "/showroom/watch");
+  assert.equal(routeForFeedMediaFilter("all", "showroom"), "/showroom");
 
   const href = buildTownhallFeedHrefWithFocus({
     mediaFilter: "watch",
@@ -64,4 +67,17 @@ test("proof: townhall return href keeps mode lane, ordering, and feed focus", ()
   assert.equal(parsed.searchParams.get("lane_key"), "most_collected");
   assert.equal(parsed.searchParams.get("focusDrop"), "voidrunner");
   assert.equal(parsed.searchParams.get("focusPosition"), "4");
+
+  const showroomHref = buildTownhallFeedHrefWithFocus({
+    mediaFilter: "watch",
+    ordering: "most_collected",
+    routeNamespace: "showroom",
+    focusDropId: "voidrunner",
+    focusPosition: 4
+  });
+  const showroomParsed = new URL(showroomHref, "https://oneofakinde.local");
+  assert.equal(showroomParsed.pathname, "/showroom/watch");
+  assert.equal(showroomParsed.searchParams.get("lane_key"), "most_collected");
+  assert.equal(showroomParsed.searchParams.get("focusDrop"), "voidrunner");
+  assert.equal(showroomParsed.searchParams.get("focusPosition"), "4");
 });

@@ -24,5 +24,36 @@ export default async function StudioCanonicalPage({ params }: StudioPageProps) {
     await Promise.all(studio.worldIds.map((worldId) => gateway.getWorldById(worldId)))
   ).filter((world): world is NonNullable<typeof world> => Boolean(world));
 
-  return <StudioScreen session={session} studio={studio} worlds={worlds} drops={drops} />;
+  const membershipEntitlements = session
+    ? await gateway.listMembershipEntitlements(session.accountId)
+    : [];
+
+  const activeStudioMemberships = membershipEntitlements.filter(
+    (entitlement) => entitlement.isActive && entitlement.studioHandle === studio.handle
+  );
+  const memberWorldIds = Array.from(
+    new Set(
+      activeStudioMemberships
+        .map((entitlement) => entitlement.worldId)
+        .filter((worldId): worldId is string => Boolean(worldId))
+    )
+  );
+
+  return (
+    <StudioScreen
+      session={session}
+      studio={studio}
+      worlds={worlds}
+      drops={drops}
+      viewerMembershipIndicator={{
+        hasSession: Boolean(session),
+        hasStudioMembership:
+          activeStudioMemberships.length > 0 ||
+          activeStudioMemberships.some((entitlement) => entitlement.worldId === null),
+        activeMembershipCount: activeStudioMemberships.length,
+        memberWorldIds,
+        canCommitPatron: Boolean(session?.roles.includes("collector"))
+      }}
+    />
+  );
 }

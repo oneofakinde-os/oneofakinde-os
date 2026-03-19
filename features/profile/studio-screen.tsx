@@ -5,16 +5,41 @@ import type { Drop, Session, Studio, World } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
 import Link from "next/link";
 
+type StudioViewerMembershipIndicator = {
+  hasSession: boolean;
+  hasStudioMembership: boolean;
+  activeMembershipCount: number;
+  memberWorldIds: string[];
+  canCommitPatron: boolean;
+};
+
 type StudioScreenProps = {
   session: Session | null;
   studio: Studio;
   worlds: World[];
   drops: Drop[];
+  viewerMembershipIndicator?: StudioViewerMembershipIndicator;
 };
 
-export function StudioScreen({ session, studio, worlds, drops }: StudioScreenProps) {
+export function StudioScreen({
+  session,
+  studio,
+  worlds,
+  drops,
+  viewerMembershipIndicator
+}: StudioScreenProps) {
   const orderedDrops = sortDropsForStudioSurface(drops);
   const pinnedDrops = orderedDrops.filter((drop) => isStudioPinned(drop));
+  const memberWorldIds = new Set(viewerMembershipIndicator?.memberWorldIds ?? []);
+  const studioPatronWorldId = worlds[0]?.id ?? null;
+  const membershipStatus = !viewerMembershipIndicator?.hasSession
+    ? "sign in to check membership"
+    : viewerMembershipIndicator.hasStudioMembership
+      ? `active (${viewerMembershipIndicator.activeMembershipCount})`
+      : "not active";
+  const patronStatus = viewerMembershipIndicator?.canCommitPatron
+    ? "available for collector accounts"
+    : "sign in as a collector to enable";
 
   return (
     <AppShell
@@ -27,6 +52,28 @@ export function StudioScreen({ session, studio, worlds, drops }: StudioScreenPro
         <p className="slice-label">@{studio.handle}</p>
         <h2 className="slice-title">{studio.title}</h2>
         <p className="slice-copy">{studio.synopsis}</p>
+        <p className="slice-meta" data-testid="studio-membership-indicator">
+          membership status · {membershipStatus}
+        </p>
+        <p className="slice-meta" data-testid="studio-patron-indicator">
+          patron support · {patronStatus}
+        </p>
+        {studioPatronWorldId ? (
+          <div className="slice-button-row">
+            {session ? (
+              <a
+                href={`/api/v1/worlds/${encodeURIComponent(studioPatronWorldId)}/patron-roster`}
+                className="slice-button ghost"
+              >
+                patron roster hook
+              </a>
+            ) : (
+              <Link href={routes.signIn(routes.studio(studio.handle))} className="slice-button ghost">
+                sign in for patron roster
+              </Link>
+            )}
+          </div>
+        ) : null}
       </section>
 
       <section className="slice-panel">
@@ -36,6 +83,18 @@ export function StudioScreen({ session, studio, worlds, drops }: StudioScreenPro
             <li key={world.id} className="slice-world-card">
               <h2 className="slice-title">{world.title}</h2>
               <p className="slice-copy">{world.synopsis}</p>
+              <p className="slice-meta">
+                entry rule · {world.entryRule ?? "open"}
+                {world.entryRule === "membership"
+                  ? memberWorldIds.has(world.id) || viewerMembershipIndicator?.hasStudioMembership
+                    ? " · membership active"
+                    : " · membership required"
+                  : ""}
+                {world.entryRule === "patron" ? " · patron required" : ""}
+              </p>
+              <p className="slice-meta">
+                default drop visibility · {world.defaultDropVisibility ?? "inherit defaults"}
+              </p>
               <div className="slice-button-row">
                 <Link href={routes.world(world.id)} className="slice-button ghost">
                   open world
@@ -43,6 +102,18 @@ export function StudioScreen({ session, studio, worlds, drops }: StudioScreenPro
                 <Link href={routes.worldDrops(world.id)} className="slice-button alt">
                   open drops
                 </Link>
+                {session ? (
+                  <a
+                    href={`/api/v1/worlds/${encodeURIComponent(world.id)}/patron-roster`}
+                    className="slice-button"
+                  >
+                    patron roster
+                  </a>
+                ) : (
+                  <Link href={routes.signIn(routes.studio(studio.handle))} className="slice-button">
+                    sign in for patron roster
+                  </Link>
+                )}
               </div>
             </li>
           ))}

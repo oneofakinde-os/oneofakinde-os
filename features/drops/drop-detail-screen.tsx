@@ -13,6 +13,34 @@ type DropDetailScreenProps = {
 
 const PRICE_HISTORY = [18, 22, 19, 24, 26, 28, 31, 29, 34, 36, 39, 42];
 
+function formatDropVisibility(drop: Drop): string {
+  if (!drop.visibility) {
+    return "inherit world default";
+  }
+
+  const label =
+    drop.visibility === "public"
+      ? "public"
+      : drop.visibility === "world_members"
+        ? "world members"
+        : "collectors only";
+
+  if (!drop.visibilitySource) {
+    return label;
+  }
+
+  return drop.visibilitySource === "world_default"
+    ? `${label} (world default)`
+    : `${label} (drop override)`;
+}
+
+function formatPreviewPolicy(policy: Drop["previewPolicy"]): string {
+  if (policy === "full") return "full preview";
+  if (policy === "limited") return "limited preview";
+  if (policy === "poster") return "poster-only preview";
+  return "inherit world preview policy";
+}
+
 export function DropDetailScreen({
   drop,
   session,
@@ -120,6 +148,14 @@ export function DropDetailScreen({
               <dt>mode access</dt>
               <dd>watch · listen · read · photos</dd>
             </div>
+            <div data-testid="drop-visibility-row">
+              <dt>visibility</dt>
+              <dd>{formatDropVisibility(drop)}</dd>
+            </div>
+            <div data-testid="drop-preview-policy-row">
+              <dt>preview policy</dt>
+              <dd>{formatPreviewPolicy(drop.previewPolicy)}</dd>
+            </div>
             <div>
               <dt>certificate</dt>
               <dd>issued on purchase</dd>
@@ -157,9 +193,26 @@ export function DropDetailScreen({
       </section>
 
       <aside className="dropflow-side-notes" aria-label="drop context notes">
-        <h2>{drop.title}</h2>
-        <p>drop detail is now modeled as a high-visibility conversion surface.</p>
-        <p>default actions: collect, watch path, and save-to-library.</p>
+        <details open data-testid="drop-canonical-info-drawer">
+          <summary>canonical info drawer</summary>
+          <h2>{drop.title}</h2>
+          <p>drop detail is now modeled as a high-visibility conversion surface.</p>
+          <p>default actions: collect, watch path, and save-to-library.</p>
+          <dl className="dropflow-metadata-grid">
+            <div>
+              <dt>visibility rail</dt>
+              <dd>{formatDropVisibility(drop)}</dd>
+            </div>
+            <div>
+              <dt>preview rail</dt>
+              <dd>{formatPreviewPolicy(drop.previewPolicy)}</dd>
+            </div>
+            <div>
+              <dt>collect gate</dt>
+              <dd>{session ? "collector session active" : "sign in required for collect actions"}</dd>
+            </div>
+          </dl>
+        </details>
       </aside>
     </main>
   );

@@ -9,18 +9,36 @@ import {
 const FOCUS_DROP_QUERY_KEY = "focusDrop";
 const FOCUS_POSITION_QUERY_KEY = "focusPosition";
 
+export type TownhallFeedRouteNamespace = "townhall" | "showroom";
+
 export type TownhallFeedFocus = {
   dropId: string | null;
   position: number | null;
 };
 
-export function routeForTownhallMediaFilter(mediaFilter: TownhallShowroomMediaFilter): string {
+export function routeForFeedMediaFilter(
+  mediaFilter: TownhallShowroomMediaFilter,
+  routeNamespace: TownhallFeedRouteNamespace = "townhall"
+): string {
+  if (routeNamespace === "showroom") {
+    if (mediaFilter === "watch") return routes.showroomWatch();
+    if (mediaFilter === "listen") return routes.showroomListen();
+    if (mediaFilter === "read") return routes.showroomRead();
+    if (mediaFilter === "photos") return routes.showroomPhotos();
+    if (mediaFilter === "live") return routes.showroomLive();
+    return routes.showroom();
+  }
+
   if (mediaFilter === "watch") return routes.townhallWatch();
   if (mediaFilter === "listen") return routes.townhallListen();
   if (mediaFilter === "read") return routes.townhallRead();
   if (mediaFilter === "photos") return routes.townhallPhotos();
   if (mediaFilter === "live") return routes.townhallLive();
   return routes.townhall();
+}
+
+export function routeForTownhallMediaFilter(mediaFilter: TownhallShowroomMediaFilter): string {
+  return routeForFeedMediaFilter(mediaFilter, "townhall");
 }
 
 export function parseTownhallFeedFocusDrop(value: string | null | undefined): string | null {
@@ -64,8 +82,12 @@ export function buildTownhallFeedHrefWithFocus(input: {
   ordering: TownhallShowroomOrdering;
   focusDropId: string;
   focusPosition: number;
+  routeNamespace?: TownhallFeedRouteNamespace;
 }): string {
-  const pathname = routeForTownhallMediaFilter(input.mediaFilter);
+  const pathname = routeForFeedMediaFilter(
+    input.mediaFilter,
+    input.routeNamespace ?? "townhall"
+  );
   const params = new URLSearchParams();
 
   if (input.ordering !== DEFAULT_TOWNHALL_SHOWROOM_ORDERING) {
