@@ -31,7 +31,13 @@
   - `RY-07` / PR `#119` -> `3f758b79bd6e3f5fd53c616e10cec5f33ee9862f`
 - Current tracked matrix status (derived from this backlog):
   - `40 green` (`32` baseline + `8` closed rows)
-  - `6 remaining yellow` (not yet explicitly sliced in this backlog)
+  - `6 remaining yellow` (explicitly sliced in `RY-08` through `RY-13`)
+    - `master_matrix!10` showroom agora collect view
+    - `master_matrix!26` workshop patron configuration
+    - `master_matrix!28` workshop creator analytics and payouts
+    - `master_matrix!32` world collect
+    - `master_matrix!33` world patron presence
+    - `master_matrix!35` world exclusive openings and live
   - `0 remaining red`
 
 ## Execution Rules
@@ -175,3 +181,133 @@ Acceptance:
 - Moderators can resolve active reported/appealed post cases with explicit `dismiss` action.
 - Townhall and studio thread surfaces render case-state visibility with moderation-safe controls.
 - Proof coverage locks case progression and dismiss resolution behavior.
+
+### RY-08 Agora Collect View Completion (in progress)
+Goal:
+- Move `master_matrix!10` from yellow to green by making agora collect pathways explicit for fixed collect, resale, auction, membership, and live-linked opportunities from a single collect surface.
+
+File backlog:
+- `features/collect/collect-marketplace-screen.tsx`
+  - expose explicit market opportunity segments and deep links for membership and live-linked opportunities alongside sale/auction/resale lanes
+- `app/(collector)/collect/page.tsx`
+  - lock lane/query parsing and default behavior for direct deep links from showroom/townhall
+- `app/api/v1/collect/inventory/route.ts`
+  - ensure deterministic lane payload contract and explicit lane metadata for UI rendering
+- `app/api/v1/collect/live-sessions/route.ts`
+  - feed live-linked collect opportunities into collect-market presentation
+- `app/api/v1/memberships/route.ts`
+  - expose active membership opportunities required by collect-market context
+- `tests/proofs/collect-market-lanes.test.ts`
+- `tests/proofs/collect-membership-eligibility.test.ts`
+- `tests/proofs/live-session-join-collect.test.ts`
+
+Acceptance:
+- Collect market surface makes sale/auction/resale lanes explicit and adds first-class visibility to membership and live-linked collect opportunities.
+- Deep links into collect from showroom/townhall preserve intended lane/state without silent fallback drift.
+- Proof coverage locks lane contract and membership/live opportunity exposure.
+
+### RY-09 Workshop Patron Configuration Closure
+Goal:
+- Move `master_matrix!26` from yellow to green by hardening creator patron commitment configuration and early-access windows as explicit, validated workshop contract rails.
+
+File backlog:
+- `app/api/v1/workshop/patron-config/route.ts`
+  - enforce strict schema validation for commitment cadence, price, and early-access window fields
+- `app/(creator)/workshop/actions.ts`
+  - persist patron config updates through canonical workshop action handlers
+- `features/workshop/workshop-root-screen.tsx`
+  - expose explicit patron configuration state and validation feedback in workshop UI
+- `lib/bff/service.ts`
+- `lib/bff/persistence.ts`
+  - enforce normalized patron config persistence and retrieval parity
+- `tests/proofs/workshop-patron-config.test.ts`
+
+Acceptance:
+- Workshop supports explicit patron commitment and early-access configuration without hidden defaults.
+- Invalid patron config mutations are rejected with deterministic API errors.
+- Proof coverage locks patron config write/read and validation behavior.
+
+### RY-10 Workshop Analytics + Payout Surface Closure
+Goal:
+- Move `master_matrix!28` from yellow to green by exposing creator funnel performance and payout status as a stable workshop-facing contract.
+
+File backlog:
+- `app/api/v1/analytics/workshop/route.ts`
+  - return deterministic funnel and payout summary payload for the signed-in creator context
+- `features/workshop/workshop-root-screen.tsx`
+  - render creator analytics and payout summary blocks with explicit freshness timestamp
+- `lib/bff/service.ts`
+  - align payout aggregation with settlement and collaborator-ledger rails
+- `docs/architecture/ANALYTICS_PANELS.md`
+  - document workshop analytics panel contract fields and auth requirements
+- `tests/proofs/analytics-docs-contract.test.ts`
+- `tests/proofs/collaborator-ledger-routing.test.ts`
+- `tests/proofs/collect-settlement-ledger.test.ts`
+
+Acceptance:
+- Workshop exposes showroom-to-drop-to-collect funnel stats and creator payout summaries in one panel.
+- Analytics payload fields match documentation and do not leak non-creator financial details.
+- Proof coverage locks payout aggregation parity with ledger settlement rails.
+
+### RY-11 World Collect Bundle + Upgrade Closure
+Goal:
+- Move `master_matrix!32` from yellow to green by completing world collect ownership and upgrade preview flows for future world additions.
+
+File backlog:
+- `app/api/v1/collect/worlds/[world_id]/bundles/route.ts`
+- `app/api/v1/collect/worlds/[world_id]/upgrade-preview/route.ts`
+- `app/api/v1/collect/worlds/[world_id]/collect/route.ts`
+  - align bundle, upgrade-preview, and collect mutation responses around one world collect contract
+- `features/world/world-detail-screen.tsx`
+  - expose included-drop ownership scope and upgrade preview CTA/state
+- `lib/bff/service.ts`
+- `lib/bff/persistence.ts`
+  - enforce world collect entitlement write/read and ownership-credit normalization
+- `tests/proofs/collect-world-bundles.test.ts`
+
+Acceptance:
+- World surface clearly communicates what ownership is included in a world collect and what future upgrade path applies.
+- Upgrade preview reflects prior ownership credit deterministically before collect confirmation.
+- Proof coverage locks bundle/upgrade/collect contract behavior end-to-end.
+
+### RY-12 World Patron Presence Closure
+Goal:
+- Move `master_matrix!33` from yellow to green by making world patron roster visibility, recognition, and status semantics explicit and privacy-safe.
+
+File backlog:
+- `app/api/v1/worlds/[world_id]/patron-roster/route.ts`
+  - enforce world-access gating and stable patron roster payload shape
+- `features/world/world-detail-screen.tsx`
+  - render patron roster with explicit status cues and eligibility-aware empty states
+- `lib/bff/service.ts`
+- `lib/bff/persistence.ts`
+  - normalize patron roster records and status projection
+- `tests/proofs/patron-privacy.test.ts`
+- `tests/proofs/surface-exposure-phase6.test.ts`
+
+Acceptance:
+- Eligible world viewers can see a consistent patron roster with recognition/status context.
+- Patron visibility respects privacy and entitlement boundaries.
+- Proof coverage locks roster payload safety and world-surface rendering rails.
+
+### RY-13 World Exclusive Openings + Live Eligibility Closure
+Goal:
+- Move `master_matrix!35` from yellow to green by hardening world-exclusive opening/live discovery and eligibility-aligned join behavior.
+
+File backlog:
+- `app/api/v1/collect/live-sessions/route.ts`
+  - ensure world-scoped live openings are discoverable with eligibility metadata
+- `app/api/v1/collect/live-sessions/[session_id]/eligibility/route.ts`
+- `app/api/v1/live-sessions/[session_id]/join/route.ts`
+  - lock eligibility and active-window enforcement for world-exclusive session entry
+- `features/world/world-detail-screen.tsx`
+  - expose world live openings with eligibility-aware join states
+- `lib/bff/service.ts`
+  - align world entry rule + membership/patron/ownership rails with live-session eligibility evaluation
+- `tests/proofs/live-session-capacity-and-type.test.ts`
+- `tests/proofs/live-session-join-collect.test.ts`
+
+Acceptance:
+- World surfaces expose exclusive openings/live sessions with clear eligibility state before join.
+- Join behavior enforces eligibility, capacity, and active-window constraints deterministically.
+- Proof coverage locks world-to-live discovery and eligibility enforcement rails.
