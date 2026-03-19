@@ -3,6 +3,7 @@ import { formatUsd } from "@/features/shared/format";
 import type { DropLineageSnapshot, Drop, Session } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
 import Link from "next/link";
+import { DropThreadPanel } from "./drop-thread-panel";
 
 type DropDetailScreenProps = {
   backHref?: UrlObject;
@@ -52,6 +53,7 @@ export function DropDetailScreen({
     : routes.signIn(routes.collectDrop(drop.id));
   const watchHref = session ? routes.dropWatch(drop.id) : routes.signIn(routes.dropWatch(drop.id));
   const libraryHref = session ? routes.library() : routes.signIn(routes.library());
+  const threadSignInHref = routes.signIn(routes.drop(drop.id));
 
   return (
     <main className="dropflow-page">
@@ -190,6 +192,12 @@ export function DropDetailScreen({
             </section>
           ) : null}
         </section>
+
+        <DropThreadPanel
+          dropId={drop.id}
+          canInteract={Boolean(session)}
+          signInHref={threadSignInHref}
+        />
       </section>
 
       <aside className="dropflow-side-notes" aria-label="drop context notes">
