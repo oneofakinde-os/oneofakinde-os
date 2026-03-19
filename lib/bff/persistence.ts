@@ -34,6 +34,7 @@ import type {
   WorldCollectUpgradeProrationStrategy,
   WorldConversationVisibility,
   TownhallCommentVisibility,
+  TownhallPostLinkedObjectKind,
   TownhallShareChannel,
   TownhallTelemetryMetadata,
   TownhallTelemetryEventType,
@@ -252,6 +253,24 @@ export type TownhallCommentRecord = {
   appealRequestedByAccountId: string | null;
 };
 
+export type TownhallPostRecord = {
+  id: string;
+  accountId: string;
+  body: string;
+  createdAt: string;
+  visibility: TownhallCommentVisibility;
+  reportCount: number;
+  reportedAt: string | null;
+  moderatedAt: string | null;
+  moderatedByAccountId: string | null;
+  appealRequestedAt: string | null;
+  appealRequestedByAccountId: string | null;
+  linkedObjectKind: TownhallPostLinkedObjectKind | null;
+  linkedObjectId: string | null;
+  linkedObjectLabel: string | null;
+  linkedObjectHref: string | null;
+};
+
 export type TownhallShareRecord = {
   id: string;
   accountId: string;
@@ -415,6 +434,7 @@ export type BffDatabase = {
   liveSessionArtifacts: LiveSessionArtifactRecord[];
   townhallLikes: TownhallLikeRecord[];
   townhallComments: TownhallCommentRecord[];
+  townhallPosts: TownhallPostRecord[];
   townhallShares: TownhallShareRecord[];
   townhallTelemetryEvents: TownhallTelemetryEventRecord[];
   worldConversationMessages: WorldConversationMessageRecord[];
@@ -967,6 +987,42 @@ function createSeedDatabase(): BffDatabase {
         appealRequestedByAccountId: null
       }
     ],
+    townhallPosts: [
+      {
+        id: "post_seed_stardust_reflection",
+        accountId,
+        body: "collector reflection: stardust keeps opening new details every replay.",
+        createdAt: new Date(now.valueOf() - DAY_MS / 3).toISOString(),
+        visibility: "visible",
+        reportCount: 0,
+        reportedAt: null,
+        moderatedAt: null,
+        moderatedByAccountId: null,
+        appealRequestedAt: null,
+        appealRequestedByAccountId: null,
+        linkedObjectKind: "drop",
+        linkedObjectId: "stardust",
+        linkedObjectLabel: "stardust",
+        linkedObjectHref: "/drops/stardust"
+      },
+      {
+        id: "post_seed_dark_matter_note",
+        accountId,
+        body: "artist note: dark matter season one staging remains open for reflections.",
+        createdAt: new Date(now.valueOf() - DAY_MS / 2).toISOString(),
+        visibility: "visible",
+        reportCount: 0,
+        reportedAt: null,
+        moderatedAt: null,
+        moderatedByAccountId: null,
+        appealRequestedAt: null,
+        appealRequestedByAccountId: null,
+        linkedObjectKind: "world",
+        linkedObjectId: "dark-matter",
+        linkedObjectLabel: "dark matter",
+        linkedObjectHref: "/worlds/dark-matter"
+      }
+    ],
     townhallShares: [
       {
         id: "shr_seed_stardust_1",
@@ -1131,6 +1187,7 @@ function createCatalogSeedDatabase(): BffDatabase {
     liveSessionArtifacts: [],
     townhallLikes: [],
     townhallComments: [],
+    townhallPosts: [],
     townhallShares: [],
     townhallTelemetryEvents: [],
     worldConversationMessages: [],
@@ -1175,6 +1232,7 @@ function createEmptyDatabase(): BffDatabase {
     liveSessionArtifacts: [],
     townhallLikes: [],
     townhallComments: [],
+    townhallPosts: [],
     townhallShares: [],
     townhallTelemetryEvents: [],
     worldConversationMessages: [],
@@ -1222,6 +1280,7 @@ function isValidDb(input: unknown): input is BffDatabase {
     Array.isArray(candidate.liveSessionArtifacts) &&
     Array.isArray(candidate.townhallLikes) &&
     Array.isArray(candidate.townhallComments) &&
+    Array.isArray(candidate.townhallPosts) &&
     Array.isArray(candidate.townhallShares) &&
     Array.isArray(candidate.townhallTelemetryEvents) &&
     Array.isArray(candidate.worldConversationMessages) &&
@@ -1252,6 +1311,7 @@ function hasLegacyBaseDbShape(input: unknown): input is Omit<
   | "liveSessionArtifacts"
   | "townhallLikes"
   | "townhallComments"
+  | "townhallPosts"
   | "townhallShares"
   | "townhallTelemetryEvents"
   | "worldConversationMessages"
@@ -2365,6 +2425,84 @@ function normalizeTownhallCommentRecords(events: TownhallCommentRecord[]): Townh
   });
 }
 
+function normalizeTownhallPostLinkedObjectKind(value: unknown): TownhallPostLinkedObjectKind | null {
+  if (value === "drop" || value === "world" || value === "studio") {
+    return value;
+  }
+
+  return null;
+}
+
+function normalizeTownhallPostRecords(records: TownhallPostRecord[]): TownhallPostRecord[] {
+  return records.map((record) => {
+    const candidate = record as Partial<TownhallPostRecord> & {
+      visibility?: unknown;
+      reportCount?: unknown;
+      reportedAt?: unknown;
+      moderatedAt?: unknown;
+      moderatedByAccountId?: unknown;
+      appealRequestedAt?: unknown;
+      appealRequestedByAccountId?: unknown;
+      linkedObjectKind?: unknown;
+      linkedObjectId?: unknown;
+      linkedObjectLabel?: unknown;
+      linkedObjectHref?: unknown;
+    };
+
+    return {
+      id:
+        typeof candidate.id === "string" && candidate.id.trim()
+          ? candidate.id
+          : `post_${randomUUID()}`,
+      accountId: typeof candidate.accountId === "string" ? candidate.accountId : "",
+      body: typeof candidate.body === "string" ? candidate.body : "",
+      createdAt:
+        typeof candidate.createdAt === "string" && candidate.createdAt.trim()
+          ? candidate.createdAt
+          : new Date().toISOString(),
+      visibility: normalizeTownhallCommentVisibility(candidate.visibility),
+      reportCount:
+        typeof candidate.reportCount === "number" && Number.isFinite(candidate.reportCount)
+          ? Math.max(0, Math.floor(candidate.reportCount))
+          : 0,
+      reportedAt:
+        typeof candidate.reportedAt === "string" && candidate.reportedAt.trim()
+          ? candidate.reportedAt
+          : null,
+      moderatedAt:
+        typeof candidate.moderatedAt === "string" && candidate.moderatedAt.trim()
+          ? candidate.moderatedAt
+          : null,
+      moderatedByAccountId:
+        typeof candidate.moderatedByAccountId === "string" && candidate.moderatedByAccountId.trim()
+          ? candidate.moderatedByAccountId
+          : null,
+      appealRequestedAt:
+        typeof candidate.appealRequestedAt === "string" && candidate.appealRequestedAt.trim()
+          ? candidate.appealRequestedAt
+          : null,
+      appealRequestedByAccountId:
+        typeof candidate.appealRequestedByAccountId === "string" &&
+        candidate.appealRequestedByAccountId.trim()
+          ? candidate.appealRequestedByAccountId
+          : null,
+      linkedObjectKind: normalizeTownhallPostLinkedObjectKind(candidate.linkedObjectKind),
+      linkedObjectId:
+        typeof candidate.linkedObjectId === "string" && candidate.linkedObjectId.trim()
+          ? candidate.linkedObjectId
+          : null,
+      linkedObjectLabel:
+        typeof candidate.linkedObjectLabel === "string" && candidate.linkedObjectLabel.trim()
+          ? candidate.linkedObjectLabel
+          : null,
+      linkedObjectHref:
+        typeof candidate.linkedObjectHref === "string" && candidate.linkedObjectHref.trim()
+          ? candidate.linkedObjectHref
+          : null
+    };
+  });
+}
+
 function normalizeWorldConversationVisibility(value: unknown): WorldConversationVisibility {
   if (value === "hidden" || value === "restricted" || value === "deleted") {
     return value;
@@ -2659,6 +2797,7 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
       liveSessionAttendees: normalizeLiveSessionAttendeeRecords(input.liveSessionAttendees),
       liveSessionArtifacts: normalizeLiveSessionArtifactRecords(input.liveSessionArtifacts),
       townhallComments: normalizeTownhallCommentRecords(input.townhallComments),
+      townhallPosts: normalizeTownhallPostRecords(input.townhallPosts),
       townhallTelemetryEvents: normalizeTownhallTelemetryEvents(input.townhallTelemetryEvents),
       worldConversationMessages: normalizeWorldConversationMessageRecords(
         input.worldConversationMessages
@@ -2742,6 +2881,9 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         : [],
       townhallComments: Array.isArray(candidate.townhallComments)
         ? normalizeTownhallCommentRecords(candidate.townhallComments as TownhallCommentRecord[])
+        : [],
+      townhallPosts: Array.isArray(candidate.townhallPosts)
+        ? normalizeTownhallPostRecords(candidate.townhallPosts as TownhallPostRecord[])
         : [],
       townhallShares: Array.isArray(candidate.townhallShares)
         ? (candidate.townhallShares as TownhallShareRecord[])
@@ -3136,6 +3278,7 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     liveSessionsResult,
     townhallLikesResult,
     townhallCommentsResult,
+    townhallPostsResult,
     townhallSharesResult,
     townhallTelemetryEventsResult,
     worldConversationMessagesResult,
@@ -3293,6 +3436,25 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     client.query<TownhallCommentRecord>(
       'SELECT id, account_id AS "accountId", drop_id AS "dropId", parent_comment_id AS "parentCommentId", body, created_at AS "createdAt", status AS "visibility", report_count AS "reportCount", reported_at AS "reportedAt", moderated_at AS "moderatedAt", moderated_by_account_id AS "moderatedByAccountId", appeal_requested_at AS "appealRequestedAt", appeal_requested_by_account_id AS "appealRequestedByAccountId" FROM bff_townhall_comments ORDER BY created_at DESC'
     ),
+    client.query<{
+      id: string;
+      accountId: string;
+      body: string;
+      createdAt: string;
+      visibility: TownhallCommentVisibility;
+      reportCount: string | number;
+      reportedAt: string | null;
+      moderatedAt: string | null;
+      moderatedByAccountId: string | null;
+      appealRequestedAt: string | null;
+      appealRequestedByAccountId: string | null;
+      linkedObjectKind: TownhallPostLinkedObjectKind | null;
+      linkedObjectId: string | null;
+      linkedObjectLabel: string | null;
+      linkedObjectHref: string | null;
+    }>(
+      'SELECT id, account_id AS "accountId", body, created_at AS "createdAt", status AS "visibility", report_count AS "reportCount", reported_at AS "reportedAt", moderated_at AS "moderatedAt", moderated_by_account_id AS "moderatedByAccountId", appeal_requested_at AS "appealRequestedAt", appeal_requested_by_account_id AS "appealRequestedByAccountId", linked_object_kind AS "linkedObjectKind", linked_object_id AS "linkedObjectId", linked_object_label AS "linkedObjectLabel", linked_object_href AS "linkedObjectHref" FROM bff_townhall_posts ORDER BY created_at DESC'
+    ),
     client.query<TownhallShareRecord>(
       'SELECT id, account_id AS "accountId", drop_id AS "dropId", channel, shared_at AS "sharedAt" FROM bff_townhall_shares ORDER BY shared_at DESC'
     ),
@@ -3438,6 +3600,7 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     liveSessionsResult.rowCount === 0 &&
     townhallLikesResult.rowCount === 0 &&
     townhallCommentsResult.rowCount === 0 &&
+    townhallPostsResult.rowCount === 0 &&
     townhallSharesResult.rowCount === 0 &&
     townhallTelemetryEventsResult.rowCount === 0 &&
     worldConversationMessagesResult.rowCount === 0 &&
@@ -3618,6 +3781,25 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     ),
     townhallLikes: townhallLikesResult.rows,
     townhallComments: normalizeTownhallCommentRecords(townhallCommentsResult.rows),
+    townhallPosts: normalizeTownhallPostRecords(
+      townhallPostsResult.rows.map((row) => ({
+        id: row.id,
+        accountId: row.accountId,
+        body: row.body,
+        createdAt: row.createdAt,
+        visibility: row.visibility,
+        reportCount: Number(row.reportCount),
+        reportedAt: row.reportedAt,
+        moderatedAt: row.moderatedAt,
+        moderatedByAccountId: row.moderatedByAccountId,
+        appealRequestedAt: row.appealRequestedAt,
+        appealRequestedByAccountId: row.appealRequestedByAccountId,
+        linkedObjectKind: row.linkedObjectKind,
+        linkedObjectId: row.linkedObjectId,
+        linkedObjectLabel: row.linkedObjectLabel,
+        linkedObjectHref: row.linkedObjectHref
+      }))
+    ),
     townhallShares: townhallSharesResult.rows,
     townhallTelemetryEvents: townhallTelemetryEventsResult.rows.map((row) => ({
       id: row.id,
@@ -3764,6 +3946,7 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
       bff_patrons,
       bff_patron_tier_configs,
       bff_townhall_shares,
+      bff_townhall_posts,
       bff_townhall_comments,
       bff_townhall_likes,
       bff_stripe_webhook_events,
@@ -4100,6 +4283,29 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
         comment.moderatedByAccountId,
         comment.appealRequestedAt,
         comment.appealRequestedByAccountId
+      ]
+    );
+  }
+
+  for (const post of db.townhallPosts) {
+    await client.query(
+      "INSERT INTO bff_townhall_posts (id, account_id, body, created_at, status, report_count, reported_at, moderated_at, moderated_by_account_id, appeal_requested_at, appeal_requested_by_account_id, linked_object_kind, linked_object_id, linked_object_label, linked_object_href) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)",
+      [
+        post.id,
+        post.accountId,
+        post.body,
+        post.createdAt,
+        post.visibility,
+        post.reportCount,
+        post.reportedAt,
+        post.moderatedAt,
+        post.moderatedByAccountId,
+        post.appealRequestedAt,
+        post.appealRequestedByAccountId,
+        post.linkedObjectKind,
+        post.linkedObjectId,
+        post.linkedObjectLabel,
+        post.linkedObjectHref
       ]
     );
   }

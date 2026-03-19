@@ -1060,10 +1060,10 @@ a {
 }
 
 .townhall-header-feed {
-  grid-template-columns: 34px minmax(0, 1fr) 34px;
+  grid-template-columns: 34px minmax(0, 1fr) 34px auto;
   grid-template-areas:
-    "avatar brand create"
-    "search search search";
+    "avatar brand create notes"
+    "search search search search";
 }
 
 .townhall-header-feed .townhall-avatar-link {
@@ -1076,6 +1076,10 @@ a {
 
 .townhall-header-feed .townhall-icon-link {
   grid-area: create;
+}
+
+.townhall-header-feed .townhall-posts-toggle {
+  grid-area: notes;
 }
 
 .townhall-header-feed .townhall-search-form {
@@ -1124,6 +1128,24 @@ a {
 .townhall-ui-icon {
   width: 18px;
   height: 18px;
+}
+
+.townhall-posts-toggle {
+  border: 1px solid #3b5262;
+  border-radius: 999px;
+  background: rgba(8, 12, 16, 0.78);
+  color: #cce1ef;
+  font-size: 0.64rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.townhall-posts-toggle.active {
+  border-color: #5a7f97;
+  color: #eff8ff;
+  background: rgba(27, 50, 67, 0.78);
 }
 
 .townhall-brand {
@@ -1918,6 +1940,124 @@ a {
   margin: 0;
   color: #9eb6c6;
   font-size: 0.7rem;
+}
+
+.townhall-overlay-panel-posts {
+  max-height: 72%;
+}
+
+.townhall-post-compose {
+  display: grid;
+  gap: 7px;
+}
+
+.townhall-post-compose textarea {
+  min-height: 72px;
+  max-height: 160px;
+  resize: vertical;
+  border-radius: 12px;
+  border: 1px solid #3f5565;
+  background: rgba(8, 13, 18, 0.78);
+  color: #d5e5f1;
+  padding: 8px 10px;
+  font-size: 0.73rem;
+  line-height: 1.35;
+}
+
+.townhall-post-link-controls {
+  display: grid;
+  gap: 6px;
+}
+
+.townhall-post-link-controls select,
+.townhall-post-link-controls input {
+  border-radius: 999px;
+  border: 1px solid #3f5565;
+  background: rgba(8, 13, 18, 0.78);
+  color: #d5e5f1;
+  padding: 7px 11px;
+  font-size: 0.7rem;
+}
+
+.townhall-post-compose button {
+  justify-self: start;
+  border: 1px solid #4f6472;
+  border-radius: 999px;
+  background: rgba(28, 50, 66, 0.78);
+  color: #e0f2fd;
+  font-size: 0.72rem;
+  padding: 7px 12px;
+  cursor: pointer;
+}
+
+.townhall-post-sign-in-note,
+.townhall-post-state {
+  margin: 0;
+  color: #a6bfd0;
+  font-size: 0.69rem;
+  line-height: 1.35;
+}
+
+.townhall-post-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.townhall-post-item {
+  border: 1px solid #344b5a;
+  border-radius: 10px;
+  background: rgba(8, 14, 19, 0.75);
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.townhall-post-meta {
+  margin: 0;
+  color: #b6cad8;
+  font-size: 0.73rem;
+}
+
+.townhall-post-item > p {
+  margin: 0;
+  color: #b6cad8;
+  font-size: 0.73rem;
+  line-height: 1.35;
+}
+
+.townhall-post-linked-object {
+  border: 1px solid #435b6b;
+  border-radius: 999px;
+  width: max-content;
+  max-width: 100%;
+  color: #bed1de;
+  font-size: 0.62rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  background: rgba(8, 16, 23, 0.72);
+}
+
+.townhall-post-actions {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.townhall-post-actions button {
+  border: 1px solid #435b6b;
+  border-radius: 999px;
+  background: rgba(8, 16, 23, 0.72);
+  color: #bed1de;
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  cursor: pointer;
 }
 
 .townhall-side-notes {
