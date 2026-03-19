@@ -68,6 +68,7 @@ import type {
   TownhallPost,
   TownhallPostLinkedObject,
   TownhallPostLinkedObjectKind,
+  TownhallPostModerationCaseState,
   TownhallPostsFilter,
   TownhallPostsSnapshot,
   TownhallDropSocialSnapshot,
@@ -2287,6 +2288,24 @@ function toTownhallPostLinkedObject(record: TownhallPostRecord): TownhallPostLin
   };
 }
 
+function resolveTownhallPostModerationCaseState(
+  record: TownhallPostRecord
+): TownhallPostModerationCaseState {
+  if (record.appealRequestedAt) {
+    return "appeal_requested";
+  }
+
+  if (record.reportCount > 0 || record.reportedAt) {
+    return "reported";
+  }
+
+  if (record.moderatedAt) {
+    return "resolved";
+  }
+
+  return "clear";
+}
+
 function canAccountModerateTownhallComment(
   account: AccountRecord | null,
   drop: Drop,
@@ -2913,6 +2932,10 @@ function toTownhallPost(
     createdAt: record.createdAt,
     visibility: record.visibility,
     reportCount: record.reportCount,
+    reportedAt: record.reportedAt,
+    moderatedAt: record.moderatedAt,
+    appealRequestedAt: record.appealRequestedAt,
+    moderationCaseState: resolveTownhallPostModerationCaseState(record),
     saveCount: engagement.saveCount,
     shareCount: engagement.shareCount,
     followCount: engagement.followCount,
@@ -3124,6 +3147,10 @@ function toStudioConversationPost(
     createdAt: record.createdAt,
     visibility: record.visibility,
     reportCount: record.reportCount,
+    reportedAt: record.reportedAt,
+    moderatedAt: record.moderatedAt,
+    appealRequestedAt: record.appealRequestedAt,
+    moderationCaseState: resolveTownhallPostModerationCaseState(record),
     saveCount: engagement.saveCount,
     shareCount: engagement.shareCount,
     followCount: engagement.followCount,
@@ -6809,7 +6836,7 @@ export const commerceBffService = {
     accountId: string,
     studioHandle: string,
     messageId: string,
-    action: "report" | "appeal" | "hide" | "restrict" | "delete" | "restore"
+    action: "report" | "appeal" | "hide" | "restrict" | "delete" | "restore" | "dismiss"
   ): Promise<
     | {
         ok: true;
@@ -6880,7 +6907,7 @@ export const commerceBffService = {
           post.visibility = "restricted";
         } else if (action === "delete") {
           post.visibility = "deleted";
-        } else {
+        } else if (action === "restore") {
           post.visibility = "visible";
         }
 
@@ -9988,7 +10015,7 @@ export const commerceBffService = {
   async moderateTownhallPost(
     accountId: string,
     postId: string,
-    action: "hide" | "restrict" | "delete" | "restore"
+    action: "hide" | "restrict" | "delete" | "restore" | "dismiss"
   ): Promise<TownhallPost | null> {
     return withDatabase<TownhallPost | null>(async (db): Promise<TownhallPostMutationResult> => {
       const account = findAccountById(db, accountId);
@@ -10013,7 +10040,7 @@ export const commerceBffService = {
         post.visibility = "restricted";
       } else if (action === "delete") {
         post.visibility = "deleted";
-      } else {
+      } else if (action === "restore") {
         post.visibility = "visible";
       }
 

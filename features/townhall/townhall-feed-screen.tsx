@@ -136,7 +136,8 @@ type TownhallPostAction =
   | "hide"
   | "restrict"
   | "delete"
-  | "restore";
+  | "restore"
+  | "dismiss";
 
 type ShowroomModeOption = {
   value: TownhallShowroomMediaFilter;
@@ -287,6 +288,19 @@ function formatRelativeAge(value: string): string {
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
   if (seconds < 86_400) return `${Math.floor(seconds / 3600)}h`;
   return `${Math.floor(seconds / 86_400)}d`;
+}
+
+function formatTownhallModerationCaseStateLabel(state: TownhallPost["moderationCaseState"]): string {
+  if (state === "appeal_requested") {
+    return "appeal requested";
+  }
+  if (state === "reported") {
+    return "reported";
+  }
+  if (state === "resolved") {
+    return "resolved";
+  }
+  return "clear";
 }
 
 function roundTelemetryMetric(value: number): number {
@@ -2285,17 +2299,29 @@ export function TownhallFeedScreen({
                             delete
                           </button>
                         ) : null}
+                        {post.reportCount > 0 || post.appealRequested ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              void handleTownhallPostAction(post.id, "dismiss");
+                            }}
+                          >
+                            dismiss reports
+                          </button>
+                        ) : null}
                       </>
                     ) : null}
                   </div>
-                  {post.reportCount > 0 ? (
-                    <p className="townhall-comment-appeal-state">
-                      reports {post.reportCount}
-                      {post.appealRequested ? " · appeal pending" : ""}
-                    </p>
-                  ) : post.appealRequested ? (
-                    <p className="townhall-comment-appeal-state">appeal pending review</p>
-                  ) : null}
+                  <p
+                    className="townhall-comment-appeal-state"
+                    data-testid="townhall-post-moderation-state"
+                  >
+                    case {formatTownhallModerationCaseStateLabel(post.moderationCaseState)}
+                    {post.reportCount > 0 ? ` · reports ${post.reportCount}` : ""}
+                    {post.reportedAt ? ` · reported ${formatRelativeAge(post.reportedAt)}` : ""}
+                    {post.appealRequestedAt ? ` · appeal ${formatRelativeAge(post.appealRequestedAt)}` : ""}
+                    {post.moderatedAt ? ` · resolved ${formatRelativeAge(post.moderatedAt)}` : ""}
+                  </p>
                 </li>
               ))}
             </ul>

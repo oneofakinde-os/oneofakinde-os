@@ -17,7 +17,14 @@ type StudioConversationRouteParams = {
   handle: string;
 };
 
-type StudioConversationAction = "report" | "appeal" | "hide" | "restrict" | "delete" | "restore";
+type StudioConversationAction =
+  | "report"
+  | "appeal"
+  | "hide"
+  | "restrict"
+  | "delete"
+  | "restore"
+  | "dismiss";
 
 type StudioConversationBody = {
   body?: string;
@@ -35,9 +42,16 @@ const ACTIONS = new Set<StudioConversationAction>([
   "hide",
   "restrict",
   "delete",
-  "restore"
+  "restore",
+  "dismiss"
 ]);
-const MODERATION_ACTIONS = new Set<StudioConversationAction>(["hide", "restrict", "delete", "restore"]);
+const MODERATION_ACTIONS = new Set<StudioConversationAction>([
+  "hide",
+  "restrict",
+  "delete",
+  "restore",
+  "dismiss"
+]);
 
 function parseLimit(raw: string | null): number {
   if (!raw) {
@@ -102,7 +116,7 @@ export async function POST(
 
   if (action) {
     if (!isStudioConversationAction(action)) {
-      return badRequest("action must be report, appeal, hide, restrict, delete, or restore");
+      return badRequest("action must be report, appeal, hide, restrict, delete, restore, or dismiss");
     }
 
     const messageId = getRequiredBodyString(payloadRecord, "messageId");

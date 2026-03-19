@@ -184,6 +184,27 @@ test("proof: studio thread route supports create, context links, and moderation/
   const appealedPost = appealPayload.thread.posts.find((entry) => entry.id === createdPostId);
   assert.equal(appealedPost?.appealRequested, true);
 
+  const dismissResponse = await postStudioConversationRoute(
+    new Request("http://127.0.0.1:3000/api/v1/studios/oneofakinde/conversation", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-ook-session-token": studioCreator.sessionToken
+      },
+      body: JSON.stringify({
+        action: "dismiss",
+        messageId: createdPostId
+      })
+    }),
+    withRouteParams({ handle: "oneofakinde" })
+  );
+  assert.equal(dismissResponse.status, 200);
+  const dismissPayload = await parseJson<{ thread: StudioConversationThread }>(dismissResponse);
+  const dismissedPost = dismissPayload.thread.posts.find((entry) => entry.id === createdPostId);
+  assert.equal(dismissedPost?.visibility, "hidden");
+  assert.equal(dismissedPost?.appealRequested, false);
+  assert.equal(dismissedPost?.reportCount, 0);
+
   const restoreResponse = await postStudioConversationRoute(
     new Request("http://127.0.0.1:3000/api/v1/studios/oneofakinde/conversation", {
       method: "POST",
