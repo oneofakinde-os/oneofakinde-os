@@ -34,7 +34,8 @@ type StudioConversationAction =
   | "hide"
   | "restrict"
   | "delete"
-  | "restore";
+  | "restore"
+  | "dismiss";
 
 const DEFAULT_CONTEXT_KEY = "studio";
 
@@ -64,10 +65,25 @@ function bodyForVisibility(post: TownhallPost): string {
 
 function moderationActionsForPost(post: TownhallPost): StudioConversationAction[] {
   if (post.visibility === "visible") {
-    return ["hide", "restrict", "delete"];
+    const actions: StudioConversationAction[] = ["hide", "restrict", "delete"];
+    if (post.reportCount > 0 || post.appealRequested) {
+      actions.push("dismiss");
+    }
+    return actions;
   }
 
-  return ["restore"];
+  const actions: StudioConversationAction[] = ["restore"];
+  if (post.reportCount > 0 || post.appealRequested) {
+    actions.push("dismiss");
+  }
+  return actions;
+}
+
+function labelForModerationAction(action: StudioConversationAction): string {
+  if (action === "dismiss") {
+    return "dismiss reports";
+  }
+  return action;
 }
 
 export function StudioThreadPanel({
@@ -282,7 +298,7 @@ export function StudioThreadPanel({
                         onClick={() => void applyAction(post.id, action)}
                         disabled={actingMessageId === post.id}
                       >
-                        {action}
+                        {labelForModerationAction(action)}
                       </button>
                     ))
                   : null}

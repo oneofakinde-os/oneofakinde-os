@@ -125,7 +125,13 @@ export async function POST(request: Request, context: RouteContext<PostRoutePara
     return ok({ post }, 201);
   }
 
-  if (action === "hide" || action === "restrict" || action === "delete" || action === "restore") {
+  if (
+    action === "hide" ||
+    action === "restrict" ||
+    action === "delete" ||
+    action === "restore" ||
+    action === "dismiss"
+  ) {
     const post = await commerceBffService.moderateTownhallPost(
       guard.session.accountId,
       postId,
@@ -138,6 +144,6 @@ export async function POST(request: Request, context: RouteContext<PostRoutePara
   }
 
   return badRequest(
-    "action must be report, appeal, save, unsave, follow, unfollow, share, hide, restrict, delete, or restore"
+    "action must be report, appeal, save, unsave, follow, unfollow, share, hide, restrict, delete, restore, or dismiss"
   );
 }

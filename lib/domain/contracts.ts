@@ -912,6 +912,12 @@ export type TownhallPostLinkedObjectKind = "drop" | "world" | "studio";
 
 export type TownhallPostVisibility = TownhallCommentVisibility;
 
+export type TownhallPostModerationCaseState =
+  | "clear"
+  | "reported"
+  | "appeal_requested"
+  | "resolved";
+
 export type TownhallPostLinkedObject = {
   kind: TownhallPostLinkedObjectKind;
   id: string;
@@ -926,6 +932,10 @@ export type TownhallPost = {
   createdAt: string;
   visibility: TownhallPostVisibility;
   reportCount: number;
+  reportedAt: string | null;
+  moderatedAt: string | null;
+  appealRequestedAt: string | null;
+  moderationCaseState: TownhallPostModerationCaseState;
   saveCount: number;
   shareCount: number;
   followCount: number;

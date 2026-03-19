@@ -258,6 +258,8 @@ test("proof: townhall standalone posts support compose, link references, and mod
   assert.equal(reportResponse.status, 201);
   const reportPayload = await parseJson<{ post: TownhallPost }>(reportResponse);
   assert.equal(reportPayload.post.reportCount, 1);
+  assert.equal(reportPayload.post.moderationCaseState, "reported");
+  assert.ok(reportPayload.post.reportedAt);
 
   const hideResponse = await postTownhallPostActionRoute(
     new Request(`http://127.0.0.1:3000/api/v1/townhall/posts/${createdPostId}`, {
@@ -275,6 +277,10 @@ test("proof: townhall standalone posts support compose, link references, and mod
   assert.equal(hideResponse.status, 200);
   const hidePayload = await parseJson<{ post: TownhallPost }>(hideResponse);
   assert.equal(hidePayload.post.visibility, "hidden");
+  assert.equal(hidePayload.post.moderationCaseState, "resolved");
+  assert.ok(hidePayload.post.moderatedAt);
+  assert.equal(hidePayload.post.reportCount, 0);
+  assert.equal(hidePayload.post.reportedAt, null);
 
   const appealResponse = await postTownhallPostActionRoute(
     new Request(`http://127.0.0.1:3000/api/v1/townhall/posts/${createdPostId}`, {
@@ -292,6 +298,29 @@ test("proof: townhall standalone posts support compose, link references, and mod
   assert.equal(appealResponse.status, 201);
   const appealPayload = await parseJson<{ post: TownhallPost }>(appealResponse);
   assert.equal(appealPayload.post.appealRequested, true);
+  assert.equal(appealPayload.post.moderationCaseState, "appeal_requested");
+  assert.ok(appealPayload.post.appealRequestedAt);
+
+  const dismissResponse = await postTownhallPostActionRoute(
+    new Request(`http://127.0.0.1:3000/api/v1/townhall/posts/${createdPostId}`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-ook-session-token": creatorSession.sessionToken
+      },
+      body: JSON.stringify({
+        action: "dismiss"
+      })
+    }),
+    withRouteParams({ post_id: createdPostId })
+  );
+  assert.equal(dismissResponse.status, 200);
+  const dismissPayload = await parseJson<{ post: TownhallPost }>(dismissResponse);
+  assert.equal(dismissPayload.post.visibility, "hidden");
+  assert.equal(dismissPayload.post.appealRequested, false);
+  assert.equal(dismissPayload.post.appealRequestedAt, null);
+  assert.equal(dismissPayload.post.moderationCaseState, "resolved");
+  assert.ok(dismissPayload.post.moderatedAt);
 
   const restoreResponse = await postTownhallPostActionRoute(
     new Request(`http://127.0.0.1:3000/api/v1/townhall/posts/${createdPostId}`, {
@@ -310,6 +339,8 @@ test("proof: townhall standalone posts support compose, link references, and mod
   const restorePayload = await parseJson<{ post: TownhallPost }>(restoreResponse);
   assert.equal(restorePayload.post.visibility, "visible");
   assert.equal(restorePayload.post.reportCount, 0);
+  assert.equal(restorePayload.post.moderationCaseState, "resolved");
+  assert.ok(restorePayload.post.moderatedAt);
 });
 
 test("proof: townhall posts panel exposes recall filter and thread action controls", async () => {
@@ -320,7 +351,9 @@ test("proof: townhall posts panel exposes recall filter and thread action contro
   const source = await fs.readFile(sourcePath, "utf8");
   assert.match(source, /data-testid=\"townhall-post-filter\"/);
   assert.match(source, /data-testid=\"townhall-post-engagement\"/);
+  assert.match(source, /data-testid=\"townhall-post-moderation-state\"/);
   assert.match(source, /save thread/);
   assert.match(source, /follow thread/);
   assert.match(source, /share thread/);
+  assert.match(source, /dismiss reports/);
 });

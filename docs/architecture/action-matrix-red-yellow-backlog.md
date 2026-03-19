@@ -131,3 +131,23 @@ Acceptance:
 - Approved artifacts can be queried by drop through `/api/v1/drops/[drop_id]/live-artifacts`.
 - Drop detail surface renders an artifact panel with session provenance for approved artifacts.
 - Proof coverage locks API contract and UI rendering on drop detail.
+
+### RY-07 Townhall Moderation Case Progress Rails (in progress)
+Goal:
+- Move `master_matrix!16` from yellow to green by making moderation/reporting case progress explicit on townhall thread objects and controls.
+
+File backlog:
+- `lib/domain/contracts.ts`
+- `lib/bff/service.ts`
+- `app/api/v1/townhall/posts/[post_id]/route.ts`
+- `app/api/v1/studios/[handle]/conversation/route.ts`
+- `features/townhall/townhall-feed-screen.tsx`
+- `features/profile/studio-thread-panel.tsx`
+- `tests/proofs/townhall-standalone-posts.test.ts`
+- `tests/proofs/studio-thread-rails.test.ts`
+
+Acceptance:
+- Townhall post payloads expose explicit moderation case-state/timestamps (`reported`, `appeal requested`, `resolved`).
+- Moderators can resolve active reported/appealed post cases with explicit `dismiss` action.
+- Townhall and studio thread surfaces render case-state visibility with moderation-safe controls.
+- Proof coverage locks case progression and dismiss resolution behavior.
