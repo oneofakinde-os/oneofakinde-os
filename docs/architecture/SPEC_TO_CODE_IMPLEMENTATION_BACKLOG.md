@@ -1,7 +1,7 @@
 # Spec-to-Code Implementation Backlog (March 8 Authority)
 
 Date opened: 2026-03-17
-Current phase: Phase 1 complete; Phase 2 complete; Phase 3 complete; Phase 4 pending
+Current phase: Phase 1 complete; Phase 2 complete; Phase 3 complete; Phase 4 complete; Phase 5 pending
 
 This backlog converts the March 8 authority pack into concrete file-level implementation work. Items are ordered by dependency, not convenience.
 
@@ -61,11 +61,11 @@ Goal: align externally documented responses with March 8 contracts.
 
 | Status | File | Change |
 | --- | --- | --- |
-| pending | `app/api/v1/feed/route.ts` | Return canonical feed contract shape or versioned adapter. |
-| pending | `app/api/v1/townhall/feed/route.ts` | Split internal social payload from public contract response if required. |
-| pending | `app/api/v1/catalog/search/route.ts` | Match `{ results, cursor?, total }` shape (or versioned contract). |
-| pending | `tests/proofs/catalog-search-contract.test.ts` | Rebase expected payload schema. |
-| pending | `tests/proofs/showroom-lane-contract.test.ts` | Rebase expected feed payload schema. |
+| done | `app/api/v1/feed/route.ts` | Return canonical feed contract shape or versioned adapter. |
+| done | `app/api/v1/townhall/feed/route.ts` | Split internal social payload from public contract response if required. |
+| done | `app/api/v1/catalog/search/route.ts` | Match `{ results, cursor?, total }` shape (or versioned contract). |
+| done | `tests/proofs/catalog-search-contract.test.ts` | Rebase expected payload schema. |
+| done | `tests/proofs/showroom-lane-contract.test.ts` | Rebase expected feed payload schema. |
 
 ## Phase 5: Workshop Product Surface Completion
 
