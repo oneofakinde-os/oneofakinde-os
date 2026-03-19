@@ -1,5 +1,6 @@
 import type {
   AuthorizedDerivative,
+  CaptureWorkshopLiveSessionArtifactInput,
   Certificate,
   CollectLiveSessionSnapshot,
   CheckoutSession,
@@ -14,6 +15,7 @@ import type {
   DropVersion,
   LibrarySnapshot,
   LiveSession,
+  LiveSessionArtifact,
   LiveSessionEligibility,
   MembershipEntitlement,
   MyCollectionAnalyticsPanel,
@@ -25,6 +27,8 @@ import type {
   TownhallDropSocialSnapshot,
   TownhallModerationQueueItem,
   WorkshopAnalyticsPanel,
+  WorkshopProProfile,
+  WorkshopProState,
   PatronTierConfig,
   UpsertWorkshopPatronTierConfigInput,
   WorldReleaseQueueItem,
@@ -83,6 +87,20 @@ export interface CommerceGateway {
     accountId: string,
     input: CreateWorkshopLiveSessionInput
   ): Promise<LiveSession | null>;
+  listWorkshopLiveSessionArtifacts(accountId: string): Promise<LiveSessionArtifact[]>;
+  captureWorkshopLiveSessionArtifact(
+    accountId: string,
+    input: CaptureWorkshopLiveSessionArtifactInput
+  ): Promise<LiveSessionArtifact | null>;
+  approveWorkshopLiveSessionArtifact(
+    accountId: string,
+    artifactId: string
+  ): Promise<LiveSessionArtifact | null>;
+  getWorkshopProProfile(accountId: string): Promise<WorkshopProProfile | null>;
+  transitionWorkshopProState(
+    accountId: string,
+    state: WorkshopProState
+  ): Promise<WorkshopProProfile | null>;
   listWorkshopPatronTierConfigs(accountId: string): Promise<PatronTierConfig[]>;
   upsertWorkshopPatronTierConfig(
     accountId: string,

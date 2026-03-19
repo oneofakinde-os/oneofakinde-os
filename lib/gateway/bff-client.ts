@@ -1,6 +1,7 @@
 import type {
   AuthorizedDerivative,
   Certificate,
+  CaptureWorkshopLiveSessionArtifactInput,
   CollectLiveSessionSnapshot,
   CheckoutSession,
   CheckoutPreview,
@@ -14,6 +15,7 @@ import type {
   DropVersion,
   LibrarySnapshot,
   LiveSession,
+  LiveSessionArtifact,
   LiveSessionEligibility,
   MembershipEntitlement,
   MyCollectionAnalyticsPanel,
@@ -26,6 +28,8 @@ import type {
   TownhallDropSocialSnapshot,
   TownhallModerationQueueItem,
   WorkshopAnalyticsPanel,
+  WorkshopProProfile,
+  WorkshopProState,
   UpsertWorkshopPatronTierConfigInput,
   WorldReleaseQueueItem,
   WorldReleaseQueueStatus,
@@ -43,6 +47,9 @@ import type {
   CatalogWorldsResponse,
   CollectLiveSessionEligibilityResponse,
   CollectLiveSessionsResponse,
+  WorkshopLiveSessionArtifactResponse,
+  WorkshopLiveSessionArtifactsResponse,
+  WorkshopProProfileResponse,
   WorkshopLiveSessionResponse,
   WorkshopLiveSessionsResponse
 } from "@/lib/bff/contracts";
@@ -430,6 +437,78 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
       );
       if (!response.ok || !response.payload) return [];
       return response.payload.liveSessions;
+    },
+
+    async listWorkshopLiveSessionArtifacts(_accountId: string): Promise<LiveSessionArtifact[]> {
+      void _accountId;
+      const response = await requestJson<WorkshopLiveSessionArtifactsResponse>(
+        options,
+        "/api/v1/workshop/live-session-artifacts"
+      );
+      if (!response.ok || !response.payload) return [];
+      return response.payload.artifacts;
+    },
+
+    async captureWorkshopLiveSessionArtifact(
+      _accountId: string,
+      input: CaptureWorkshopLiveSessionArtifactInput
+    ): Promise<LiveSessionArtifact | null> {
+      void _accountId;
+      const response = await requestJson<WorkshopLiveSessionArtifactResponse>(
+        options,
+        "/api/v1/workshop/live-session-artifacts",
+        {
+          method: "POST",
+          body: JSON.stringify(input)
+        }
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.artifact;
+    },
+
+    async approveWorkshopLiveSessionArtifact(
+      _accountId: string,
+      artifactId: string
+    ): Promise<LiveSessionArtifact | null> {
+      void _accountId;
+      const response = await requestJson<WorkshopLiveSessionArtifactResponse>(
+        options,
+        `/api/v1/workshop/live-session-artifacts/${encodeURIComponent(artifactId)}/approve`,
+        {
+          method: "POST"
+        }
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.artifact;
+    },
+
+    async getWorkshopProProfile(_accountId: string): Promise<WorkshopProProfile | null> {
+      void _accountId;
+      const response = await requestJson<WorkshopProProfileResponse>(
+        options,
+        "/api/v1/workshop/pro-state"
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.profile;
+    },
+
+    async transitionWorkshopProState(
+      _accountId: string,
+      state: WorkshopProState
+    ): Promise<WorkshopProProfile | null> {
+      void _accountId;
+      const response = await requestJson<WorkshopProProfileResponse>(
+        options,
+        "/api/v1/workshop/pro-state",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            nextState: state
+          })
+        }
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.profile;
     },
 
     async listWorkshopPatronTierConfigs(_accountId: string): Promise<PatronTierConfig[]> {

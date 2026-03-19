@@ -3,11 +3,13 @@ import type {
   DropVisibility,
   DropLineageSnapshot,
   LiveSession,
+  LiveSessionArtifact,
   PatronTierConfig,
   PreviewPolicy,
   Session,
   TownhallModerationQueueItem,
   WorkshopAnalyticsPanel,
+  WorkshopProProfile,
   WorldReleaseQueueItem,
   World
 } from "@/lib/domain/contracts";
@@ -77,6 +79,8 @@ export type WorkshopContext = {
   worlds: World[];
   drops: Drop[];
   liveSessions: LiveSession[];
+  liveSessionArtifacts: LiveSessionArtifact[];
+  workshopProProfile: WorkshopProProfile | null;
   patronTierConfigs: PatronTierConfig[];
   worldReleaseQueue: WorldReleaseQueueItem[];
   moderationQueue: TownhallModerationQueueItem[];
@@ -199,6 +203,8 @@ export async function loadWorkshopContext(
     creatorSpace,
     drops,
     liveSessions,
+    liveSessionArtifacts,
+    workshopProProfile,
     patronTierConfigs,
     worldReleaseQueue,
     moderationQueue,
@@ -208,6 +214,8 @@ export async function loadWorkshopContext(
       gateway.getStudioByHandle(session.handle),
       gateway.listDropsByStudioHandle(session.handle),
       gateway.listWorkshopLiveSessions(session.accountId),
+      gateway.listWorkshopLiveSessionArtifacts(session.accountId),
+      gateway.getWorkshopProProfile(session.accountId),
       gateway.listWorkshopPatronTierConfigs(session.accountId),
       gateway.listWorkshopWorldReleaseQueue(session.accountId),
       gateway.listTownhallModerationQueue(session.accountId),
@@ -229,6 +237,8 @@ export async function loadWorkshopContext(
       worlds: [],
       drops,
       liveSessions,
+      liveSessionArtifacts,
+      workshopProProfile,
       patronTierConfigs,
       worldReleaseQueue,
       moderationQueue,
@@ -251,6 +261,8 @@ export async function loadWorkshopContext(
     worlds,
     drops,
     liveSessions,
+    liveSessionArtifacts,
+    workshopProProfile,
     patronTierConfigs,
     worldReleaseQueue,
     moderationQueue,

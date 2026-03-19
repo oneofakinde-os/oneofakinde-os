@@ -4,10 +4,12 @@ import type {
   Drop,
   DropLineageSnapshot,
   LiveSession,
+  LiveSessionArtifact,
   PatronTierConfig,
   Session,
   TownhallModerationQueueItem,
   WorkshopAnalyticsPanel,
+  WorkshopProProfile,
   WorldReleaseQueueItem,
   World
 } from "@/lib/domain/contracts";
@@ -31,12 +33,16 @@ type WorkshopRootScreenProps = {
   worlds: World[];
   drops: Drop[];
   liveSessions: LiveSession[];
+  liveSessionArtifacts: LiveSessionArtifact[];
+  workshopProProfile: WorkshopProProfile | null;
   patronTierConfigs: PatronTierConfig[];
   worldReleaseQueue: WorldReleaseQueueItem[];
   moderationQueue: TownhallModerationQueueItem[];
   publishNotice: string | null;
   eventNotice: string | null;
   patronNotice: string | null;
+  artifactNotice: string | null;
+  proNotice: string | null;
   releaseNotice: string | null;
   versionNotice: string | null;
   derivativeNotice: string | null;
@@ -44,6 +50,9 @@ type WorkshopRootScreenProps = {
   analyticsPanel: WorkshopAnalyticsPanel | null;
   validatePublishGateAction: (formData: FormData) => Promise<void>;
   createLiveSessionAction: (formData: FormData) => Promise<void>;
+  captureLiveSessionArtifactAction: (formData: FormData) => Promise<void>;
+  approveLiveSessionArtifactAction: (formData: FormData) => Promise<void>;
+  transitionWorkshopProStateAction: (formData: FormData) => Promise<void>;
   upsertPatronTierConfigAction: (formData: FormData) => Promise<void>;
   createWorldReleaseAction: (formData: FormData) => Promise<void>;
   updateWorldReleaseStatusAction: (formData: FormData) => Promise<void>;
@@ -71,12 +80,16 @@ export function WorkshopRootScreen({
   worlds,
   drops,
   liveSessions,
+  liveSessionArtifacts,
+  workshopProProfile,
   patronTierConfigs,
   worldReleaseQueue,
   moderationQueue,
   publishNotice,
   eventNotice,
   patronNotice,
+  artifactNotice,
+  proNotice,
   releaseNotice,
   versionNotice,
   derivativeNotice,
@@ -84,6 +97,9 @@ export function WorkshopRootScreen({
   analyticsPanel,
   validatePublishGateAction,
   createLiveSessionAction,
+  captureLiveSessionArtifactAction,
+  approveLiveSessionArtifactAction,
+  transitionWorkshopProStateAction,
   upsertPatronTierConfigAction,
   createWorldReleaseAction,
   updateWorldReleaseStatusAction,
@@ -94,6 +110,7 @@ export function WorkshopRootScreen({
 }: WorkshopRootScreenProps) {
   const worldTitleById = new Map(worlds.map((world) => [world.id, world.title]));
   const dropTitleById = new Map(drops.map((drop) => [drop.id, drop.title]));
+  const liveSessionTitleById = new Map(liveSessions.map((liveSession) => [liveSession.id, liveSession.title]));
 
   return (
     <AppShell
@@ -401,6 +418,80 @@ export function WorkshopRootScreen({
       ) : null}
 
       <section className="slice-panel">
+        <p className="slice-label">workshop pro state</p>
+        <p className="slice-copy">
+          state machine rail: active → past due → grace → locked. creator tooling remains available in all states.
+        </p>
+        {proNotice ? (
+          <p className="slice-banner" role="status" aria-live="polite">
+            {proNotice}
+          </p>
+        ) : null}
+
+        {workshopProProfile ? (
+          <>
+            <p className="slice-meta">
+              current state: {workshopProProfile.state.replaceAll("_", " ")}
+            </p>
+            <ul className="slice-list" aria-label="workshop pro profile">
+              <li>
+                <span>cycle anchor</span>
+                <span>{new Date(workshopProProfile.cycleAnchorAt).toLocaleString()}</span>
+              </li>
+              <li>
+                <span>past due at</span>
+                <span>
+                  {workshopProProfile.pastDueAt
+                    ? new Date(workshopProProfile.pastDueAt).toLocaleString()
+                    : "not set"}
+                </span>
+              </li>
+              <li>
+                <span>grace ends at</span>
+                <span>
+                  {workshopProProfile.graceEndsAt
+                    ? new Date(workshopProProfile.graceEndsAt).toLocaleString()
+                    : "not set"}
+                </span>
+              </li>
+              <li>
+                <span>locked at</span>
+                <span>
+                  {workshopProProfile.lockedAt
+                    ? new Date(workshopProProfile.lockedAt).toLocaleString()
+                    : "not set"}
+                </span>
+              </li>
+            </ul>
+            <form action={transitionWorkshopProStateAction} className="slice-button-row">
+              {workshopProProfile.state === "active" ? (
+                <button type="submit" name="next_state" value="past_due" className="slice-button">
+                  move to past due
+                </button>
+              ) : null}
+              {workshopProProfile.state === "past_due" ? (
+                <button type="submit" name="next_state" value="grace" className="slice-button">
+                  move to grace
+                </button>
+              ) : null}
+              {workshopProProfile.state === "grace" ? (
+                <button type="submit" name="next_state" value="locked" className="slice-button">
+                  move to locked
+                </button>
+              ) : null}
+              {workshopProProfile.state !== "active" ? (
+                <button type="submit" name="next_state" value="active" className="slice-button ghost">
+                  recover to active
+                </button>
+              ) : null}
+            </form>
+          </>
+        ) : (
+          <p className="slice-meta">workshop pro profile unavailable for this creator session.</p>
+        )}
+      </section>
+
+      <section className="slice-panel">
         <p className="slice-label">patron tier configuration</p>
         <p className="slice-copy">
           set studio and world patron terms. active configs are used for patron commitment settlement rails.
@@ -579,6 +670,22 @@ export function WorkshopRootScreen({
             </select>
           </label>
 
+          <label className="slice-field">
+            capacity
+            <input
+              name="capacity"
+              className="slice-input"
+              inputMode="numeric"
+              pattern="[0-9]+"
+              defaultValue="200"
+            />
+          </label>
+
+          <label className="slice-field">
+            <span className="slice-meta">enable spatial audio</span>
+            <input type="checkbox" name="spatial_audio" value="1" />
+          </label>
+
           <div className="slice-button-row">
             <button type="submit" className="slice-button">
               create live session
@@ -626,6 +733,140 @@ export function WorkshopRootScreen({
                     open live
                   </Link>
                 </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="slice-panel">
+        <p className="slice-label">live session artifacts</p>
+        <p className="slice-copy">
+          capture live-session outcomes as review-held artifacts, then approve to promote as public catalog drops.
+        </p>
+        {artifactNotice ? (
+          <p className="slice-banner" role="status" aria-live="polite">
+            {artifactNotice}
+          </p>
+        ) : null}
+        <form action={captureLiveSessionArtifactAction} className="slice-form">
+          <label className="slice-field">
+            live session
+            <select
+              name="live_session_id"
+              className="slice-select"
+              defaultValue={liveSessions[0]?.id ?? ""}
+              required
+            >
+              {liveSessions.map((liveSession) => (
+                <option key={liveSession.id} value={liveSession.id}>
+                  {liveSession.title}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="slice-field">
+            artifact title
+            <input
+              name="artifact_title"
+              className="slice-input"
+              required
+              placeholder="post-session artifact title"
+            />
+          </label>
+
+          <label className="slice-field">
+            artifact synopsis
+            <input
+              name="artifact_synopsis"
+              className="slice-input"
+              placeholder="what happened in session and what shipped."
+            />
+          </label>
+
+          <label className="slice-field">
+            world scope (optional)
+            <select name="artifact_world_id" className="slice-select" defaultValue="">
+              <option value="">derive from session/source drop</option>
+              {worlds.map((world) => (
+                <option key={world.id} value={world.id}>
+                  {world.title}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="slice-field">
+            source drop (optional)
+            <select name="artifact_source_drop_id" className="slice-select" defaultValue="">
+              <option value="">derive from session</option>
+              {drops.map((drop) => (
+                <option key={drop.id} value={drop.id}>
+                  {drop.title}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div className="slice-button-row">
+            <button type="submit" className="slice-button" disabled={liveSessions.length === 0}>
+              capture artifact
+            </button>
+          </div>
+        </form>
+
+        {liveSessionArtifacts.length === 0 ? (
+          <p className="slice-meta">no artifacts captured yet.</p>
+        ) : (
+          <ul className="slice-grid" aria-label="live session artifacts">
+            {liveSessionArtifacts.map((artifact) => (
+              <li key={artifact.id} className="slice-drop-card">
+                <p className="slice-label">
+                  {artifact.status === "held_for_review" ? "held for review" : "approved"}
+                </p>
+                <h2 className="slice-title">{artifact.title}</h2>
+                <p className="slice-copy">{artifact.synopsis || "no synopsis provided."}</p>
+                <p className="slice-meta">
+                  session:{" "}
+                  {liveSessionTitleById.get(artifact.liveSessionId) ?? artifact.liveSessionId}
+                </p>
+                <p className="slice-meta">
+                  world:{" "}
+                  {artifact.worldId
+                    ? worldTitleById.get(artifact.worldId) ?? artifact.worldId
+                    : "not set"}
+                  {artifact.sourceDropId
+                    ? ` · source drop: ${dropTitleById.get(artifact.sourceDropId) ?? artifact.sourceDropId}`
+                    : ""}
+                </p>
+                <p className="slice-meta">
+                  captured {new Date(artifact.capturedAt).toLocaleString()}
+                  {artifact.approvedAt
+                    ? ` · approved ${new Date(artifact.approvedAt).toLocaleString()}`
+                    : ""}
+                </p>
+                {artifact.catalogDropId ? (
+                  <p className="slice-meta">
+                    catalog drop: {dropTitleById.get(artifact.catalogDropId) ?? artifact.catalogDropId}
+                  </p>
+                ) : null}
+                {artifact.status === "held_for_review" ? (
+                  <form action={approveLiveSessionArtifactAction} className="slice-button-row">
+                    <input type="hidden" name="artifact_id" value={artifact.id} />
+                    <button type="submit" className="slice-button">
+                      approve to catalog
+                    </button>
+                  </form>
+                ) : (
+                  <div className="slice-button-row">
+                    {artifact.catalogDropId ? (
+                      <Link href={routes.drop(artifact.catalogDropId)} className="slice-button alt">
+                        open approved drop
+                      </Link>
+                    ) : null}
+                  </div>
+                )}
               </li>
             ))}
           </ul>

@@ -2,6 +2,7 @@ import type {
   AccountRole,
   AuthorizedDerivative,
   AuthorizedDerivativeKind,
+  CaptureWorkshopLiveSessionArtifactInput,
   Certificate,
   CollectLiveSessionSnapshot,
   CheckoutSession,
@@ -18,6 +19,7 @@ import type {
   LibraryDrop,
   LibrarySnapshot,
   LiveSession,
+  LiveSessionArtifact,
   LiveSessionEligibility,
   MembershipEntitlement,
   MyCollectionAnalyticsPanel,
@@ -34,6 +36,8 @@ import type {
   TownhallDropSocialSnapshot,
   TownhallModerationQueueItem,
   WorkshopAnalyticsPanel,
+  WorkshopProProfile,
+  WorkshopProState,
   UpsertWorkshopPatronTierConfigInput,
   WorldReleaseQueueItem,
   WorldReleaseQueuePacingMode,
@@ -63,6 +67,13 @@ type MembershipEntitlementRecord = Omit<MembershipEntitlement, "whatYouGet" | "i
 type PatronTierConfigRecord = PatronTierConfig;
 
 type LiveSessionRecord = Omit<LiveSession, "whatYouGet">;
+
+type LiveSessionArtifactRecord = LiveSessionArtifact & {
+  approvedAt?: string;
+  catalogDropId?: string;
+};
+
+type WorkshopProProfileRecord = WorkshopProProfile;
 
 type WorldReleaseQueueRecord = {
   id: string;
@@ -95,6 +106,8 @@ type MockStore = {
   membershipEntitlements: MembershipEntitlementRecord[];
   patronTierConfigs: PatronTierConfigRecord[];
   liveSessions: LiveSessionRecord[];
+  liveSessionArtifacts: LiveSessionArtifactRecord[];
+  workshopProProfiles: WorkshopProProfileRecord[];
   worldReleaseQueue: WorldReleaseQueueRecord[];
   dropVersions: DropVersion[];
   authorizedDerivatives: AuthorizedDerivative[];
@@ -120,6 +133,7 @@ const AUTHORIZED_DERIVATIVE_KINDS = new Set<AuthorizedDerivativeKind>([
   "collaborative_season"
 ]);
 const PATRON_TIER_STATUS_SET = new Set<PatronTierStatus>(["active", "disabled"]);
+const WORKSHOP_PRO_STATES = new Set<WorkshopProState>(["active", "past_due", "grace", "locked"]);
 
 function toHandle(email: string): string {
   const base = email.split("@")[0] ?? "collector";
@@ -444,6 +458,15 @@ function createInitialStore(): MockStore {
       capacity: 80
     }
   ];
+  const liveSessionArtifacts: LiveSessionArtifactRecord[] = [];
+  const workshopProProfiles: WorkshopProProfileRecord[] = [
+    {
+      studioHandle: "oneofakinde",
+      state: "active",
+      cycleAnchorAt: "2026-02-01T00:00:00.000Z",
+      updatedAt: "2026-02-01T00:00:00.000Z"
+    }
+  ];
 
   const worldReleaseQueue: WorldReleaseQueueRecord[] = [
     {
@@ -575,6 +598,8 @@ function createInitialStore(): MockStore {
     membershipEntitlements,
     patronTierConfigs,
     liveSessions,
+    liveSessionArtifacts,
+    workshopProProfiles,
     worldReleaseQueue,
     dropVersions,
     authorizedDerivatives
@@ -1131,6 +1156,120 @@ function toLiveSession(liveSession: LiveSessionRecord): LiveSession {
   };
 }
 
+function toLiveSessionArtifact(record: LiveSessionArtifactRecord): LiveSessionArtifact {
+  return {
+    id: record.id,
+    liveSessionId: record.liveSessionId,
+    studioHandle: record.studioHandle,
+    worldId: record.worldId,
+    sourceDropId: record.sourceDropId,
+    title: record.title,
+    synopsis: record.synopsis,
+    status: record.status,
+    capturedAt: record.capturedAt,
+    approvedAt: record.approvedAt,
+    catalogDropId: record.catalogDropId
+  };
+}
+
+function ensureWorkshopProProfileForCreator(
+  account: AccountRecord
+): {
+  profile: WorkshopProProfileRecord;
+  created: boolean;
+} {
+  const existing = store.workshopProProfiles.find((entry) => entry.studioHandle === account.handle);
+  if (existing) {
+    return {
+      profile: existing,
+      created: false
+    };
+  }
+
+  const nowIso = new Date().toISOString();
+  const profile: WorkshopProProfileRecord = {
+    studioHandle: account.handle,
+    state: "active",
+    cycleAnchorAt: nowIso,
+    updatedAt: nowIso
+  };
+  store.workshopProProfiles.unshift(profile);
+  return {
+    profile,
+    created: true
+  };
+}
+
+function canTransitionWorkshopProState(
+  current: WorkshopProState,
+  next: WorkshopProState
+): boolean {
+  if (current === next) {
+    return true;
+  }
+
+  if (current === "active") {
+    return next === "past_due";
+  }
+
+  if (current === "past_due") {
+    return next === "grace" || next === "active";
+  }
+
+  if (current === "grace") {
+    return next === "locked" || next === "active";
+  }
+
+  if (current === "locked") {
+    return next === "active";
+  }
+
+  return false;
+}
+
+function applyWorkshopProStateTransition(
+  profile: WorkshopProProfileRecord,
+  nextState: WorkshopProState
+): boolean {
+  if (!canTransitionWorkshopProState(profile.state, nextState)) {
+    return false;
+  }
+
+  const nowIso = new Date().toISOString();
+  profile.state = nextState;
+  profile.updatedAt = nowIso;
+
+  if (nextState === "active") {
+    profile.pastDueAt = undefined;
+    profile.graceEndsAt = undefined;
+    profile.lockedAt = undefined;
+    return true;
+  }
+
+  if (nextState === "past_due") {
+    profile.pastDueAt = nowIso;
+    profile.graceEndsAt = undefined;
+    profile.lockedAt = undefined;
+    return true;
+  }
+
+  if (nextState === "grace") {
+    if (!profile.pastDueAt) {
+      profile.pastDueAt = nowIso;
+    }
+    profile.graceEndsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    profile.lockedAt = undefined;
+    return true;
+  }
+
+  if (nextState === "locked") {
+    profile.lockedAt = nowIso;
+    return true;
+  }
+
+  return true;
+}
+
 function resolveLiveEligibility(accountId: string, liveSession: LiveSessionRecord): LiveSessionEligibility {
   const account = store.accounts.get(accountId);
   if (!account) {
@@ -1259,6 +1398,12 @@ function createWorkshopLiveSessionRecord(
     return null;
   }
 
+  const capacity =
+    typeof input.capacity === "number" && Number.isFinite(input.capacity)
+      ? Math.max(1, Math.floor(input.capacity))
+      : 200;
+  const spatialAudio = Boolean(input.spatialAudio);
+
   return {
     id: `live_workshop_${randomUUID()}`,
     studioHandle: account.handle,
@@ -1277,10 +1422,10 @@ function createWorkshopLiveSessionRecord(
         : input.eligibilityRule === "drop_owner"
           ? "invite"
           : "open",
-    spatialAudio: false,
+    spatialAudio,
     exclusiveDropWindowDropId: dropId ?? undefined,
     exclusiveDropWindowDelay: dropId ? 1440 : undefined,
-    capacity: 200
+    capacity
   };
 }
 
@@ -1830,6 +1975,18 @@ export const commerceGateway: CommerceGateway = {
       .map(toLiveSession);
   },
 
+  async listWorkshopLiveSessionArtifacts(accountId: string): Promise<LiveSessionArtifact[]> {
+    const account = store.accounts.get(accountId);
+    if (!account || !account.roles.includes("creator")) {
+      return [];
+    }
+
+    return store.liveSessionArtifacts
+      .filter((artifact) => artifact.studioHandle === account.handle)
+      .sort((a, b) => Date.parse(b.capturedAt) - Date.parse(a.capturedAt))
+      .map((artifact) => toLiveSessionArtifact(artifact));
+  },
+
   async listWorkshopPatronTierConfigs(accountId: string): Promise<PatronTierConfig[]> {
     const account = store.accounts.get(accountId);
     if (!account || !account.roles.includes("creator")) {
@@ -1862,6 +2019,172 @@ export const commerceGateway: CommerceGateway = {
 
     store.liveSessions.unshift(created);
     return toLiveSession(created);
+  },
+
+  async captureWorkshopLiveSessionArtifact(
+    accountId: string,
+    input: CaptureWorkshopLiveSessionArtifactInput
+  ): Promise<LiveSessionArtifact | null> {
+    const account = store.accounts.get(accountId);
+    if (!account || !account.roles.includes("creator")) {
+      return null;
+    }
+
+    const liveSession = store.liveSessions.find((entry) => entry.id === input.liveSessionId);
+    if (!liveSession || liveSession.studioHandle !== account.handle) {
+      return null;
+    }
+
+    const title = input.title.trim();
+    if (!title) {
+      return null;
+    }
+
+    let worldId = input.worldId ?? liveSession.worldId ?? null;
+    if (worldId) {
+      const world = store.worlds.get(worldId);
+      if (!world || world.studioHandle !== account.handle) {
+        return null;
+      }
+    }
+
+    const sourceDropId = input.sourceDropId ?? liveSession.dropId ?? null;
+    if (sourceDropId) {
+      const sourceDrop = store.drops.get(sourceDropId);
+      if (!sourceDrop || sourceDrop.studioHandle !== account.handle) {
+        return null;
+      }
+
+      if (!worldId) {
+        worldId = sourceDrop.worldId;
+      }
+
+      if (worldId && sourceDrop.worldId !== worldId) {
+        return null;
+      }
+    }
+
+    const nowIso = new Date().toISOString();
+    const artifact: LiveSessionArtifactRecord = {
+      id: `lart_${randomUUID()}`,
+      liveSessionId: liveSession.id,
+      studioHandle: account.handle,
+      worldId,
+      sourceDropId,
+      title,
+      synopsis: input.synopsis.trim(),
+      status: "held_for_review",
+      capturedAt: nowIso,
+      approvedAt: undefined,
+      catalogDropId: undefined
+    };
+    store.liveSessionArtifacts.unshift(artifact);
+
+    return toLiveSessionArtifact(artifact);
+  },
+
+  async approveWorkshopLiveSessionArtifact(
+    accountId: string,
+    artifactId: string
+  ): Promise<LiveSessionArtifact | null> {
+    const account = store.accounts.get(accountId);
+    if (!account || !account.roles.includes("creator")) {
+      return null;
+    }
+
+    const artifact = store.liveSessionArtifacts.find(
+      (entry) => entry.id === artifactId && entry.studioHandle === account.handle
+    );
+    if (!artifact || artifact.status !== "held_for_review") {
+      return null;
+    }
+
+    const liveSession =
+      store.liveSessions.find((entry) => entry.id === artifact.liveSessionId) ?? null;
+    const sourceDrop =
+      (artifact.sourceDropId ? store.drops.get(artifact.sourceDropId) ?? null : null) ??
+      (liveSession?.dropId ? store.drops.get(liveSession.dropId) ?? null : null);
+
+    const worldId = artifact.worldId ?? liveSession?.worldId ?? sourceDrop?.worldId ?? null;
+    if (!worldId) {
+      return null;
+    }
+
+    const world = store.worlds.get(worldId);
+    if (!world || world.studioHandle !== account.handle) {
+      return null;
+    }
+
+    const nowIso = new Date().toISOString();
+    const artifactCountForSession = store.liveSessionArtifacts.filter(
+      (entry) => entry.liveSessionId === artifact.liveSessionId
+    ).length;
+    const dropId = `artifact_${randomUUID()}`;
+
+    const drop: Drop = {
+      id: dropId,
+      title: artifact.title,
+      seasonLabel: world.releaseStructure?.currentLabel ?? "live artifacts",
+      episodeLabel: `artifact ${artifactCountForSession}`,
+      studioHandle: account.handle,
+      worldId,
+      worldLabel: world.title,
+      synopsis:
+        artifact.synopsis.trim().length > 0
+          ? artifact.synopsis
+          : `captured from live session ${liveSession?.title ?? artifact.liveSessionId}.`,
+      releaseDate: nowIso.slice(0, 10),
+      priceUsd: sourceDrop?.priceUsd ?? 0,
+      previewMedia: sourceDrop?.previewMedia,
+      collaborators: sourceDrop?.collaborators,
+      visibility: "public",
+      visibilitySource: "drop",
+      previewPolicy: sourceDrop?.previewPolicy ?? "limited",
+      releaseAt: nowIso
+    };
+
+    store.drops.set(drop.id, drop);
+
+    artifact.status = "approved";
+    artifact.approvedAt = nowIso;
+    artifact.catalogDropId = drop.id;
+    artifact.worldId = worldId;
+    if (!artifact.sourceDropId && sourceDrop) {
+      artifact.sourceDropId = sourceDrop.id;
+    }
+
+    return toLiveSessionArtifact(artifact);
+  },
+
+  async getWorkshopProProfile(accountId: string): Promise<WorkshopProProfile | null> {
+    const account = store.accounts.get(accountId);
+    if (!account || !account.roles.includes("creator")) {
+      return null;
+    }
+
+    const ensured = ensureWorkshopProProfileForCreator(account);
+    return ensured.profile;
+  },
+
+  async transitionWorkshopProState(
+    accountId: string,
+    state: WorkshopProState
+  ): Promise<WorkshopProProfile | null> {
+    const account = store.accounts.get(accountId);
+    if (!account || !account.roles.includes("creator")) {
+      return null;
+    }
+
+    if (!WORKSHOP_PRO_STATES.has(state)) {
+      return null;
+    }
+
+    const ensured = ensureWorkshopProProfileForCreator(account);
+    if (!applyWorkshopProStateTransition(ensured.profile, state)) {
+      return null;
+    }
+
+    return ensured.profile;
   },
 
   async listWorkshopWorldReleaseQueue(

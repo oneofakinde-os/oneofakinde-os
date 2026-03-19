@@ -2,6 +2,7 @@
 
 import type {
   AuthorizedDerivativeKind,
+  CaptureWorkshopLiveSessionArtifactInput,
   CreateAuthorizedDerivativeInput,
   CreateDropVersionInput,
   DropVisibility,
@@ -13,6 +14,7 @@ import type {
   PreviewPolicy,
   TownhallModerationCaseResolution,
   UpsertWorkshopPatronTierConfigInput,
+  WorkshopProState,
   WorldReleaseQueuePacingMode,
   WorldReleaseQueueStatus
 } from "@/lib/domain/contracts";
@@ -63,6 +65,7 @@ const WORLD_RELEASE_STATUS_ACTIONS = new Set<Exclude<WorldReleaseQueueStatus, "s
   "canceled"
 ]);
 const PATRON_TIER_STATUSES = new Set<PatronTierStatus>(["active", "disabled"]);
+const WORKSHOP_PRO_STATES = new Set<WorkshopProState>(["active", "past_due", "grace", "locked"]);
 
 function getRequiredFormString(formData: FormData, key: string): string | null {
   const value = String(formData.get(key) ?? "").trim();
@@ -167,6 +170,8 @@ function parseCreateLiveSessionInput(formData: FormData): CreateWorkshopLiveSess
   const title = getRequiredFormString(formData, "title");
   const startsAt = getRequiredFormString(formData, "starts_at");
   const eligibilityRule = getRequiredFormString(formData, "eligibility_rule");
+  const capacityRaw = getOptionalFormString(formData, "capacity");
+  const capacity = capacityRaw ? parsePositiveInteger(capacityRaw) : null;
 
   if (!title || !startsAt || !eligibilityRule) {
     return null;
@@ -194,6 +199,10 @@ function parseCreateLiveSessionInput(formData: FormData): CreateWorkshopLiveSess
     return null;
   }
 
+  if (capacityRaw && !capacity) {
+    return null;
+  }
+
   return {
     title,
     synopsis: getOptionalFormString(formData, "synopsis") ?? "",
@@ -201,7 +210,27 @@ function parseCreateLiveSessionInput(formData: FormData): CreateWorkshopLiveSess
     dropId,
     startsAt: new Date(startsAtMs).toISOString(),
     endsAt: endsAtRaw ? new Date(Date.parse(endsAtRaw)).toISOString() : null,
-    eligibilityRule: eligibilityRule as LiveSessionEligibilityRule
+    eligibilityRule: eligibilityRule as LiveSessionEligibilityRule,
+    spatialAudio: getFormFlag(formData, "spatial_audio"),
+    capacity: capacity ?? undefined
+  };
+}
+
+function parseCaptureLiveSessionArtifactInput(
+  formData: FormData
+): CaptureWorkshopLiveSessionArtifactInput | null {
+  const liveSessionId = getRequiredFormString(formData, "live_session_id");
+  const title = getRequiredFormString(formData, "artifact_title");
+  if (!liveSessionId || !title) {
+    return null;
+  }
+
+  return {
+    liveSessionId,
+    title,
+    synopsis: getOptionalFormString(formData, "artifact_synopsis") ?? "",
+    worldId: getOptionalFormString(formData, "artifact_world_id"),
+    sourceDropId: getOptionalFormString(formData, "artifact_source_drop_id")
   };
 }
 
@@ -387,6 +416,19 @@ function parseWorldReleaseStatus(
   return normalized as Exclude<WorldReleaseQueueStatus, "scheduled">;
 }
 
+function parseWorkshopProState(value: FormDataEntryValue | null): WorkshopProState | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim();
+  if (!WORKSHOP_PRO_STATES.has(normalized as WorkshopProState)) {
+    return null;
+  }
+
+  return normalized as WorkshopProState;
+}
+
 export async function validateWorkshopPublishGateAction(formData: FormData): Promise<void> {
   await requireSessionRoles("/workshop", ["creator"]);
 
@@ -465,6 +507,57 @@ export async function createWorkshopLiveSessionAction(formData: FormData): Promi
 
   redirect(
     `/workshop?event_status=created&event_id=${encodeURIComponent(created.id)}`
+  );
+}
+
+export async function captureWorkshopLiveSessionArtifactAction(formData: FormData): Promise<void> {
+  const session = await requireSessionRoles("/workshop", ["creator"]);
+  const input = parseCaptureLiveSessionArtifactInput(formData);
+  if (!input) {
+    redirect("/workshop?artifact_status=invalid_input");
+  }
+
+  const artifact = await gateway.captureWorkshopLiveSessionArtifact(session.accountId, input);
+  if (!artifact) {
+    redirect("/workshop?artifact_status=capture_failed");
+  }
+
+  redirect(
+    `/workshop?artifact_status=captured&artifact_id=${encodeURIComponent(artifact.id)}`
+  );
+}
+
+export async function approveWorkshopLiveSessionArtifactAction(formData: FormData): Promise<void> {
+  const session = await requireSessionRoles("/workshop", ["creator"]);
+  const artifactId = getRequiredFormString(formData, "artifact_id");
+  if (!artifactId) {
+    redirect("/workshop?artifact_status=invalid_input");
+  }
+
+  const artifact = await gateway.approveWorkshopLiveSessionArtifact(session.accountId, artifactId);
+  if (!artifact) {
+    redirect("/workshop?artifact_status=approve_failed");
+  }
+
+  redirect(
+    `/workshop?artifact_status=approved&artifact_id=${encodeURIComponent(artifact.id)}`
+  );
+}
+
+export async function transitionWorkshopProStateAction(formData: FormData): Promise<void> {
+  const session = await requireSessionRoles("/workshop", ["creator"]);
+  const nextState = parseWorkshopProState(formData.get("next_state"));
+  if (!nextState) {
+    redirect("/workshop?pro_status=invalid_input");
+  }
+
+  const updated = await gateway.transitionWorkshopProState(session.accountId, nextState);
+  if (!updated) {
+    redirect("/workshop?pro_status=update_failed");
+  }
+
+  redirect(
+    `/workshop?pro_status=updated&pro_state=${encodeURIComponent(updated.state)}`
   );
 }
 
