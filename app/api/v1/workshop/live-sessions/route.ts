@@ -7,7 +7,8 @@ import { badRequest, forbidden, getRequiredBodyString, ok, safeJson } from "@/li
 import { commerceBffService } from "@/lib/bff/service";
 import type {
   CreateWorkshopLiveSessionInput,
-  LiveSessionEligibilityRule
+  LiveSessionEligibilityRule,
+  LiveSessionType
 } from "@/lib/domain/contracts";
 
 type PostWorkshopLiveSessionBody = {
@@ -18,6 +19,7 @@ type PostWorkshopLiveSessionBody = {
   startsAt?: string;
   endsAt?: string | null;
   eligibilityRule?: string;
+  type?: string;
   spatialAudio?: boolean;
   capacity?: number;
 };
@@ -27,6 +29,7 @@ const LIVE_ELIGIBILITY_RULES = new Set<LiveSessionEligibilityRule>([
   "membership_active",
   "drop_owner"
 ]);
+const LIVE_SESSION_TYPES = new Set<LiveSessionType>(["opening", "event", "studio_session"]);
 
 function normalizeOptionalBodyString(
   payload: Record<string, unknown> | null,
@@ -93,6 +96,7 @@ function parseCreateWorkshopLiveSessionInput(
   const dropId = normalizeOptionalBodyString(body, "dropId");
   const synopsis = normalizeOptionalBodyString(body, "synopsis") ?? "";
   const endsAt = normalizeOptionalBodyString(body, "endsAt");
+  const rawType = normalizeOptionalBodyString(body, "type");
   const spatialAudioRaw = body?.spatialAudio;
   const capacityRaw = body?.capacity;
 
@@ -110,6 +114,13 @@ function parseCreateWorkshopLiveSessionInput(
     return {
       ok: false,
       response: badRequest("drop_owner eligibility requires dropId")
+    };
+  }
+
+  if (rawType && !LIVE_SESSION_TYPES.has(rawType as LiveSessionType)) {
+    return {
+      ok: false,
+      response: badRequest("type must be one of: opening, event, studio_session")
     };
   }
 
@@ -141,6 +152,7 @@ function parseCreateWorkshopLiveSessionInput(
       startsAt: new Date(parsedStartsAt).toISOString(),
       endsAt: endsAt ? new Date(Date.parse(endsAt)).toISOString() : null,
       eligibilityRule,
+      type: rawType ? (rawType as LiveSessionType) : undefined,
       spatialAudio: spatialAudioRaw === true,
       capacity:
         typeof capacityRaw === "number" && Number.isFinite(capacityRaw)

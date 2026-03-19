@@ -671,6 +671,15 @@ export function WorkshopRootScreen({
           </label>
 
           <label className="slice-field">
+            session type
+            <select name="session_type" className="slice-select" defaultValue="event">
+              <option value="opening">opening</option>
+              <option value="event">event</option>
+              <option value="studio_session">studio session</option>
+            </select>
+          </label>
+
+          <label className="slice-field">
             capacity
             <input
               name="capacity"
@@ -721,6 +730,11 @@ export function WorkshopRootScreen({
                   {liveSession.worldId
                     ? ` · world: ${worldTitleById.get(liveSession.worldId) ?? liveSession.worldId}`
                     : " · world: studio-wide"}
+                </p>
+                <p className="slice-meta">
+                  type: {(liveSession.type ?? "event").replaceAll("_", " ")} · capacity:{" "}
+                  {liveSession.capacity ?? 200}
+                  {liveSession.spatialAudio ? " · spatial audio on" : " · spatial audio off"}
                 </p>
                 <p className="slice-meta">
                   drop: {liveSession.dropId ? dropTitleById.get(liveSession.dropId) ?? liveSession.dropId : "none"}

@@ -216,6 +216,7 @@ export type CreateWorkshopLiveSessionInput = {
   startsAt: string;
   endsAt: string | null;
   eligibilityRule: LiveSessionEligibilityRule;
+  type?: LiveSessionType;
   spatialAudio?: boolean;
   capacity?: number;
 };
