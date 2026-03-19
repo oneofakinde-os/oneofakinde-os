@@ -52,6 +52,10 @@ test("proof: onboarding discovery is taste-first and seeds for_you signals witho
     email: `onboarding-fresh-${randomUUID()}@oneofakinde.test`,
     role: "collector"
   });
+  const optOutCollector = await commerceBffService.createSession({
+    email: `onboarding-opt-out-${randomUUID()}@oneofakinde.test`,
+    role: "collector"
+  });
 
   const beforeResponse = await getTownhallFeedRoute(
     new Request("http://127.0.0.1:3000/api/v1/townhall/feed?lane_key=for_you&limit=3", {
@@ -69,6 +73,32 @@ test("proof: onboarding discovery is taste-first and seeds for_you signals witho
   }>(beforeResponse);
   assert.equal(beforePayload.showroom.ordering, "for_you");
   assert.equal(beforePayload.showroom.effectiveOrdering, "rising");
+
+  const explicitEmptySeed = await commerceBffService.seedOnboardingDiscoverySignals(
+    optOutCollector.accountId,
+    []
+  );
+  assert.equal(explicitEmptySeed.savedDropsSeeded, 0);
+  assert.equal(explicitEmptySeed.telemetrySignalsSeeded, 0);
+
+  const optOutFeedResponse = await getTownhallFeedRoute(
+    new Request("http://127.0.0.1:3000/api/v1/townhall/feed?lane_key=for_you&limit=3", {
+      headers: {
+        "x-ook-session-token": optOutCollector.sessionToken
+      }
+    })
+  );
+  assert.equal(optOutFeedResponse.status, 200);
+  const optOutFeedPayload = await parseJson<{
+    showroom: {
+      effectiveOrdering: string;
+    };
+  }>(optOutFeedResponse);
+  assert.equal(
+    optOutFeedPayload.showroom.effectiveOrdering,
+    "rising",
+    "expected empty selection to remain unseeded"
+  );
 
   const seedResult = await commerceBffService.seedOnboardingDiscoverySignals(
     freshCollector.accountId,

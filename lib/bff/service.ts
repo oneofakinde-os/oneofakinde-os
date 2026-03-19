@@ -1387,31 +1387,22 @@ function seedOnboardingDiscoverySignalsInDatabase(
     }
   }
 
-  for (const studioHandle of seed.studioHandles) {
-    const leadDrop = db.catalog.drops.find((drop) => drop.studioHandle === studioHandle);
-    if (!leadDrop) {
-      continue;
-    }
-
-    const alreadyLiked = db.townhallLikes.some(
-      (entry) => entry.accountId === account.id && entry.dropId === leadDrop.id
-    );
-    if (!alreadyLiked) {
-      db.townhallLikes.unshift({
-        accountId: account.id,
-        dropId: leadDrop.id,
-        likedAt: nowIso
-      });
-      followSignalsSeeded += 1;
-    }
-  }
+  const followedStudios = new Set(
+    db.savedDrops
+      .filter((entry) => entry.accountId === account.id)
+      .map((entry) => findDropById(db, entry.dropId)?.studioHandle ?? null)
+      .filter((studioHandle): studioHandle is string => Boolean(studioHandle))
+  );
+  followSignalsSeeded = seed.studioHandles.reduce((count, studioHandle) => {
+    return followedStudios.has(studioHandle) ? count + 1 : count;
+  }, 0);
 
   if (db.townhallTelemetryEvents.length > TOWNHALL_TELEMETRY_EVENT_LOG_LIMIT) {
     db.townhallTelemetryEvents.length = TOWNHALL_TELEMETRY_EVENT_LOG_LIMIT;
   }
 
   return {
-    persist: savedDropsSeeded > 0 || followSignalsSeeded > 0 || telemetrySignalsSeeded > 0,
+    persist: savedDropsSeeded > 0 || telemetrySignalsSeeded > 0,
     result: {
       savedDropsSeeded,
       followSignalsSeeded,

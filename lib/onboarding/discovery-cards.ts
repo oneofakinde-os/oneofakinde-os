@@ -74,13 +74,17 @@ export function normalizeOnboardingDiscoverySelection(
   }
 ): string[] {
   const maxSelected = options?.maxSelected ?? 3;
-  const fallbackCount = options?.fallbackCount ?? 3;
+  const fallbackCount = options?.fallbackCount ?? 0;
   const normalized = dedupe(
     selectedIds.map((entry) => entry.trim()).filter((entry) => ONBOARDING_DISCOVERY_CARD_BY_ID.has(entry))
   ).slice(0, Math.max(1, maxSelected));
 
   if (normalized.length > 0) {
     return normalized;
+  }
+
+  if (fallbackCount <= 0) {
+    return [];
   }
 
   return ONBOARDING_DISCOVERY_CARDS.slice(0, Math.max(1, fallbackCount)).map((card) => card.id);

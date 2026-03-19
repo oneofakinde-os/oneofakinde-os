@@ -35,8 +35,15 @@ export async function loadTownhallFeedContext(options: LoadTownhallFeedContextOp
     collectListingsByDropId: buildCollectListingsByDropId(collectInventory.listings)
   });
 
-  const collection = session ? await gateway.getMyCollection(session.accountId) : null;
-  const viewerHasTasteSignals = Boolean((collection?.ownedDrops ?? []).length);
+  const [collection, library] = session
+    ? await Promise.all([
+        commerceBffService.getMyCollection(session.accountId),
+        commerceBffService.getLibrary(session.accountId)
+      ])
+    : [null, null];
+  const viewerHasTasteSignals = Boolean(
+    (collection?.ownedDrops ?? []).length || (library?.savedDrops ?? []).length
+  );
 
   const telemetryByDropId = await commerceBffService.getTownhallTelemetrySignals(
     filteredDrops.map((drop) => drop.id)
