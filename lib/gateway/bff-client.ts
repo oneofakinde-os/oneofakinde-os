@@ -355,9 +355,20 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
       return response.payload.panel;
     },
 
-    async getLibrary(_accountId: string): Promise<LibrarySnapshot | null> {
+    async getLibrary(
+      _accountId: string,
+      libraryOptions?: {
+        queueLimit?: number;
+      }
+    ): Promise<LibrarySnapshot | null> {
       void _accountId;
-      const response = await requestJson<{ library: LibrarySnapshot }>(options, "/api/v1/library");
+      const queueLimit =
+        typeof libraryOptions?.queueLimit === "number" && Number.isFinite(libraryOptions.queueLimit)
+          ? Math.max(1, Math.floor(libraryOptions.queueLimit))
+          : null;
+      const pathname =
+        queueLimit === null ? "/api/v1/library" : `/api/v1/library?queue_limit=${queueLimit}`;
+      const response = await requestJson<{ library: LibrarySnapshot }>(options, pathname);
       if (!response.ok || !response.payload) return null;
       return response.payload.library;
     },

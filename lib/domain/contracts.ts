@@ -816,9 +816,49 @@ export type LibraryDrop = {
   savedAt: string;
 };
 
+export type LibraryRecallState = "gated" | "scheduled" | "unlocked" | "owned";
+
+export type LibraryRecallDelta = "initial" | "stable" | "unlocked" | "relocked" | "changed";
+
+export type LibraryEligibilitySnapshot = {
+  state: LibraryRecallState;
+  delta: LibraryRecallDelta;
+  previousState: LibraryRecallState | null;
+  canDiscover: boolean;
+  canCollectNow: boolean;
+  hasEntitlement: boolean;
+  evaluatedAt: string;
+};
+
+export type LibraryQueueProgressState = "pending" | "in_progress" | "completed";
+
+export type LibraryQueueResumeMetadata = {
+  completionPercent: number;
+  progressState: LibraryQueueProgressState;
+  lastActivityAt: string | null;
+  resumeLabel: string;
+  progressLabel: string;
+  consumedSeconds: number;
+  positionHint: number | null;
+};
+
+export type LibraryQueueItem = {
+  drop: Drop;
+  savedAt: string;
+  queuePosition: number;
+  eligibility: LibraryEligibilitySnapshot;
+  resume: LibraryQueueResumeMetadata;
+};
+
+export type LibrarySavedDrop = LibraryDrop & {
+  eligibility: LibraryEligibilitySnapshot;
+};
+
 export type LibrarySnapshot = {
   account: Pick<Session, "accountId" | "handle" | "displayName">;
-  savedDrops: LibraryDrop[];
+  savedDrops: LibrarySavedDrop[];
+  readQueue: LibraryQueueItem[];
+  listenQueue: LibraryQueueItem[];
 };
 
 export type TownhallShareChannel = "sms" | "internal_dm" | "whatsapp" | "telegram";
