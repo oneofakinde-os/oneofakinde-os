@@ -97,7 +97,28 @@ export type PatronCommitment = {
 
 export type PatronRosterEntry = {
   handle: string;
+  status: PatronStatus;
+  recognitionTier: "founding" | "active";
   committedAt: string;
+};
+
+export type WorldPatronRosterViewerAccess = {
+  hasMembershipEntitlement: boolean;
+  hasCollectEntitlement: boolean;
+  hasCreatorAccess: boolean;
+  hasPatronCommitment: boolean;
+};
+
+export type WorldPatronRosterSnapshot = {
+  worldId: string;
+  studioHandle: string;
+  patrons: PatronRosterEntry[];
+  totals: {
+    totalCount: number;
+    activeCount: number;
+    lapsedCount: number;
+  };
+  viewerAccess: WorldPatronRosterViewerAccess;
 };
 
 export type PatronTierStatus = "active" | "disabled";

@@ -27,6 +27,17 @@ export default async function WorldPage({ params }: WorldPageProps) {
   const worldCollectFullWorldUpgradePreview =
     worldCollectSnapshot?.bundles.find((entry) => entry.bundle.bundleType === "full_world")
       ?.upgradePreview ?? null;
+  const worldPatronRosterResult = session
+    ? await commerceBffService.listWorldPatronRoster(session.accountId, world.id)
+    : null;
+  const worldPatronRosterSnapshot = worldPatronRosterResult?.ok
+    ? worldPatronRosterResult.snapshot
+    : null;
+  const worldPatronRosterAccessState = session
+    ? worldPatronRosterResult?.ok
+      ? "eligible"
+      : worldPatronRosterResult?.reason ?? "not_found"
+    : "signed_out";
 
   return (
     <WorldDetailScreen
@@ -35,6 +46,8 @@ export default async function WorldPage({ params }: WorldPageProps) {
       session={session}
       worldCollectSnapshot={worldCollectSnapshot}
       worldCollectFullWorldUpgradePreview={worldCollectFullWorldUpgradePreview}
+      worldPatronRosterSnapshot={worldPatronRosterSnapshot}
+      worldPatronRosterAccessState={worldPatronRosterAccessState}
     />
   );
 }
