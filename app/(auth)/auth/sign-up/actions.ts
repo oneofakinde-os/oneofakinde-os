@@ -20,7 +20,14 @@ export async function signUpAction(formData: FormData): Promise<void> {
     redirect(`/auth/sign-up?error=invalid_email&returnTo=${encodeURIComponent(returnTo)}` as Route);
   }
 
-  const session = await gateway.createSession({ email, role });
+  let session: Awaited<ReturnType<typeof gateway.createSession>>;
+  try {
+    session = await gateway.createSession({ email, role });
+  } catch {
+    redirect(
+      `/auth/sign-up?error=auth_service_unavailable&returnTo=${encodeURIComponent(returnTo)}` as Route
+    );
+  }
   const cookieStore = await cookies();
 
   cookieStore.set({

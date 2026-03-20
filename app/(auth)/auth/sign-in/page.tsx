@@ -27,6 +27,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
   const errorCode = firstParam(resolvedParams.error);
   const hasInvalidEmail = errorCode === "invalid_email";
   const hasRoleError = errorCode === "role_required";
+  const hasAuthServiceError = errorCode === "auth_service_unavailable";
 
   return (
     <main className="identity-page">
@@ -94,6 +95,9 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
           {hasInvalidEmail ? <p className="identity-error">enter a valid email to continue.</p> : null}
           {hasRoleError ? (
             <p className="identity-error">this route requires creator access. switch mode and continue.</p>
+          ) : null}
+          {hasAuthServiceError ? (
+            <p className="identity-error">sign-in is temporarily unavailable. try again in a moment.</p>
           ) : null}
 
           <button type="submit" className="identity-cta">
