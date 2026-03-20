@@ -57,6 +57,8 @@ import type {
   PatronTierConfig,
   PatronTierStatus,
   PatronRosterEntry,
+  WorldPatronRosterSnapshot,
+  WorldPatronRosterViewerAccess,
   PurchaseReceipt,
   ReceiptBadge,
   SettlementLineItem,
@@ -4286,9 +4288,14 @@ function findEffectivePatronTierConfig(
   );
 }
 
-function toPatronRosterEntry(patron: PatronRecord): PatronRosterEntry {
+function toPatronRosterEntry(
+  patron: PatronRecord,
+  recognitionTier: PatronRosterEntry["recognitionTier"] = "active"
+): PatronRosterEntry {
   return {
     handle: patron.handle,
+    status: patron.status,
+    recognitionTier,
     committedAt: patron.committedAt
   };
 }
@@ -4369,7 +4376,36 @@ function canAccessWorldPatronRoster(
   account: AccountRecord,
   world: World
 ): boolean {
-  return hasActiveMembershipForWorld(db, account, world) || hasCollectEntitlementForWorld(db, account, world);
+  const access = buildWorldPatronRosterViewerAccess(db, account, world);
+  return (
+    access.hasMembershipEntitlement ||
+    access.hasCollectEntitlement ||
+    access.hasCreatorAccess ||
+    access.hasPatronCommitment
+  );
+}
+
+function buildWorldPatronRosterViewerAccess(
+  db: BffDatabase,
+  account: AccountRecord,
+  world: World
+): WorldPatronRosterViewerAccess {
+  const hasMembershipEntitlement = hasActiveMembershipForWorld(db, account, world);
+  const hasCollectEntitlement = hasCollectEntitlementForWorld(db, account, world);
+  const hasCreatorAccess = account.roles.includes("creator") && account.handle === world.studioHandle;
+  const hasPatronCommitment = db.patrons.some(
+    (patron) =>
+      patron.accountId === account.id &&
+      patron.studioHandle === world.studioHandle &&
+      patron.status === "active"
+  );
+
+  return {
+    hasMembershipEntitlement,
+    hasCollectEntitlement,
+    hasCreatorAccess,
+    hasPatronCommitment
+  };
 }
 
 function canAccessWorldConversationThread(
@@ -7454,14 +7490,14 @@ export const commerceBffService = {
   ): Promise<
     | {
         ok: true;
-        patrons: PatronRosterEntry[];
+        snapshot: WorldPatronRosterSnapshot;
       }
     | { ok: false; reason: "not_found" | "forbidden" }
   > {
     return withDatabase<
       | {
           ok: true;
-          patrons: PatronRosterEntry[];
+          snapshot: WorldPatronRosterSnapshot;
         }
       | { ok: false; reason: "not_found" | "forbidden" }
     >(async (db) => {
@@ -7477,7 +7513,13 @@ export const commerceBffService = {
         };
       }
 
-      if (!canAccessWorldPatronRoster(db, account, world)) {
+      const viewerAccess = buildWorldPatronRosterViewerAccess(db, account, world);
+      const hasViewerAccess =
+        viewerAccess.hasMembershipEntitlement ||
+        viewerAccess.hasCollectEntitlement ||
+        viewerAccess.hasCreatorAccess ||
+        viewerAccess.hasPatronCommitment;
+      if (!hasViewerAccess) {
         return {
           persist: false,
           result: {
@@ -7487,20 +7529,38 @@ export const commerceBffService = {
         };
       }
 
-      const roster = db.patrons
-        .filter(
-          (patron) =>
-            patron.studioHandle === world.studioHandle &&
-            patron.status === "active"
-        )
+      const studioPatrons = db.patrons.filter((patron) => patron.studioHandle === world.studioHandle);
+      const activePatrons = studioPatrons.filter((patron) => patron.status === "active");
+      const foundingPatronIds = new Set(
+        [...activePatrons]
+          .sort((a, b) => Date.parse(a.committedAt) - Date.parse(b.committedAt))
+          .slice(0, 3)
+          .map((patron) => patron.id)
+      );
+      const roster = [...activePatrons]
         .sort((a, b) => Date.parse(b.committedAt) - Date.parse(a.committedAt))
-        .map((patron) => toPatronRosterEntry(patron));
+        .map((patron) =>
+          toPatronRosterEntry(
+            patron,
+            foundingPatronIds.has(patron.id) ? "founding" : "active"
+          )
+        );
 
       return {
         persist: false,
         result: {
           ok: true as const,
-          patrons: roster
+          snapshot: {
+            worldId: world.id,
+            studioHandle: world.studioHandle,
+            patrons: roster,
+            totals: {
+              totalCount: studioPatrons.length,
+              activeCount: activePatrons.length,
+              lapsedCount: studioPatrons.length - activePatrons.length
+            },
+            viewerAccess
+          }
         }
       };
     });

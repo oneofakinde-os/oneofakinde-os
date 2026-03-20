@@ -12,6 +12,7 @@ import type {
   Session,
   Studio,
   World,
+  WorldPatronRosterSnapshot,
   WorldCollectBundleSnapshot,
   WorldCollectUpgradePreview
 } from "../../lib/domain/contracts";
@@ -170,6 +171,30 @@ const sampleWorldCollectSnapshot: WorldCollectBundleSnapshot = {
   ]
 };
 
+const sampleWorldPatronRosterSnapshot: WorldPatronRosterSnapshot = {
+  worldId: "dark-matter",
+  studioHandle: "oneofakinde",
+  patrons: [
+    {
+      handle: "collector",
+      status: "active",
+      recognitionTier: "founding",
+      committedAt: "2026-03-10T10:00:00.000Z"
+    }
+  ],
+  totals: {
+    totalCount: 2,
+    activeCount: 1,
+    lapsedCount: 1
+  },
+  viewerAccess: {
+    hasMembershipEntitlement: true,
+    hasCollectEntitlement: false,
+    hasCreatorAccess: false,
+    hasPatronCommitment: true
+  }
+};
+
 test("proof: world detail renders visual identity, access rails, conversation, and patron hooks", () => {
   const markup = renderToStaticMarkup(
     createElement(WorldDetailScreen, {
@@ -177,16 +202,20 @@ test("proof: world detail renders visual identity, access rails, conversation, a
       drops: [sampleDrop],
       session: sampleSession,
       worldCollectSnapshot: sampleWorldCollectSnapshot,
-      worldCollectFullWorldUpgradePreview: sampleWorldCollectFullWorldUpgradePreview
+      worldCollectFullWorldUpgradePreview: sampleWorldCollectFullWorldUpgradePreview,
+      worldPatronRosterSnapshot: sampleWorldPatronRosterSnapshot,
+      worldPatronRosterAccessState: "eligible"
     })
   );
 
   assert.equal(markup.includes('data-testid="world-visual-identity"'), true);
   assert.equal(markup.includes('data-testid="world-access-contract"'), true);
+  assert.equal(markup.includes('data-testid="world-patron-roster-panel"'), true);
   assert.equal(markup.includes('data-testid="world-collect-contract"'), true);
   assert.equal(markup.includes('data-testid="world-conversation-entry"'), true);
   assert.equal(markup.includes('data-testid="world-patron-roster-hook"'), true);
   assert.equal(markup.includes("full-world upgrade:"), true);
+  assert.equal(markup.includes("founding patron"), true);
   assert.equal(markup.includes("latest drop only (1 drop)"), true);
 });
 

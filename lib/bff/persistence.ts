@@ -1599,21 +1599,24 @@ function normalizePatronStatus(value: unknown): PatronStatus {
 function normalizePatronRecords(records: PatronRecord[]): PatronRecord[] {
   return records.map((record) => {
     const candidate = record as Partial<PatronRecord>;
+    const status = normalizePatronStatus(candidate.status);
+    const committedAt =
+      typeof candidate.committedAt === "string" && candidate.committedAt.trim()
+        ? candidate.committedAt
+        : new Date().toISOString();
+    const normalizedLapsedAt =
+      typeof candidate.lapsedAt === "string" && candidate.lapsedAt.trim().length > 0
+        ? candidate.lapsedAt
+        : null;
 
     return {
       id: typeof candidate.id === "string" && candidate.id.trim() ? candidate.id : `pat_${randomUUID()}`,
       accountId: typeof candidate.accountId === "string" ? candidate.accountId : "",
       handle: typeof candidate.handle === "string" ? candidate.handle : "",
       studioHandle: typeof candidate.studioHandle === "string" ? candidate.studioHandle : "",
-      status: normalizePatronStatus(candidate.status),
-      committedAt:
-        typeof candidate.committedAt === "string" && candidate.committedAt.trim()
-          ? candidate.committedAt
-          : new Date().toISOString(),
-      lapsedAt:
-        typeof candidate.lapsedAt === "string" && candidate.lapsedAt.trim().length > 0
-          ? candidate.lapsedAt
-          : null
+      status,
+      committedAt,
+      lapsedAt: status === "lapsed" ? normalizedLapsedAt ?? committedAt : null
     };
   });
 }

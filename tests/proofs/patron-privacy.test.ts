@@ -140,15 +140,49 @@ test("proof: patron commitment + roster enforce privacy and world-member access 
   );
   assert.equal(rosterResponse.status, 200);
   const rosterPayload = await parseJson<{
-    patrons: Array<{
-      handle: string;
-      committedAt: string;
-    }>;
+    snapshot: {
+      worldId: string;
+      studioHandle: string;
+      totals: {
+        totalCount: number;
+        activeCount: number;
+        lapsedCount: number;
+      };
+      viewerAccess: {
+        hasMembershipEntitlement: boolean;
+        hasCollectEntitlement: boolean;
+        hasCreatorAccess: boolean;
+        hasPatronCommitment: boolean;
+      };
+      patrons: Array<{
+        handle: string;
+        status: string;
+        recognitionTier: string;
+        committedAt: string;
+      }>;
+    };
   }>(rosterResponse);
-  assert.ok(rosterPayload.patrons.length >= 1);
+  assert.equal(rosterPayload.snapshot.worldId, "dark-matter");
+  assert.equal(rosterPayload.snapshot.studioHandle, "oneofakinde");
+  assert.ok(rosterPayload.snapshot.patrons.length >= 1);
   assert.ok(
-    rosterPayload.patrons.some((entry) => entry.handle === seededCollector.handle),
+    rosterPayload.snapshot.patrons.some((entry) => entry.handle === seededCollector.handle),
     "expected committed patron handle to appear in roster"
+  );
+  assert.ok(
+    rosterPayload.snapshot.patrons.every(
+      (entry) =>
+        entry.status === "active" &&
+        (entry.recognitionTier === "founding" || entry.recognitionTier === "active")
+    )
+  );
+  assert.ok(rosterPayload.snapshot.totals.totalCount >= rosterPayload.snapshot.totals.activeCount);
+  assert.equal(
+    rosterPayload.snapshot.viewerAccess.hasMembershipEntitlement ||
+      rosterPayload.snapshot.viewerAccess.hasCollectEntitlement ||
+      rosterPayload.snapshot.viewerAccess.hasCreatorAccess ||
+      rosterPayload.snapshot.viewerAccess.hasPatronCommitment,
+    true
   );
   assertNoForbiddenKeys(rosterPayload, [...PATRON_FORBIDDEN_KEYS]);
 
@@ -162,6 +196,14 @@ test("proof: patron commitment + roster enforce privacy and world-member access 
     withRouteParams({ world_id: "dark-matter" })
   );
   assert.equal(collectEntitledRoster.status, 200);
+  const collectEntitledPayload = await parseJson<{
+    snapshot: {
+      viewerAccess: {
+        hasCollectEntitlement: boolean;
+      };
+    };
+  }>(collectEntitledRoster);
+  assert.equal(collectEntitledPayload.snapshot.viewerAccess.hasCollectEntitlement, true);
 });
 
 test("proof: patron rails do not regress collect inventory and townhall feed", async (t) => {

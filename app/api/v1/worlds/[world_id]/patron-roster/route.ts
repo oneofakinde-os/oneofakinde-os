@@ -20,19 +20,17 @@ export async function GET(
     return guard.response;
   }
 
-  if (!guard.session.roles.includes("collector")) {
-    return forbidden("collector role is required");
-  }
-
   const roster = await commerceBffService.listWorldPatronRoster(guard.session.accountId, worldId);
   if (!roster.ok) {
     if (roster.reason === "not_found") {
       return badRequest("world not found");
     }
-    return forbidden("world membership or collect entitlement is required");
+    return forbidden(
+      "world membership, collect entitlement, creator access, or active patron support is required"
+    );
   }
 
   return ok({
-    patrons: roster.patrons
+    snapshot: roster.snapshot
   });
 }

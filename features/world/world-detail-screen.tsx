@@ -3,8 +3,10 @@ import { formatUsd } from "@/features/shared/format";
 import { sortDropsForWorldSurface } from "@/lib/catalog/drop-curation";
 import type {
   Drop,
+  PatronStatus,
   Session,
   World,
+  WorldPatronRosterSnapshot,
   WorldCollectBundleSnapshot,
   WorldCollectUpgradePreview
 } from "@/lib/domain/contracts";
@@ -17,6 +19,8 @@ type WorldDetailScreenProps = {
   session: Session | null;
   worldCollectSnapshot: WorldCollectBundleSnapshot | null;
   worldCollectFullWorldUpgradePreview: WorldCollectUpgradePreview | null;
+  worldPatronRosterSnapshot: WorldPatronRosterSnapshot | null;
+  worldPatronRosterAccessState: "signed_out" | "eligible" | "forbidden" | "not_found";
 };
 
 const ENTRY_RULE_COPY: Record<NonNullable<World["entryRule"]>, string> = {
@@ -31,12 +35,24 @@ const DEFAULT_DROP_VISIBILITY_COPY: Record<NonNullable<World["defaultDropVisibil
   collectors_only: "collectors only"
 };
 
+const PATRON_STATUS_COPY: Record<PatronStatus, string> = {
+  active: "active",
+  lapsed: "lapsed"
+};
+
+const PATRON_RECOGNITION_COPY: Record<"founding" | "active", string> = {
+  founding: "founding patron",
+  active: "patron"
+};
+
 export function WorldDetailScreen({
   world,
   drops,
   session,
   worldCollectSnapshot,
-  worldCollectFullWorldUpgradePreview
+  worldCollectFullWorldUpgradePreview,
+  worldPatronRosterSnapshot,
+  worldPatronRosterAccessState
 }: WorldDetailScreenProps) {
   const orderedDrops = sortDropsForWorldSurface(drops);
   const dropTitleById = new Map(drops.map((drop) => [drop.id, drop.title]));
@@ -159,6 +175,86 @@ export function WorldDetailScreen({
         <p className="slice-meta">
           conversation and patron roster rails require world membership or collect entitlement.
         </p>
+      </section>
+
+      <section className="slice-panel" data-testid="world-patron-roster-panel">
+        <p className="slice-label">world patron roster</p>
+        <p className="slice-copy">
+          active patron presence is visible with recognition + status context for eligible world viewers.
+        </p>
+        {worldPatronRosterAccessState === "signed_out" ? (
+          <>
+            <p className="slice-meta">sign in to view world patron roster recognition.</p>
+            <div className="slice-button-row">
+              <Link href={routes.signIn(routes.world(world.id))} className="slice-button">
+                sign in for patron roster
+              </Link>
+            </div>
+          </>
+        ) : worldPatronRosterAccessState === "forbidden" ? (
+          <>
+            <p className="slice-meta">
+              patron roster visibility requires membership, collect entitlement, creator access, or active patron support.
+            </p>
+            <div className="slice-button-row">
+              <a href={patronRosterHref} className="slice-button ghost">
+                open roster contract
+              </a>
+            </div>
+          </>
+        ) : !worldPatronRosterSnapshot ? (
+          <>
+            <p className="slice-meta">patron roster is unavailable for this world.</p>
+            <div className="slice-button-row">
+              <a href={patronRosterHref} className="slice-button ghost">
+                open roster contract
+              </a>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="slice-meta">
+              total patrons: {worldPatronRosterSnapshot.totals.totalCount} · active{" "}
+              {worldPatronRosterSnapshot.totals.activeCount} · lapsed{" "}
+              {worldPatronRosterSnapshot.totals.lapsedCount}
+            </p>
+            <p className="slice-meta">
+              viewer access: membership{" "}
+              {worldPatronRosterSnapshot.viewerAccess.hasMembershipEntitlement ? "yes" : "no"} ·
+              collect {worldPatronRosterSnapshot.viewerAccess.hasCollectEntitlement ? "yes" : "no"}
+              · patron{" "}
+              {worldPatronRosterSnapshot.viewerAccess.hasPatronCommitment ? "yes" : "no"} ·
+              creator {worldPatronRosterSnapshot.viewerAccess.hasCreatorAccess ? "yes" : "no"}
+            </p>
+            {worldPatronRosterSnapshot.patrons.length === 0 ? (
+              <p className="slice-meta">
+                no active patrons are currently visible for this world.
+              </p>
+            ) : (
+              <ul className="slice-grid" aria-label="world patron roster entries">
+                {worldPatronRosterSnapshot.patrons.map((entry) => (
+                  <li
+                    key={`${entry.handle}-${entry.committedAt}`}
+                    className="slice-drop-card"
+                    data-testid="world-patron-roster-entry"
+                  >
+                    <p className="slice-label">@{entry.handle}</p>
+                    <p className="slice-meta">
+                      {PATRON_RECOGNITION_COPY[entry.recognitionTier]} ·{" "}
+                      {PATRON_STATUS_COPY[entry.status]}
+                    </p>
+                    <p className="slice-meta">committed {entry.committedAt.slice(0, 10)}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="slice-button-row">
+              <a href={patronRosterHref} className="slice-button ghost">
+                open roster contract
+              </a>
+            </div>
+          </>
+        )}
       </section>
 
       <section className="slice-panel" data-testid="world-collect-contract">
