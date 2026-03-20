@@ -303,6 +303,12 @@ test("proof: live session conversation moderation supports report case decision 
     email: `live-thread-reporter-${randomUUID()}@oneofakinde.test`,
     role: "collector"
   });
+  const reporterWorldCollect = await commerceBffService.collectWorldBundle({
+    accountId: reporter.accountId,
+    worldId: "dark-matter",
+    bundleType: "current_only"
+  });
+  assert.ok(reporterWorldCollect);
 
   const nowMs = Date.now();
   const createLiveSessionResponse = await postWorkshopLiveSessionRoute(
