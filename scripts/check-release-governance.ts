@@ -12,13 +12,16 @@ const REQUIRED_FILES = [
   "config/feature-flags.contract.json",
   "config/rc-freeze-checklist.json",
   "config/action-matrix-status.json",
+  "config/launch-certification-status.json",
   "docs/architecture/FEATURE_FLAGS.md",
   "docs/architecture/ROLL_OUT_PLAYBOOK.md",
   "docs/architecture/RC_VERIFICATION_RUNBOOK.md",
+  "docs/architecture/LAUNCH_CERTIFICATION.md",
   "docs/architecture/action-matrix-red-yellow-backlog.md",
   "scripts/check-feature-flags-contract.ts",
   "scripts/check-rc-freeze-checklist.ts",
   "scripts/check-action-matrix-status.ts",
+  "scripts/check-launch-certification-status.ts",
   "scripts/rc-verify.ts",
   ".github/workflows/release-candidate-dry-run.yml",
   ".github/workflows/ci.yml"
@@ -82,6 +85,9 @@ if (!scripts["check:freeze-checklist"]) {
 if (!scripts["check:action-matrix-status"]) {
   fail('package.json scripts must include "check:action-matrix-status"');
 }
+if (!scripts["check:launch-certification-status"]) {
+  fail('package.json scripts must include "check:launch-certification-status"');
+}
 if (!scripts["rc:verify"]) {
   fail('package.json scripts must include "rc:verify"');
 }
@@ -94,6 +100,9 @@ if (!scripts["release:governance"]?.includes("check:freeze-checklist")) {
 if (!scripts["release:governance"]?.includes("check:action-matrix-status")) {
   fail('package.json "release:governance" must execute check:action-matrix-status');
 }
+if (!scripts["release:governance"]?.includes("check:launch-certification-status")) {
+  fail('package.json "release:governance" must execute check:launch-certification-status');
+}
 if (!scripts["prepare:architecture"]?.includes("check:feature-flags")) {
   fail('package.json "prepare:architecture" must execute check:feature-flags');
 }
@@ -102,6 +111,9 @@ if (!scripts["prepare:architecture"]?.includes("check:freeze-checklist")) {
 }
 if (!scripts["prepare:architecture"]?.includes("check:action-matrix-status")) {
   fail('package.json "prepare:architecture" must execute check:action-matrix-status');
+}
+if (!scripts["prepare:architecture"]?.includes("check:launch-certification-status")) {
+  fail('package.json "prepare:architecture" must execute check:launch-certification-status');
 }
 
 if (!workflow.includes("pull_request:")) {

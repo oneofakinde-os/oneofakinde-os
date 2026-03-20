@@ -28,6 +28,8 @@ This package defines the target software architecture for oneofakinde OS using t
   - Release promotion stages, abort conditions, and rollback rules.
 - `RC_VERIFICATION_RUNBOOK.md`
   - One-click release-candidate verification flow and freeze decision protocol.
+- `LAUNCH_CERTIFICATION.md`
+  - RY-15 launch certification contract for user journeys, ops readiness, and SHA-lock parity.
 - `release-candidate-dry-run.md`
   - Strict pass/fail launch dry run checklist and execution command.
 - `SPEC_TO_CODE_IMPLEMENTATION_BACKLOG.md`

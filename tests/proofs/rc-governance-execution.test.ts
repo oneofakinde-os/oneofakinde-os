@@ -64,6 +64,9 @@ test("proof: rc runbook + governance scripts enforce one-click execution", async
     actionMatrixStatusScript,
     actionMatrixStatusConfig,
     actionMatrixBacklogDoc,
+    launchCertificationStatusScript,
+    launchCertificationStatusConfig,
+    launchCertificationDoc,
     rcVerifyScript,
     rcDryRunDoc
   ] = await Promise.all([
@@ -74,6 +77,9 @@ test("proof: rc runbook + governance scripts enforce one-click execution", async
     readRepoFile("scripts/check-action-matrix-status.ts"),
     readRepoFile("config/action-matrix-status.json"),
     readRepoFile("docs/architecture/action-matrix-red-yellow-backlog.md"),
+    readRepoFile("scripts/check-launch-certification-status.ts"),
+    readRepoFile("config/launch-certification-status.json"),
+    readRepoFile("docs/architecture/LAUNCH_CERTIFICATION.md"),
     readRepoFile("scripts/rc-verify.ts"),
     readRepoFile("docs/architecture/release-candidate-dry-run.md")
   ]);
@@ -86,25 +92,38 @@ test("proof: rc runbook + governance scripts enforce one-click execution", async
   assert.equal(typeof scripts["rc:verify"], "string");
   assert.equal(typeof scripts["check:api-shape"], "string");
   assert.equal(typeof scripts["check:action-matrix-status"], "string");
+  assert.equal(typeof scripts["check:launch-certification-status"], "string");
   assert.match(scripts["check:api-shape"] ?? "", /taste-graph-isolation\.test\.ts/);
   assert.match(scripts["release:governance"] ?? "", /check:freeze-checklist/);
   assert.match(scripts["release:governance"] ?? "", /check:action-matrix-status/);
+  assert.match(scripts["release:governance"] ?? "", /check:launch-certification-status/);
   assert.match(scripts["prepare:architecture"] ?? "", /check:freeze-checklist/);
   assert.match(scripts["prepare:architecture"] ?? "", /check:action-matrix-status/);
+  assert.match(scripts["prepare:architecture"] ?? "", /check:launch-certification-status/);
   assert.match(runbookDoc, /npm run rc:verify/);
   assert.match(runbookDoc, /One-Click Command/i);
   assert.match(runbookDoc, /check:surface-sync/);
   assert.match(runbookDoc, /check:api-shape/);
+  assert.match(runbookDoc, /check:launch-certification-status/);
+  assert.match(runbookDoc, /LAUNCH_CERTIFICATION\.md/);
   assert.match(releaseGovernanceScript, /config\/rc-freeze-checklist\.json/);
   assert.match(releaseGovernanceScript, /config\/action-matrix-status\.json/);
+  assert.match(releaseGovernanceScript, /config\/launch-certification-status\.json/);
   assert.match(releaseGovernanceScript, /scripts\/check-rc-freeze-checklist\.ts/);
   assert.match(releaseGovernanceScript, /scripts\/check-action-matrix-status\.ts/);
+  assert.match(releaseGovernanceScript, /scripts\/check-launch-certification-status\.ts/);
+  assert.match(releaseGovernanceScript, /docs\/architecture\/LAUNCH_CERTIFICATION\.md/);
   assert.match(freezeChecklistScript, /release-candidate-dry-run\.md/);
   assert.match(actionMatrixStatusScript, /docs\/architecture\/action-matrix-red-yellow-backlog\.md/);
   assert.match(actionMatrixStatusScript, /RY-13/);
   assert.match(actionMatrixStatusConfig, /"status_counts"/);
   assert.match(actionMatrixStatusConfig, /"RY-13"/);
   assert.match(actionMatrixBacklogDoc, /`0 remaining yellow`/);
+  assert.match(launchCertificationStatusScript, /config\/launch-certification-status\.json/);
+  assert.match(launchCertificationStatusScript, /LAUNCH_CERTIFICATION\.md/);
+  assert.match(launchCertificationStatusConfig, /"required_user_journeys"/);
+  assert.match(launchCertificationStatusConfig, /"sha_lock"/);
+  assert.match(launchCertificationDoc, /Launch Certification Status \(RY-15\)/);
   assert.match(rcVerifyScript, /check:surface-sync/);
   assert.match(rcVerifyScript, /lint:terminology/);
   assert.match(rcVerifyScript, /check:api-shape/);
@@ -113,15 +132,18 @@ test("proof: rc runbook + governance scripts enforce one-click execution", async
 });
 
 test("proof: rollout playbook and runbook docs are present in architecture index", async () => {
-  const [readme, rolloutPlaybook, runbook] = await Promise.all([
+  const [readme, rolloutPlaybook, runbook, launchCertificationDoc] = await Promise.all([
     readRepoFile("docs/architecture/README.md"),
     readRepoFile("docs/architecture/ROLL_OUT_PLAYBOOK.md"),
-    readRepoFile("docs/architecture/RC_VERIFICATION_RUNBOOK.md")
+    readRepoFile("docs/architecture/RC_VERIFICATION_RUNBOOK.md"),
+    readRepoFile("docs/architecture/LAUNCH_CERTIFICATION.md")
   ]);
 
   assert.match(readme, /ROLL_OUT_PLAYBOOK\.md/);
   assert.match(readme, /RC_VERIFICATION_RUNBOOK\.md/);
+  assert.match(readme, /LAUNCH_CERTIFICATION\.md/);
   assert.match(rolloutPlaybook, /Abort Conditions/i);
   assert.match(rolloutPlaybook, /Rollback Rules/i);
   assert.match(runbook, /Pass\/Fail Rules/i);
+  assert.match(launchCertificationDoc, /post-rollout-watch-window/);
 });
