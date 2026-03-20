@@ -345,3 +345,30 @@ Acceptance:
 - Launch certification is machine-enforced via `npm run check:launch-certification-status`.
 - `prepare:architecture` and `release:governance` both fail if any journey/ops gate/provenance field is missing or non-PASS.
 - RC dry-run evidence, launch docs, and governance scripts stay consistent under proof tests.
+
+### RY-16 Release Provenance + Signed Launch Tag Guard (completed)
+Goal:
+- Add a machine-enforced release provenance contract that ties launch promotion to one canonical main SHA and an explicit signed launch-tag policy.
+
+File backlog:
+- `config/release-provenance.json` (new)
+  - canonical release ID/SHA, merge PR evidence, signed launch-tag policy, and SHA-lock fields
+- `scripts/check-release-provenance.ts` (new)
+  - strict validator for provenance contract shape, SHA consistency, and runbook/playbook/doc linkage
+- `package.json`
+  - add `check:release-provenance` and enforce it in `prepare:architecture` + `release:governance`
+- `scripts/check-release-governance.ts`
+  - require release provenance config/doc/script and script wiring in governance commands
+- `docs/architecture/RELEASE_PROVENANCE.md` (new)
+  - canonical release snapshot + signed launch-tag guard contract
+- `docs/architecture/RC_VERIFICATION_RUNBOOK.md`
+- `docs/architecture/ROLL_OUT_PLAYBOOK.md`
+- `docs/architecture/README.md`
+- `docs/architecture/LAUNCH_CERTIFICATION.md`
+- `tests/proofs/release-provenance-contract.test.ts` (new)
+- `tests/proofs/rc-governance-execution.test.ts`
+
+Acceptance:
+- `npm run check:release-provenance` fails if provenance, signed launch-tag policy, or SHA-lock consistency drifts.
+- `prepare:architecture` and `release:governance` both require the provenance guard.
+- Proof coverage locks release provenance JSON, docs, and governance wiring.

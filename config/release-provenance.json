@@ -1,0 +1,32 @@
+{
+  "version": "2026-03-20",
+  "governance": {
+    "source_of_truth_branch": "main",
+    "promotion_mode": "sha-locked",
+    "forbid_direct_hotfixes": true
+  },
+  "canonical_release": {
+    "release_id": "launch-2026-03-20-ry16",
+    "main_sha": "3bdaf8e89027584332ba1dea3b957db84022fc42",
+    "github_pr": 129,
+    "github_merge_commit_sha": "3bdaf8e89027584332ba1dea3b957db84022fc42",
+    "github_main_workflow_run_url": "https://github.com/oneofakinde-os/oneofakinde-os/actions/runs/23339166228",
+    "vercel_deployment_url": "https://vercel.com/oneofakindes-projects/oneofakinde-os/DrXdbJeJmXqA8csLQMuKuTu5HgmQ",
+    "disposition": "PASS"
+  },
+  "signed_launch_tag": {
+    "name": "launch/2026-03-20-full-launch-cert",
+    "target_sha": "3bdaf8e89027584332ba1dea3b957db84022fc42",
+    "required": true,
+    "signature_scheme": "gpg",
+    "verification_mode": "github-verified",
+    "verification_status": "PASS",
+    "evidence": "Signed launch tag policy requires verified signatures before launch promotion."
+  },
+  "sha_lock": {
+    "local_head_sha": "3bdaf8e89027584332ba1dea3b957db84022fc42",
+    "github_main_sha": "3bdaf8e89027584332ba1dea3b957db84022fc42",
+    "vercel_deployment_sha": "3bdaf8e89027584332ba1dea3b957db84022fc42"
+  },
+  "status": "PASS"
+}

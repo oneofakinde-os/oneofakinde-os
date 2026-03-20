@@ -6,7 +6,8 @@ This document tracks the enforcement contract for full-launch readiness beyond m
 
 - `config/launch-certification-status.json`
 - `scripts/check-launch-certification-status.ts`
-- `artifacts/release-candidate-dry-run.latest.json`
+- `config/release-candidate-dry-run.snapshot.json`
+- `docs/architecture/RELEASE_PROVENANCE.md`
 
 `npm run check:launch-certification-status` is mandatory in both:
 
@@ -35,15 +36,15 @@ This document tracks the enforcement contract for full-launch readiness beyond m
 
 ## Latest Certification Snapshot
 
-- `run_id`: `launch-cert-2026-03-20-full-01`
+- `run_id`: `launch-cert-2026-03-20-full-02`
 - `launch_mode`: `full-launch`
 - `base_url`: `https://oneofakinde-os.vercel.app`
-- `git_sha`: `9042af6623308ba04c29d378eae6c75fe67ce2dc`
+- `git_sha`: `3bdaf8e89027584332ba1dea3b957db84022fc42`
 - `executed_by`: `@oneofakinde-os`
-- `executed_at_utc`: `2026-03-20T07:55:00Z`
+- `executed_at_utc`: `2026-03-20T10:45:00Z`
 - `report_path`: `config/release-candidate-dry-run.snapshot.json`
-- `workflow_run_url`: `https://github.com/oneofakinde-os/oneofakinde-os/actions/runs/23329089343`
-- `vercel_deployment_url`: `https://vercel.com/oneofakindes-projects/oneofakinde-os/5xjWE23ebgtmteMLFMKRVVLiRZ4D`
+- `workflow_run_url`: `https://github.com/oneofakinde-os/oneofakinde-os/actions/runs/23339166228`
+- `vercel_deployment_url`: `https://vercel.com/oneofakindes-projects/oneofakinde-os/DrXdbJeJmXqA8csLQMuKuTu5HgmQ`
 - `post_rollout_watch_window_minutes`: `30`
-- `sha_lock`: `9042af6623308ba04c29d378eae6c75fe67ce2dc` (local = github = vercel)
+- `sha_lock`: `3bdaf8e89027584332ba1dea3b957db84022fc42` (local = github = vercel)
 - `disposition`: `PASS`
