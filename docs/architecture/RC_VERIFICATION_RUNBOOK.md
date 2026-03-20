@@ -13,11 +13,11 @@ OOK_RC_BASE_URL=https://oneofakinde-os.vercel.app npm run rc:verify
 1. `check:surface-sync`
 2. `lint:terminology`
 3. `check:api-shape`
-4. `prepare:architecture` (includes `check:launch-certification-status` and `check:release-provenance`)
+4. `prepare:architecture` (includes `check:launch-certification-status`, `check:release-provenance`, and `check:canary-rollout-status`)
 5. `test:proofs`
 6. `typecheck`
 7. `build`
-8. `release:governance` (includes `check:launch-certification-status` and `check:release-provenance`)
+8. `release:governance` (includes `check:launch-certification-status`, `check:release-provenance`, and `check:canary-rollout-status`)
 9. `rc:dry-run`
 
 Any failure exits non-zero and blocks freeze.
@@ -29,6 +29,7 @@ Any failure exits non-zero and blocks freeze.
 - Keep command output and `artifacts/release-candidate-dry-run.latest.json` in release notes.
 - Keep `docs/architecture/LAUNCH_CERTIFICATION.md` updated with the exact run ID and SHA-lock parity evidence for the promotion.
 - Keep `docs/architecture/RELEASE_PROVENANCE.md` updated with canonical release SHA + signed launch tag policy evidence.
+- Keep `docs/architecture/CANARY_ROLLOUT.md` updated with staged canary gates, abort thresholds, and latest canary execution evidence.
 
 ## Pass/Fail Rules
 
@@ -37,6 +38,7 @@ Any failure exits non-zero and blocks freeze.
 - All `required_rc_checks` from `config/rc-freeze-checklist.json` must be `PASS`.
 - `config/launch-certification-status.json` must remain fully `PASS` under `check:launch-certification-status`.
 - `config/release-provenance.json` must remain fully `PASS` under `check:release-provenance`.
+- `config/canary-rollout-status.json` must remain fully `PASS` under `check:canary-rollout-status`.
 - Manual townhall matrix (`docs/architecture/townhall-immersive-qa-matrix.md`) must have no `FAIL` and no `TBD`.
 
 ## Freeze Decision

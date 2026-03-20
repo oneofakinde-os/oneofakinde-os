@@ -32,6 +32,8 @@ This package defines the target software architecture for oneofakinde OS using t
   - RY-15 launch certification contract for user journeys, ops readiness, and SHA-lock parity.
 - `RELEASE_PROVENANCE.md`
   - RY-16 release provenance contract for canonical main SHA and signed launch-tag guard.
+- `CANARY_ROLLOUT.md`
+  - RY-17 staged canary rollout contract for traffic gates, abort thresholds, and rollback SLA.
 - `release-candidate-dry-run.md`
   - Strict pass/fail launch dry run checklist and execution command.
 - `SPEC_TO_CODE_IMPLEMENTATION_BACKLOG.md`
