@@ -1,5 +1,6 @@
 import { WorldDetailScreen } from "@/features/world/world-detail-screen";
 import { commerceBffService } from "@/lib/bff/service";
+import type { CollectLiveSessionSnapshot } from "@/lib/domain/contracts";
 import { gateway } from "@/lib/gateway";
 import { getOptionalSession } from "@/lib/server/session";
 import { notFound } from "next/navigation";
@@ -21,15 +22,19 @@ export default async function WorldPage({ params }: WorldPageProps) {
     notFound();
   }
 
-  const worldCollectSnapshot = session
-    ? await commerceBffService.getCollectWorldBundlesForWorld(session.accountId, world.id)
-    : null;
+  const [worldCollectSnapshot, worldPatronRosterResult, collectLiveSessions] = session
+    ? await Promise.all([
+        commerceBffService.getCollectWorldBundlesForWorld(session.accountId, world.id),
+        commerceBffService.listWorldPatronRoster(session.accountId, world.id),
+        commerceBffService.listCollectLiveSessions(session.accountId)
+      ])
+    : [null, null, [] as CollectLiveSessionSnapshot[]];
+  const worldLiveSessions = collectLiveSessions.filter(
+    (entry) => entry.liveSession.worldId === world.id
+  );
   const worldCollectFullWorldUpgradePreview =
     worldCollectSnapshot?.bundles.find((entry) => entry.bundle.bundleType === "full_world")
       ?.upgradePreview ?? null;
-  const worldPatronRosterResult = session
-    ? await commerceBffService.listWorldPatronRoster(session.accountId, world.id)
-    : null;
   const worldPatronRosterSnapshot = worldPatronRosterResult?.ok
     ? worldPatronRosterResult.snapshot
     : null;
@@ -48,6 +53,7 @@ export default async function WorldPage({ params }: WorldPageProps) {
       worldCollectFullWorldUpgradePreview={worldCollectFullWorldUpgradePreview}
       worldPatronRosterSnapshot={worldPatronRosterSnapshot}
       worldPatronRosterAccessState={worldPatronRosterAccessState}
+      worldLiveSessions={worldLiveSessions}
     />
   );
 }

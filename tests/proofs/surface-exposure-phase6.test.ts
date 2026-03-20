@@ -7,6 +7,7 @@ import { DropDetailScreen } from "../../features/drops/drop-detail-screen";
 import { StudioScreen } from "../../features/profile/studio-screen";
 import { WorldDetailScreen } from "../../features/world/world-detail-screen";
 import type {
+  CollectLiveSessionSnapshot,
   Drop,
   DropLiveArtifactsSnapshot,
   Session,
@@ -195,6 +196,35 @@ const sampleWorldPatronRosterSnapshot: WorldPatronRosterSnapshot = {
   }
 };
 
+const sampleWorldLiveSessions: CollectLiveSessionSnapshot[] = [
+  {
+    liveSession: {
+      id: "live_dark_matter_opening",
+      studioHandle: "oneofakinde",
+      worldId: "dark-matter",
+      dropId: "stardust",
+      title: "dark matter opening",
+      synopsis: "members opening with drop release sequencing.",
+      startsAt: "2026-03-20T10:00:00.000Z",
+      endsAt: "2026-03-20T12:00:00.000Z",
+      mode: "live",
+      eligibilityRule: "membership_active",
+      type: "opening",
+      eligibility: "membership",
+      spatialAudio: true,
+      capacity: 120,
+      whatYouGet: "opening access and drop release context."
+    },
+    eligibility: {
+      liveSessionId: "live_dark_matter_opening",
+      rule: "membership_active",
+      eligible: true,
+      reason: "eligible_membership_active",
+      matchedEntitlementId: "ment_world_dark_matter"
+    }
+  }
+];
+
 test("proof: world detail renders visual identity, access rails, conversation, and patron hooks", () => {
   const markup = renderToStaticMarkup(
     createElement(WorldDetailScreen, {
@@ -204,7 +234,8 @@ test("proof: world detail renders visual identity, access rails, conversation, a
       worldCollectSnapshot: sampleWorldCollectSnapshot,
       worldCollectFullWorldUpgradePreview: sampleWorldCollectFullWorldUpgradePreview,
       worldPatronRosterSnapshot: sampleWorldPatronRosterSnapshot,
-      worldPatronRosterAccessState: "eligible"
+      worldPatronRosterAccessState: "eligible",
+      worldLiveSessions: sampleWorldLiveSessions
     })
   );
 
@@ -212,6 +243,8 @@ test("proof: world detail renders visual identity, access rails, conversation, a
   assert.equal(markup.includes('data-testid="world-access-contract"'), true);
   assert.equal(markup.includes('data-testid="world-patron-roster-panel"'), true);
   assert.equal(markup.includes('data-testid="world-collect-contract"'), true);
+  assert.equal(markup.includes('data-testid="world-live-openings-panel"'), true);
+  assert.equal(markup.includes('data-testid="world-live-opening-entry"'), true);
   assert.equal(markup.includes('data-testid="world-conversation-entry"'), true);
   assert.equal(markup.includes('data-testid="world-patron-roster-hook"'), true);
   assert.equal(markup.includes("full-world upgrade:"), true);

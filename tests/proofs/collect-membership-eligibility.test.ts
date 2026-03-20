@@ -141,14 +141,18 @@ test("proof: membership and collect live routes enforce session and resolve elig
   const freshById = new Map(
     freshPayload.liveSessions.map((entry) => [entry.liveSession.id, entry.eligibility])
   );
-  assert.equal(freshById.get("live_dark_matter_open_studio")?.eligible, true);
+  assert.equal(freshById.get("live_dark_matter_open_studio")?.eligible, false);
+  assert.equal(
+    freshById.get("live_dark_matter_open_studio")?.reason,
+    "membership_required"
+  );
   assert.equal(freshById.get("live_dark_matter_members_salons")?.eligible, false);
   assert.equal(
     freshById.get("live_dark_matter_members_salons")?.reason,
     "membership_required"
   );
   assert.equal(freshById.get("live_stardust_collectors_qna")?.eligible, false);
-  assert.equal(freshById.get("live_stardust_collectors_qna")?.reason, "ownership_required");
+  assert.equal(freshById.get("live_stardust_collectors_qna")?.reason, "membership_required");
 });
 
 test("proof: collect live eligibility route resolves session-specific eligibility for one session", async (t) => {
@@ -180,12 +184,17 @@ test("proof: collect live eligibility route resolves session-specific eligibilit
     withRouteParams({ session_id: "live_dark_matter_members_salons" })
   );
   assert.equal(seededEligibilityResponse.status, 200);
-  const seededEligibilityPayload = await parseJson<{ eligibility: LiveSessionEligibility }>(
-    seededEligibilityResponse
-  );
+  const seededEligibilityPayload = await parseJson<{
+    eligibility: LiveSessionEligibility;
+    snapshot?: { liveSession: { id: string } };
+  }>(seededEligibilityResponse);
   assert.equal(seededEligibilityPayload.eligibility.eligible, true);
   assert.equal(seededEligibilityPayload.eligibility.reason, "eligible_membership_active");
   assert.ok(seededEligibilityPayload.eligibility.matchedEntitlementId);
+  assert.equal(
+    seededEligibilityPayload.snapshot?.liveSession.id,
+    "live_dark_matter_members_salons"
+  );
 
   const freshEligibilityResponse = await getCollectLiveSessionEligibilityRoute(
     new Request("http://127.0.0.1:3000/api/v1/collect/live-sessions/live_dark_matter_members_salons/eligibility", {
@@ -196,11 +205,16 @@ test("proof: collect live eligibility route resolves session-specific eligibilit
     withRouteParams({ session_id: "live_dark_matter_members_salons" })
   );
   assert.equal(freshEligibilityResponse.status, 200);
-  const freshEligibilityPayload = await parseJson<{ eligibility: LiveSessionEligibility }>(
-    freshEligibilityResponse
-  );
+  const freshEligibilityPayload = await parseJson<{
+    eligibility: LiveSessionEligibility;
+    snapshot?: { liveSession: { id: string } };
+  }>(freshEligibilityResponse);
   assert.equal(freshEligibilityPayload.eligibility.eligible, false);
   assert.equal(freshEligibilityPayload.eligibility.reason, "membership_required");
+  assert.equal(
+    freshEligibilityPayload.snapshot?.liveSession.id,
+    "live_dark_matter_members_salons"
+  );
 
   const notFoundEligibilityResponse = await getCollectLiveSessionEligibilityRoute(
     new Request("http://127.0.0.1:3000/api/v1/collect/live-sessions/unknown-session/eligibility", {

@@ -133,5 +133,5 @@ test("proof: workshop-created live sessions flow into collect gated events disco
   );
   assert.ok(freshCreatedEntry);
   assert.equal(freshCreatedEntry?.eligibility.eligible, false);
-  assert.equal(freshCreatedEntry?.eligibility.reason, "ownership_required");
+  assert.equal(freshCreatedEntry?.eligibility.reason, "membership_required");
 });
