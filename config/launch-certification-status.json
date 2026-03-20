@@ -1,0 +1,86 @@
+{
+  "version": "2026-03-20",
+  "authority_sources": [
+    "/Users/pantallero/Documents/pantallero/projects/oneofakinde/vision/oneofakinde_final_authority_archive_2026-03-08/01_authority/oneofakinde_launch_readiness_checklist_2026-03-08.md",
+    "/Users/pantallero/Documents/pantallero/projects/oneofakinde/vision/oneofakinde_final_authority_archive_2026-03-08/01_authority/oneofakinde_build_contract_authority_2026-03-08.txt",
+    "/Users/pantallero/Documents/pantallero/projects/oneofakinde/oneofakinde_final_authority_archive_2026-03-08/02_strategy_and_flows/oneofakinde_master_action_matrix_2026-03-08.xlsx"
+  ],
+  "required_user_journeys": [
+    {
+      "id": "collector-session-bootstrap",
+      "required_rc_checks": ["rc-01", "rc-02", "rc-03"],
+      "status": "PASS",
+      "evidence": "release-candidate-dry-run.latest.json + rc workflow run 23329089343"
+    },
+    {
+      "id": "drop-checkout-receipt-certificate",
+      "required_rc_checks": ["rc-04", "rc-05", "rc-06"],
+      "status": "PASS",
+      "evidence": "checkout/purchase/receipt/certificate dry-run checks pass"
+    },
+    {
+      "id": "watch-entitlement-and-townhall-social",
+      "required_rc_checks": ["rc-07", "rc-08", "rc-09"],
+      "status": "PASS",
+      "evidence": "entitlement/social/telemetry dry-run checks pass"
+    },
+    {
+      "id": "live-session-artifacts-visibility",
+      "required_rc_checks": ["rc-07", "rc-10"],
+      "status": "PASS",
+      "evidence": "drop live artifacts API + surface proofs green"
+    },
+    {
+      "id": "workshop-pro-state-machine-and-paywall-elimination",
+      "required_rc_checks": ["rc-03", "rc-10"],
+      "status": "PASS",
+      "evidence": "workshop state rails and payout/analytics proofs green"
+    },
+    {
+      "id": "library-queue-recall-and-world-eligibility",
+      "required_rc_checks": ["rc-03", "rc-07", "rc-10", "rc-11"],
+      "status": "PASS",
+      "evidence": "library/world proof suite + manual matrix rows PASS"
+    }
+  ],
+  "required_ops_readiness": [
+    {
+      "id": "sha-lock-parity",
+      "status": "PASS",
+      "evidence": "local, github main, and vercel deployment verified on same SHA"
+    },
+    {
+      "id": "release-governance-gate",
+      "status": "PASS",
+      "evidence": "npm run release:governance is required and green"
+    },
+    {
+      "id": "abort-and-rollback-rules",
+      "status": "PASS",
+      "evidence": "docs/architecture/ROLL_OUT_PLAYBOOK.md enforces abort + rollback"
+    },
+    {
+      "id": "post-rollout-watch-window",
+      "status": "PASS",
+      "evidence": "30-minute watch window observed for launch promotion"
+    }
+  ],
+  "latest_certification": {
+    "run_id": "launch-cert-2026-03-20-full-01",
+    "launch_mode": "full-launch",
+    "base_url": "https://oneofakinde-os.vercel.app",
+    "git_sha": "9042af6623308ba04c29d378eae6c75fe67ce2dc",
+    "executed_by": "@oneofakinde-os",
+    "executed_at_utc": "2026-03-20T07:55:00Z",
+    "report_path": "config/release-candidate-dry-run.snapshot.json",
+    "workflow_run_url": "https://github.com/oneofakinde-os/oneofakinde-os/actions/runs/23329089343",
+    "vercel_deployment_url": "https://vercel.com/oneofakindes-projects/oneofakinde-os/5xjWE23ebgtmteMLFMKRVVLiRZ4D",
+    "post_rollout_watch_window_minutes": 30,
+    "sha_lock": {
+      "local_head_sha": "9042af6623308ba04c29d378eae6c75fe67ce2dc",
+      "github_main_sha": "9042af6623308ba04c29d378eae6c75fe67ce2dc",
+      "vercel_deployment_sha": "9042af6623308ba04c29d378eae6c75fe67ce2dc"
+    },
+    "disposition": "PASS"
+  }
+}

@@ -319,3 +319,29 @@ Acceptance:
 - World surfaces expose exclusive openings/live sessions with clear eligibility state before join.
 - Join behavior enforces eligibility, capacity, and active-window constraints deterministically.
 - Proof coverage locks world-to-live discovery and eligibility enforcement rails.
+
+### RY-15 Launch Certification Contract Guard (completed)
+Goal:
+- Lock full-launch readiness to an executable governance contract that validates user-journey coverage, ops-readiness gates, and SHA-locked provenance in one command.
+
+File backlog:
+- `config/launch-certification-status.json` (new)
+  - structured launch certification contract with required journey IDs, ops gates, and latest SHA-lock evidence
+- `scripts/check-launch-certification-status.ts` (new)
+  - strict validator for certification shape, dry-run evidence integrity, and runbook/playbook/doc coverage
+- `package.json`
+  - add `check:launch-certification-status` and enforce it in `prepare:architecture` + `release:governance`
+- `scripts/check-release-governance.ts`
+  - require launch certification files and script wiring
+- `docs/architecture/LAUNCH_CERTIFICATION.md` (new)
+  - explicit launch certification matrix and latest snapshot
+- `docs/architecture/RC_VERIFICATION_RUNBOOK.md`
+- `docs/architecture/ROLL_OUT_PLAYBOOK.md`
+- `docs/architecture/README.md`
+- `tests/proofs/launch-certification-status-contract.test.ts` (new)
+- `tests/proofs/rc-governance-execution.test.ts`
+
+Acceptance:
+- Launch certification is machine-enforced via `npm run check:launch-certification-status`.
+- `prepare:architecture` and `release:governance` both fail if any journey/ops gate/provenance field is missing or non-PASS.
+- RC dry-run evidence, launch docs, and governance scripts stay consistent under proof tests.

@@ -13,11 +13,11 @@ OOK_RC_BASE_URL=https://oneofakinde-os.vercel.app npm run rc:verify
 1. `check:surface-sync`
 2. `lint:terminology`
 3. `check:api-shape`
-4. `prepare:architecture`
+4. `prepare:architecture` (includes `check:launch-certification-status`)
 5. `test:proofs`
 6. `typecheck`
 7. `build`
-8. `release:governance`
+8. `release:governance` (includes `check:launch-certification-status`)
 9. `rc:dry-run`
 
 Any failure exits non-zero and blocks freeze.
@@ -27,12 +27,14 @@ Any failure exits non-zero and blocks freeze.
 - Use preview URL first.
 - Use production URL second (right before freeze cut).
 - Keep command output and `artifacts/release-candidate-dry-run.latest.json` in release notes.
+- Keep `docs/architecture/LAUNCH_CERTIFICATION.md` updated with the exact run ID and SHA-lock parity evidence for the promotion.
 
 ## Pass/Fail Rules
 
 - All commands in `rc:verify` must pass.
 - All `required_ci_checks` from `config/rc-freeze-checklist.json` must be green.
 - All `required_rc_checks` from `config/rc-freeze-checklist.json` must be `PASS`.
+- `config/launch-certification-status.json` must remain fully `PASS` under `check:launch-certification-status`.
 - Manual townhall matrix (`docs/architecture/townhall-immersive-qa-matrix.md`) must have no `FAIL` and no `TBD`.
 
 ## Freeze Decision

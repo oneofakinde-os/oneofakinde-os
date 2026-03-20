@@ -5,7 +5,7 @@ This playbook defines how to execute release-candidate promotion and rollout saf
 ## Scope
 
 - Applies to production-bound trains after all required PR checks are green.
-- Uses `config/rc-freeze-checklist.json` and `docs/architecture/release-candidate-dry-run.md` as execution authority.
+- Uses `config/rc-freeze-checklist.json`, `config/launch-certification-status.json`, and `docs/architecture/release-candidate-dry-run.md` as execution authority.
 
 ## Stage Plan
 
@@ -19,6 +19,7 @@ This playbook defines how to execute release-candidate promotion and rollout saf
 3. **Production rollout**
    - Trigger deploy from current `main`.
    - Re-run `release-candidate-dry-run` workflow against production URL.
+   - Re-run `check:launch-certification-status` to lock SHA parity + journey/ops certification state.
    - Verify health endpoint reports `{"status":"ok","backend":"postgres"}`.
 4. **Post-rollout watch window**
    - Observe operational logs and key error rates for at least 30 minutes.
@@ -42,5 +43,7 @@ This playbook defines how to execute release-candidate promotion and rollout saf
 - Any new rollout-sensitive route must update:
   - `config/feature-flags.contract.json`
   - `config/rc-freeze-checklist.json`
+  - `config/launch-certification-status.json`
   - `docs/architecture/RC_VERIFICATION_RUNBOOK.md`
+  - `docs/architecture/LAUNCH_CERTIFICATION.md`
 - Governance checks enforce presence and consistency of these artifacts.
