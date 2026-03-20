@@ -13,6 +13,7 @@ const REQUIRED_FILES = [
   "config/rc-freeze-checklist.json",
   "config/action-matrix-status.json",
   "config/launch-certification-status.json",
+  "config/release-candidate-dry-run.snapshot.json",
   "docs/architecture/FEATURE_FLAGS.md",
   "docs/architecture/ROLL_OUT_PLAYBOOK.md",
   "docs/architecture/RC_VERIFICATION_RUNBOOK.md",

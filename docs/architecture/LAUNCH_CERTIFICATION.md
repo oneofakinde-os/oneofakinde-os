@@ -41,7 +41,7 @@ This document tracks the enforcement contract for full-launch readiness beyond m
 - `git_sha`: `9042af6623308ba04c29d378eae6c75fe67ce2dc`
 - `executed_by`: `@oneofakinde-os`
 - `executed_at_utc`: `2026-03-20T07:55:00Z`
-- `report_path`: `artifacts/release-candidate-dry-run.latest.json`
+- `report_path`: `config/release-candidate-dry-run.snapshot.json`
 - `workflow_run_url`: `https://github.com/oneofakinde-os/oneofakinde-os/actions/runs/23329089343`
 - `vercel_deployment_url`: `https://vercel.com/oneofakindes-projects/oneofakinde-os/5xjWE23ebgtmteMLFMKRVVLiRZ4D`
 - `post_rollout_watch_window_minutes`: `30`

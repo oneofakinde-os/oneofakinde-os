@@ -1,0 +1,64 @@
+{
+  "generatedAt": "2026-03-19T07:12:31.244Z",
+  "summary": {
+    "total": 9,
+    "passed": 9,
+    "failed": 0
+  },
+  "results": [
+    {
+      "id": "rc-01",
+      "title": "health endpoint returns postgres backend",
+      "status": "pass",
+      "details": "status ok + postgres backend confirmed"
+    },
+    {
+      "id": "rc-02",
+      "title": "session creation works for collector",
+      "status": "pass",
+      "details": "session created for acct_da7675a4-bb86-4bf2-8c8d-e7978b55d2c3"
+    },
+    {
+      "id": "rc-03",
+      "title": "catalog and collection resolve a purchasable drop",
+      "status": "pass",
+      "details": "target drop stardust selected from 4 catalog drops"
+    },
+    {
+      "id": "rc-04",
+      "title": "checkout + purchase lifecycle succeeds",
+      "status": "pass",
+      "details": "purchase completed with receipt rcpt_3df0ad1d-2708-4a1c-a354-149eb87ae45a"
+    },
+    {
+      "id": "rc-05",
+      "title": "collection reflects purchased ownership",
+      "status": "pass",
+      "details": "ownership confirmed for stardust"
+    },
+    {
+      "id": "rc-06",
+      "title": "receipt + certificate drilldown works",
+      "status": "pass",
+      "details": "certificate cert_bb3e86cd-f610-4216-b2cb-15c00c3b7a98 resolved from receipt rcpt_3df0ad1d-2708-4a1c-a354-149eb87ae45a"
+    },
+    {
+      "id": "rc-07",
+      "title": "watch entitlement returns true for owned drop",
+      "status": "pass",
+      "details": "entitlement confirmed"
+    },
+    {
+      "id": "rc-08",
+      "title": "townhall social events persist through BFF",
+      "status": "pass",
+      "details": "social persisted (comments=11, shares=20)"
+    },
+    {
+      "id": "rc-09",
+      "title": "townhall telemetry ingest accepts production signals",
+      "status": "pass",
+      "details": "watch_time + completion + collect_intent accepted"
+    }
+  ]
+}
