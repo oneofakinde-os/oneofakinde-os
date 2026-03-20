@@ -21,16 +21,17 @@ export async function GET(
     return guard.response;
   }
 
-  const eligibility = await commerceBffService.getCollectLiveSessionEligibility(
-    guard.session.accountId,
-    sessionId
+  const liveSessions = await commerceBffService.listCollectLiveSessions(
+    guard.session.accountId
   );
+  const snapshot = liveSessions.find((entry) => entry.liveSession.id === sessionId) ?? null;
 
-  if (!eligibility) {
+  if (!snapshot) {
     return notFound("live session not found");
   }
 
   return ok<CollectLiveSessionEligibilityResponse>({
-    eligibility
+    eligibility: snapshot.eligibility,
+    snapshot
   });
 }

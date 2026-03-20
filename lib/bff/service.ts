@@ -426,7 +426,13 @@ type LiveSessionJoinIssueResult =
     }
   | {
       ok: false;
-      reason: "not_found" | "not_eligible" | "window_closed" | "drop_unavailable" | "at_capacity";
+      reason:
+        | "not_found"
+        | "not_eligible"
+        | "session_inactive"
+        | "window_closed"
+        | "drop_unavailable"
+        | "at_capacity";
     };
 
 type LiveSessionJoinConsumeResult =
@@ -4346,6 +4352,19 @@ function hasActiveMembershipForWorld(
   });
 }
 
+function hasActivePatronForWorld(
+  db: BffDatabase,
+  account: AccountRecord,
+  world: World
+): boolean {
+  return db.patrons.some(
+    (patron) =>
+      patron.accountId === account.id &&
+      patron.studioHandle === world.studioHandle &&
+      patron.status === "active"
+  );
+}
+
 function hasCollectEntitlementForWorld(
   db: BffDatabase,
   account: AccountRecord,
@@ -4393,12 +4412,7 @@ function buildWorldPatronRosterViewerAccess(
   const hasMembershipEntitlement = hasActiveMembershipForWorld(db, account, world);
   const hasCollectEntitlement = hasCollectEntitlementForWorld(db, account, world);
   const hasCreatorAccess = account.roles.includes("creator") && account.handle === world.studioHandle;
-  const hasPatronCommitment = db.patrons.some(
-    (patron) =>
-      patron.accountId === account.id &&
-      patron.studioHandle === world.studioHandle &&
-      patron.status === "active"
-  );
+  const hasPatronCommitment = hasActivePatronForWorld(db, account, world);
 
   return {
     hasMembershipEntitlement,
@@ -4680,6 +4694,40 @@ function resolveLiveSessionEligibilityInDatabase(
       reason: "session_required",
       matchedEntitlementId: null
     };
+  }
+
+  if (liveSession.worldId) {
+    const world = findWorldById(db, liveSession.worldId);
+    if (world) {
+      const hasCreatorAccess = account.roles.includes("creator") && account.handle === world.studioHandle;
+      if (!hasCreatorAccess && world.entryRule === "membership") {
+        const hasWorldMembership = hasActiveMembershipForWorld(db, account, world);
+        const hasWorldCollect = hasCollectEntitlementForWorld(db, account, world);
+        if (!hasWorldMembership && !hasWorldCollect) {
+          return {
+            liveSessionId: liveSession.id,
+            rule: liveSession.eligibilityRule,
+            eligible: false,
+            reason: "membership_required",
+            matchedEntitlementId: null
+          };
+        }
+      }
+
+      if (!hasCreatorAccess && world.entryRule === "patron") {
+        const hasWorldPatron = hasActivePatronForWorld(db, account, world);
+        const hasWorldCollect = hasCollectEntitlementForWorld(db, account, world);
+        if (!hasWorldPatron && !hasWorldCollect) {
+          return {
+            liveSessionId: liveSession.id,
+            rule: liveSession.eligibilityRule,
+            eligible: false,
+            reason: "patron_required",
+            matchedEntitlementId: null
+          };
+        }
+      }
+    }
   }
 
   if (liveSession.eligibilityRule === "public") {
@@ -7174,6 +7222,16 @@ export const commerceBffService = {
       }
 
       const nowMs = Date.now();
+      if (!isLiveSessionActiveNow(liveSession, nowMs)) {
+        return {
+          persist: false,
+          result: {
+            ok: false,
+            reason: "session_inactive"
+          }
+        };
+      }
+
       if (isLiveSessionExclusiveWindowClosed(liveSession, nowMs)) {
         return {
           persist: false,

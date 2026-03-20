@@ -87,10 +87,17 @@ export type CollectLiveSessionsResponse = {
     eligibleSessions: number;
     ineligibleSessions: number;
   };
+  worldScope?: {
+    worldId: string;
+    openingSessions: number;
+    eligibleOpeningSessions: number;
+    ineligibleOpeningSessions: number;
+  };
 };
 
 export type CollectLiveSessionEligibilityResponse = {
   eligibility: LiveSessionEligibility;
+  snapshot?: CollectLiveSessionSnapshot;
 };
 
 export type WorkshopLiveSessionsResponse = {

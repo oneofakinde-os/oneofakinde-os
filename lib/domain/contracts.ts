@@ -437,6 +437,7 @@ export type LiveSessionEligibilityReason =
   | "eligible_drop_owner"
   | "session_required"
   | "membership_required"
+  | "patron_required"
   | "ownership_required";
 
 export type LiveSessionEligibility = {

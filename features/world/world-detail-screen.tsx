@@ -2,6 +2,7 @@ import { AppShell } from "@/features/shell/app-shell";
 import { formatUsd } from "@/features/shared/format";
 import { sortDropsForWorldSurface } from "@/lib/catalog/drop-curation";
 import type {
+  CollectLiveSessionSnapshot,
   Drop,
   PatronStatus,
   Session,
@@ -21,6 +22,7 @@ type WorldDetailScreenProps = {
   worldCollectFullWorldUpgradePreview: WorldCollectUpgradePreview | null;
   worldPatronRosterSnapshot: WorldPatronRosterSnapshot | null;
   worldPatronRosterAccessState: "signed_out" | "eligible" | "forbidden" | "not_found";
+  worldLiveSessions: CollectLiveSessionSnapshot[];
 };
 
 const ENTRY_RULE_COPY: Record<NonNullable<World["entryRule"]>, string> = {
@@ -45,6 +47,27 @@ const PATRON_RECOGNITION_COPY: Record<"founding" | "active", string> = {
   active: "patron"
 };
 
+const LIVE_ELIGIBILITY_REASON_COPY: Record<
+  CollectLiveSessionSnapshot["eligibility"]["reason"],
+  string
+> = {
+  eligible_public: "public access",
+  eligible_membership_active: "membership verified",
+  eligible_drop_owner: "drop ownership verified",
+  session_required: "session required",
+  membership_required: "membership or world collect required",
+  patron_required: "active patron or world collect required",
+  ownership_required: "drop ownership required"
+};
+
+function formatLiveTimestamp(value: string): string {
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) {
+    return value;
+  }
+  return `${new Date(parsed).toISOString().slice(0, 16).replace("T", " ")} UTC`;
+}
+
 export function WorldDetailScreen({
   world,
   drops,
@@ -52,10 +75,18 @@ export function WorldDetailScreen({
   worldCollectSnapshot,
   worldCollectFullWorldUpgradePreview,
   worldPatronRosterSnapshot,
-  worldPatronRosterAccessState
+  worldPatronRosterAccessState,
+  worldLiveSessions
 }: WorldDetailScreenProps) {
   const orderedDrops = sortDropsForWorldSurface(drops);
   const dropTitleById = new Map(drops.map((drop) => [drop.id, drop.title]));
+  const worldOpeningSessions = worldLiveSessions.filter(
+    (entry) => entry.liveSession.type === "opening"
+  );
+  const eligibleOpeningSessions = worldOpeningSessions.filter(
+    (entry) => entry.eligibility.eligible
+  ).length;
+  const nowMs = Date.now();
   const entryRuleLabel = world.entryRule ? ENTRY_RULE_COPY[world.entryRule] : "not configured";
   const memberGatingState =
     world.entryRule === "membership"
@@ -68,6 +99,11 @@ export function WorldDetailScreen({
     : "inherit from world release defaults";
   const worldConversationHref = `/api/v1/worlds/${encodeURIComponent(world.id)}/conversation`;
   const patronRosterHref = `/api/v1/worlds/${encodeURIComponent(world.id)}/patron-roster`;
+  const worldLiveSessionsHref = `/api/v1/collect/live-sessions?world_id=${encodeURIComponent(world.id)}`;
+  const worldLiveSessionEligibilityHref = (sessionId: string) =>
+    `/api/v1/collect/live-sessions/${encodeURIComponent(sessionId)}/eligibility`;
+  const worldLiveSessionJoinHref = (sessionId: string) =>
+    `/api/v1/live-sessions/${encodeURIComponent(sessionId)}/join`;
   const worldCollectBundlesHref = `/api/v1/collect/worlds/${encodeURIComponent(world.id)}/bundles`;
   const worldCollectUpgradePreviewHref = (bundleType: string) =>
     `/api/v1/collect/worlds/${encodeURIComponent(world.id)}/upgrade-preview?target_bundle_type=${encodeURIComponent(bundleType)}`;
@@ -333,6 +369,112 @@ export function WorldDetailScreen({
                 );
               })}
             </ul>
+          </>
+        )}
+      </section>
+
+      <section className="slice-panel" data-testid="world-live-openings-panel">
+        <p className="slice-label">world live openings</p>
+        <p className="slice-copy">
+          opening sessions expose eligibility and join readiness before collectors attempt session
+          entry.
+        </p>
+        {!session ? (
+          <>
+            <p className="slice-meta">sign in to view personalized world opening eligibility.</p>
+            <div className="slice-button-row">
+              <Link href={routes.signIn(routes.world(world.id))} className="slice-button">
+                sign in for live openings
+              </Link>
+              <a href={worldLiveSessionsHref} className="slice-button ghost">
+                opening contract
+              </a>
+            </div>
+          </>
+        ) : worldOpeningSessions.length === 0 ? (
+          <>
+            <p className="slice-meta">
+              no opening sessions are currently scheduled for this world.
+            </p>
+            <p className="slice-meta">world live sessions discovered: {worldLiveSessions.length}</p>
+            <div className="slice-button-row">
+              <a href={worldLiveSessionsHref} className="slice-button ghost">
+                opening contract
+              </a>
+              <Link href={routes.liveHub()} className="slice-button alt">
+                open live hub
+              </Link>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="slice-meta">
+              openings: {worldOpeningSessions.length} · eligible now/soon:{" "}
+              {eligibleOpeningSessions} · ineligible:{" "}
+              {Math.max(0, worldOpeningSessions.length - eligibleOpeningSessions)}
+            </p>
+            <ul className="slice-grid" aria-label="world live opening sessions">
+              {worldOpeningSessions.map((entry) => {
+                const live = entry.liveSession;
+                const startsAtMs = Date.parse(live.startsAt);
+                const endsAtMs = live.endsAt ? Date.parse(live.endsAt) : Number.NaN;
+                const isScheduled = Number.isFinite(startsAtMs) && nowMs < startsAtMs;
+                const isClosed = Number.isFinite(endsAtMs) && nowMs > endsAtMs;
+                const isActiveNow =
+                  Number.isFinite(startsAtMs) &&
+                  nowMs >= startsAtMs &&
+                  (!Number.isFinite(endsAtMs) || nowMs <= endsAtMs);
+                const joinState = !entry.eligibility.eligible
+                  ? `blocked · ${LIVE_ELIGIBILITY_REASON_COPY[entry.eligibility.reason]}`
+                  : isActiveNow
+                    ? "eligible now"
+                    : isScheduled
+                      ? "scheduled · not active yet"
+                      : isClosed
+                        ? "closed"
+                        : "availability pending";
+                return (
+                  <li
+                    key={live.id}
+                    className="slice-drop-card"
+                    data-testid="world-live-opening-entry"
+                  >
+                    <p className="slice-label">{live.type ?? "event"}</p>
+                    <h2 className="slice-title">{live.title}</h2>
+                    <p className="slice-copy">{live.synopsis}</p>
+                    <p className="slice-meta">starts {formatLiveTimestamp(live.startsAt)}</p>
+                    {live.endsAt ? (
+                      <p className="slice-meta">ends {formatLiveTimestamp(live.endsAt)}</p>
+                    ) : null}
+                    <p className="slice-meta">
+                      eligibility: {LIVE_ELIGIBILITY_REASON_COPY[entry.eligibility.reason]}
+                    </p>
+                    <p className="slice-meta">join state: {joinState}</p>
+                    <div className="slice-button-row">
+                      {entry.eligibility.eligible ? (
+                        <a href={worldLiveSessionJoinHref(live.id)} className="slice-button">
+                          join contract
+                        </a>
+                      ) : null}
+                      <a
+                        href={worldLiveSessionEligibilityHref(live.id)}
+                        className="slice-button ghost"
+                      >
+                        eligibility contract
+                      </a>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="slice-button-row">
+              <a href={worldLiveSessionsHref} className="slice-button ghost">
+                opening contract
+              </a>
+              <Link href={routes.liveHub()} className="slice-button alt">
+                open live hub
+              </Link>
+            </div>
           </>
         )}
       </section>

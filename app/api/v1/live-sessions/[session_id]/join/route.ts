@@ -62,8 +62,28 @@ export async function POST(
       return conflict("live session has no collectible drop");
     }
 
+    if (issued.reason === "session_inactive") {
+      return conflict("live session is not active");
+    }
+
     if (issued.reason === "at_capacity") {
       return conflict("live session is at capacity");
+    }
+
+    if (issued.reason === "not_eligible") {
+      const eligibility = await commerceBffService.getCollectLiveSessionEligibility(
+        guard.session.accountId,
+        liveSessionId
+      );
+      if (eligibility?.reason === "ownership_required") {
+        return forbidden("live session drop ownership required");
+      }
+      if (eligibility?.reason === "patron_required") {
+        return forbidden("live session requires active patron or world collect access");
+      }
+      if (eligibility?.reason === "membership_required") {
+        return forbidden("live session requires membership or world collect access");
+      }
     }
 
     return forbidden("live session eligibility required");
