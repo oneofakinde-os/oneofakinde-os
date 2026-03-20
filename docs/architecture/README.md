@@ -32,6 +32,8 @@ This package defines the target software architecture for oneofakinde OS using t
   - Strict pass/fail launch dry run checklist and execution command.
 - `SPEC_TO_CODE_IMPLEMENTATION_BACKLOG.md`
   - File-by-file execution backlog to close March 8 spec-to-code gaps.
+- `action-matrix-red-yellow-backlog.md`
+  - Red→yellow closure slices with SHA-locked promotion evidence and matrix recertification status.
 
 ## Source Basis
 
