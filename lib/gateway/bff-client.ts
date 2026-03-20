@@ -118,6 +118,29 @@ async function resolveSessionTokenFromRequestContext(): Promise<string | null> {
   }
 }
 
+async function resolveCookieHeaderFromRequestContext(): Promise<string | null> {
+  try {
+    const nextHeaders = await import("next/headers");
+    const headerStore = await nextHeaders.headers();
+    const cookieHeader = headerStore.get("cookie");
+    if (!cookieHeader) {
+      return null;
+    }
+    const normalized = cookieHeader.trim();
+    return normalized.length > 0 ? normalized : null;
+  } catch {
+    return null;
+  }
+}
+
+function parseResponsePayload<T>(text: string): Nullable<T> {
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return null;
+  }
+}
+
 async function requestJson<T>(
   options: BffClientOptions,
   pathname: string,
@@ -128,10 +151,14 @@ async function requestJson<T>(
     (await resolveBaseUrlFromRequestContext()) ??
     resolveBaseUrlFromEnvironment();
   const sessionToken = await resolveSessionTokenFromRequestContext();
+  const cookieHeader = await resolveCookieHeaderFromRequestContext();
   const headers = new Headers(init?.headers ?? {});
   headers.set("content-type", "application/json");
   if (sessionToken && !headers.has("x-ook-session-token")) {
     headers.set("x-ook-session-token", sessionToken);
+  }
+  if (cookieHeader && !headers.has("cookie")) {
+    headers.set("cookie", cookieHeader);
   }
 
   const response = await fetch(`${baseUrl}${pathname}`, {
@@ -149,7 +176,7 @@ async function requestJson<T>(
   }
 
   const text = await response.text();
-  const payload = text ? (JSON.parse(text) as T) : null;
+  const payload = text ? parseResponsePayload<T>(text) : null;
 
   return {
     ok: response.ok,

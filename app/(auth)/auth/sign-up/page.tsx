@@ -21,6 +21,7 @@ export default async function SignUpPage({ searchParams }: SignUpPageProps) {
   const walletConnectHref = routes.walletConnect(returnTo);
   const errorCode = firstParam(resolvedParams.error);
   const hasInvalidEmail = errorCode === "invalid_email";
+  const hasAuthServiceError = errorCode === "auth_service_unavailable";
 
   return (
     <main className="identity-page">
@@ -85,6 +86,9 @@ export default async function SignUpPage({ searchParams }: SignUpPageProps) {
           </section>
 
           {hasInvalidEmail ? <p className="identity-error">enter a valid email to continue.</p> : null}
+          {hasAuthServiceError ? (
+            <p className="identity-error">account creation is temporarily unavailable. try again in a moment.</p>
+          ) : null}
 
           <button type="submit" className="identity-cta">
             let&apos;s go

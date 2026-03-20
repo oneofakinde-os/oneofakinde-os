@@ -10,7 +10,11 @@ export async function logoutAction(): Promise<void> {
   const token = cookieStore.get(SESSION_COOKIE)?.value;
 
   if (token) {
-    await gateway.clearSession(token);
+    try {
+      await gateway.clearSession(token);
+    } catch {
+      // Best-effort remote session cleanup; local cookie deletion still logs the user out.
+    }
   }
 
   cookieStore.delete(SESSION_COOKIE);
