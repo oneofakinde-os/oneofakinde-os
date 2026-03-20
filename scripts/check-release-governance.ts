@@ -14,18 +14,21 @@ const REQUIRED_FILES = [
   "config/action-matrix-status.json",
   "config/launch-certification-status.json",
   "config/release-provenance.json",
+  "config/canary-rollout-status.json",
   "config/release-candidate-dry-run.snapshot.json",
   "docs/architecture/FEATURE_FLAGS.md",
   "docs/architecture/ROLL_OUT_PLAYBOOK.md",
   "docs/architecture/RC_VERIFICATION_RUNBOOK.md",
   "docs/architecture/LAUNCH_CERTIFICATION.md",
   "docs/architecture/RELEASE_PROVENANCE.md",
+  "docs/architecture/CANARY_ROLLOUT.md",
   "docs/architecture/action-matrix-red-yellow-backlog.md",
   "scripts/check-feature-flags-contract.ts",
   "scripts/check-rc-freeze-checklist.ts",
   "scripts/check-action-matrix-status.ts",
   "scripts/check-launch-certification-status.ts",
   "scripts/check-release-provenance.ts",
+  "scripts/check-canary-rollout-status.ts",
   "scripts/rc-verify.ts",
   ".github/workflows/release-candidate-dry-run.yml",
   ".github/workflows/ci.yml"
@@ -95,6 +98,9 @@ if (!scripts["check:launch-certification-status"]) {
 if (!scripts["check:release-provenance"]) {
   fail('package.json scripts must include "check:release-provenance"');
 }
+if (!scripts["check:canary-rollout-status"]) {
+  fail('package.json scripts must include "check:canary-rollout-status"');
+}
 if (!scripts["rc:verify"]) {
   fail('package.json scripts must include "rc:verify"');
 }
@@ -113,6 +119,9 @@ if (!scripts["release:governance"]?.includes("check:launch-certification-status"
 if (!scripts["release:governance"]?.includes("check:release-provenance")) {
   fail('package.json "release:governance" must execute check:release-provenance');
 }
+if (!scripts["release:governance"]?.includes("check:canary-rollout-status")) {
+  fail('package.json "release:governance" must execute check:canary-rollout-status');
+}
 if (!scripts["prepare:architecture"]?.includes("check:feature-flags")) {
   fail('package.json "prepare:architecture" must execute check:feature-flags');
 }
@@ -127,6 +136,9 @@ if (!scripts["prepare:architecture"]?.includes("check:launch-certification-statu
 }
 if (!scripts["prepare:architecture"]?.includes("check:release-provenance")) {
   fail('package.json "prepare:architecture" must execute check:release-provenance');
+}
+if (!scripts["prepare:architecture"]?.includes("check:canary-rollout-status")) {
+  fail('package.json "prepare:architecture" must execute check:canary-rollout-status');
 }
 
 if (!workflow.includes("pull_request:")) {

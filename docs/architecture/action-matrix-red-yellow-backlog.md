@@ -372,3 +372,29 @@ Acceptance:
 - `npm run check:release-provenance` fails if provenance, signed launch-tag policy, or SHA-lock consistency drifts.
 - `prepare:architecture` and `release:governance` both require the provenance guard.
 - Proof coverage locks release provenance JSON, docs, and governance wiring.
+
+### RY-17 Canary Rollout Contract Guard (completed)
+Goal:
+- Add a machine-enforced staged-canary rollout contract that validates traffic gates, abort thresholds, rollback SLA, and cross-contract SHA alignment before production promotion.
+
+File backlog:
+- `config/canary-rollout-status.json` (new)
+  - staged canary plan, threshold rails, rollback guarantees, and latest execution evidence
+- `scripts/check-canary-rollout-status.ts` (new)
+  - strict validator for canary contract shape, stage integrity, threshold semantics, and cross-contract SHA parity
+- `package.json`
+  - add `check:canary-rollout-status` and enforce it in `prepare:architecture` + `release:governance`
+- `scripts/check-release-governance.ts`
+  - require canary config/doc/script and script wiring in governance commands
+- `docs/architecture/CANARY_ROLLOUT.md` (new)
+  - staged canary certification matrix and latest execution snapshot
+- `docs/architecture/RC_VERIFICATION_RUNBOOK.md`
+- `docs/architecture/ROLL_OUT_PLAYBOOK.md`
+- `docs/architecture/README.md`
+- `tests/proofs/canary-rollout-status-contract.test.ts` (new)
+- `tests/proofs/rc-governance-execution.test.ts`
+
+Acceptance:
+- `npm run check:canary-rollout-status` fails on canary stage drift, threshold drift, or rollback-policy drift.
+- `prepare:architecture` and `release:governance` both require the canary rollout guard.
+- Proof coverage locks canary JSON, docs, and governance wiring.

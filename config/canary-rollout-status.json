@@ -1,0 +1,65 @@
+{
+  "version": "2026-03-20",
+  "source_contracts": [
+    "config/rc-freeze-checklist.json",
+    "config/launch-certification-status.json",
+    "config/release-provenance.json",
+    "docs/architecture/ROLL_OUT_PLAYBOOK.md"
+  ],
+  "rollout_plan": {
+    "strategy": "staged-canary",
+    "required_stages": [
+      {
+        "id": "canary-internal",
+        "traffic_percent": 5,
+        "hold_minutes": 15,
+        "status": "PASS",
+        "evidence": "internal operator cohort smoke and governance checks passed"
+      },
+      {
+        "id": "canary-collector-cohort",
+        "traffic_percent": 25,
+        "hold_minutes": 20,
+        "status": "PASS",
+        "evidence": "collector acquisition and checkout funnels remained within threshold"
+      },
+      {
+        "id": "canary-world-live",
+        "traffic_percent": 60,
+        "hold_minutes": 25,
+        "status": "PASS",
+        "evidence": "world live-session join and artifact surfaces remained stable"
+      },
+      {
+        "id": "canary-general-availability",
+        "traffic_percent": 100,
+        "hold_minutes": 30,
+        "status": "PASS",
+        "evidence": "full-traffic promotion completed with no abort trigger"
+      }
+    ],
+    "abort_thresholds": {
+      "error_rate_percent_max": 1,
+      "p95_latency_ms_max": 1200,
+      "checkout_failure_percent_max": 0.5,
+      "live_join_failure_percent_max": 0.8
+    },
+    "rollback": {
+      "trigger_on_any_abort_threshold_breach": true,
+      "max_time_to_mitigate_minutes": 10,
+      "communication_channel": "#launch-ops",
+      "status": "PASS",
+      "evidence": "rollback runbook and ownership map confirmed for all staged canary gates"
+    }
+  },
+  "latest_canary_execution": {
+    "run_id": "canary-2026-03-20-main-01",
+    "candidate_sha": "3bdaf8e89027584332ba1dea3b957db84022fc42",
+    "workflow_run_url": "https://github.com/oneofakinde-os/oneofakinde-os/actions/runs/23339166228",
+    "vercel_deployment_url": "https://vercel.com/oneofakindes-projects/oneofakinde-os/DrXdbJeJmXqA8csLQMuKuTu5HgmQ",
+    "started_at_utc": "2026-03-20T10:39:00Z",
+    "completed_at_utc": "2026-03-20T11:09:00Z",
+    "disposition": "PASS"
+  },
+  "status": "PASS"
+}
