@@ -10,35 +10,43 @@
   - `master_matrix!37` library reading/listening queue
   - `master_matrix!49` drop thread
 
-## Recertification Snapshot (2026-03-19)
-- Completed slices: `RY-01` through `RY-07`
+## Recertification Snapshot (2026-03-20)
+- Completed slices: `RY-01` through `RY-13`
 - Closed rows in this backlog:
+  - `master_matrix!10`
   - `master_matrix!14`
   - `master_matrix!15`
   - `master_matrix!16`
   - `master_matrix!20`
+  - `master_matrix!26`
+  - `master_matrix!28`
+  - `master_matrix!32`
+  - `master_matrix!33`
+  - `master_matrix!35`
   - `master_matrix!37`
   - `master_matrix!38`
   - `master_matrix!49`
   - `master_matrix!50`
 - Promotion evidence (GitHub merge commits):
-  - `RY-01` / PR `#113` -> `ccbb0853a17cf22f37f5b0d2e6ee939e64017125`
+  - `RY-01` / PR `#113` -> `ccbb08539753fd01538398c8c3423b39f07e661a`
   - `RY-02` / PR `#114` -> `9b7b2aa193aa665b0e76d87be82be2398d83f9d1`
-  - `RY-03` / PR `#115` -> `3af660c53f16db2f935c0d219c9e5ce7f5dba2f1`
-  - `RY-04` / PR `#116` -> `37ae8958503c3c8e7d10b4678d117a8dc6f02acb`
+  - `RY-03` / PR `#115` -> `3af660c39cfd38101e1a69dfc17544362248c495`
+  - `RY-04` / PR `#116` -> `37ae89551aa2f519385fb218ab224f0162ccc8c8`
   - `RY-05` / PR `#117` -> `8d109c7f671e23743d09f8772c832ab537ed5d29`
   - `RY-06` / PR `#118` -> `bd33eb83c3b2091f4b999a0821e8162fd0ab4afd`
   - `RY-07` / PR `#119` -> `3f758b79bd6e3f5fd53c616e10cec5f33ee9862f`
+  - `RY-08` / PR `#122` -> `c7d1e5967c213fa931b1d03fd0630a5e8217a111`
+  - `RY-09` / PR `#123` -> `a527a7ff2a1f6cb4474e60094001638d2e332678`
+  - `RY-10` / PR `#124` -> `4adbb4b756160f4f015f806d61b72f3f4b793ba0`
+  - `RY-11` / PR `#125` -> `e9f0bb75904507eaa1a988d6b6fa114cb6f44a87`
+  - `RY-12` / PR `#126` -> `1a9b1f1452bd68bc5c8eec2b802206886a6ba85a`
+  - `RY-13` / PR `#127` -> `955bd3950fa579efc34543a4ebe0ddacc370582a`
 - Current tracked matrix status (derived from this backlog):
-  - `40 green` (`32` baseline + `8` closed rows)
-  - `6 remaining yellow` (explicitly sliced in `RY-08` through `RY-13`)
-    - `master_matrix!10` showroom agora collect view
-    - `master_matrix!26` workshop patron configuration
-    - `master_matrix!28` workshop creator analytics and payouts
-    - `master_matrix!32` world collect
-    - `master_matrix!33` world patron presence
-    - `master_matrix!35` world exclusive openings and live
+  - `46 green`
+  - `0 remaining yellow`
   - `0 remaining red`
+- Structured closure contract:
+  - `config/action-matrix-status.json` (consumed by `scripts/check-action-matrix-status.ts`)
 
 ## Execution Rules
 - Promote each slice by SHA lock (`local` == `origin/main` == `vercel deployment status sha`).
@@ -182,7 +190,7 @@ Acceptance:
 - Townhall and studio thread surfaces render case-state visibility with moderation-safe controls.
 - Proof coverage locks case progression and dismiss resolution behavior.
 
-### RY-08 Agora Collect View Completion (in progress)
+### RY-08 Agora Collect View Completion (completed)
 Goal:
 - Move `master_matrix!10` from yellow to green by making agora collect pathways explicit for fixed collect, resale, auction, membership, and live-linked opportunities from a single collect surface.
 
@@ -206,7 +214,7 @@ Acceptance:
 - Deep links into collect from showroom/townhall preserve intended lane/state without silent fallback drift.
 - Proof coverage locks lane contract and membership/live opportunity exposure.
 
-### RY-09 Workshop Patron Configuration Closure
+### RY-09 Workshop Patron Configuration Closure (completed)
 Goal:
 - Move `master_matrix!26` from yellow to green by hardening creator patron commitment configuration and early-access windows as explicit, validated workshop contract rails.
 
@@ -227,7 +235,7 @@ Acceptance:
 - Invalid patron config mutations are rejected with deterministic API errors.
 - Proof coverage locks patron config write/read and validation behavior.
 
-### RY-10 Workshop Analytics + Payout Surface Closure
+### RY-10 Workshop Analytics + Payout Surface Closure (completed)
 Goal:
 - Move `master_matrix!28` from yellow to green by exposing creator funnel performance and payout status as a stable workshop-facing contract.
 
@@ -249,7 +257,7 @@ Acceptance:
 - Analytics payload fields match documentation and do not leak non-creator financial details.
 - Proof coverage locks payout aggregation parity with ledger settlement rails.
 
-### RY-11 World Collect Bundle + Upgrade Closure
+### RY-11 World Collect Bundle + Upgrade Closure (completed)
 Goal:
 - Move `master_matrix!32` from yellow to green by completing world collect ownership and upgrade preview flows for future world additions.
 
@@ -270,7 +278,7 @@ Acceptance:
 - Upgrade preview reflects prior ownership credit deterministically before collect confirmation.
 - Proof coverage locks bundle/upgrade/collect contract behavior end-to-end.
 
-### RY-12 World Patron Presence Closure
+### RY-12 World Patron Presence Closure (completed)
 Goal:
 - Move `master_matrix!33` from yellow to green by making world patron roster visibility, recognition, and status semantics explicit and privacy-safe.
 
@@ -290,7 +298,7 @@ Acceptance:
 - Patron visibility respects privacy and entitlement boundaries.
 - Proof coverage locks roster payload safety and world-surface rendering rails.
 
-### RY-13 World Exclusive Openings + Live Eligibility Closure
+### RY-13 World Exclusive Openings + Live Eligibility Closure (completed)
 Goal:
 - Move `master_matrix!35` from yellow to green by hardening world-exclusive opening/live discovery and eligibility-aligned join behavior.
 

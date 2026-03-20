@@ -1,0 +1,118 @@
+{
+  "version": "2026-03-20",
+  "source_matrix_path": "/Users/pantallero/Documents/pantallero/projects/oneofakinde/oneofakinde_final_authority_archive_2026-03-08/02_strategy_and_flows/oneofakinde_master_action_matrix_2026-03-08.xlsx",
+  "baseline": {
+    "audit_date": "2026-03-19",
+    "status_counts": {
+      "green": 32,
+      "yellow": 10,
+      "red": 4
+    }
+  },
+  "current": {
+    "certification_date": "2026-03-20",
+    "total_action_rows": 46,
+    "status_counts": {
+      "green": 46,
+      "yellow": 0,
+      "red": 0
+    },
+    "sha_locked_main": "955bd3950fa579efc34543a4ebe0ddacc370582a"
+  },
+  "closed_row_ids": [
+    "master_matrix!10",
+    "master_matrix!14",
+    "master_matrix!15",
+    "master_matrix!16",
+    "master_matrix!20",
+    "master_matrix!26",
+    "master_matrix!28",
+    "master_matrix!32",
+    "master_matrix!33",
+    "master_matrix!35",
+    "master_matrix!37",
+    "master_matrix!38",
+    "master_matrix!49",
+    "master_matrix!50"
+  ],
+  "completed_slices": [
+    {
+      "id": "RY-01",
+      "pr": 113,
+      "merge_sha": "ccbb08539753fd01538398c8c3423b39f07e661a",
+      "closed_row_ids": ["master_matrix!49"]
+    },
+    {
+      "id": "RY-02",
+      "pr": 114,
+      "merge_sha": "9b7b2aa193aa665b0e76d87be82be2398d83f9d1",
+      "closed_row_ids": ["master_matrix!14"]
+    },
+    {
+      "id": "RY-03",
+      "pr": 115,
+      "merge_sha": "3af660c39cfd38101e1a69dfc17544362248c495",
+      "closed_row_ids": ["master_matrix!20"]
+    },
+    {
+      "id": "RY-04",
+      "pr": 116,
+      "merge_sha": "37ae89551aa2f519385fb218ab224f0162ccc8c8",
+      "closed_row_ids": ["master_matrix!37", "master_matrix!38"]
+    },
+    {
+      "id": "RY-05",
+      "pr": 117,
+      "merge_sha": "8d109c7f671e23743d09f8772c832ab537ed5d29",
+      "closed_row_ids": ["master_matrix!15"]
+    },
+    {
+      "id": "RY-06",
+      "pr": 118,
+      "merge_sha": "bd33eb83c3b2091f4b999a0821e8162fd0ab4afd",
+      "closed_row_ids": ["master_matrix!50"]
+    },
+    {
+      "id": "RY-07",
+      "pr": 119,
+      "merge_sha": "3f758b79bd6e3f5fd53c616e10cec5f33ee9862f",
+      "closed_row_ids": ["master_matrix!16"]
+    },
+    {
+      "id": "RY-08",
+      "pr": 122,
+      "merge_sha": "c7d1e5967c213fa931b1d03fd0630a5e8217a111",
+      "closed_row_ids": ["master_matrix!10"]
+    },
+    {
+      "id": "RY-09",
+      "pr": 123,
+      "merge_sha": "a527a7ff2a1f6cb4474e60094001638d2e332678",
+      "closed_row_ids": ["master_matrix!26"]
+    },
+    {
+      "id": "RY-10",
+      "pr": 124,
+      "merge_sha": "4adbb4b756160f4f015f806d61b72f3f4b793ba0",
+      "closed_row_ids": ["master_matrix!28"]
+    },
+    {
+      "id": "RY-11",
+      "pr": 125,
+      "merge_sha": "e9f0bb75904507eaa1a988d6b6fa114cb6f44a87",
+      "closed_row_ids": ["master_matrix!32"]
+    },
+    {
+      "id": "RY-12",
+      "pr": 126,
+      "merge_sha": "1a9b1f1452bd68bc5c8eec2b802206886a6ba85a",
+      "closed_row_ids": ["master_matrix!33"]
+    },
+    {
+      "id": "RY-13",
+      "pr": 127,
+      "merge_sha": "955bd3950fa579efc34543a4ebe0ddacc370582a",
+      "closed_row_ids": ["master_matrix!35"]
+    }
+  ]
+}

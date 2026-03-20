@@ -61,6 +61,9 @@ test("proof: rc runbook + governance scripts enforce one-click execution", async
     runbookDoc,
     releaseGovernanceScript,
     freezeChecklistScript,
+    actionMatrixStatusScript,
+    actionMatrixStatusConfig,
+    actionMatrixBacklogDoc,
     rcVerifyScript,
     rcDryRunDoc
   ] = await Promise.all([
@@ -68,6 +71,9 @@ test("proof: rc runbook + governance scripts enforce one-click execution", async
     readRepoFile("docs/architecture/RC_VERIFICATION_RUNBOOK.md"),
     readRepoFile("scripts/check-release-governance.ts"),
     readRepoFile("scripts/check-rc-freeze-checklist.ts"),
+    readRepoFile("scripts/check-action-matrix-status.ts"),
+    readRepoFile("config/action-matrix-status.json"),
+    readRepoFile("docs/architecture/action-matrix-red-yellow-backlog.md"),
     readRepoFile("scripts/rc-verify.ts"),
     readRepoFile("docs/architecture/release-candidate-dry-run.md")
   ]);
@@ -79,16 +85,26 @@ test("proof: rc runbook + governance scripts enforce one-click execution", async
 
   assert.equal(typeof scripts["rc:verify"], "string");
   assert.equal(typeof scripts["check:api-shape"], "string");
+  assert.equal(typeof scripts["check:action-matrix-status"], "string");
   assert.match(scripts["check:api-shape"] ?? "", /taste-graph-isolation\.test\.ts/);
   assert.match(scripts["release:governance"] ?? "", /check:freeze-checklist/);
+  assert.match(scripts["release:governance"] ?? "", /check:action-matrix-status/);
   assert.match(scripts["prepare:architecture"] ?? "", /check:freeze-checklist/);
+  assert.match(scripts["prepare:architecture"] ?? "", /check:action-matrix-status/);
   assert.match(runbookDoc, /npm run rc:verify/);
   assert.match(runbookDoc, /One-Click Command/i);
   assert.match(runbookDoc, /check:surface-sync/);
   assert.match(runbookDoc, /check:api-shape/);
   assert.match(releaseGovernanceScript, /config\/rc-freeze-checklist\.json/);
+  assert.match(releaseGovernanceScript, /config\/action-matrix-status\.json/);
   assert.match(releaseGovernanceScript, /scripts\/check-rc-freeze-checklist\.ts/);
+  assert.match(releaseGovernanceScript, /scripts\/check-action-matrix-status\.ts/);
   assert.match(freezeChecklistScript, /release-candidate-dry-run\.md/);
+  assert.match(actionMatrixStatusScript, /docs\/architecture\/action-matrix-red-yellow-backlog\.md/);
+  assert.match(actionMatrixStatusScript, /RY-13/);
+  assert.match(actionMatrixStatusConfig, /"status_counts"/);
+  assert.match(actionMatrixStatusConfig, /"RY-13"/);
+  assert.match(actionMatrixBacklogDoc, /`0 remaining yellow`/);
   assert.match(rcVerifyScript, /check:surface-sync/);
   assert.match(rcVerifyScript, /lint:terminology/);
   assert.match(rcVerifyScript, /check:api-shape/);
