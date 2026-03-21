@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-21T00:35:46.816Z",
+  "generated_at": "2026-03-21T03:25:39.050Z",
   "source_path": "config/surface-map.source.txt",
   "source_metadata": {
     "format": "lintable_txt_v1",
@@ -1227,6 +1227,35 @@
       "rules": []
     },
     {
+      "route": "/badges/:badge_id",
+      "legacy_routes": [],
+      "surface_key": "badge_verify",
+      "ui_title": "collect badge",
+      "ui_nouns": [
+        "badge",
+        "drop"
+      ],
+      "lint_targets": [
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.receipts",
+        "schema_v1.receipt_badges",
+        "canon_badges"
+      ],
+      "proof_ids": [
+        "p_public_badge_verify"
+      ],
+      "rules": []
+    },
+    {
       "route": "/workshop",
       "legacy_routes": [
         "/studio"
@@ -2208,6 +2237,7 @@
     "/drops/:id/preview",
     "/drops/:id/preview/photos",
     "/certificates/:cert_id",
+    "/badges/:badge_id",
     "/auth/wallet-connect",
     "/photos",
     "/townhall",
@@ -2226,6 +2256,7 @@
     "/showroom/search"
   ],
   "canon_dependencies": [
+    "canon_badges",
     "canon_certificates",
     "canon_feature_flags",
     "canon_media_gate",
@@ -2233,8 +2264,8 @@
     "canon_payments_stripe"
   ],
   "stats": {
-    "route_count": 60,
-    "public_safe_count": 37,
+    "route_count": 61,
+    "public_safe_count": 38,
     "session_required_count": 23,
     "legacy_redirect_count": 34
   }

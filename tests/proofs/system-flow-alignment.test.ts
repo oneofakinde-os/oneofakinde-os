@@ -15,14 +15,14 @@ function getReturnTo(pathnameWithSearch: string): string | null {
 test("system flow: default entry journey routes through auth -> townhall with optional wallet/profile", () => {
   const flow = buildDefaultEntryFlow();
 
-  assert.equal(flow.finalReturnTo, routes.townhall());
-  assert.equal(getReturnTo(flow.profileSetupReturnTo), routes.townhall());
-  assert.equal(getReturnTo(flow.walletConnectReturnTo), routes.townhall());
-  assert.equal(getReturnTo(flow.walletConnectHref), routes.townhall());
-  assert.equal(getReturnTo(flow.signInHref), routes.townhall());
-  assert.equal(getReturnTo(flow.signUpHref), routes.townhall());
-  assert.equal(extractFinalReturnTo(flow.walletConnectReturnTo), routes.townhall());
-  assert.equal(extractFinalReturnTo(flow.profileSetupReturnTo), routes.townhall());
+  assert.equal(flow.finalReturnTo, routes.showroom());
+  assert.equal(getReturnTo(flow.profileSetupReturnTo), routes.showroom());
+  assert.equal(getReturnTo(flow.walletConnectReturnTo), routes.showroom());
+  assert.equal(getReturnTo(flow.walletConnectHref), routes.showroom());
+  assert.equal(getReturnTo(flow.signInHref), routes.showroom());
+  assert.equal(getReturnTo(flow.signUpHref), routes.showroom());
+  assert.equal(extractFinalReturnTo(flow.walletConnectReturnTo), routes.showroom());
+  assert.equal(extractFinalReturnTo(flow.profileSetupReturnTo), routes.showroom());
 });
 
 test("system flow: public steps stay public and protected steps enforce session", () => {
@@ -31,7 +31,7 @@ test("system flow: public steps stay public and protected steps enforce session"
     routes.signIn(),
     routes.signUp(),
     routes.walletConnect(),
-    routes.townhall(),
+    routes.showroom(),
     routes.drop(FLOW_DROP_ID),
     routes.certificate(FLOW_CERT_ID)
   ];
@@ -82,7 +82,7 @@ test("system flow: public steps stay public and protected steps enforce session"
 
 test("system flow: townhall, certificate, and media steps expose canonical surface keys", () => {
   const checks = [
-    { pathname: routes.townhall(), expectedSurfaceKey: "townhall" },
+    { pathname: routes.showroom(), expectedSurfaceKey: "townhall" },
     { pathname: routes.certificate(FLOW_CERT_ID), expectedSurfaceKey: "certificate_verify" },
     { pathname: routes.dropWatch(FLOW_DROP_ID), expectedSurfaceKey: "drop_full_watch" },
     { pathname: routes.dropListen(FLOW_DROP_ID), expectedSurfaceKey: "drop_full_listen" },
@@ -107,6 +107,6 @@ test("system flow: townhall, certificate, and media steps expose canonical surfa
 
 test("system flow: featured lane deep link resolves to townhall with lane_key=featured", () => {
   const featured = new URL(routes.townhallFeatured(), "https://oneofakinde.local");
-  assert.equal(featured.pathname, routes.townhall());
+  assert.equal(featured.pathname, routes.showroom());
   assert.equal(featured.searchParams.get("lane_key"), "featured");
 });

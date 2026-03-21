@@ -70,7 +70,7 @@ export function DropDetailScreen({
     <main className="dropflow-page">
       <section className="dropflow-phone-shell" aria-label="drop detail surface">
         <header className="dropflow-header">
-          <Link href={backHref ?? routes.townhall()} className="dropflow-icon-link" aria-label="back to townhall">
+          <Link href={backHref ?? routes.showroom()} className="dropflow-icon-link" aria-label="back to showroom">
             ←
           </Link>
           <p className="dropflow-brand">oneofakinde</p>

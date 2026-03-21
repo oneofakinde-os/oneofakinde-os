@@ -37,7 +37,7 @@ function toHrefObject(pathnameWithSearch: string): UrlObject {
 export default async function DropDetailPage({ params, searchParams }: DropDetailPageProps) {
   const { id } = await params;
   const resolvedSearchParams = (await searchParams) ?? {};
-  const returnTo = normalizeReturnTo(firstQueryValue(resolvedSearchParams.returnTo), routes.townhall());
+  const returnTo = normalizeReturnTo(firstQueryValue(resolvedSearchParams.returnTo), routes.showroom());
 
   const [drop, session, lineage, liveArtifacts] = await Promise.all([
     gateway.getDropById(id),
