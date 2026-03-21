@@ -22,13 +22,14 @@ export default async function WorldPage({ params }: WorldPageProps) {
     notFound();
   }
 
-  const [worldCollectSnapshot, worldPatronRosterResult, collectLiveSessions] = session
+  const [worldCollectSnapshot, worldPatronRosterResult, collectLiveSessions, isMember] = session
     ? await Promise.all([
         commerceBffService.getCollectWorldBundlesForWorld(session.accountId, world.id),
         commerceBffService.listWorldPatronRoster(session.accountId, world.id),
-        commerceBffService.listCollectLiveSessions(session.accountId)
+        commerceBffService.listCollectLiveSessions(session.accountId),
+        commerceBffService.hasActiveMembership(session.accountId, world.id)
       ])
-    : [null, null, [] as CollectLiveSessionSnapshot[]];
+    : [null, null, [] as CollectLiveSessionSnapshot[], false];
   const worldLiveSessions = collectLiveSessions.filter(
     (entry) => entry.liveSession.worldId === world.id
   );
@@ -49,6 +50,7 @@ export default async function WorldPage({ params }: WorldPageProps) {
       world={world}
       drops={drops}
       session={session}
+      isMember={isMember}
       worldCollectSnapshot={worldCollectSnapshot}
       worldCollectFullWorldUpgradePreview={worldCollectFullWorldUpgradePreview}
       worldPatronRosterSnapshot={worldPatronRosterSnapshot}

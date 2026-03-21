@@ -1,5 +1,6 @@
 import { AppShell } from "@/features/shell/app-shell";
 import { formatUsd } from "@/features/shared/format";
+import { WorldMembershipButton } from "@/features/world/world-membership-button";
 import { sortDropsForWorldSurface } from "@/lib/catalog/drop-curation";
 import type {
   CollectLiveSessionSnapshot,
@@ -18,6 +19,7 @@ type WorldDetailScreenProps = {
   world: World;
   drops: Drop[];
   session: Session | null;
+  isMember: boolean;
   worldCollectSnapshot: WorldCollectBundleSnapshot | null;
   worldCollectFullWorldUpgradePreview: WorldCollectUpgradePreview | null;
   worldPatronRosterSnapshot: WorldPatronRosterSnapshot | null;
@@ -72,6 +74,7 @@ export function WorldDetailScreen({
   world,
   drops,
   session,
+  isMember,
   worldCollectSnapshot,
   worldCollectFullWorldUpgradePreview,
   worldPatronRosterSnapshot,
@@ -139,6 +142,9 @@ export function WorldDetailScreen({
           <Link href={routes.studio(world.studioHandle)} className="slice-button alt">
             open studio
           </Link>
+          {session ? (
+            <WorldMembershipButton worldId={world.id} initialIsMember={isMember} />
+          ) : null}
         </div>
         {world.visualIdentity ? (
           <div
