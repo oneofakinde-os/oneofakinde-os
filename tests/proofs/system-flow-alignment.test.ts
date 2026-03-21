@@ -82,7 +82,7 @@ test("system flow: public steps stay public and protected steps enforce session"
 
 test("system flow: townhall, certificate, and media steps expose canonical surface keys", () => {
   const checks = [
-    { pathname: routes.showroom(), expectedSurfaceKey: "townhall" },
+    { pathname: routes.showroom(), expectedSurfaceKey: "showroom" },
     { pathname: routes.certificate(FLOW_CERT_ID), expectedSurfaceKey: "certificate_verify" },
     { pathname: routes.dropWatch(FLOW_DROP_ID), expectedSurfaceKey: "drop_full_watch" },
     { pathname: routes.dropListen(FLOW_DROP_ID), expectedSurfaceKey: "drop_full_listen" },
@@ -105,8 +105,8 @@ test("system flow: townhall, certificate, and media steps expose canonical surfa
   }
 });
 
-test("system flow: featured lane deep link resolves to townhall with lane_key=featured", () => {
-  const featured = new URL(routes.townhallFeatured(), "https://oneofakinde.local");
+test("system flow: featured lane deep link resolves to showroom with lane_key=featured", () => {
+  const featured = new URL(routes.showroomFeatured(), "https://oneofakinde.local");
   assert.equal(featured.pathname, routes.showroom());
   assert.equal(featured.searchParams.get("lane_key"), "featured");
 });
