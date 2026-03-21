@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-21T06:54:09.052Z",
+  "generated_at": "2026-03-21T08:56:29.983Z",
   "source_path": "config/surface-map.source.txt",
   "source_metadata": {
     "format": "lintable_txt_v1",
@@ -560,6 +560,36 @@
       "proof_ids": [
         "p_first_run_destination",
         "p_session_required"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/collectors/:handle",
+      "legacy_routes": [],
+      "surface_key": "collector_profile",
+      "ui_title": "collector",
+      "ui_nouns": [
+        "collector",
+        "collection",
+        "badge"
+      ],
+      "lint_targets": [
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.catalog",
+        "schema_v1.profiles",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_no_leaks_ci"
       ],
       "rules": []
     },
@@ -2258,6 +2288,7 @@
     "/live/:session_id",
     "/auth/sign-in",
     "/auth/sign-up",
+    "/collectors/:handle",
     "/studio/:handle",
     "/worlds/:id",
     "/worlds/:id/drops",
@@ -2297,8 +2328,8 @@
     "canon_payments_stripe"
   ],
   "stats": {
-    "route_count": 62,
-    "public_safe_count": 39,
+    "route_count": 63,
+    "public_safe_count": 40,
     "session_required_count": 23,
     "legacy_redirect_count": 34
   }

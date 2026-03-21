@@ -191,6 +191,13 @@ const metadataCases = [
     "sessionRoles": []
   },
   {
+    "pathname": "/live/session_id-sample",
+    "surfaceKey": "live_session_detail",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
     "pathname": "/auth/sign-in",
     "surfaceKey": "auth_sign_in",
     "publicSafe": "true",
@@ -221,6 +228,13 @@ const metadataCases = [
     "sessionRoles": [
       "collector"
     ]
+  },
+  {
+    "pathname": "/collectors/handle-sample",
+    "surfaceKey": "collector_profile",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
   },
   {
     "pathname": "/studio/handle-sample",

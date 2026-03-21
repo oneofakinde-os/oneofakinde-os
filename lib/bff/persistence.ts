@@ -439,6 +439,13 @@ export type LedgerTransactionRecord = LedgerTransaction;
 
 export type LedgerLineItemRecord = SettlementLineItem;
 
+export type StudioFollowRecord = {
+  id: string;
+  accountId: string;
+  studioHandle: string;
+  createdAt: string;
+};
+
 export type BffDatabase = {
   version: 1;
   catalog: {
@@ -484,6 +491,7 @@ export type BffDatabase = {
   authorizedDerivatives: AuthorizedDerivativeRecord[];
   ledgerTransactions: LedgerTransactionRecord[];
   ledgerLineItems: LedgerLineItemRecord[];
+  studioFollows: StudioFollowRecord[];
 };
 
 type MutationResult<T> = {
@@ -1221,7 +1229,8 @@ function createSeedDatabase(): BffDatabase {
       }
     ],
     ledgerTransactions: [],
-    ledgerLineItems: []
+    ledgerLineItems: [],
+    studioFollows: []
   };
 }
 
@@ -1266,7 +1275,8 @@ function createCatalogSeedDatabase(): BffDatabase {
     dropVersions: seeded.dropVersions,
     authorizedDerivatives: seeded.authorizedDerivatives,
     ledgerTransactions: [],
-    ledgerLineItems: []
+    ledgerLineItems: [],
+    studioFollows: []
   };
 }
 
@@ -1315,7 +1325,8 @@ function createEmptyDatabase(): BffDatabase {
     dropVersions: [],
     authorizedDerivatives: [],
     ledgerTransactions: [],
-    ledgerLineItems: []
+    ledgerLineItems: [],
+    studioFollows: []
   };
 }
 
@@ -1367,7 +1378,8 @@ function isValidDb(input: unknown): input is BffDatabase {
     Array.isArray(candidate.dropVersions) &&
     Array.isArray(candidate.authorizedDerivatives) &&
     Array.isArray(candidate.ledgerTransactions) &&
-    Array.isArray(candidate.ledgerLineItems)
+    Array.isArray(candidate.ledgerLineItems) &&
+    Array.isArray(candidate.studioFollows)
   );
 }
 
@@ -1404,6 +1416,7 @@ function hasLegacyBaseDbShape(input: unknown): input is Omit<
   | "ledgerLineItems"
   | "libraryEligibilityStates"
   | "receiptBadges"
+  | "studioFollows"
 > {
   if (!input || typeof input !== "object") {
     return false;
@@ -2535,6 +2548,21 @@ function normalizeLedgerLineItemRecords(records: LedgerLineItemRecord[]): Ledger
   });
 }
 
+function normalizeStudioFollowRecords(records: StudioFollowRecord[]): StudioFollowRecord[] {
+  return records.map((record) => {
+    const candidate = record as Partial<StudioFollowRecord>;
+    return {
+      id: typeof candidate.id === "string" ? candidate.id : `sf_${randomUUID()}`,
+      accountId: typeof candidate.accountId === "string" ? candidate.accountId : "",
+      studioHandle: typeof candidate.studioHandle === "string" ? candidate.studioHandle : "",
+      createdAt:
+        typeof candidate.createdAt === "string" && candidate.createdAt.trim()
+          ? candidate.createdAt
+          : new Date().toISOString()
+    };
+  });
+}
+
 function normalizeTownhallCommentVisibility(value: unknown): TownhallCommentVisibility {
   if (value === "hidden" || value === "restricted" || value === "deleted") {
     return value;
@@ -3070,7 +3098,8 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
       dropVersions: normalizeDropVersionRecords(input.dropVersions),
       authorizedDerivatives: normalizeAuthorizedDerivativeRecords(input.authorizedDerivatives),
       ledgerTransactions: normalizeLedgerTransactionRecords(input.ledgerTransactions),
-      ledgerLineItems: normalizeLedgerLineItemRecords(input.ledgerLineItems)
+      ledgerLineItems: normalizeLedgerLineItemRecords(input.ledgerLineItems),
+      studioFollows: normalizeStudioFollowRecords(input.studioFollows)
     };
   }
 
@@ -3206,6 +3235,9 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         : [],
       ledgerLineItems: Array.isArray(candidate.ledgerLineItems)
         ? normalizeLedgerLineItemRecords(candidate.ledgerLineItems as LedgerLineItemRecord[])
+        : [],
+      studioFollows: Array.isArray(candidate.studioFollows)
+        ? normalizeStudioFollowRecords(candidate.studioFollows as StudioFollowRecord[])
         : []
     };
   }
@@ -4224,6 +4256,12 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
         recipientAccountId: row.recipientAccountId,
         createdAt: row.createdAt
       }))
+    ),
+    studioFollows: normalizeStudioFollowRecords(
+      parseMetaJsonValue<StudioFollowRecord[]>(
+        meta.get("studio_follows_json"),
+        []
+      )
     )
   };
 }

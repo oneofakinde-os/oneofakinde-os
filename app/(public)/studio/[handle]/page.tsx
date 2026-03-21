@@ -1,4 +1,5 @@
 import { StudioScreen } from "@/features/studio/studio-screen";
+import { commerceBffService } from "@/lib/bff/service";
 import { gateway } from "@/lib/gateway";
 import { getOptionalSession } from "@/lib/server/session";
 import { notFound } from "next/navigation";
@@ -24,9 +25,11 @@ export default async function StudioCanonicalPage({ params }: StudioPageProps) {
     await Promise.all(studio.worldIds.map((worldId) => gateway.getWorldById(worldId)))
   ).filter((world): world is NonNullable<typeof world> => Boolean(world));
 
-  const membershipEntitlements = session
-    ? await gateway.listMembershipEntitlements(session.accountId)
-    : [];
+  const [membershipEntitlements, viewerFollowing, followerCount] = await Promise.all([
+    session ? gateway.listMembershipEntitlements(session.accountId) : Promise.resolve([]),
+    session ? commerceBffService.isFollowingStudio(session.accountId, handle) : Promise.resolve(false),
+    commerceBffService.getStudioFollowerCount(handle)
+  ]);
 
   const activeStudioMemberships = membershipEntitlements.filter(
     (entitlement) => entitlement.isActive && entitlement.studioHandle === studio.handle
@@ -54,6 +57,8 @@ export default async function StudioCanonicalPage({ params }: StudioPageProps) {
         memberWorldIds,
         canCommitPatron: Boolean(session?.roles.includes("collector"))
       }}
+      viewerFollowing={viewerFollowing}
+      followerCount={followerCount}
     />
   );
 }

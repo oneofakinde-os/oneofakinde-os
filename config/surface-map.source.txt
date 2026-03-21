@@ -244,6 +244,17 @@ surfaces:
     contract_deps: ["openapi_v1.session", "openapi_v1.settings", "openapi_v1.collections", "openapi_v1.notifications", "schema_v1.spaces", "schema_v1.collections"]
     proof_ids: ["p_first_run_destination", "p_session_required"]
 
+  - route: "/collectors/:handle"
+    legacy_routes: []
+    surface_key: "collector_profile"
+    ui_title: "collector"
+    ui_nouns: ["collector", "collection", "badge"]
+    lint_targets: ["h1", "metadata_labels"]
+    roles: ["public", "collector", "creator"]
+    public_safe: true
+    contract_deps: ["openapi_v1.catalog", "schema_v1.profiles", "canon_no_leaks_scan"]
+    proof_ids: ["p_no_leaks_ci"]
+
   # -------------------------------------------------------------------
   # 4) studio (public creator presence)
   # -------------------------------------------------------------------

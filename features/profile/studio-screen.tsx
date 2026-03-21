@@ -1,5 +1,6 @@
 import { AppShell } from "@/features/shell/app-shell";
 import { formatUsd } from "@/features/shared/format";
+import { FollowStudioButton } from "@/features/studio/follow-studio-button";
 import { isStudioPinned, sortDropsForStudioSurface } from "@/lib/catalog/drop-curation";
 import type { Drop, Session, Studio, World } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
@@ -20,6 +21,8 @@ type StudioScreenProps = {
   worlds: World[];
   drops: Drop[];
   viewerMembershipIndicator?: StudioViewerMembershipIndicator;
+  viewerFollowing?: boolean;
+  followerCount?: number;
 };
 
 export function StudioScreen({
@@ -27,7 +30,9 @@ export function StudioScreen({
   studio,
   worlds,
   drops,
-  viewerMembershipIndicator
+  viewerMembershipIndicator,
+  viewerFollowing = false,
+  followerCount = 0
 }: StudioScreenProps) {
   const orderedDrops = sortDropsForStudioSurface(drops);
   const pinnedDrops = orderedDrops.filter((drop) => isStudioPinned(drop));
@@ -57,6 +62,13 @@ export function StudioScreen({
         <p className="slice-label">@{studio.handle}</p>
         <h2 className="slice-title">{studio.title}</h2>
         <p className="slice-copy">{studio.synopsis}</p>
+        {session ? (
+          <FollowStudioButton
+            studioHandle={studio.handle}
+            initialFollowing={viewerFollowing}
+            initialFollowerCount={followerCount}
+          />
+        ) : null}
         <p className="slice-meta" data-testid="studio-membership-indicator">
           membership status · {membershipStatus}
         </p>
