@@ -1,3 +1,4 @@
+import { PatronBadge } from "@/features/patron/patron-badge";
 import { AppShell } from "@/features/shell/app-shell";
 import { formatUsd } from "@/features/shared/format";
 import { WorldMembershipButton } from "@/features/world/world-membership-button";
@@ -280,12 +281,12 @@ export function WorldDetailScreen({
                     className="slice-drop-card"
                     data-testid="world-patron-roster-entry"
                   >
-                    <p className="slice-label">@{entry.handle}</p>
-                    <p className="slice-meta">
-                      {PATRON_RECOGNITION_COPY[entry.recognitionTier]} ·{" "}
-                      {PATRON_STATUS_COPY[entry.status]}
-                    </p>
-                    <p className="slice-meta">committed {entry.committedAt.slice(0, 10)}</p>
+                    <PatronBadge
+                      recognitionTier={entry.recognitionTier}
+                      status={entry.status}
+                      handle={entry.handle}
+                      committedAt={entry.committedAt}
+                    />
                   </li>
                 ))}
               </ul>

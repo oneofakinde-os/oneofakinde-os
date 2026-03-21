@@ -1,3 +1,4 @@
+import { PatronBadge } from "@/features/patron/patron-badge";
 import { AppShell } from "@/features/shell/app-shell";
 import type { Session } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
@@ -7,6 +8,7 @@ type PatronWorldEntry = {
   worldId: string;
   worldTitle: string;
   status: string;
+  recognitionTier?: "founding" | "active";
 };
 
 type CollectorPublicScreenProps = {
@@ -68,10 +70,14 @@ export function CollectorPublicScreen({
           <ul className="slice-list" aria-label="patron worlds">
             {patronWorlds.map((entry) => (
               <li key={entry.worldId} className="slice-list-row">
+                <PatronBadge
+                  recognitionTier={entry.recognitionTier ?? "active"}
+                  status={entry.status as "active" | "lapsed"}
+                  size="compact"
+                />
                 <Link href={routes.world(entry.worldId)} className="slice-link">
                   {entry.worldTitle}
                 </Link>
-                <span className="slice-meta">{entry.status}</span>
               </li>
             ))}
           </ul>

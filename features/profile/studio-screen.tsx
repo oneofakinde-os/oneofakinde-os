@@ -1,3 +1,4 @@
+import { PatronBadge } from "@/features/patron/patron-badge";
 import { AppShell } from "@/features/shell/app-shell";
 import { formatUsd } from "@/features/shared/format";
 import { FollowStudioButton } from "@/features/studio/follow-studio-button";
@@ -15,6 +16,12 @@ type StudioViewerMembershipIndicator = {
   canCommitPatron: boolean;
 };
 
+type StudioViewerPatronIndicator = {
+  recognitionTier: "founding" | "active";
+  status: "active" | "lapsed";
+  committedAt: string;
+};
+
 type StudioScreenProps = {
   session: Session | null;
   studio: Studio;
@@ -23,6 +30,7 @@ type StudioScreenProps = {
   viewerMembershipIndicator?: StudioViewerMembershipIndicator;
   viewerFollowing?: boolean;
   followerCount?: number;
+  viewerPatronIndicator?: StudioViewerPatronIndicator | null;
 };
 
 export function StudioScreen({
@@ -32,7 +40,8 @@ export function StudioScreen({
   drops,
   viewerMembershipIndicator,
   viewerFollowing = false,
-  followerCount = 0
+  followerCount = 0,
+  viewerPatronIndicator
 }: StudioScreenProps) {
   const orderedDrops = sortDropsForStudioSurface(drops);
   const pinnedDrops = orderedDrops.filter((drop) => isStudioPinned(drop));
@@ -72,9 +81,20 @@ export function StudioScreen({
         <p className="slice-meta" data-testid="studio-membership-indicator">
           membership status · {membershipStatus}
         </p>
-        <p className="slice-meta" data-testid="studio-patron-indicator">
-          patron support · {patronStatus}
-        </p>
+        {viewerPatronIndicator ? (
+          <div data-testid="studio-patron-indicator">
+            <PatronBadge
+              recognitionTier={viewerPatronIndicator.recognitionTier}
+              status={viewerPatronIndicator.status}
+              committedAt={viewerPatronIndicator.committedAt}
+              size="compact"
+            />
+          </div>
+        ) : (
+          <p className="slice-meta" data-testid="studio-patron-indicator">
+            patron support · {patronStatus}
+          </p>
+        )}
         {studioPatronWorldId ? (
           <div className="slice-button-row">
             {session ? (
