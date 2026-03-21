@@ -205,7 +205,7 @@ function modeNav(mode: TownhallSurfaceMode): Parameters<typeof TownhallBottomNav
   if (mode === "watch") return "watch";
   if (mode === "listen") return "listen";
   if (mode === "read") return "read";
-  if (mode === "photos") return "photos";
+  if (mode === "photos") return "gallery";
   return "live";
 }
 
@@ -1428,69 +1428,15 @@ export function TownhallFeedScreen({
           >
             <PlusIcon className="townhall-ui-icon" />
           </Link>
-          <button
-            type="button"
-            className={`townhall-posts-toggle ${isPostsPanelOpen ? "active" : ""}`}
-            aria-label="open townhall notes"
-            data-no-immersive-toggle="true"
-            onClick={togglePostsPanel}
-          >
-            notes
-          </button>
-          <form
-            action={routes.townhallSearch()}
-            method="get"
-            className="townhall-search-form townhall-search-form-feed"
-            role="search"
-            aria-label="search oneofakinde"
+          <Link
+            href={routes.townhallSearch()}
+            className="townhall-icon-link"
+            aria-label="search oneofakinde cosmos"
             data-no-immersive-toggle="true"
           >
-            <SearchIcon className="townhall-search-inline-icon" />
-            <input
-              type="search"
-              name="q"
-              className="townhall-search-input"
-              placeholder="search users, worlds, and drops"
-              aria-label="search users, worlds, and drops"
-            />
-          </form>
-
-          {mode === "townhall" ? (
-            <div className="townhall-showroom-row" data-no-immersive-toggle="true">
-              {SHOWROOM_MODE_OPTIONS.map((option) => {
-                const active = effectiveShowroomMedia === option.value;
-                return (
-                  <Link
-                    key={option.value}
-                    href={showroomHref(option.value, parsedShowroomOrdering)}
-                    className={`townhall-showroom-chip ${active ? "active" : ""}`}
-                    aria-current={active ? "page" : undefined}
-                  >
-                    {option.label}
-                  </Link>
-                );
-              })}
-            </div>
-          ) : null}
-
-          <div className="townhall-showroom-row townhall-showroom-row-ordering" data-no-immersive-toggle="true">
-            {SHOWROOM_ORDERING_OPTIONS.map((option) => {
-              const active = parsedShowroomOrdering === option.value;
-              return (
-                <Link
-                  key={option.value}
-                  href={showroomHref(effectiveShowroomMedia, option.value)}
-                  className={`townhall-showroom-chip ${active ? "active" : ""}`}
-                  aria-current={active ? "page" : undefined}
-                >
-                  {option.label}
-                </Link>
-              );
-            })}
-          </div>
+            <SearchIcon className="townhall-ui-icon" />
+          </Link>
         </header>
-
-        {mode === "townhall" ? <ShowroomFeaturedRail /> : null}
 
         <div
           className="townhall-feed-viewport"

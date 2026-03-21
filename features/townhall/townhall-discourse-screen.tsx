@@ -523,7 +523,7 @@ export function TownhallDiscourseScreen({
         ))}
       </ul>
 
-      <TownhallBottomNav activeMode="showroom" noImmersiveToggle />
+      <TownhallBottomNav activeMode="agora" noImmersiveToggle />
     </section>
   );
 }

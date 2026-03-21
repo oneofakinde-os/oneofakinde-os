@@ -1,9 +1,9 @@
 import { routes } from "@/lib/routes";
 import Link from "next/link";
 import {
+  AgoraIcon,
   BookIcon,
   CameraIcon,
-  ConnectIcon,
   DiamondIcon,
   FilmIcon,
   HeadphonesIcon,
@@ -11,7 +11,7 @@ import {
   ShowroomIcon
 } from "./townhall-icons";
 
-export type TownhallNavMode = "showroom" | "watch" | "listen" | "read" | "photos" | "live" | "connect" | "collect";
+export type TownhallNavMode = "showroom" | "agora" | "watch" | "gallery" | "collect" | "listen" | "live" | "read";
 
 function navLinkClass(active: boolean): string {
   return `townhall-bottom-icon ${active ? "active" : ""}`;
@@ -32,29 +32,29 @@ export function TownhallBottomNav({
 
   return (
     <nav className={className} aria-label="townhall bottom nav" {...noImmersiveProps}>
-      <Link href={routes.showroom()} className={navLinkClass(activeMode === "showroom")} aria-label="showroom feed">
+      <Link href={routes.showroom()} className={navLinkClass(activeMode === "showroom")} aria-label="showroom">
         <ShowroomIcon className="townhall-bottom-icon-glyph" />
       </Link>
-      <Link href={routes.townhallWatch()} className={navLinkClass(activeMode === "watch")} aria-label="watch mode">
+      <Link href={routes.townhall()} className={navLinkClass(activeMode === "agora")} aria-label="agora">
+        <AgoraIcon className="townhall-bottom-icon-glyph" />
+      </Link>
+      <Link href={routes.townhallWatch()} className={navLinkClass(activeMode === "watch")} aria-label="watch">
         <FilmIcon className="townhall-bottom-icon-glyph" />
       </Link>
-      <Link href={routes.townhallListen()} className={navLinkClass(activeMode === "listen")} aria-label="listen mode">
-        <HeadphonesIcon className="townhall-bottom-icon-glyph" />
-      </Link>
-      <Link href={routes.townhallRead()} className={navLinkClass(activeMode === "read")} aria-label="read mode">
-        <BookIcon className="townhall-bottom-icon-glyph" />
-      </Link>
-      <Link href={routes.townhallPhotos()} className={navLinkClass(activeMode === "photos")} aria-label="photos mode">
+      <Link href={routes.townhallPhotos()} className={navLinkClass(activeMode === "gallery")} aria-label="gallery">
         <CameraIcon className="townhall-bottom-icon-glyph" />
       </Link>
-      <Link href={routes.townhallLive()} className={navLinkClass(activeMode === "live")} aria-label="live mode">
+      <Link href={routes.collect()} className={navLinkClass(activeMode === "collect")} aria-label="collect">
+        <DiamondIcon className="townhall-bottom-icon-glyph" />
+      </Link>
+      <Link href={routes.townhallListen()} className={navLinkClass(activeMode === "listen")} aria-label="listen">
+        <HeadphonesIcon className="townhall-bottom-icon-glyph" />
+      </Link>
+      <Link href={routes.townhallLive()} className={navLinkClass(activeMode === "live")} aria-label="live">
         <RadioIcon className="townhall-bottom-icon-glyph" />
       </Link>
-      <Link href={routes.connect()} className={navLinkClass(activeMode === "connect")} aria-label="connect discourse">
-        <ConnectIcon className="townhall-bottom-icon-glyph" />
-      </Link>
-      <Link href={routes.collect()} className={navLinkClass(activeMode === "collect")} aria-label="collect marketplace">
-        <DiamondIcon className="townhall-bottom-icon-glyph" />
+      <Link href={routes.townhallRead()} className={navLinkClass(activeMode === "read")} aria-label="read">
+        <BookIcon className="townhall-bottom-icon-glyph" />
       </Link>
     </nav>
   );
