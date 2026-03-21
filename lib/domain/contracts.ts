@@ -1184,6 +1184,45 @@ export type SurfaceActionVerb =
   | "filter"
   | "navigate";
 
+// ── notifications ────────────────────────────────────────────────────
+
+export type NotificationChannel = "in_app" | "email" | "push";
+
+export type NotificationType =
+  | "drop_collected"
+  | "receipt_confirmed"
+  | "comment_reply"
+  | "comment_mention"
+  | "world_update"
+  | "membership_change"
+  | "patron_renewal"
+  | "live_session_starting"
+  | "campaign_alert"
+  | "weekly_digest";
+
+export type NotificationEntry = {
+  id: string;
+  accountId: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  href: string | null;
+  read: boolean;
+  createdAt: string;
+};
+
+export type NotificationPreferences = {
+  accountId: string;
+  channels: Record<NotificationChannel, boolean>;
+  mutedTypes: NotificationType[];
+  digestEnabled: boolean;
+};
+
+export type NotificationFeed = {
+  entries: NotificationEntry[];
+  unreadCount: number;
+};
+
 export type SurfaceTelemetryEvent = {
   surface: SurfaceName;
   action: SurfaceActionVerb;

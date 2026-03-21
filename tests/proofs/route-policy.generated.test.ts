@@ -513,6 +513,15 @@ const metadataCases = [
     ]
   },
   {
+    "pathname": "/notifications",
+    "surfaceKey": "notifications_inbox",
+    "publicSafe": "false",
+    "hasSession": true,
+    "sessionRoles": [
+      "collector"
+    ]
+  },
+  {
     "pathname": "/settings/security",
     "surfaceKey": "settings_security",
     "publicSafe": "false",
@@ -728,6 +737,9 @@ const sessionCases = [
     "pathname": "/settings/notifications"
   },
   {
+    "pathname": "/notifications"
+  },
+  {
     "pathname": "/settings/security"
   },
   {
@@ -911,6 +923,14 @@ const roleRequiredCases = [
     "disallowedRole": null
   },
   {
+    "pathname": "/notifications",
+    "allowedRoles": [
+      "collector",
+      "creator"
+    ],
+    "disallowedRole": null
+  },
+  {
     "pathname": "/settings/security",
     "allowedRoles": [
       "collector",
@@ -1010,6 +1030,9 @@ const proofSessionCases = [
   },
   {
     "pathname": "/settings/notifications"
+  },
+  {
+    "pathname": "/notifications"
   },
   {
     "pathname": "/settings/security"
