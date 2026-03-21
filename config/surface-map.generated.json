@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-18T07:39:55.372Z",
+  "generated_at": "2026-03-21T00:35:46.816Z",
   "source_path": "config/surface-map.source.txt",
   "source_metadata": {
     "format": "lintable_txt_v1",
@@ -10,7 +10,7 @@
     "nouns": {
       "drop": "sellable/collectible unit (formerly asset)",
       "world": "public place/container that groups drops (formerly collection when meaning a place)",
-      "my_collection": "user\u2019s acquired/owned drops (ownership inventory)",
+      "my_collection": "user’s acquired/owned drops (ownership inventory)",
       "library": "saved/curation bucket (pinterest-style saves)",
       "studio": "public-facing creator presence (creator identity surface)",
       "workshop": "creator back-office (making suite; formerly studio when meaning the suite)",
@@ -69,8 +69,8 @@
         "variants": [
           "asset",
           "assets",
-          "asset\u2019s",
-          "assets\u2019"
+          "asset’s",
+          "assets’"
         ]
       },
       {
@@ -220,6 +220,38 @@
           "replace_with": "home"
         }
       ]
+    },
+    {
+      "route": "/connect",
+      "legacy_routes": [],
+      "surface_key": "connect",
+      "ui_title": "connect",
+      "ui_nouns": [
+        "connect",
+        "post",
+        "thread",
+        "drop"
+      ],
+      "lint_targets": [
+        "nav",
+        "h1",
+        "cta",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.catalog",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_no_leaks_ci"
+      ],
+      "rules": []
     },
     {
       "route": "/worlds",
@@ -788,6 +820,35 @@
       "rules": []
     },
     {
+      "route": "/drops/:id/thread",
+      "legacy_routes": [],
+      "surface_key": "drop_thread",
+      "ui_title": "thread",
+      "ui_nouns": [
+        "drop",
+        "thread",
+        "post"
+      ],
+      "lint_targets": [
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.catalog",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_no_leaks_ci"
+      ],
+      "rules": []
+    },
+    {
       "route": "/drops/:id/preview",
       "legacy_routes": [
         "/assets/:id/preview"
@@ -1045,7 +1106,8 @@
       "legacy_routes": [
         "/my-assets",
         "/owned-assets",
-        "/owned"
+        "/owned",
+        "/collection"
       ],
       "surface_key": "my_collection_owned",
       "ui_title": "my collection",
@@ -1285,7 +1347,8 @@
     {
       "route": "/collect",
       "legacy_routes": [
-        "/invest"
+        "/invest",
+        "/auctions"
       ],
       "surface_key": "collect_market",
       "ui_title": "collect",
@@ -1825,7 +1888,9 @@
     },
     {
       "route": "/showroom",
-      "legacy_routes": [],
+      "legacy_routes": [
+        "/explore"
+      ],
       "surface_key": "showroom",
       "ui_title": "showroom",
       "ui_nouns": [
@@ -2086,14 +2151,14 @@
     "/my-assets": "/my-collection",
     "/owned-assets": "/my-collection",
     "/owned": "/my-collection",
+    "/collection": "/my-collection",
     "/saved": "/library",
     "/bookmarks": "/library",
     "/studio": "/workshop",
     "/invest": "/collect",
+    "/auctions": "/collect",
     "/gallery": "/photos",
     "/townhall/gallery": "/townhall/photos",
-    "/collection": "/my-collection",
-    "/auctions": "/collect",
     "/explore": "/showroom"
   },
   "session_required_route_patterns": [
@@ -2123,7 +2188,7 @@
   ],
   "public_safe_route_patterns": [
     "/",
-    "/explore",
+    "/connect",
     "/worlds",
     "/watch",
     "/listen",
@@ -2139,11 +2204,11 @@
     "/drops/:id/properties",
     "/drops/:id/offers",
     "/drops/:id/activity",
+    "/drops/:id/thread",
     "/drops/:id/preview",
     "/drops/:id/preview/photos",
     "/certificates/:cert_id",
     "/auth/wallet-connect",
-    "/auctions",
     "/photos",
     "/townhall",
     "/townhall/watch",
@@ -2171,6 +2236,6 @@
     "route_count": 60,
     "public_safe_count": 37,
     "session_required_count": 23,
-    "legacy_redirect_count": 31
+    "legacy_redirect_count": 34
   }
 }

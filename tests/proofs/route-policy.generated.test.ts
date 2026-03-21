@@ -104,6 +104,10 @@ const redirectCases = [
     "targetPathname": "/my-collection"
   },
   {
+    "sourcePathname": "/collection",
+    "targetPathname": "/my-collection"
+  },
+  {
     "sourcePathname": "/saved",
     "targetPathname": "/library"
   },
@@ -120,20 +124,16 @@ const redirectCases = [
     "targetPathname": "/collect"
   },
   {
+    "sourcePathname": "/auctions",
+    "targetPathname": "/collect"
+  },
+  {
     "sourcePathname": "/gallery",
     "targetPathname": "/photos"
   },
   {
     "sourcePathname": "/townhall/gallery",
     "targetPathname": "/townhall/photos"
-  },
-  {
-    "sourcePathname": "/collection",
-    "targetPathname": "/my-collection"
-  },
-  {
-    "sourcePathname": "/auctions",
-    "targetPathname": "/collect"
   },
   {
     "sourcePathname": "/explore",
@@ -144,6 +144,13 @@ const metadataCases = [
   {
     "pathname": "/",
     "surfaceKey": "home",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
+    "pathname": "/connect",
+    "surfaceKey": "connect",
     "publicSafe": "true",
     "hasSession": false,
     "sessionRoles": []
@@ -267,6 +274,13 @@ const metadataCases = [
   {
     "pathname": "/drops/id-sample/activity",
     "surfaceKey": "drop_activity",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
+    "pathname": "/drops/id-sample/thread",
+    "surfaceKey": "drop_thread",
     "publicSafe": "true",
     "hasSession": false,
     "sessionRoles": []
