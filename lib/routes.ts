@@ -112,7 +112,8 @@ export const routes = {
   worldConversation: (worldId: string): Route => asRoute(`/worlds/${worldId}/conversation`),
   workshopModeration: (): Route => asRoute("/workshop/moderation"),
   collectListings: (): Route => asRoute("/collect/listings"),
-  collectListing: (listingId: string): Route => asRoute(`/collect/listings/${listingId}`)
+  collectListing: (listingId: string): Route => asRoute(`/collect/listings/${listingId}`),
+  worldMembership: (worldId: string): Route => asRoute(`/worlds/${worldId}/membership`)
 };
 
 export type AppRouteHelpers = typeof routes;

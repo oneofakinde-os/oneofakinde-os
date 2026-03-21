@@ -552,6 +552,18 @@ surfaces:
     contract_deps: ["openapi_v1.session", "openapi_v1.moderation"]
     proof_ids: ["p_session_required"]
 
+  - route: "/worlds/:id/membership"
+    legacy_routes: []
+    surface_key: "world_membership"
+    ui_title: "world membership"
+    ui_nouns: ["world", "membership", "patron"]
+    lint_targets: ["h1", "metadata_labels"]
+    roles: ["collector", "creator"]
+    public_safe: false
+    entitlement_rule: "none"
+    contract_deps: ["openapi_v1.session", "openapi_v1.worlds", "openapi_v1.memberships"]
+    proof_ids: ["p_session_required"]
+
   - route: "/worlds/:id/conversation"
     legacy_routes: []
     surface_key: "world_conversation"
@@ -560,6 +572,7 @@ surfaces:
     lint_targets: ["h1", "metadata_labels"]
     roles: ["collector", "creator"]
     public_safe: false
+    entitlement_rule: "membership_or_collect"
     contract_deps: ["openapi_v1.session", "openapi_v1.worlds"]
     proof_ids: ["p_session_required"]
 

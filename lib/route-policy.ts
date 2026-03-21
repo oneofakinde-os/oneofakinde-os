@@ -1,6 +1,14 @@
 import { getLegacyRedirect, getRouteMeta, isSessionRequiredRoute } from "./surface-map";
 import type { AccountRole } from "./domain/contracts";
 
+export type EntitlementRule =
+  | "none"
+  | "membership"
+  | "membership_or_collect"
+  | "patron"
+  | "ownership"
+  | "creator_only";
+
 export type RoutePolicyInput = {
   pathname: string;
   search: string;
@@ -18,6 +26,7 @@ export type RoutePolicyDecision =
   | {
       kind: "next";
       headers: Record<string, string>;
+      entitlementRule: EntitlementRule;
     };
 
 function toSignInRedirect(pathname: string, search: string): RoutePolicyDecision {
@@ -42,6 +51,24 @@ function getNonPublicRoles(pathname: string): AccountRole[] {
   }
 
   return meta.roles.filter((role): role is AccountRole => role === "collector" || role === "creator");
+}
+
+const VALID_ENTITLEMENT_RULES: ReadonlySet<string> = new Set([
+  "none",
+  "membership",
+  "membership_or_collect",
+  "patron",
+  "ownership",
+  "creator_only"
+]);
+
+function resolveEntitlementRule(meta: ReturnType<typeof getRouteMeta>): EntitlementRule {
+  if (!meta) return "none";
+  const raw = (meta as Record<string, unknown>).entitlement_rule;
+  if (typeof raw === "string" && VALID_ENTITLEMENT_RULES.has(raw)) {
+    return raw as EntitlementRule;
+  }
+  return "none";
 }
 
 export function evaluateRoutePolicy({
@@ -84,11 +111,13 @@ export function evaluateRoutePolicy({
   }
 
   const meta = getRouteMeta(pathname);
+  const entitlementRule = resolveEntitlementRule(meta);
 
   if (!meta) {
     return {
       kind: "next",
-      headers: {}
+      headers: {},
+      entitlementRule: "none"
     };
   }
 
@@ -96,7 +125,11 @@ export function evaluateRoutePolicy({
     kind: "next",
     headers: {
       "x-ook-surface-key": meta.surface_key,
-      "x-ook-public-safe": String(meta.public_safe)
-    }
+      "x-ook-public-safe": String(meta.public_safe),
+      ...(entitlementRule !== "none"
+        ? { "x-ook-entitlement-rule": entitlementRule }
+        : {})
+    },
+    entitlementRule
   };
 }
