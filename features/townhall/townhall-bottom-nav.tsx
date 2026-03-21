@@ -1,5 +1,6 @@
 import { routes } from "@/lib/routes";
 import Link from "next/link";
+import { LiveOnAirIndicator } from "./live-on-air-indicator";
 import {
   AgoraIcon,
   BookIcon,
@@ -51,7 +52,10 @@ export function TownhallBottomNav({
         <HeadphonesIcon className="townhall-bottom-icon-glyph" />
       </Link>
       <Link href={routes.townhallLive()} className={navLinkClass(activeMode === "live")} aria-label="live">
-        <RadioIcon className="townhall-bottom-icon-glyph" />
+        <span style={{ position: "relative" }}>
+          <RadioIcon className="townhall-bottom-icon-glyph" />
+          <LiveOnAirIndicator />
+        </span>
       </Link>
       <Link href={routes.townhallRead()} className={navLinkClass(activeMode === "read")} aria-label="read">
         <BookIcon className="townhall-bottom-icon-glyph" />

@@ -6926,6 +6926,16 @@ export const commerceBffService = {
 
   createCheckoutSession: createCheckoutSessionForPayment,
 
+  async getLiveSessionById(liveSessionId: string): Promise<LiveSession | null> {
+    return withDatabase(async (db) => {
+      const record = db.liveSessions.find((entry) => entry.id === liveSessionId) ?? null;
+      if (!record) {
+        return { persist: false, result: null };
+      }
+      return { persist: false, result: toLiveSession(db, record) };
+    });
+  },
+
   async getStudioConversationThread(
     accountId: string | null,
     studioHandle: string,
@@ -10919,5 +10929,141 @@ export const commerceBffService = {
     }
 
     return applyParsedStripeWebhook(parsed.event);
+  },
+
+  async joinOrLeaveWorld(
+    accountId: string,
+    worldId: string,
+    action: "join" | "leave"
+  ): Promise<
+    | {
+        ok: true;
+        membership: {
+          status: "active" | "expired";
+          worldId: string;
+          studioHandle: string;
+        };
+      }
+    | { ok: false; reason: "not_found" | "already_member" | "not_member" }
+  > {
+    return withDatabase<
+      | {
+          ok: true;
+          membership: {
+            status: "active" | "expired";
+            worldId: string;
+            studioHandle: string;
+          };
+        }
+      | { ok: false; reason: "not_found" | "already_member" | "not_member" }
+    >(async (db) => {
+      const account = findAccountById(db, accountId);
+      const world = findWorldById(db, worldId);
+      if (!account || !world) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "not_found" as const
+          }
+        };
+      }
+
+      const nowIso = new Date().toISOString();
+
+      if (action === "join") {
+        const existing = db.membershipEntitlements.find(
+          (entitlement) =>
+            entitlement.accountId === account.id &&
+            entitlement.worldId === world.id &&
+            entitlement.status === "active"
+        );
+
+        if (existing) {
+          return {
+            persist: false,
+            result: {
+              ok: false as const,
+              reason: "already_member" as const
+            }
+          };
+        }
+
+        const record: MembershipEntitlementRecord = {
+          id: `ment_${randomUUID()}`,
+          accountId: account.id,
+          studioHandle: world.studioHandle,
+          worldId: world.id,
+          status: "active",
+          startedAt: nowIso,
+          endsAt: null
+        };
+
+        db.membershipEntitlements.push(record);
+
+        return {
+          persist: true,
+          result: {
+            ok: true as const,
+            membership: {
+              status: "active" as const,
+              worldId: world.id,
+              studioHandle: world.studioHandle
+            }
+          }
+        };
+      }
+
+      // action === "leave"
+      const active = db.membershipEntitlements.find(
+        (entitlement) =>
+          entitlement.accountId === account.id &&
+          entitlement.worldId === world.id &&
+          entitlement.status === "active"
+      );
+
+      if (!active) {
+        return {
+          persist: false,
+          result: {
+            ok: false as const,
+            reason: "not_member" as const
+          }
+        };
+      }
+
+      active.status = "expired";
+      active.endsAt = nowIso;
+
+      return {
+        persist: true,
+        result: {
+          ok: true as const,
+          membership: {
+            status: "expired" as const,
+            worldId: world.id,
+            studioHandle: world.studioHandle
+          }
+        }
+      };
+    });
+  },
+
+  async hasActiveMembership(
+    accountId: string,
+    worldId: string
+  ): Promise<boolean> {
+    return withDatabase<boolean>(async (db) => {
+      const account = findAccountById(db, accountId);
+      const world = findWorldById(db, worldId);
+      if (!account || !world) {
+        return { persist: false, result: false };
+      }
+
+      return {
+        persist: false,
+        result: hasActiveMembershipForWorld(db, account, world)
+      };
+    });
   }
 };
