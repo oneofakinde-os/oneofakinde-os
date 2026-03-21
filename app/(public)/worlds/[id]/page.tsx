@@ -1,3 +1,4 @@
+import "@/features/patron/patron-badge.css";
 import { WorldDetailScreen } from "@/features/world/world-detail-screen";
 import { commerceBffService } from "@/lib/bff/service";
 import type { CollectLiveSessionSnapshot } from "@/lib/domain/contracts";

@@ -1,3 +1,4 @@
+import "@/features/patron/patron-badge.css";
 import { CollectorPublicScreen } from "@/features/collector/collector-public-screen";
 import { commerceBffService } from "@/lib/bff/service";
 import { getOptionalSession } from "@/lib/server/session";

@@ -1,5 +1,4 @@
 import type { PatronStatus } from "@/lib/domain/contracts";
-import "./patron-badge.css";
 
 type PatronBadgeProps = {
   recognitionTier: "founding" | "active";

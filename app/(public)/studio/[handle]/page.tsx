@@ -1,3 +1,4 @@
+import "@/features/patron/patron-badge.css";
 import { StudioScreen } from "@/features/studio/studio-screen";
 import { commerceBffService } from "@/lib/bff/service";
 import { gateway } from "@/lib/gateway";
