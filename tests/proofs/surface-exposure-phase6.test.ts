@@ -231,6 +231,7 @@ test("proof: world detail renders visual identity, access rails, conversation, a
       world: sampleWorld,
       drops: [sampleDrop],
       session: sampleSession,
+      isMember: false,
       worldCollectSnapshot: sampleWorldCollectSnapshot,
       worldCollectFullWorldUpgradePreview: sampleWorldCollectFullWorldUpgradePreview,
       worldPatronRosterSnapshot: sampleWorldPatronRosterSnapshot,

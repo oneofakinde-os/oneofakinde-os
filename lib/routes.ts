@@ -42,6 +42,7 @@ export const routes = {
   photosHub: (): Route => asRoute("/photos"),
   liveHub: (): Route => asRoute("/live"),
   liveNow: (): Route => asRoute("/live"),
+  liveSession: (sessionId: string): Route => asRoute(`/live/${sessionId}`),
 
   worlds: (): Route => asRoute("/worlds"),
   world: (worldId: string): Route => asRoute(`/worlds/${worldId}`),

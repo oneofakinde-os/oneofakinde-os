@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-21T03:25:39.050Z",
+  "generated_at": "2026-03-21T06:54:09.052Z",
   "source_path": "config/surface-map.source.txt",
   "source_metadata": {
     "format": "lintable_txt_v1",
@@ -412,6 +412,38 @@
       "public_safe": true,
       "contract_deps": [
         "canon_feature_flags",
+        "openapi_v1.catalog",
+        "openapi_v1.search",
+        "schema_v1.catalog",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_no_leaks_ci"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/live/:session_id",
+      "legacy_routes": [],
+      "surface_key": "live_session_detail",
+      "ui_title": "live session",
+      "ui_nouns": [
+        "live",
+        "drop",
+        "studio"
+      ],
+      "lint_targets": [
+        "h1",
+        "metadata_labels",
+        "empty_state"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
         "openapi_v1.catalog",
         "openapi_v1.search",
         "schema_v1.catalog",
@@ -2223,6 +2255,7 @@
     "/listen",
     "/read",
     "/live-now",
+    "/live/:session_id",
     "/auth/sign-in",
     "/auth/sign-up",
     "/studio/:handle",
@@ -2264,8 +2297,8 @@
     "canon_payments_stripe"
   ],
   "stats": {
-    "route_count": 61,
-    "public_safe_count": 38,
+    "route_count": 62,
+    "public_safe_count": 39,
     "session_required_count": 23,
     "legacy_redirect_count": 34
   }
