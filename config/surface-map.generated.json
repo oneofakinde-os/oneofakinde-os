@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-21T20:56:32.015Z",
+  "generated_at": "2026-03-21T21:09:18.354Z",
   "source_path": "config/surface-map.source.txt",
   "source_metadata": {
     "format": "lintable_txt_v1",
@@ -1354,6 +1354,35 @@
       ]
     },
     {
+      "route": "/collect/listings/:listing_id",
+      "legacy_routes": [],
+      "surface_key": "listing_detail",
+      "ui_title": "listing detail",
+      "ui_nouns": [
+        "listing",
+        "drop",
+        "offer"
+      ],
+      "lint_targets": [
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.catalog",
+        "openapi_v1.collect"
+      ],
+      "proof_ids": [
+        "p_public_safe_render"
+      ],
+      "rules": []
+    },
+    {
       "route": "/workshop/moderation",
       "legacy_routes": [],
       "surface_key": "workshop_moderation",
@@ -2388,6 +2417,7 @@
     "/drops/:id/preview/photos",
     "/certificates/:cert_id",
     "/badges/:badge_id",
+    "/collect/listings/:listing_id",
     "/auth/wallet-connect",
     "/photos",
     "/townhall",
@@ -2414,8 +2444,8 @@
     "canon_payments_stripe"
   ],
   "stats": {
-    "route_count": 66,
-    "public_safe_count": 40,
+    "route_count": 67,
+    "public_safe_count": 41,
     "session_required_count": 26,
     "legacy_redirect_count": 34
   }

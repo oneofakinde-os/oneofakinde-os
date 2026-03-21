@@ -400,6 +400,13 @@ const metadataCases = [
     ]
   },
   {
+    "pathname": "/collect/listings/listing_id-sample",
+    "surfaceKey": "listing_detail",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
     "pathname": "/workshop/moderation",
     "surfaceKey": "workshop_moderation",
     "publicSafe": "false",
@@ -1041,6 +1048,9 @@ const proofPublicSafeCases = [
   },
   {
     "pathname": "/certificates/cert_id-sample"
+  },
+  {
+    "pathname": "/collect/listings/listing_id-sample"
   },
   {
     "pathname": "/townhall"

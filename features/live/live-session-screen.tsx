@@ -1,4 +1,5 @@
 import { AppShell } from "@/features/shell/app-shell";
+import { LiveSessionConversation } from "@/features/live/live-session-conversation";
 import type {
   LiveSession,
   LiveSessionConversationThread,
@@ -142,31 +143,11 @@ export function LiveSessionScreen({
         </section>
       )}
 
-      <section className="slice-panel" data-testid="live-session-conversation">
-        <h3 className="slice-heading">conversation</h3>
-        {conversation && conversation.messages.length > 0 ? (
-          <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-            {conversation.messages.map((message) => (
-              <li
-                key={message.id}
-                style={{
-                  padding: "0.5rem 0",
-                  borderBottom: "1px solid rgba(255,255,255,0.08)"
-                }}
-              >
-                <p className="slice-label" style={{ fontWeight: 600 }}>
-                  @{message.authorHandle}
-                </p>
-                <p className="slice-copy">{message.body}</p>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="slice-copy" style={{ opacity: 0.5 }}>
-            {viewer ? "no messages yet" : "sign in to view conversation"}
-          </p>
-        )}
-      </section>
+      <LiveSessionConversation
+        liveSessionId={liveSession.id}
+        initialThread={conversation}
+        canPost={Boolean(viewer)}
+      />
 
       <div className="slice-button-row" style={{ marginTop: "1rem" }}>
         <Link href={routes.liveHub()} className="slice-button">
