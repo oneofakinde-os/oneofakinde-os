@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-21T09:20:03.755Z",
+  "generated_at": "2026-03-21T20:45:57.460Z",
   "source_path": "config/surface-map.source.txt",
   "source_metadata": {
     "format": "lintable_txt_v1",
@@ -1354,6 +1354,60 @@
       ]
     },
     {
+      "route": "/workshop/moderation",
+      "legacy_routes": [],
+      "surface_key": "workshop_moderation",
+      "ui_title": "moderation dashboard",
+      "ui_nouns": [
+        "moderation",
+        "queue"
+      ],
+      "lint_targets": [
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "creator"
+      ],
+      "public_safe": false,
+      "contract_deps": [
+        "openapi_v1.session",
+        "openapi_v1.moderation"
+      ],
+      "proof_ids": [
+        "p_session_required"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/worlds/:id/conversation",
+      "legacy_routes": [],
+      "surface_key": "world_conversation",
+      "ui_title": "world conversation",
+      "ui_nouns": [
+        "world",
+        "conversation",
+        "message"
+      ],
+      "lint_targets": [
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "collector",
+        "creator"
+      ],
+      "public_safe": false,
+      "contract_deps": [
+        "openapi_v1.session",
+        "openapi_v1.worlds"
+      ],
+      "proof_ids": [
+        "p_session_required"
+      ],
+      "rules": []
+    },
+    {
       "route": "/auth/wallet-connect",
       "legacy_routes": [],
       "surface_key": "auth_wallet_connect",
@@ -2263,6 +2317,8 @@
     "/my-collection",
     "/library",
     "/workshop",
+    "/workshop/moderation",
+    "/worlds/:id/conversation",
     "/auth/wallet-link",
     "/onboarding/profile-setup",
     "/collect",
@@ -2328,9 +2384,9 @@
     "canon_payments_stripe"
   ],
   "stats": {
-    "route_count": 63,
+    "route_count": 65,
     "public_safe_count": 40,
-    "session_required_count": 23,
+    "session_required_count": 25,
     "legacy_redirect_count": 34
   }
 }

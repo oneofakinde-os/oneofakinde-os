@@ -2,7 +2,7 @@ import type { Session } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
 import Link from "next/link";
 
-type AppShellNavKey = "townhall" | "collect" | "my_collection" | "library" | "worlds";
+type AppShellNavKey = "townhall" | "collect" | "my_collection" | "library" | "worlds" | "workshop";
 
 type AppShellProps = {
   title: string;

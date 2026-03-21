@@ -1,4 +1,5 @@
 import { DropDetailScreen } from "@/features/drops/drop-detail-screen";
+import { commerceBffService } from "@/lib/bff/service";
 import { gateway } from "@/lib/gateway";
 import { routes } from "@/lib/routes";
 import { getOptionalSession } from "@/lib/server/session";
@@ -50,6 +51,13 @@ export default async function DropDetailPage({ params, searchParams }: DropDetai
     notFound();
   }
 
+  const [ownershipHistory, offersResult] = await Promise.all([
+    commerceBffService.getDropOwnershipHistory(id),
+    session
+      ? commerceBffService.getCollectDropOffers(id, session.accountId)
+      : Promise.resolve(null)
+  ]);
+
   return (
     <DropDetailScreen
       drop={drop}
@@ -57,6 +65,8 @@ export default async function DropDetailPage({ params, searchParams }: DropDetai
       liveArtifacts={liveArtifacts}
       session={session}
       backHref={toHrefObject(returnTo)}
+      ownershipHistory={ownershipHistory}
+      recentOffers={offersResult?.offers ?? []}
     />
   );
 }

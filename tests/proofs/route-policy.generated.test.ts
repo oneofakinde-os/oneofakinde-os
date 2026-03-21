@@ -400,6 +400,24 @@ const metadataCases = [
     ]
   },
   {
+    "pathname": "/workshop/moderation",
+    "surfaceKey": "workshop_moderation",
+    "publicSafe": "false",
+    "hasSession": true,
+    "sessionRoles": [
+      "creator"
+    ]
+  },
+  {
+    "pathname": "/worlds/id-sample/conversation",
+    "surfaceKey": "world_conversation",
+    "publicSafe": "false",
+    "hasSession": true,
+    "sessionRoles": [
+      "collector"
+    ]
+  },
+  {
     "pathname": "/auth/wallet-connect",
     "surfaceKey": "auth_wallet_connect",
     "publicSafe": "true",
@@ -661,6 +679,12 @@ const sessionCases = [
     "pathname": "/workshop"
   },
   {
+    "pathname": "/workshop/moderation"
+  },
+  {
+    "pathname": "/worlds/id-sample/conversation"
+  },
+  {
     "pathname": "/auth/wallet-link"
   },
   {
@@ -779,6 +803,21 @@ const roleRequiredCases = [
       "creator"
     ],
     "disallowedRole": "collector"
+  },
+  {
+    "pathname": "/workshop/moderation",
+    "allowedRoles": [
+      "creator"
+    ],
+    "disallowedRole": "collector"
+  },
+  {
+    "pathname": "/worlds/id-sample/conversation",
+    "allowedRoles": [
+      "collector",
+      "creator"
+    ],
+    "disallowedRole": null
   },
   {
     "pathname": "/auth/wallet-link",
@@ -911,6 +950,12 @@ const proofSessionCases = [
   },
   {
     "pathname": "/workshop"
+  },
+  {
+    "pathname": "/workshop/moderation"
+  },
+  {
+    "pathname": "/worlds/id-sample/conversation"
   },
   {
     "pathname": "/auth/wallet-link"

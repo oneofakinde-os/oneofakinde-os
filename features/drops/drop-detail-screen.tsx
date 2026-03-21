@@ -1,9 +1,12 @@
 import type { UrlObject } from "url";
+import { MarketActivityCard } from "@/features/collect/market-activity-card";
 import { formatUsd } from "@/features/shared/format";
 import type {
+  CollectOffer,
   DropLineageSnapshot,
   Drop,
   DropLiveArtifactsSnapshot,
+  DropOwnershipHistory,
   Session
 } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
@@ -18,6 +21,8 @@ type DropDetailScreenProps = {
   liveArtifacts?: DropLiveArtifactsSnapshot | null;
   drop: Drop;
   session: Session | null;
+  ownershipHistory?: DropOwnershipHistory | null;
+  recentOffers?: CollectOffer[];
 };
 
 const PRICE_HISTORY = [18, 22, 19, 24, 26, 28, 31, 29, 34, 36, 39, 42];
@@ -59,7 +64,9 @@ export function DropDetailScreen({
   session,
   backHref,
   lineage,
-  liveArtifacts
+  liveArtifacts,
+  ownershipHistory,
+  recentOffers
 }: DropDetailScreenProps) {
   const collectHref = session
     ? routes.collectDrop(drop.id)
@@ -267,6 +274,16 @@ export function DropDetailScreen({
           </dl>
         </details>
       </aside>
+
+      {ownershipHistory || (recentOffers && recentOffers.length > 0) ? (
+        <MarketActivityCard
+          dropId={drop.id}
+          dropTitle={drop.title}
+          ownershipHistory={ownershipHistory ?? null}
+          recentOffers={recentOffers ?? []}
+          layout="compact"
+        />
+      ) : null}
     </main>
   );
 }
