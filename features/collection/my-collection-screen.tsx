@@ -1,5 +1,7 @@
 import { AppShell } from "@/features/shell/app-shell";
 import { ResaleListingForm } from "@/features/collect/resale-listing-form";
+import { CollectionCurationPanel } from "@/features/collection/collection-curation-panel";
+import { ShowcaseToggle } from "@/features/collection/collection-curation-toolbar";
 import { formatUsd } from "@/features/shared/format";
 import type {
   Certificate,
@@ -138,9 +140,10 @@ export function MyCollectionScreen({
         {collection.ownedDrops.length === 0 ? (
           <p className="slice-copy">your my collection is empty. explore and collect a drop to begin.</p>
         ) : (
-          <ul className="slice-grid" aria-label="my collection drop list">
-            {collection.ownedDrops.map((owned) => (
-              <li key={owned.certificateId} className="slice-drop-card">
+          <CollectionCurationPanel
+            ownedDrops={collection.ownedDrops}
+            renderDrop={(owned, { isShowcased, onShowcaseToggle }) => (
+              <>
                 <p className="slice-label">{owned.drop.worldLabel}</p>
                 <h2 className="slice-title">{owned.drop.title}</h2>
                 <p className="slice-copy">{owned.drop.synopsis}</p>
@@ -164,15 +167,20 @@ export function MyCollectionScreen({
                   <Link href={routes.certificate(owned.certificateId)} className="slice-button alt">
                     certificate
                   </Link>
+                  <ShowcaseToggle
+                    dropId={owned.drop.id}
+                    isShowcased={isShowcased}
+                    onToggle={onShowcaseToggle}
+                  />
                 </div>
                 <ResaleListingForm
                   dropId={owned.drop.id}
                   dropTitle={owned.drop.title}
                   originalPriceUsd={owned.drop.priceUsd}
                 />
-              </li>
-            ))}
-          </ul>
+              </>
+            )}
+          />
         )}
       </section>
     </AppShell>
