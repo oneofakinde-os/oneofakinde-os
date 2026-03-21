@@ -9,6 +9,8 @@ import type {
 import { routes } from "@/lib/routes";
 import Link from "next/link";
 import { DropThreadPanel } from "./drop-thread-panel";
+import { MarketSentimentBadge } from "./market-sentiment-badge";
+import { PriceHistoryChart } from "./price-history-chart";
 
 type DropDetailScreenProps = {
   backHref?: UrlObject;
@@ -96,7 +98,10 @@ export function DropDetailScreen({
           </aside>
 
           <div className="dropflow-content">
-            <p className="dropflow-meta">@{drop.studioHandle} · {formatUsd(drop.priceUsd)}</p>
+            <p className="dropflow-meta">
+              @{drop.studioHandle} · {formatUsd(drop.priceUsd)}{" "}
+              <MarketSentimentBadge dropId={drop.id} />
+            </p>
             <h1 className="dropflow-title">{drop.title}</h1>
             <p className="dropflow-subtitle">
               {drop.seasonLabel} · {drop.episodeLabel}
@@ -143,6 +148,8 @@ export function DropDetailScreen({
               <span key={`${point}-${index}`} style={{ height: `${point + 18}%` }} />
             ))}
           </div>
+
+          <PriceHistoryChart dropId={drop.id} />
 
           <dl className="dropflow-metadata-grid">
             <div>

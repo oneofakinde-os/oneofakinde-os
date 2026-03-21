@@ -11065,5 +11065,141 @@ export const commerceBffService = {
         result: hasActiveMembershipForWorld(db, account, world)
       };
     });
+  },
+
+  async followStudio(
+    accountId: string,
+    studioHandle: string
+  ): Promise<{ ok: true; following: boolean; followerCount: number } | { ok: false; reason: "not_found" | "already_following" }> {
+    return withDatabase<
+      { ok: true; following: boolean; followerCount: number } | { ok: false; reason: "not_found" | "already_following" }
+    >(async (db) => {
+      const account = findAccountById(db, accountId);
+      const studio = db.catalog.studios.find((s) => s.handle.toLowerCase() === studioHandle.toLowerCase());
+      if (!account || !studio) {
+        return { persist: false, result: { ok: false as const, reason: "not_found" as const } };
+      }
+
+      const existing = db.studioFollows.find(
+        (f) => f.accountId === account.id && f.studioHandle.toLowerCase() === studio.handle.toLowerCase()
+      );
+      if (existing) {
+        return { persist: false, result: { ok: false as const, reason: "already_following" as const } };
+      }
+
+      db.studioFollows.push({
+        id: `sf_${randomUUID()}`,
+        accountId: account.id,
+        studioHandle: studio.handle,
+        createdAt: new Date().toISOString()
+      });
+
+      const followerCount = db.studioFollows.filter(
+        (f) => f.studioHandle.toLowerCase() === studio.handle.toLowerCase()
+      ).length;
+
+      return {
+        persist: true,
+        result: { ok: true as const, following: true, followerCount }
+      };
+    });
+  },
+
+  async unfollowStudio(
+    accountId: string,
+    studioHandle: string
+  ): Promise<{ ok: true; following: boolean; followerCount: number } | { ok: false; reason: "not_found" | "not_following" }> {
+    return withDatabase<
+      { ok: true; following: boolean; followerCount: number } | { ok: false; reason: "not_found" | "not_following" }
+    >(async (db) => {
+      const account = findAccountById(db, accountId);
+      const studio = db.catalog.studios.find((s) => s.handle.toLowerCase() === studioHandle.toLowerCase());
+      if (!account || !studio) {
+        return { persist: false, result: { ok: false as const, reason: "not_found" as const } };
+      }
+
+      const index = db.studioFollows.findIndex(
+        (f) => f.accountId === account.id && f.studioHandle.toLowerCase() === studio.handle.toLowerCase()
+      );
+      if (index === -1) {
+        return { persist: false, result: { ok: false as const, reason: "not_following" as const } };
+      }
+
+      db.studioFollows.splice(index, 1);
+
+      const followerCount = db.studioFollows.filter(
+        (f) => f.studioHandle.toLowerCase() === studio.handle.toLowerCase()
+      ).length;
+
+      return {
+        persist: true,
+        result: { ok: true as const, following: false, followerCount }
+      };
+    });
+  },
+
+  async isFollowingStudio(accountId: string, studioHandle: string): Promise<boolean> {
+    return withDatabase<boolean>(async (db) => {
+      const exists = db.studioFollows.some(
+        (f) => f.accountId === accountId && f.studioHandle.toLowerCase() === studioHandle.toLowerCase()
+      );
+      return { persist: false, result: exists };
+    });
+  },
+
+  async getStudioFollowerCount(studioHandle: string): Promise<number> {
+    return withDatabase<number>(async (db) => {
+      const count = db.studioFollows.filter(
+        (f) => f.studioHandle.toLowerCase() === studioHandle.toLowerCase()
+      ).length;
+      return { persist: false, result: count };
+    });
+  },
+
+  async getCollectorPublic(handle: string): Promise<{
+    handle: string;
+    displayName: string;
+    roles: string[];
+    collectionCount: number;
+    badgeCount: number;
+    patronWorlds: Array<{ worldId: string; worldTitle: string; status: string }>;
+  } | null> {
+    return withDatabase<{
+      handle: string;
+      displayName: string;
+      roles: string[];
+      collectionCount: number;
+      badgeCount: number;
+      patronWorlds: Array<{ worldId: string; worldTitle: string; status: string }>;
+    } | null>(async (db) => {
+      const account = findAccountByHandle(db, handle);
+      if (!account) {
+        return { persist: false, result: null };
+      }
+
+      const collectionCount = db.ownerships.filter((o) => o.accountId === account.id).length;
+      const badgeCount = db.receiptBadges.filter((b) => b.ownerAccountId === account.id).length;
+      const patronRecords = db.patrons.filter((p) => p.accountId === account.id);
+      const patronWorlds = patronRecords
+        .map((p) => {
+          const world = db.catalog.worlds.find((w) => w.studioHandle === p.studioHandle);
+          return world
+            ? { worldId: world.id, worldTitle: world.title, status: p.status }
+            : null;
+        })
+        .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
+
+      return {
+        persist: false,
+        result: {
+          handle: account.handle,
+          displayName: account.displayName,
+          roles: account.roles,
+          collectionCount,
+          badgeCount,
+          patronWorlds
+        }
+      };
+    });
   }
 };

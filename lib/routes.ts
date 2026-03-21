@@ -105,7 +105,9 @@ export const routes = {
   following: (): Route => asRoute("/following"),
 
   certificate: (certificateId: string): Route => asRoute(`/certificates/${certificateId}`),
-  badge: (badgeId: string): Route => asRoute(`/badges/${badgeId}`)
+  badge: (badgeId: string): Route => asRoute(`/badges/${badgeId}`),
+
+  collector: (handle: string): Route => asRoute(`/collectors/${handle}`)
 };
 
 export type AppRouteHelpers = typeof routes;

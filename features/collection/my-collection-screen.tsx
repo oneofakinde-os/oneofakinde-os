@@ -1,4 +1,5 @@
 import { AppShell } from "@/features/shell/app-shell";
+import { ResaleListingForm } from "@/features/collect/resale-listing-form";
 import { formatUsd } from "@/features/shared/format";
 import type {
   Certificate,
@@ -164,6 +165,11 @@ export function MyCollectionScreen({
                     certificate
                   </Link>
                 </div>
+                <ResaleListingForm
+                  dropId={owned.drop.id}
+                  dropTitle={owned.drop.title}
+                  originalPriceUsd={owned.drop.priceUsd}
+                />
               </li>
             ))}
           </ul>
