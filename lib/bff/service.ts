@@ -11156,13 +11156,40 @@ export const commerceBffService = {
     });
   },
 
+  async getViewerPatronIndicator(
+    accountId: string,
+    studioHandle: string
+  ): Promise<{ recognitionTier: "founding" | "active"; status: "active" | "lapsed"; committedAt: string } | null> {
+    return withDatabase<{
+      recognitionTier: "founding" | "active";
+      status: "active" | "lapsed";
+      committedAt: string;
+    } | null>(async (db) => {
+      const patron = db.patrons.find(
+        (p) => p.accountId === accountId && p.studioHandle.toLowerCase() === studioHandle.toLowerCase()
+      );
+      if (!patron) {
+        return { persist: false, result: null };
+      }
+      const studioPatrons = db.patrons
+        .filter((p) => p.studioHandle.toLowerCase() === studioHandle.toLowerCase() && p.status === "active")
+        .sort((a, b) => a.committedAt.localeCompare(b.committedAt));
+      const foundingIds = new Set(studioPatrons.slice(0, 3).map((p) => p.id));
+      const recognitionTier: "founding" | "active" = foundingIds.has(patron.id) ? "founding" : "active";
+      return {
+        persist: false,
+        result: { recognitionTier, status: patron.status, committedAt: patron.committedAt }
+      };
+    });
+  },
+
   async getCollectorPublic(handle: string): Promise<{
     handle: string;
     displayName: string;
     roles: string[];
     collectionCount: number;
     badgeCount: number;
-    patronWorlds: Array<{ worldId: string; worldTitle: string; status: string }>;
+    patronWorlds: Array<{ worldId: string; worldTitle: string; status: string; recognitionTier: "founding" | "active" }>;
   } | null> {
     return withDatabase<{
       handle: string;
@@ -11170,7 +11197,7 @@ export const commerceBffService = {
       roles: string[];
       collectionCount: number;
       badgeCount: number;
-      patronWorlds: Array<{ worldId: string; worldTitle: string; status: string }>;
+      patronWorlds: Array<{ worldId: string; worldTitle: string; status: string; recognitionTier: "founding" | "active" }>;
     } | null>(async (db) => {
       const account = findAccountByHandle(db, handle);
       if (!account) {
@@ -11183,9 +11210,13 @@ export const commerceBffService = {
       const patronWorlds = patronRecords
         .map((p) => {
           const world = db.catalog.worlds.find((w) => w.studioHandle === p.studioHandle);
-          return world
-            ? { worldId: world.id, worldTitle: world.title, status: p.status }
-            : null;
+          if (!world) return null;
+          const studioPatrons = db.patrons
+            .filter((sp) => sp.studioHandle === p.studioHandle && sp.status === "active")
+            .sort((a, b) => a.committedAt.localeCompare(b.committedAt));
+          const foundingIds = new Set(studioPatrons.slice(0, 3).map((sp) => sp.id));
+          const recognitionTier: "founding" | "active" = foundingIds.has(p.id) ? "founding" : "active";
+          return { worldId: world.id, worldTitle: world.title, status: p.status, recognitionTier };
         })
         .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
 

@@ -25,10 +25,11 @@ export default async function StudioCanonicalPage({ params }: StudioPageProps) {
     await Promise.all(studio.worldIds.map((worldId) => gateway.getWorldById(worldId)))
   ).filter((world): world is NonNullable<typeof world> => Boolean(world));
 
-  const [membershipEntitlements, viewerFollowing, followerCount] = await Promise.all([
+  const [membershipEntitlements, viewerFollowing, followerCount, viewerPatronIndicator] = await Promise.all([
     session ? gateway.listMembershipEntitlements(session.accountId) : Promise.resolve([]),
     session ? commerceBffService.isFollowingStudio(session.accountId, handle) : Promise.resolve(false),
-    commerceBffService.getStudioFollowerCount(handle)
+    commerceBffService.getStudioFollowerCount(handle),
+    session ? commerceBffService.getViewerPatronIndicator(session.accountId, handle) : Promise.resolve(null)
   ]);
 
   const activeStudioMemberships = membershipEntitlements.filter(
@@ -59,6 +60,7 @@ export default async function StudioCanonicalPage({ params }: StudioPageProps) {
       }}
       viewerFollowing={viewerFollowing}
       followerCount={followerCount}
+      viewerPatronIndicator={viewerPatronIndicator}
     />
   );
 }
