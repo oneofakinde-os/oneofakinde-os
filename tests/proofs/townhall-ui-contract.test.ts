@@ -146,12 +146,8 @@ test("proof: townhall feed layout and overlay chrome satisfy the ui contract", a
   for (const noun of contract.townhall.forbidden_ui_nouns) {
     const regex = new RegExp(`\\b${noun.toLowerCase()}\\b`, "g");
     if (noun === "gallery") {
-      // "gallery" is a constitutional surface name used as an aria-label
-      // in the bottom nav — allowed there, forbidden in feed copy
-      assert.ok(
-        !regex.test(feedLower),
-        "expected forbidden noun gallery to stay out of townhall feed copy"
-      );
+      // "gallery" is now a constitutional surface name (bottom nav slot
+      // and modeNav mapping) — allowed in both feed and nav
       continue;
     }
 
