@@ -123,11 +123,22 @@ export function BookIcon(props: TownhallIconProps) {
 export function FilmIcon(props: TownhallIconProps) {
   return (
     <BaseIcon {...props}>
-      <rect x={4.5} y={6.5} width={15} height={11} rx={1.4} />
-      <path d="M8.5 6.5v11" />
-      <path d="M15.5 6.5v11" />
-      <path d="M4.5 10.2h15" />
-      <path d="M4.5 13.8h15" />
+      <rect x={4} y={5} width={16} height={14} rx={1} />
+      {/* top sprocket holes */}
+      <path d="M6.5 5v1.8" />
+      <path d="M9.5 5v1.8" />
+      <path d="M12 5v1.8" />
+      <path d="M14.5 5v1.8" />
+      <path d="M17.5 5v1.8" />
+      {/* bottom sprocket holes */}
+      <path d="M6.5 17.2v1.8" />
+      <path d="M9.5 17.2v1.8" />
+      <path d="M12 17.2v1.8" />
+      <path d="M14.5 17.2v1.8" />
+      <path d="M17.5 17.2v1.8" />
+      {/* frame lines */}
+      <path d="M4 6.8h16" />
+      <path d="M4 17.2h16" />
     </BaseIcon>
   );
 }
@@ -135,8 +146,8 @@ export function FilmIcon(props: TownhallIconProps) {
 export function CameraIcon(props: TownhallIconProps) {
   return (
     <BaseIcon {...props}>
-      <path d="M8.2 7.2 9.3 5.5h5.4l1.1 1.7h2.7v11.3H5.5V7.2z" />
-      <circle cx={12} cy={12.8} r={3.2} />
+      <rect x={4.5} y={5} width={15} height={14} rx={1} />
+      <rect x={6.5} y={7} width={11} height={10} rx={0.6} />
     </BaseIcon>
   );
 }
@@ -144,22 +155,30 @@ export function CameraIcon(props: TownhallIconProps) {
 export function RadioIcon(props: TownhallIconProps) {
   return (
     <BaseIcon {...props}>
-      <circle cx={12} cy={14.2} r={2.3} />
-      <path d="M12 8.8v-3" />
-      <path d="M8.6 11.1a4.8 4.8 0 0 0 0 6.2" />
-      <path d="M15.4 11.1a4.8 4.8 0 0 1 0 6.2" />
-      <path d="M6.1 8.7a8.2 8.2 0 0 0 0 11" />
-      <path d="M17.9 8.7a8.2 8.2 0 0 1 0 11" />
+      {/* tower body */}
+      <path d="M10 20 12 10 14 20" />
+      <path d="M10.5 16h3" />
+      {/* antenna mast */}
+      <path d="M12 10V6" />
+      {/* signal rings */}
+      <path d="M9.2 7.8a4 4 0 0 1 5.6 0" />
+      <path d="M7.2 5.8a7 7 0 0 1 9.6 0" />
+      <circle cx={12} cy={10} r={1} />
     </BaseIcon>
   );
 }
 
-export function ConnectIcon(props: TownhallIconProps) {
+export function AgoraIcon(props: TownhallIconProps) {
   return (
     <BaseIcon {...props}>
-      <circle cx={9} cy={9} r={3.5} />
-      <circle cx={15} cy={15} r={3.5} />
-      <path d="M12.1 7.4 16.6 11.9" />
+      {/* nucleus */}
+      <circle cx={12} cy={12} r={1.8} />
+      {/* orbital 1 — horizontal ellipse */}
+      <ellipse cx={12} cy={12} rx={8.5} ry={3.5} />
+      {/* orbital 2 — tilted 60° */}
+      <ellipse cx={12} cy={12} rx={8.5} ry={3.5} transform="rotate(60 12 12)" />
+      {/* orbital 3 — tilted -60° */}
+      <ellipse cx={12} cy={12} rx={8.5} ry={3.5} transform="rotate(-60 12 12)" />
     </BaseIcon>
   );
 }
@@ -167,9 +186,10 @@ export function ConnectIcon(props: TownhallIconProps) {
 export function ShowroomIcon(props: TownhallIconProps) {
   return (
     <BaseIcon {...props}>
-      <rect x={4.5} y={5.5} width={15} height={10} rx={1.4} />
-      <path d="M8.5 19.5h7" />
-      <path d="M12 15.5v4" />
+      <rect x={4} y={4} width={7} height={7} rx={1.2} />
+      <rect x={13} y={4} width={7} height={7} rx={1.2} />
+      <rect x={4} y={13} width={7} height={7} rx={1.2} />
+      <rect x={13} y={13} width={7} height={7} rx={1.2} />
     </BaseIcon>
   );
 }

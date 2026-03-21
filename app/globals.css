@@ -1620,7 +1620,7 @@ a {
 
 .townhall-bottom-nav {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(8, minmax(0, 1fr));
   gap: 6px;
   border: 1px solid #2d3b46;
   border-radius: 999px;
