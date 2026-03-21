@@ -49,6 +49,8 @@ import type {
   DropOwnershipHistory,
   MyCollectionSnapshot,
   MembershipEntitlement,
+  NotificationEntry,
+  NotificationFeed,
   OpsAnalyticsPanel,
   OwnedDrop,
   OwnershipHistoryEntry,
@@ -11231,6 +11233,54 @@ export const commerceBffService = {
           patronWorlds
         }
       };
+    });
+  },
+
+  // ── notifications ──────────────────────────────────────────────────
+
+  async getNotificationFeed(accountId: string): Promise<NotificationFeed> {
+    return withDatabase(async (db) => {
+      const store = (db as unknown as Record<string, Record<string, NotificationEntry[]>>).notifications ?? {};
+      const notifications = store[accountId] ?? [];
+      const unreadCount = notifications.filter((n) => !n.read).length;
+      return {
+        persist: false,
+        result: { entries: notifications, unreadCount }
+      };
+    });
+  },
+
+  async getNotificationUnreadCount(accountId: string): Promise<number> {
+    return withDatabase(async (db) => {
+      const store = (db as unknown as Record<string, Record<string, NotificationEntry[]>>).notifications ?? {};
+      const notifications = store[accountId] ?? [];
+      return {
+        persist: false,
+        result: notifications.filter((n) => !n.read).length
+      };
+    });
+  },
+
+  async markNotificationRead(accountId: string, notificationId: string): Promise<void> {
+    return withDatabase(async (db) => {
+      const store = (db as unknown as Record<string, Record<string, NotificationEntry[]>>).notifications ?? {};
+      const notifications = store[accountId] ?? [];
+      const entry = notifications.find((n) => n.id === notificationId);
+      if (entry) {
+        entry.read = true;
+      }
+      return { persist: true, result: undefined };
+    });
+  },
+
+  async markAllNotificationsRead(accountId: string): Promise<void> {
+    return withDatabase(async (db) => {
+      const store = (db as unknown as Record<string, Record<string, NotificationEntry[]>>).notifications ?? {};
+      const notifications = store[accountId] ?? [];
+      for (const entry of notifications) {
+        entry.read = true;
+      }
+      return { persist: true, result: undefined };
     });
   }
 };

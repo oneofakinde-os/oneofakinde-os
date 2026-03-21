@@ -1,3 +1,4 @@
+import { NotificationBell } from "@/features/notifications/notification-bell";
 import type { Session } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
 import Link from "next/link";
@@ -42,9 +43,12 @@ export function AppShell({ title, subtitle, session, activeNav, children }: AppS
             worlds
           </Link>
           {session ? (
-            <Link href={routes.logout()} className="slice-link">
-              log out
-            </Link>
+            <>
+              <NotificationBell initialUnreadCount={0} />
+              <Link href={routes.logout()} className="slice-link">
+                log out
+              </Link>
+            </>
           ) : (
             <Link href={routes.signIn()} className="slice-link">
               sign in
