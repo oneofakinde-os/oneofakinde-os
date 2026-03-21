@@ -541,6 +541,28 @@ surfaces:
         terms: ["studio"]  # when meaning making suite
         replace_with: "workshop"
 
+  - route: "/workshop/moderation"
+    legacy_routes: []
+    surface_key: "workshop_moderation"
+    ui_title: "moderation dashboard"
+    ui_nouns: ["moderation", "queue"]
+    lint_targets: ["h1", "metadata_labels"]
+    roles: ["creator"]
+    public_safe: false
+    contract_deps: ["openapi_v1.session", "openapi_v1.moderation"]
+    proof_ids: ["p_session_required"]
+
+  - route: "/worlds/:id/conversation"
+    legacy_routes: []
+    surface_key: "world_conversation"
+    ui_title: "world conversation"
+    ui_nouns: ["world", "conversation", "message"]
+    lint_targets: ["h1", "metadata_labels"]
+    roles: ["collector", "creator"]
+    public_safe: false
+    contract_deps: ["openapi_v1.session", "openapi_v1.worlds"]
+    proof_ids: ["p_session_required"]
+
 # =====================================================================
 # 16) drift-proof enforcement checklist (for designers + engineers)
 # =====================================================================

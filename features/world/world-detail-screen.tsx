@@ -181,13 +181,13 @@ export function WorldDetailScreen({
         )}
         <div className="slice-button-row">
           {session ? (
-            <a
-              href={worldConversationHref}
+            <Link
+              href={routes.worldConversation(world.id)}
               className="slice-button ghost"
               data-testid="world-conversation-entry"
             >
               world conversation
-            </a>
+            </Link>
           ) : (
             <Link
               href={routes.signIn(routes.world(world.id))}
