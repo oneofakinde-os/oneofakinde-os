@@ -10,7 +10,7 @@
     "nouns": {
       "drop": "sellable/collectible unit (formerly asset)",
       "world": "public place/container that groups drops (formerly collection when meaning a place)",
-      "my_collection": "user’s acquired/owned drops (ownership inventory)",
+      "my_collection": "user\u2019s acquired/owned drops (ownership inventory)",
       "library": "saved/curation bucket (pinterest-style saves)",
       "studio": "public-facing creator presence (creator identity surface)",
       "workshop": "creator back-office (making suite; formerly studio when meaning the suite)",
@@ -69,8 +69,8 @@
         "variants": [
           "asset",
           "assets",
-          "asset’s",
-          "assets’"
+          "asset\u2019s",
+          "assets\u2019"
         ]
       },
       {
@@ -218,45 +218,6 @@
             "homepage"
           ],
           "replace_with": "home"
-        }
-      ]
-    },
-    {
-      "route": "/explore",
-      "legacy_routes": [],
-      "surface_key": "explore",
-      "ui_title": "explore",
-      "ui_nouns": [
-        "drop",
-        "world",
-        "studio"
-      ],
-      "lint_targets": [
-        "nav",
-        "h1",
-        "metadata_labels"
-      ],
-      "roles": [
-        "public",
-        "collector",
-        "creator"
-      ],
-      "public_safe": true,
-      "contract_deps": [
-        "openapi_v1.catalog",
-        "openapi_v1.search",
-        "schema_v1.catalog",
-        "canon_no_leaks_scan"
-      ],
-      "proof_ids": [
-        "p_no_leaks_ci"
-      ],
-      "rules": [
-        {
-          "kind": "require_terms",
-          "terms": [
-            "drops"
-          ]
         }
       ]
     },
@@ -1355,37 +1316,6 @@
       "rules": []
     },
     {
-      "route": "/auctions",
-      "legacy_routes": [],
-      "surface_key": "collect_auctions",
-      "ui_title": "collect auctions",
-      "ui_nouns": [
-        "collect",
-        "drop"
-      ],
-      "lint_targets": [
-        "nav",
-        "h1",
-        "cta",
-        "metadata_labels"
-      ],
-      "roles": [
-        "public",
-        "collector",
-        "creator"
-      ],
-      "public_safe": true,
-      "contract_deps": [
-        "openapi_v1.catalog",
-        "schema_v1.catalog",
-        "canon_no_leaks_scan"
-      ],
-      "proof_ids": [
-        "p_no_leaks_ci"
-      ],
-      "rules": []
-    },
-    {
       "route": "/favorites",
       "legacy_routes": [],
       "surface_key": "favorites",
@@ -2161,7 +2091,10 @@
     "/studio": "/workshop",
     "/invest": "/collect",
     "/gallery": "/photos",
-    "/townhall/gallery": "/townhall/photos"
+    "/townhall/gallery": "/townhall/photos",
+    "/collection": "/my-collection",
+    "/auctions": "/collect",
+    "/explore": "/showroom"
   },
   "session_required_route_patterns": [
     "/logout",

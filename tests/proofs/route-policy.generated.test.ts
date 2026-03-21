@@ -126,19 +126,24 @@ const redirectCases = [
   {
     "sourcePathname": "/townhall/gallery",
     "targetPathname": "/townhall/photos"
+  },
+  {
+    "sourcePathname": "/collection",
+    "targetPathname": "/my-collection"
+  },
+  {
+    "sourcePathname": "/auctions",
+    "targetPathname": "/collect"
+  },
+  {
+    "sourcePathname": "/explore",
+    "targetPathname": "/showroom"
   }
 ] as const;
 const metadataCases = [
   {
     "pathname": "/",
     "surfaceKey": "home",
-    "publicSafe": "true",
-    "hasSession": false,
-    "sessionRoles": []
-  },
-  {
-    "pathname": "/explore",
-    "surfaceKey": "explore",
     "publicSafe": "true",
     "hasSession": false,
     "sessionRoles": []
@@ -392,13 +397,6 @@ const metadataCases = [
     "sessionRoles": [
       "collector"
     ]
-  },
-  {
-    "pathname": "/auctions",
-    "surfaceKey": "collect_auctions",
-    "publicSafe": "true",
-    "hasSession": false,
-    "sessionRoles": []
   },
   {
     "pathname": "/favorites",

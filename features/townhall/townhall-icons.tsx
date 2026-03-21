@@ -153,3 +153,23 @@ export function RadioIcon(props: TownhallIconProps) {
     </BaseIcon>
   );
 }
+
+export function ConnectIcon(props: TownhallIconProps) {
+  return (
+    <BaseIcon {...props}>
+      <circle cx={9} cy={9} r={3.5} />
+      <circle cx={15} cy={15} r={3.5} />
+      <path d="M12.1 7.4 16.6 11.9" />
+    </BaseIcon>
+  );
+}
+
+export function ShowroomIcon(props: TownhallIconProps) {
+  return (
+    <BaseIcon {...props}>
+      <rect x={4.5} y={5.5} width={15} height={10} rx={1.4} />
+      <path d="M8.5 19.5h7" />
+      <path d="M12 15.5v4" />
+    </BaseIcon>
+  );
+}

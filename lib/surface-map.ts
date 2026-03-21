@@ -166,6 +166,19 @@ const fallbackSurfaceMetaByPathname = {
     proof_ids: ["p_no_leaks_ci"],
     rules: []
   },
+  "/connect": {
+    route: "/connect",
+    legacy_routes: [],
+    surface_key: "connect",
+    ui_title: "connect",
+    ui_nouns: ["connect", "post", "thread", "drop"],
+    lint_targets: ["nav", "h1", "cta", "metadata_labels"],
+    roles: ["public", "collector", "creator"],
+    public_safe: true,
+    contract_deps: ["openapi_v1.catalog", "canon_no_leaks_scan"],
+    proof_ids: ["p_no_leaks_ci"],
+    rules: []
+  },
   "/showroom": {
     route: "/showroom",
     legacy_routes: [],

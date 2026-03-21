@@ -199,7 +199,7 @@ const MODE_COPY: Record<Exclude<TownhallSurfaceMode, "townhall">, ModeCopy> = {
 };
 
 function modeNav(mode: TownhallSurfaceMode): Parameters<typeof TownhallBottomNav>[0]["activeMode"] {
-  if (mode === "townhall") return "townhall";
+  if (mode === "townhall") return "showroom";
   if (mode === "watch") return "watch";
   if (mode === "listen") return "listen";
   if (mode === "read") return "read";

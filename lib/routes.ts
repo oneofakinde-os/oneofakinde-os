@@ -8,6 +8,7 @@ export const routes = {
   home: (): Route => asRoute("/"),
   explore: (): Route => asRoute("/explore"),
   collect: (): Route => asRoute("/collect"),
+  connect: (): Route => asRoute("/connect"),
   auctions: (): Route => asRoute("/auctions"),
   create: (): Route => asRoute("/create"),
 
@@ -58,10 +59,12 @@ export const routes = {
   dropListen: (dropId: string): Route => asRoute(`/drops/${dropId}/listen`),
   dropRead: (dropId: string): Route => asRoute(`/drops/${dropId}/read`),
   dropPhotos: (dropId: string): Route => asRoute(`/drops/${dropId}/photos`),
+  dropThread: (dropId: string): Route => asRoute(`/drops/${dropId}/thread`),
 
   collectDrop: (dropId: string): Route => asRoute(`/collect/${dropId}`),
   buyDrop: (dropId: string): Route => asRoute(`/collect/${dropId}`),
   myCollection: (): Route => asRoute("/my-collection"),
+  collection: (): Route => asRoute("/my-collection"),
   favorites: (): Route => asRoute("/favorites"),
   library: (): Route => asRoute("/library"),
 
