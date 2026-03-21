@@ -409,6 +409,15 @@ const metadataCases = [
     ]
   },
   {
+    "pathname": "/worlds/id-sample/membership",
+    "surfaceKey": "world_membership",
+    "publicSafe": "false",
+    "hasSession": true,
+    "sessionRoles": [
+      "collector"
+    ]
+  },
+  {
     "pathname": "/worlds/id-sample/conversation",
     "surfaceKey": "world_conversation",
     "publicSafe": "false",
@@ -682,6 +691,9 @@ const sessionCases = [
     "pathname": "/workshop/moderation"
   },
   {
+    "pathname": "/worlds/id-sample/membership"
+  },
+  {
     "pathname": "/worlds/id-sample/conversation"
   },
   {
@@ -810,6 +822,14 @@ const roleRequiredCases = [
       "creator"
     ],
     "disallowedRole": "collector"
+  },
+  {
+    "pathname": "/worlds/id-sample/membership",
+    "allowedRoles": [
+      "collector",
+      "creator"
+    ],
+    "disallowedRole": null
   },
   {
     "pathname": "/worlds/id-sample/conversation",
@@ -953,6 +973,9 @@ const proofSessionCases = [
   },
   {
     "pathname": "/workshop/moderation"
+  },
+  {
+    "pathname": "/worlds/id-sample/membership"
   },
   {
     "pathname": "/worlds/id-sample/conversation"

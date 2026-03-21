@@ -146,6 +146,11 @@ export function WorldDetailScreen({
           {session ? (
             <WorldMembershipButton worldId={world.id} initialIsMember={isMember} />
           ) : null}
+          {session ? (
+            <Link href={routes.worldMembership(world.id)} className="slice-button ghost">
+              membership &amp; tiers
+            </Link>
+          ) : null}
         </div>
         {world.visualIdentity ? (
           <div
