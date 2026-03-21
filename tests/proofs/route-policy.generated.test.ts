@@ -104,6 +104,10 @@ const redirectCases = [
     "targetPathname": "/my-collection"
   },
   {
+    "sourcePathname": "/collection",
+    "targetPathname": "/my-collection"
+  },
+  {
     "sourcePathname": "/saved",
     "targetPathname": "/library"
   },
@@ -120,12 +124,20 @@ const redirectCases = [
     "targetPathname": "/collect"
   },
   {
+    "sourcePathname": "/auctions",
+    "targetPathname": "/collect"
+  },
+  {
     "sourcePathname": "/gallery",
     "targetPathname": "/photos"
   },
   {
     "sourcePathname": "/townhall/gallery",
     "targetPathname": "/townhall/photos"
+  },
+  {
+    "sourcePathname": "/explore",
+    "targetPathname": "/showroom"
   }
 ] as const;
 const metadataCases = [
@@ -137,8 +149,8 @@ const metadataCases = [
     "sessionRoles": []
   },
   {
-    "pathname": "/explore",
-    "surfaceKey": "explore",
+    "pathname": "/connect",
+    "surfaceKey": "connect",
     "publicSafe": "true",
     "hasSession": false,
     "sessionRoles": []
@@ -262,6 +274,13 @@ const metadataCases = [
   {
     "pathname": "/drops/id-sample/activity",
     "surfaceKey": "drop_activity",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
+    "pathname": "/drops/id-sample/thread",
+    "surfaceKey": "drop_thread",
     "publicSafe": "true",
     "hasSession": false,
     "sessionRoles": []
@@ -392,13 +411,6 @@ const metadataCases = [
     "sessionRoles": [
       "collector"
     ]
-  },
-  {
-    "pathname": "/auctions",
-    "surfaceKey": "collect_auctions",
-    "publicSafe": "true",
-    "hasSession": false,
-    "sessionRoles": []
   },
   {
     "pathname": "/favorites",
