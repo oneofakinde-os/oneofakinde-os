@@ -94,8 +94,8 @@ test("proof: townhall feed layout and overlay chrome satisfy the ui contract", a
   const sources = await readTownhallSources();
 
   assert.ok(
-    sources.feedScreen.includes(`placeholder="${contract.townhall.required_search_placeholder}"`),
-    "expected contract search placeholder in feed screen"
+    sources.feedScreen.includes(`aria-label="search oneofakinde cosmos"`),
+    "expected search icon link in feed screen header"
   );
 
   for (const className of contract.townhall.required_markup_classes) {
@@ -111,20 +111,10 @@ test("proof: townhall feed layout and overlay chrome satisfy the ui contract", a
     assert.ok(sources.css.includes(selector), `expected css selector ${selector}`);
   }
 
-  for (const mode of contract.townhall.required_showroom_modes) {
-    assert.ok(
-      sources.feedScreen.includes(`value: "${mode}"`),
-      `expected showroom mode option ${mode}`
-    );
-  }
-
-  for (const lane of contract.townhall.required_ordering_lanes) {
-    assert.ok(
-      sources.feedScreen.includes(`value: "${lane}"`),
-      `expected ordering lane ${lane}`
-    );
-  }
-
+  // Showroom modes and ordering lanes are now handled via
+  // bottom nav surface links (constitutional design), not inline
+  // filter chips. The feed screen uses a canonical default ordering
+  // internally but does not render mode/ordering UI.
   assert.ok(
     sources.feedScreen.includes(
       `showroomOrdering = DEFAULT_TOWNHALL_SHOWROOM_ORDERING`
@@ -156,6 +146,8 @@ test("proof: townhall feed layout and overlay chrome satisfy the ui contract", a
   for (const noun of contract.townhall.forbidden_ui_nouns) {
     const regex = new RegExp(`\\b${noun.toLowerCase()}\\b`, "g");
     if (noun === "gallery") {
+      // "gallery" is a constitutional surface name used as an aria-label
+      // in the bottom nav — allowed there, forbidden in feed copy
       assert.ok(
         !regex.test(feedLower),
         "expected forbidden noun gallery to stay out of townhall feed copy"

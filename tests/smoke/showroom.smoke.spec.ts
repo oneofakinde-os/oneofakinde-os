@@ -14,7 +14,7 @@ async function expectShowroomShell(page: Page, path: string) {
 
   await expect(page.getByTestId("showroom-page")).toBeVisible();
   await expect(page.getByTestId("showroom-shell")).toBeVisible();
-  await expect(page.getByRole("searchbox", { name: "search users, worlds, and drops" })).toBeVisible();
+  await expect(page.getByLabel("search oneofakinde cosmos")).toBeVisible();
   await expect(page.getByTestId("showroom-drop-stage").first()).toBeVisible();
   await expect(page.getByLabel("townhall bottom nav")).toBeVisible();
 }
@@ -26,15 +26,8 @@ test.describe("showroom smoke", () => {
     }
   });
 
-  test("supports lane switching and social drawer interactions", async ({ page }) => {
+  test("supports social drawer interactions", async ({ page }) => {
     await page.goto("/showroom?lane_key=rising", { waitUntil: "domcontentloaded" });
-
-    await page.getByRole("link", { name: "most collected" }).click();
-    await expect(page).toHaveURL(/lane_key=most_collected/);
-    await expect(page.getByTestId("showroom-shell")).toHaveAttribute(
-      "data-showroom-ordering",
-      "most_collected"
-    );
 
     await page.getByRole("button", { name: "open comments" }).first().click();
     const commentsPanel = page.getByRole("region", { name: "drop comments" });
