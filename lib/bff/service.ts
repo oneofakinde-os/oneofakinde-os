@@ -11240,8 +11240,9 @@ export const commerceBffService = {
 
   async getNotificationFeed(accountId: string): Promise<NotificationFeed> {
     return withDatabase(async (db) => {
-      const notifications: NotificationEntry[] = (db as any).notifications?.[accountId] ?? [];
-      const unreadCount = notifications.filter((n: NotificationEntry) => !n.read).length;
+      const store = (db as unknown as Record<string, Record<string, NotificationEntry[]>>).notifications ?? {};
+      const notifications = store[accountId] ?? [];
+      const unreadCount = notifications.filter((n) => !n.read).length;
       return {
         persist: false,
         result: { entries: notifications, unreadCount }
@@ -11251,18 +11252,20 @@ export const commerceBffService = {
 
   async getNotificationUnreadCount(accountId: string): Promise<number> {
     return withDatabase(async (db) => {
-      const notifications: NotificationEntry[] = (db as any).notifications?.[accountId] ?? [];
+      const store = (db as unknown as Record<string, Record<string, NotificationEntry[]>>).notifications ?? {};
+      const notifications = store[accountId] ?? [];
       return {
         persist: false,
-        result: notifications.filter((n: NotificationEntry) => !n.read).length
+        result: notifications.filter((n) => !n.read).length
       };
     });
   },
 
   async markNotificationRead(accountId: string, notificationId: string): Promise<void> {
     return withDatabase(async (db) => {
-      const notifications: NotificationEntry[] = (db as any).notifications?.[accountId] ?? [];
-      const entry = notifications.find((n: NotificationEntry) => n.id === notificationId);
+      const store = (db as unknown as Record<string, Record<string, NotificationEntry[]>>).notifications ?? {};
+      const notifications = store[accountId] ?? [];
+      const entry = notifications.find((n) => n.id === notificationId);
       if (entry) {
         entry.read = true;
       }
@@ -11272,7 +11275,8 @@ export const commerceBffService = {
 
   async markAllNotificationsRead(accountId: string): Promise<void> {
     return withDatabase(async (db) => {
-      const notifications: NotificationEntry[] = (db as any).notifications?.[accountId] ?? [];
+      const store = (db as unknown as Record<string, Record<string, NotificationEntry[]>>).notifications ?? {};
+      const notifications = store[accountId] ?? [];
       for (const entry of notifications) {
         entry.read = true;
       }
