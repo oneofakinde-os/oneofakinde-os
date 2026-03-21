@@ -41,6 +41,7 @@ export default async function ShowroomPage({ searchParams }: ShowroomPageProps) 
   return (
     <TownhallFeedScreen
       mode="townhall"
+      routeNamespace="showroom"
       viewer={viewer}
       drops={drops}
       initialFocusDropId={parseTownhallFeedFocusDrop(firstQueryValue(params[townhallFeedFocusQueryKeys.drop]))}

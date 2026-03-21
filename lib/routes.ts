@@ -103,7 +103,8 @@ export const routes = {
   settingsNotifications: (): Route => asRoute("/settings/notifications"),
   following: (): Route => asRoute("/following"),
 
-  certificate: (certificateId: string): Route => asRoute(`/certificates/${certificateId}`)
+  certificate: (certificateId: string): Route => asRoute(`/certificates/${certificateId}`),
+  badge: (badgeId: string): Route => asRoute(`/badges/${badgeId}`)
 };
 
 export type AppRouteHelpers = typeof routes;

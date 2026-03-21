@@ -490,6 +490,17 @@ surfaces:
     contract_deps: ["openapi_v1.certificates", "schema_v1.certificates", "canon_certificates", "canon_no_leaks_scan"]
     proof_ids: ["p_public_cert_verify", "p_no_leaks_ci"]
 
+  - route: "/badges/:badge_id"
+    legacy_routes: []
+    surface_key: "badge_verify"
+    ui_title: "collect badge"
+    ui_nouns: ["badge", "drop"]
+    lint_targets: ["h1", "metadata_labels"]
+    roles: ["public", "collector", "creator"]
+    public_safe: true
+    contract_deps: ["openapi_v1.receipts", "schema_v1.receipt_badges", "canon_badges"]
+    proof_ids: ["p_public_badge_verify"]
+
   # -------------------------------------------------------------------
   # 11) workshop (creator back-office)
   # -------------------------------------------------------------------

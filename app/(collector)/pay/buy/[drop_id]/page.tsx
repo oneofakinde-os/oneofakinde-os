@@ -83,8 +83,8 @@ export default async function CollectDropPage({ params, searchParams }: CollectD
           <Link href={routes.drop(checkout.drop.id)} className="slice-button ghost">
             back to drop
           </Link>
-          <Link href={routes.townhall()} className="slice-button alt">
-            back to townhall
+          <Link href={routes.showroom()} className="slice-button alt">
+            back to showroom
           </Link>
         </div>
 

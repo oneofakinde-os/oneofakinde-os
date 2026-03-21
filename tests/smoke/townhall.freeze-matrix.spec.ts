@@ -1,12 +1,12 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
-const TOWNHALL_BASE_PATH = "/townhall?lane_key=featured";
+const TOWNHALL_BASE_PATH = "/showroom?lane_key=featured";
 const TOWNHALL_MODE_PATHS = [
-  "/townhall/watch",
-  "/townhall/listen",
-  "/townhall/read",
-  "/townhall/photos",
-  "/townhall/live"
+  "/showroom/watch",
+  "/showroom/listen",
+  "/showroom/read",
+  "/showroom/photos",
+  "/showroom/live"
 ] as const;
 
 async function expectTownhallShell(page: Page, path: string) {
@@ -160,8 +160,8 @@ test("th-man-08: open drop and back preserves focused drop position", async ({ p
   await page.getByRole("link", { name: "open drop" }).click();
   await page.waitForURL(/\/drops\//, { timeout: 12_000 });
 
-  await page.getByRole("link", { name: "back to townhall" }).click();
-  await page.waitForURL(/\/townhall/, { timeout: 12_000 });
+  await page.getByRole("link", { name: "back to showroom" }).click();
+  await page.waitForURL(/\/showroom/, { timeout: 12_000 });
 
   const activeDropAfter = await page
     .locator("[data-testid='showroom-drop-card'].active")

@@ -10,7 +10,7 @@ export type EntryFlowTargets = {
   walletConnectHref: Route;
 };
 
-export function buildDefaultEntryFlow(finalReturnTo: Route = routes.townhall()): EntryFlowTargets {
+export function buildDefaultEntryFlow(finalReturnTo: Route = routes.showroom()): EntryFlowTargets {
   const profileSetupReturnTo = routes.profileSetup(finalReturnTo);
   const walletConnectReturnTo = routes.walletConnect(finalReturnTo);
 
@@ -38,7 +38,7 @@ function parseRouteLike(value: string): URL | null {
 
 export function extractFinalReturnTo(
   returnTo: string,
-  fallback: Route = routes.townhall()
+  fallback: Route = routes.showroom()
 ): Route {
   const parsed = parseRouteLike(returnTo);
   if (!parsed) {

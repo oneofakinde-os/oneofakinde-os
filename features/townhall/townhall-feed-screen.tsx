@@ -44,6 +44,8 @@ import {
   SearchIcon,
   SendIcon
 } from "./townhall-icons";
+import { ShowroomFeaturedRail } from "./showroom-featured-rail";
+import "./showroom-featured-rail.css";
 
 type TownhallFeedScreenProps = {
   mode: TownhallSurfaceMode;
@@ -1487,6 +1489,8 @@ export function TownhallFeedScreen({
             })}
           </div>
         </header>
+
+        {mode === "townhall" ? <ShowroomFeaturedRail /> : null}
 
         <div
           className="townhall-feed-viewport"

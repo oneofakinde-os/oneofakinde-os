@@ -32,7 +32,7 @@ export function TownhallBottomNav({
 
   return (
     <nav className={className} aria-label="townhall bottom nav" {...noImmersiveProps}>
-      <Link href={routes.townhall()} className={navLinkClass(activeMode === "showroom")} aria-label="showroom feed">
+      <Link href={routes.showroom()} className={navLinkClass(activeMode === "showroom")} aria-label="showroom feed">
         <ShowroomIcon className="townhall-bottom-icon-glyph" />
       </Link>
       <Link href={routes.townhallWatch()} className={navLinkClass(activeMode === "watch")} aria-label="watch mode">

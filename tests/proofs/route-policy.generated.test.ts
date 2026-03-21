@@ -370,6 +370,13 @@ const metadataCases = [
     "sessionRoles": []
   },
   {
+    "pathname": "/badges/badge_id-sample",
+    "surfaceKey": "badge_verify",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
     "pathname": "/workshop",
     "surfaceKey": "workshop_root",
     "publicSafe": "false",
