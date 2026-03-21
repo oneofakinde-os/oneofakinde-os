@@ -1,0 +1,138 @@
+.showroom-featured-rail {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.showroom-featured-rail-loading {
+  padding: 1rem;
+  text-align: center;
+  opacity: 0.5;
+}
+
+.showroom-featured-rail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0.75rem 0.5rem;
+}
+
+.showroom-featured-rail-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+}
+
+.showroom-featured-rail-see-all {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+  text-decoration: none;
+}
+
+.showroom-featured-rail-see-all:hover {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.showroom-featured-rail-scroll {
+  display: flex;
+  gap: 0.75rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding: 0 0.75rem;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.showroom-featured-rail-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.showroom-featured-card {
+  scroll-snap-align: start;
+  flex: 0 0 auto;
+  width: 9.5rem;
+  text-decoration: none;
+  color: inherit;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.04);
+  transition: background 0.15s ease;
+}
+
+.showroom-featured-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.showroom-featured-card-poster {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  display: block;
+}
+
+.showroom-featured-card-poster-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 2rem;
+  color: rgba(255, 255, 255, 0.2);
+}
+
+.showroom-featured-card-info {
+  padding: 0.5rem;
+}
+
+.showroom-featured-card-rank {
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.4);
+  margin: 0 0 0.125rem;
+}
+
+.showroom-featured-card-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0 0 0.125rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.showroom-featured-card-meta {
+  font-size: 0.625rem;
+  color: rgba(255, 255, 255, 0.4);
+  margin: 0 0 0.375rem;
+}
+
+.showroom-featured-card-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.showroom-featured-reason {
+  font-size: 0.5625rem;
+  padding: 0.125rem 0.375rem;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.showroom-featured-reason-studio_pin {
+  background: rgba(168, 128, 255, 0.15);
+  color: rgb(168, 128, 255);
+}
+
+.showroom-featured-reason-market_signal {
+  background: rgba(255, 200, 60, 0.15);
+  color: rgb(255, 200, 60);
+}
+
+.showroom-featured-reason-recent_release {
+  background: rgba(80, 220, 180, 0.15);
+  color: rgb(80, 220, 180);
+}

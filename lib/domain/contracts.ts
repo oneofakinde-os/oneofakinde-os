@@ -1144,3 +1144,54 @@ export type CreateSessionInput = {
   email: string;
   role: AccountRole;
 };
+
+export type SurfaceName =
+  | "showroom"
+  | "townhall"
+  | "watch"
+  | "listen"
+  | "read"
+  | "photos"
+  | "live"
+  | "connect"
+  | "collect"
+  | "drop_detail"
+  | "my_collection"
+  | "library"
+  | "workshop";
+
+export type SurfaceActionVerb =
+  | "view"
+  | "impression"
+  | "open"
+  | "close"
+  | "play"
+  | "pause"
+  | "complete"
+  | "seek"
+  | "collect"
+  | "save"
+  | "unsave"
+  | "like"
+  | "unlike"
+  | "comment"
+  | "share"
+  | "follow"
+  | "unfollow"
+  | "report"
+  | "appeal"
+  | "search"
+  | "filter"
+  | "navigate";
+
+export type SurfaceTelemetryEvent = {
+  surface: SurfaceName;
+  action: SurfaceActionVerb;
+  dropId?: string;
+  objectType?: "drop" | "post" | "world" | "studio" | "live_session" | "badge";
+  objectId?: string;
+  durationMs?: number;
+  completionPercent?: number;
+  position?: number;
+  metadata?: Record<string, string | number | boolean | null>;
+};
