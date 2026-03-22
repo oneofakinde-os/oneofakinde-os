@@ -40,27 +40,7 @@ export async function signInAction(formData: FormData): Promise<void> {
     }
 
     // Supabase sets its own auth cookies via the server client.
-    // Also set the legacy cookies so the middleware route policy continues to work.
-    const cookieStore = await cookies();
-    cookieStore.set({
-      name: SESSION_COOKIE,
-      value: `supa_bridge_${Date.now()}`,
-      httpOnly: true,
-      path: "/",
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 60 * 60 * 24 * 14
-    });
-    cookieStore.set({
-      name: SESSION_ROLES_COOKIE,
-      value: serializeSessionRoles([role]),
-      httpOnly: true,
-      path: "/",
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 60 * 60 * 24 * 14
-    });
-
+    // The middleware reads Supabase session directly — no bridge cookies needed.
     const defaultReturnTo = buildDefaultEntryFlow().finalReturnTo;
     redirect(normalizeReturnTo(returnTo, defaultReturnTo) as Route);
   }
