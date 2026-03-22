@@ -1,41 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { routes } from "@/lib/routes";
+import { useEventStream } from "@/lib/hooks/use-event-stream";
 
 type NotificationBellProps = {
   initialUnreadCount: number;
 };
 
-const POLL_INTERVAL_MS = 30_000;
-
 export function NotificationBell({ initialUnreadCount }: NotificationBellProps) {
   const [unreadCount, setUnreadCount] = useState(initialUnreadCount);
 
-  useEffect(() => {
-    let active = true;
-
-    async function poll() {
-      try {
-        const response = await fetch("/api/v1/notifications/unread-count");
-        if (response.ok) {
-          const data = await response.json();
-          if (active && typeof data.unreadCount === "number") {
-            setUnreadCount(data.unreadCount);
-          }
-        }
-      } catch {
-        // polling failure is non-critical
+  useEventStream<{ unreadCount: number }>("/api/v1/notifications/stream", {
+    onMessage: (data) => {
+      if (typeof data.unreadCount === "number") {
+        setUnreadCount(data.unreadCount);
       }
-    }
-
-    const interval = setInterval(poll, POLL_INTERVAL_MS);
-    return () => {
-      active = false;
-      clearInterval(interval);
-    };
-  }, []);
+    },
+    fallbackPollMs: 30_000,
+    fallbackFetchUrl: "/api/v1/notifications/unread-count",
+  });
 
   return (
     <Link

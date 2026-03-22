@@ -1,6 +1,7 @@
 "use client";
 
 import type { LiveSessionConversationThread } from "@/lib/domain/contracts";
+import { useEventStream } from "@/lib/hooks/use-event-stream";
 import { useCallback, useEffect, useRef, useState } from "react";
 import "./live-chat.css";
 
@@ -9,8 +10,6 @@ type LiveSessionConversationProps = {
   initialThread: LiveSessionConversationThread | null;
   canPost: boolean;
 };
-
-const POLL_INTERVAL_MS = 5000;
 
 function formatTime(value: string): string {
   const parsed = Date.parse(value);
@@ -27,7 +26,6 @@ export function LiveSessionConversation({
   const [messageBody, setMessageBody] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const messages = thread?.messages ?? [];
 
@@ -39,29 +37,20 @@ export function LiveSessionConversation({
     scrollToBottom();
   }, [messages.length, scrollToBottom]);
 
-  // Poll for new messages
-  useEffect(() => {
-    async function poll() {
-      try {
-        const res = await fetch(
-          `/api/v1/live-sessions/${encodeURIComponent(liveSessionId)}/conversation`
-        );
-        if (res.ok) {
-          const data = await res.json();
-          if (data.thread) {
-            setThread(data.thread);
-          }
+  // SSE stream with polling fallback
+  const encodedId = encodeURIComponent(liveSessionId);
+  const { connectionState } = useEventStream<{ thread: LiveSessionConversationThread }>(
+    `/api/v1/live-sessions/${encodedId}/conversation/stream`,
+    {
+      onMessage: (data) => {
+        if (data.thread) {
+          setThread(data.thread);
         }
-      } catch {
-        // Silently ignore polling failures
-      }
+      },
+      fallbackPollMs: 5_000,
+      fallbackFetchUrl: `/api/v1/live-sessions/${encodedId}/conversation`,
     }
-
-    pollRef.current = setInterval(poll, POLL_INTERVAL_MS);
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, [liveSessionId]);
+  );
 
   const handleSend = useCallback(async () => {
     const body = messageBody.trim();
@@ -100,7 +89,14 @@ export function LiveSessionConversation({
 
   return (
     <section className="slice-panel" data-testid="live-session-conversation">
-      <h3 className="slice-heading">live chat</h3>
+      <h3 className="slice-heading">
+        live chat
+        {connectionState === "open" ? (
+          <span className="slice-meta" style={{ marginLeft: "0.5rem" }}>● live</span>
+        ) : connectionState === "polling" ? (
+          <span className="slice-meta" style={{ marginLeft: "0.5rem" }}>↻ polling</span>
+        ) : null}
+      </h3>
       <div className="live-chat-messages" data-testid="live-chat-messages">
         {messages.length === 0 ? (
           <p className="slice-copy live-chat-placeholder">
