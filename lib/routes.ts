@@ -91,6 +91,8 @@ export const routes = {
     returnTo
       ? asRoute(`/auth/wallet-link?returnTo=${encodeURIComponent(returnTo)}`)
       : asRoute("/auth/wallet-link"),
+  forgotPassword: (): Route => asRoute("/auth/forgot-password"),
+  resetPassword: (): Route => asRoute("/auth/reset-password"),
   logout: (): Route => asRoute("/logout"),
 
   workshop: (): Route => asRoute("/workshop"),

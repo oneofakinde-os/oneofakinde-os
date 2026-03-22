@@ -8,6 +8,7 @@ type SignInPageProps = {
   searchParams: Promise<{
     returnTo?: string | string[];
     error?: string | string[];
+    status?: string | string[];
   }>;
 };
 
@@ -25,10 +26,12 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
     : routes.walletConnect(returnTo);
   const signUpReturnTo = extractFinalReturnTo(returnTo);
   const errorCode = firstParam(resolvedParams.error);
+  const status = firstParam(resolvedParams.status);
   const hasInvalidEmail = errorCode === "invalid_email";
   const hasInvalidCredentials = errorCode === "invalid_credentials";
   const hasRoleError = errorCode === "role_required";
   const hasAuthServiceError = errorCode === "auth_service_unavailable";
+  const hasPasswordReset = status === "password_reset";
 
   return (
     <main className="identity-page">
@@ -93,6 +96,9 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
             </div>
           </section>
 
+          {hasPasswordReset ? (
+            <p className="identity-success">password updated successfully. sign in with your new password.</p>
+          ) : null}
           {hasInvalidEmail ? <p className="identity-error">enter a valid email to continue.</p> : null}
           {hasInvalidCredentials ? (
             <p className="identity-error">email or password is incorrect. try again.</p>
@@ -110,6 +116,10 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
         </form>
 
         <footer className="identity-foot">
+          <Link href={routes.forgotPassword()} className="identity-link">
+            forgot password?
+          </Link>
+          <span>·</span>
           <Link href={walletConnectHref} className="identity-link">
             link wallet (optional)
           </Link>
