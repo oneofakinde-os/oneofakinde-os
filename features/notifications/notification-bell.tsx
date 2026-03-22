@@ -40,27 +40,12 @@ export function NotificationBell({ initialUnreadCount }: NotificationBellProps) 
   return (
     <Link
       href={routes.notifications()}
-      className="slice-link"
+      className="slice-link notif-bell"
       data-testid="notification-bell"
-      style={{ position: "relative", display: "inline-flex", alignItems: "center" }}
     >
       notifications
       {unreadCount > 0 && (
-        <span
-          data-testid="notification-badge"
-          style={{
-            marginLeft: "0.25rem",
-            backgroundColor: "rgb(80, 220, 180)",
-            color: "#000",
-            borderRadius: "999px",
-            padding: "0 0.375rem",
-            fontSize: "0.625rem",
-            fontWeight: "bold",
-            lineHeight: "1.25rem",
-            minWidth: "1.25rem",
-            textAlign: "center"
-          }}
-        >
+        <span className="notif-badge" data-testid="notification-badge">
           {unreadCount > 99 ? "99+" : unreadCount}
         </span>
       )}

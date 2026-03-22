@@ -42,36 +42,34 @@ export function CollectionCurationToolbar({
         curation · {totalDrops} drops · {showcasedDropIds.size} showcased
       </p>
 
-      <div className="slice-button-row" style={{ flexWrap: "wrap" }}>
-        <span className="slice-meta" style={{ marginRight: "0.5rem" }}>sort:</span>
+      <div className="slice-button-row">
+        <span className="slice-meta">sort:</span>
         {SORT_OPTIONS.map((opt) => (
           <button
             key={opt.value}
-            className={`slice-button ${activeSort === opt.value ? "" : "ghost"}`}
+            className={`slice-button sm ${activeSort === opt.value ? "" : "ghost"}`}
             onClick={() => {
               setActiveSort(opt.value);
               onSortChange(opt.value);
             }}
             type="button"
-            style={{ fontSize: "0.75rem", padding: "0.25rem 0.5rem" }}
           >
             {opt.label}
           </button>
         ))}
       </div>
 
-      <div className="slice-button-row" style={{ flexWrap: "wrap", marginTop: "0.25rem" }}>
-        <span className="slice-meta" style={{ marginRight: "0.5rem" }}>group:</span>
+      <div className="slice-button-row">
+        <span className="slice-meta">group:</span>
         {GROUP_OPTIONS.map((opt) => (
           <button
             key={opt.value}
-            className={`slice-button ${activeGroup === opt.value ? "" : "ghost"}`}
+            className={`slice-button sm ${activeGroup === opt.value ? "" : "ghost"}`}
             onClick={() => {
               setActiveGroup(opt.value);
               onGroupChange(opt.value);
             }}
             type="button"
-            style={{ fontSize: "0.75rem", padding: "0.25rem 0.5rem" }}
           >
             {opt.label}
           </button>
@@ -92,10 +90,9 @@ export function ShowcaseToggle({
 }) {
   return (
     <button
-      className={`slice-button ${isShowcased ? "" : "ghost"}`}
+      className={`slice-button sm ${isShowcased ? "" : "ghost"}`}
       onClick={() => onToggle(dropId)}
       type="button"
-      style={{ fontSize: "0.75rem", padding: "0.25rem 0.5rem" }}
       data-testid="showcase-toggle"
     >
       {isShowcased ? "★ showcased" : "☆ showcase"}

@@ -10,6 +10,7 @@ import type {
 import { routes } from "@/lib/routes";
 import Link from "next/link";
 import { useCallback, useState } from "react";
+import "./world-conversation.css";
 
 type WorldConversationScreenProps = {
   world: World;
@@ -43,8 +44,8 @@ function ConversationMessage({
   const isHidden = message.visibility !== "visible";
   return (
     <li
-      className="slice-drop-card"
-      style={{ marginLeft: `${Math.min(message.depth, 4) * 1}rem` }}
+      className="slice-drop-card convo-message"
+      style={{ "--depth": Math.min(message.depth, 4) } as React.CSSProperties}
       data-testid="conversation-message"
     >
       <p className="slice-label">@{message.authorHandle}</p>
@@ -197,14 +198,15 @@ export function WorldConversationScreen({
             : "new message"}
         </p>
         {replyToId ? (
-          <button
-            className="slice-button ghost"
-            onClick={() => setReplyToId(null)}
-            type="button"
-            style={{ marginBottom: "0.5rem" }}
-          >
-            cancel reply
-          </button>
+          <div className="convo-reply-banner">
+            <button
+              className="slice-button ghost sm"
+              onClick={() => setReplyToId(null)}
+              type="button"
+            >
+              cancel reply
+            </button>
+          </div>
         ) : null}
         <textarea
           className="slice-textarea"

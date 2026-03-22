@@ -2,6 +2,7 @@ import { PatronBadge } from "@/features/patron/patron-badge";
 import type { PatronStatus } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
 import Link from "next/link";
+import "./collector-presence.css";
 
 type CollectorPresenceCardProps = {
   handle: string;
@@ -32,16 +33,15 @@ export function CollectorPresenceCard({
   if (isInline) {
     return (
       <span
-        className="slice-meta"
+        className="slice-meta collector-presence-inline"
         data-testid="collector-presence-inline"
-        style={{ display: "inline-flex", gap: "0.375rem", alignItems: "center" }}
       >
         <Link href={routes.collector(handle)} className="slice-link">
           @{handle}
         </Link>
         <span>{collectionCount} collected</span>
         {activePatronCount > 0 ? (
-          <span style={{ color: "rgb(80, 220, 180)" }}>
+          <span className="collector-patron-accent">
             patron ×{activePatronCount}
           </span>
         ) : null}
@@ -70,7 +70,7 @@ export function CollectorPresenceCard({
       </div>
 
       {!isCompact && patronWorlds.length > 0 ? (
-        <div style={{ display: "flex", gap: "0.375rem", flexWrap: "wrap", marginTop: "0.375rem" }}>
+        <div className="collector-badge-row">
           {patronWorlds
             .filter((w) => w.status === "active")
             .slice(0, 3)

@@ -9,6 +9,7 @@ import type {
 } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
 import Link from "next/link";
+import "./notifications.css";
 
 type NotificationsScreenProps = {
   session: Session;
@@ -85,19 +86,15 @@ export function NotificationsScreen({
       session={session}
     >
       <section className="slice-panel">
-        <div
-          className="slice-row"
-          style={{ justifyContent: "space-between", alignItems: "center" }}
-        >
+        <div className="slice-row">
           <p className="slice-label" data-testid="notification-unread-count">
             {unreadCount} unread notification{unreadCount !== 1 ? "s" : ""}
           </p>
           {unreadCount > 0 && (
             <button
-              className="slice-button ghost"
+              className="slice-button ghost sm"
               onClick={markAllAsRead}
               type="button"
-              style={{ fontSize: "0.75rem", padding: "0.25rem 0.5rem" }}
               data-testid="mark-all-read-button"
             >
               mark all as read
@@ -114,43 +111,31 @@ export function NotificationsScreen({
             {entries.map((entry) => (
               <li
                 key={entry.id}
-                className="slice-list-row"
+                className="notif-entry"
                 data-testid="notification-entry"
-                style={{
-                  opacity: entry.read ? 0.65 : 1,
-                  borderLeft: entry.read
-                    ? "3px solid transparent"
-                    : "3px solid rgb(80, 220, 180)"
-                }}
+                data-unread={!entry.read ? "true" : undefined}
+                data-read={entry.read ? "true" : undefined}
               >
-                <div style={{ flex: 1 }}>
+                <div className="notif-entry-body">
                   <p className="slice-label">
                     {TYPE_ICON[entry.type] ?? entry.type} · {formatTimestamp(entry.createdAt)}
                   </p>
-                  <p className="slice-copy" style={{ fontWeight: entry.read ? "normal" : "bold" }}>
+                  <p className={`slice-copy${entry.read ? "" : " notif-entry-title--unread"}`}>
                     {entry.title}
                   </p>
                   <p className="slice-meta">{entry.body}</p>
                 </div>
-                <div
-                  className="slice-button-row"
-                  style={{ flexShrink: 0, gap: "0.25rem" }}
-                >
+                <div className="notif-entry-actions">
                   {entry.href && (
-                    <a
-                      href={entry.href}
-                      className="slice-button ghost"
-                      style={{ fontSize: "0.75rem", padding: "0.25rem 0.5rem" }}
-                    >
+                    <a href={entry.href} className="slice-button ghost sm">
                       open
                     </a>
                   )}
                   {!entry.read && (
                     <button
-                      className="slice-button ghost"
+                      className="slice-button ghost sm"
                       onClick={() => markAsRead(entry.id)}
                       type="button"
-                      style={{ fontSize: "0.75rem", padding: "0.25rem 0.5rem" }}
                       data-testid="mark-read-button"
                     >
                       mark read

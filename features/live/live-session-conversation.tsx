@@ -2,6 +2,7 @@
 
 import type { LiveSessionConversationThread } from "@/lib/domain/contracts";
 import { useCallback, useEffect, useRef, useState } from "react";
+import "./live-chat.css";
 
 type LiveSessionConversationProps = {
   liveSessionId: string;
@@ -100,36 +101,26 @@ export function LiveSessionConversation({
   return (
     <section className="slice-panel" data-testid="live-session-conversation">
       <h3 className="slice-heading">live chat</h3>
-      <div
-        style={{
-          maxHeight: "20rem",
-          overflowY: "auto",
-          padding: "0.5rem 0"
-        }}
-        data-testid="live-chat-messages"
-      >
+      <div className="live-chat-messages" data-testid="live-chat-messages">
         {messages.length === 0 ? (
-          <p className="slice-copy" style={{ opacity: 0.5 }}>
+          <p className="slice-copy live-chat-placeholder">
             {canPost ? "no messages yet — start the conversation" : "no messages yet"}
           </p>
         ) : (
-          <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+          <ul className="live-chat-message-list">
             {messages.map((message) => (
               <li
                 key={message.id}
-                style={{
-                  padding: "0.375rem 0",
-                  borderBottom: "1px solid rgba(255,255,255,0.06)"
-                }}
+                className="live-chat-message"
                 data-testid="live-chat-message"
               >
-                <p className="slice-label" style={{ fontWeight: 600, display: "inline" }}>
+                <p className="slice-label live-chat-author">
                   @{message.authorHandle}
                 </p>
-                <span className="slice-meta" style={{ marginLeft: "0.5rem" }}>
+                <span className="slice-meta live-chat-time">
                   {formatTime(message.createdAt ?? "")}
                 </span>
-                <p className="slice-copy" style={{ margin: "0.125rem 0 0" }}>
+                <p className="slice-copy live-chat-body">
                   {message.body}
                 </p>
               </li>
@@ -140,19 +131,15 @@ export function LiveSessionConversation({
       </div>
 
       {canPost ? (
-        <div
-          style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}
-          data-testid="live-chat-composer"
-        >
+        <div className="live-chat-composer" data-testid="live-chat-composer">
           <input
             type="text"
-            className="slice-textarea"
+            className="slice-textarea live-chat-input"
             placeholder="type a message..."
             value={messageBody}
             onChange={(e) => setMessageBody(e.target.value)}
             onKeyDown={handleKeyDown}
             disabled={submitting}
-            style={{ flex: 1, padding: "0.5rem" }}
             data-testid="live-chat-input"
           />
           <button
@@ -166,7 +153,7 @@ export function LiveSessionConversation({
           </button>
         </div>
       ) : (
-        <p className="slice-meta" style={{ marginTop: "0.5rem" }}>
+        <p className="slice-meta live-chat-signin">
           sign in to participate in live chat
         </p>
       )}
