@@ -1,5 +1,6 @@
 import { AppShell } from "@/features/shell/app-shell";
 import { formatUsd } from "@/features/shared/format";
+import { MediaUploadZone } from "@/features/workshop/media-upload-zone";
 import type {
   Drop,
   DropLineageSnapshot,
@@ -284,6 +285,17 @@ export function WorkshopRootScreen({
               </div>
             </form>
 
+            <div style={{ marginTop: 14 }}>
+              <p className="slice-label">drop media</p>
+              <MediaUploadZone
+                bucket="drop-media"
+                accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,audio/mpeg,audio/mp4"
+                maxFiles={8}
+                label="drop cover, preview poster, or media files here"
+                hint="jpeg, png, webp, mp4, webm, mp3 — up to 50 MB each"
+              />
+            </div>
+
             <ul className="slice-list" aria-label="publish gate summary">
               <li>
                 <span>culture</span>
@@ -372,6 +384,17 @@ export function WorkshopRootScreen({
                 </Link>
               </div>
             </form>
+
+            <div style={{ marginTop: 14 }}>
+              <p className="slice-label">world media</p>
+              <MediaUploadZone
+                bucket="world-media"
+                accept="image/jpeg,image/png,image/webp,audio/mpeg,audio/mp4"
+                maxFiles={4}
+                label="world cover image or ambient audio here"
+                hint="jpeg, png, webp, mp3 — up to 20 MB each"
+              />
+            </div>
 
             <ul className="slice-list" aria-label="world builder summary">
               <li>

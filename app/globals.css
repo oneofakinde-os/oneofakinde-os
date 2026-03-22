@@ -3178,3 +3178,117 @@ a {
     font-size: 1.95rem;
   }
 }
+
+/* ─── media upload zone ───────────────────────────────────────────── */
+
+.slice-upload-zone-wrapper {
+  display: grid;
+  gap: 10px;
+}
+
+.slice-upload-zone {
+  border: 2px dashed var(--line);
+  border-radius: var(--radius);
+  padding: 32px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  background: rgba(0, 0, 0, 0.15);
+  min-height: 140px;
+}
+
+.slice-upload-zone:hover,
+.slice-upload-zone:focus-visible {
+  border-color: var(--accent);
+  background: rgba(126, 178, 171, 0.06);
+  outline: none;
+}
+
+.slice-upload-zone.drag-over {
+  border-color: var(--accent);
+  background: rgba(126, 178, 171, 0.12);
+  border-style: solid;
+}
+
+.slice-upload-zone.uploading {
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+.slice-upload-icon {
+  font-size: 2rem;
+  font-weight: 300;
+  color: var(--text-muted);
+  line-height: 1;
+}
+
+.slice-upload-label {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.slice-upload-progress {
+  width: 100%;
+  max-width: 300px;
+  display: grid;
+  gap: 6px;
+  text-align: center;
+}
+
+.slice-upload-progress-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
+.slice-upload-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: 0.82rem;
+}
+
+.slice-upload-file-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.slice-upload-file-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.2);
+  font-size: 0.85rem;
+}
+
+.slice-upload-file-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 24px;
+  border-radius: 6px;
+  background: rgba(126, 178, 171, 0.15);
+  color: var(--accent);
+  font-size: 0.7rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.slice-upload-file-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
