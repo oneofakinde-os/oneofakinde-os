@@ -2494,5 +2494,9 @@ export const commerceGateway: CommerceGateway = {
 
   async clearSession(sessionToken: string): Promise<void> {
     store.sessionToAccount.delete(sessionToken);
+  },
+
+  async resolveSupabaseSession(): Promise<Session | null> {
+    return null;
   }
 };

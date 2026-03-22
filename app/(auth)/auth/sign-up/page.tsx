@@ -21,6 +21,8 @@ export default async function SignUpPage({ searchParams }: SignUpPageProps) {
   const walletConnectHref = routes.walletConnect(returnTo);
   const errorCode = firstParam(resolvedParams.error);
   const hasInvalidEmail = errorCode === "invalid_email";
+  const hasEmailTaken = errorCode === "email_taken";
+  const hasSignupFailed = errorCode === "signup_failed";
   const hasAuthServiceError = errorCode === "auth_service_unavailable";
 
   return (
@@ -86,6 +88,12 @@ export default async function SignUpPage({ searchParams }: SignUpPageProps) {
           </section>
 
           {hasInvalidEmail ? <p className="identity-error">enter a valid email to continue.</p> : null}
+          {hasEmailTaken ? (
+            <p className="identity-error">this email is already registered. try signing in instead.</p>
+          ) : null}
+          {hasSignupFailed ? (
+            <p className="identity-error">account creation failed. check your password (min 8 characters) and try again.</p>
+          ) : null}
           {hasAuthServiceError ? (
             <p className="identity-error">account creation is temporarily unavailable. try again in a moment.</p>
           ) : null}

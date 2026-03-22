@@ -762,6 +762,12 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
       await requestJson(options, "/api/v1/session/clear", {
         method: "POST"
       });
+    },
+
+    async resolveSupabaseSession(): Promise<Session | null> {
+      // The gateway client delegates Supabase resolution to the server-side
+      // BFF service directly — this stub satisfies the interface.
+      return null;
     }
   };
 }

@@ -1,4 +1,5 @@
 import type {
+  AccountRole,
   AuthorizedDerivative,
   AuthorizedDerivativeKind,
   Certificate,
@@ -6554,6 +6555,41 @@ const gatewayMethods: CommerceGateway = {
       return {
         persist: db.sessions.length !== originalLength,
         result: undefined
+      };
+    });
+  },
+
+  /**
+   * Bridge: resolve a Supabase Auth user to a BFF Session.
+   * Finds or creates a bff_accounts record matching the Supabase user's email,
+   * then returns a Session with a synthetic token (not stored in bff_sessions)
+   * since Supabase manages the real session lifecycle.
+   */
+  async resolveSupabaseSession(supabaseUser: {
+    id: string;
+    email?: string;
+    user_metadata?: Record<string, unknown>;
+  }): Promise<Session | null> {
+    const email = supabaseUser.email?.trim().toLowerCase();
+    if (!email) {
+      return null;
+    }
+
+    return withDatabase(async (db) => {
+      let account = db.accounts.find((a) => a.email === email) ?? null;
+
+      if (!account) {
+        const role =
+          (supabaseUser.user_metadata?.role as AccountRole | undefined) === "creator"
+            ? "creator"
+            : "collector";
+        account = createAccountFromEmail(email, role);
+        db.accounts.push(account);
+      }
+
+      return {
+        persist: !db.accounts.some((a) => a.email === email && a.id !== account!.id),
+        result: toSession(account, `supa_${supabaseUser.id}`)
       };
     });
   }
