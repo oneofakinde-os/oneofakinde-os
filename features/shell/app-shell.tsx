@@ -44,7 +44,7 @@ export function AppShell({ title, subtitle, session, activeNav, children }: AppS
           </Link>
           {session ? (
             <>
-              <NotificationBell initialUnreadCount={0} />
+              <NotificationBell initialUnreadCount={0} accountId={session.accountId} />
               <Link href={routes.logout()} className="slice-link">
                 log out
               </Link>

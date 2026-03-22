@@ -2,6 +2,7 @@
 
 import type { LiveSessionConversationThread } from "@/lib/domain/contracts";
 import { useEventStream } from "@/lib/hooks/use-event-stream";
+import { useSupabaseRealtime } from "@/lib/hooks/use-supabase-realtime";
 import { useCallback, useEffect, useRef, useState } from "react";
 import "./live-chat.css";
 
@@ -37,8 +38,34 @@ export function LiveSessionConversation({
     scrollToBottom();
   }, [messages.length, scrollToBottom]);
 
-  // SSE stream with polling fallback
   const encodedId = encodeURIComponent(liveSessionId);
+
+  // --- Supabase Realtime: instant push when new messages arrive ---
+  const refetchThread = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/v1/live-sessions/${encodedId}/conversation`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.thread) {
+          setThread(data.thread);
+        }
+      }
+    } catch {
+      // Non-critical — SSE fallback will catch up
+    }
+  }, [encodedId]);
+
+  const { state: realtimeState } = useSupabaseRealtime({
+    table: "bff_live_session_conversation_messages",
+    events: ["INSERT"],
+    filter: `live_session_id=eq.${liveSessionId}`,
+    onChange: refetchThread,
+    enabled: true
+  });
+
+  // --- SSE fallback: used when Supabase Realtime is unavailable ---
+  const sseEnabled = realtimeState === "unavailable";
+
   const { connectionState } = useEventStream<{ thread: LiveSessionConversationThread }>(
     `/api/v1/live-sessions/${encodedId}/conversation/stream`,
     {
@@ -49,8 +76,20 @@ export function LiveSessionConversation({
       },
       fallbackPollMs: 5_000,
       fallbackFetchUrl: `/api/v1/live-sessions/${encodedId}/conversation`,
+      enabled: sseEnabled
     }
   );
+
+  // Derive display state: prefer Realtime, fall back to SSE
+  const displayState = realtimeState === "subscribed"
+    ? "realtime"
+    : realtimeState === "connecting"
+      ? "connecting"
+      : connectionState === "open"
+        ? "live"
+        : connectionState === "polling"
+          ? "polling"
+          : null;
 
   const handleSend = useCallback(async () => {
     const body = messageBody.trim();
@@ -91,9 +130,11 @@ export function LiveSessionConversation({
     <section className="slice-panel" data-testid="live-session-conversation">
       <h3 className="slice-heading">
         live chat
-        {connectionState === "open" ? (
+        {displayState === "realtime" ? (
+          <span className="slice-meta" style={{ marginLeft: "0.5rem" }}>● realtime</span>
+        ) : displayState === "live" ? (
           <span className="slice-meta" style={{ marginLeft: "0.5rem" }}>● live</span>
-        ) : connectionState === "polling" ? (
+        ) : displayState === "polling" ? (
           <span className="slice-meta" style={{ marginLeft: "0.5rem" }}>↻ polling</span>
         ) : null}
       </h3>
