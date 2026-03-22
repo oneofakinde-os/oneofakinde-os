@@ -16,17 +16,17 @@ export async function logoutAction(): Promise<void> {
       const supabase = await createClient();
       await supabase.auth.signOut();
     } catch {
-      // Best-effort; local cookie deletion still logs the user out.
+      // Best-effort; cookie deletion below still logs the user out.
     }
   }
 
-  // Clear legacy custom session
+  // Clear legacy custom session (if present — covers legacy-only and migration cases)
   const token = cookieStore.get(SESSION_COOKIE)?.value;
-  if (token) {
+  if (token && !token.startsWith("supa_")) {
     try {
       await gateway.clearSession(token);
     } catch {
-      // Best-effort remote session cleanup; local cookie deletion still logs the user out.
+      // Best-effort remote session cleanup.
     }
   }
 

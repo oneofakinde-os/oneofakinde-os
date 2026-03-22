@@ -44,28 +44,8 @@ export async function signUpAction(formData: FormData): Promise<void> {
       );
     }
 
-    // Supabase sets its own auth cookies.
-    // Set legacy cookies so the middleware route policy works.
-    const cookieStore = await cookies();
-    cookieStore.set({
-      name: SESSION_COOKIE,
-      value: `supa_bridge_${Date.now()}`,
-      httpOnly: true,
-      path: "/",
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 60 * 60 * 24 * 14
-    });
-    cookieStore.set({
-      name: SESSION_ROLES_COOKIE,
-      value: serializeSessionRoles([role]),
-      httpOnly: true,
-      path: "/",
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 60 * 60 * 24 * 14
-    });
-
+    // Supabase sets its own auth cookies via the server client.
+    // The middleware reads Supabase session directly — no bridge cookies needed.
     const finalReturnTo = normalizeReturnTo(returnTo, "/townhall");
     redirect(finalReturnTo as Route);
   }
