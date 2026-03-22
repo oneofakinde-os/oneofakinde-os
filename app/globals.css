@@ -8,6 +8,7 @@
   --line: #263542;
   --accent: #7eb2ab;
   --accent-2: #4f8f85;
+  --accent-bright: rgb(80, 220, 180);
   --danger: #d97777;
   --radius: 16px;
 }
@@ -338,6 +339,39 @@ a {
   margin: 0;
   color: var(--text-muted);
   font-size: 0.82rem;
+}
+
+.slice-heading {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.slice-textarea {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: #080d11;
+  color: var(--text);
+  padding: 10px 12px;
+  font: inherit;
+  resize: vertical;
+  min-height: 80px;
+}
+
+.slice-list-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.slice-button.sm {
+  font-size: 0.75rem;
+  padding: 4px 8px;
 }
 
 .slice-player {
