@@ -446,6 +446,24 @@ export type StudioFollowRecord = {
   createdAt: string;
 };
 
+export type NotificationEntryRecord = {
+  id: string;
+  accountId: string;
+  type: string;
+  title: string;
+  body: string;
+  href: string | null;
+  read: boolean;
+  createdAt: string;
+};
+
+export type NotificationPreferencesRecord = {
+  accountId: string;
+  channels: Record<string, boolean>;
+  mutedTypes: string[];
+  digestEnabled: boolean;
+};
+
 export type BffDatabase = {
   version: 1;
   catalog: {
@@ -492,6 +510,8 @@ export type BffDatabase = {
   ledgerTransactions: LedgerTransactionRecord[];
   ledgerLineItems: LedgerLineItemRecord[];
   studioFollows: StudioFollowRecord[];
+  notificationEntries: NotificationEntryRecord[];
+  notificationPreferences: NotificationPreferencesRecord[];
 };
 
 type MutationResult<T> = {
@@ -1230,7 +1250,9 @@ function createSeedDatabase(): BffDatabase {
     ],
     ledgerTransactions: [],
     ledgerLineItems: [],
-    studioFollows: []
+    studioFollows: [],
+    notificationEntries: [],
+    notificationPreferences: []
   };
 }
 
@@ -1276,7 +1298,9 @@ function createCatalogSeedDatabase(): BffDatabase {
     authorizedDerivatives: seeded.authorizedDerivatives,
     ledgerTransactions: [],
     ledgerLineItems: [],
-    studioFollows: []
+    studioFollows: [],
+    notificationEntries: [],
+    notificationPreferences: []
   };
 }
 
@@ -1326,7 +1350,9 @@ function createEmptyDatabase(): BffDatabase {
     authorizedDerivatives: [],
     ledgerTransactions: [],
     ledgerLineItems: [],
-    studioFollows: []
+    studioFollows: [],
+    notificationEntries: [],
+    notificationPreferences: []
   };
 }
 
@@ -1379,7 +1405,9 @@ function isValidDb(input: unknown): input is BffDatabase {
     Array.isArray(candidate.authorizedDerivatives) &&
     Array.isArray(candidate.ledgerTransactions) &&
     Array.isArray(candidate.ledgerLineItems) &&
-    Array.isArray(candidate.studioFollows)
+    Array.isArray(candidate.studioFollows) &&
+    Array.isArray(candidate.notificationEntries) &&
+    Array.isArray(candidate.notificationPreferences)
   );
 }
 
@@ -1417,6 +1445,8 @@ function hasLegacyBaseDbShape(input: unknown): input is Omit<
   | "libraryEligibilityStates"
   | "receiptBadges"
   | "studioFollows"
+  | "notificationEntries"
+  | "notificationPreferences"
 > {
   if (!input || typeof input !== "object") {
     return false;
@@ -3099,7 +3129,13 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
       authorizedDerivatives: normalizeAuthorizedDerivativeRecords(input.authorizedDerivatives),
       ledgerTransactions: normalizeLedgerTransactionRecords(input.ledgerTransactions),
       ledgerLineItems: normalizeLedgerLineItemRecords(input.ledgerLineItems),
-      studioFollows: normalizeStudioFollowRecords(input.studioFollows)
+      studioFollows: normalizeStudioFollowRecords(input.studioFollows),
+      notificationEntries: Array.isArray(input.notificationEntries)
+        ? (input.notificationEntries as NotificationEntryRecord[])
+        : [],
+      notificationPreferences: Array.isArray(input.notificationPreferences)
+        ? (input.notificationPreferences as NotificationPreferencesRecord[])
+        : []
     };
   }
 
@@ -3238,6 +3274,12 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         : [],
       studioFollows: Array.isArray(candidate.studioFollows)
         ? normalizeStudioFollowRecords(candidate.studioFollows as StudioFollowRecord[])
+        : [],
+      notificationEntries: Array.isArray(candidate.notificationEntries)
+        ? (candidate.notificationEntries as NotificationEntryRecord[])
+        : [],
+      notificationPreferences: Array.isArray(candidate.notificationPreferences)
+        ? (candidate.notificationPreferences as NotificationPreferencesRecord[])
         : []
     };
   }
@@ -4262,13 +4304,51 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
         meta.get("studio_follows_json"),
         []
       )
-    )
+    ),
+    notificationEntries: await (async () => {
+      try {
+        const r = await client.query<{
+          id: string;
+          accountId: string;
+          type: string;
+          title: string;
+          body: string;
+          href: string | null;
+          read: boolean;
+          createdAt: string;
+        }>(
+          'SELECT id, account_id AS "accountId", type, title, body, href, read, created_at AS "createdAt" FROM bff_notification_entries ORDER BY created_at DESC'
+        );
+        return r.rows;
+      } catch {
+        // Table may not exist yet (pre-migration)
+        return [];
+      }
+    })(),
+    notificationPreferences: await (async () => {
+      try {
+        const r = await client.query<{
+          accountId: string;
+          channels: Record<string, boolean>;
+          mutedTypes: string[];
+          digestEnabled: boolean;
+        }>(
+          'SELECT account_id AS "accountId", channels, muted_types AS "mutedTypes", digest_enabled AS "digestEnabled" FROM bff_notification_preferences'
+        );
+        return r.rows;
+      } catch {
+        // Table may not exist yet (pre-migration)
+        return [];
+      }
+    })()
   };
 }
 
 async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<void> {
   await client.query(`
     TRUNCATE TABLE
+      bff_notification_entries,
+      bff_notification_preferences,
       bff_ledger_line_items,
       bff_ledger_transactions,
       bff_townhall_telemetry_events,
@@ -4817,6 +4897,36 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
         lineItem.currency,
         lineItem.recipientAccountId,
         lineItem.createdAt
+      ]
+    );
+  }
+
+  // Notification entries
+  for (const entry of db.notificationEntries) {
+    await client.query(
+      "INSERT INTO bff_notification_entries (id, account_id, type, title, body, href, read, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (id) DO UPDATE SET read = EXCLUDED.read",
+      [
+        entry.id,
+        entry.accountId,
+        entry.type,
+        entry.title,
+        entry.body,
+        entry.href,
+        entry.read,
+        entry.createdAt
+      ]
+    );
+  }
+
+  // Notification preferences
+  for (const pref of db.notificationPreferences) {
+    await client.query(
+      "INSERT INTO bff_notification_preferences (account_id, channels, muted_types, digest_enabled) VALUES ($1, $2::jsonb, $3, $4) ON CONFLICT (account_id) DO UPDATE SET channels = EXCLUDED.channels, muted_types = EXCLUDED.muted_types, digest_enabled = EXCLUDED.digest_enabled",
+      [
+        pref.accountId,
+        JSON.stringify(pref.channels),
+        pref.mutedTypes,
+        pref.digestEnabled
       ]
     );
   }
