@@ -883,6 +883,12 @@ a {
   font-size: 0.84rem;
 }
 
+.identity-success {
+  margin: 0;
+  color: #8bffb8;
+  font-size: 0.84rem;
+}
+
 .identity-foot {
   margin-top: 2px;
   display: flex;

@@ -219,6 +219,28 @@ surfaces:
     contract_deps: ["openapi_v1.auth", "openapi_v1.session", "schema_v1.accounts", "canon_no_leaks_scan"]
     proof_ids: ["p_auth_session_primary", "p_no_leaks_ci"]
 
+  - route: "/auth/forgot-password"
+    legacy_routes: []
+    surface_key: "auth_forgot_password"
+    ui_title: "forgot password"
+    ui_nouns: []
+    lint_targets: ["h1", "cta", "metadata_labels"]
+    roles: ["public"]
+    public_safe: true
+    contract_deps: ["openapi_v1.auth", "canon_no_leaks_scan"]
+    proof_ids: ["p_no_leaks_ci"]
+
+  - route: "/auth/reset-password"
+    legacy_routes: []
+    surface_key: "auth_reset_password"
+    ui_title: "reset password"
+    ui_nouns: []
+    lint_targets: ["h1", "cta", "metadata_labels"]
+    roles: ["public"]
+    public_safe: true
+    contract_deps: ["openapi_v1.auth", "canon_no_leaks_scan"]
+    proof_ids: ["p_no_leaks_ci"]
+
   - route: "/logout"
     legacy_routes: []
     surface_key: "logout"

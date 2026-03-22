@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-22T18:32:13.266Z",
+  "generated_at": "2026-03-22T21:27:43.149Z",
   "source_path": "config/surface-map.source.txt",
   "source_metadata": {
     "format": "lintable_txt_v1",
@@ -504,6 +504,54 @@
       ],
       "proof_ids": [
         "p_auth_session_primary",
+        "p_no_leaks_ci"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/auth/forgot-password",
+      "legacy_routes": [],
+      "surface_key": "auth_forgot_password",
+      "ui_title": "forgot password",
+      "ui_nouns": [],
+      "lint_targets": [
+        "h1",
+        "cta",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.auth",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_no_leaks_ci"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/auth/reset-password",
+      "legacy_routes": [],
+      "surface_key": "auth_reset_password",
+      "ui_title": "reset password",
+      "ui_nouns": [],
+      "lint_targets": [
+        "h1",
+        "cta",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.auth",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
         "p_no_leaks_ci"
       ],
       "rules": []
@@ -2428,6 +2476,8 @@
     "/live/:session_id",
     "/auth/sign-in",
     "/auth/sign-up",
+    "/auth/forgot-password",
+    "/auth/reset-password",
     "/collectors/:handle",
     "/studio/:handle",
     "/worlds/:id",
@@ -2469,8 +2519,8 @@
     "canon_payments_stripe"
   ],
   "stats": {
-    "route_count": 68,
-    "public_safe_count": 41,
+    "route_count": 70,
+    "public_safe_count": 43,
     "session_required_count": 27,
     "legacy_redirect_count": 34
   }
