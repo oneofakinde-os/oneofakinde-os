@@ -101,6 +101,9 @@ a {
 
 .slice-session {
   margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .slice-content {
@@ -3291,4 +3294,49 @@ a {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ─── avatar ──────────────────────────────────────────────────────── */
+
+.slice-avatar {
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.slice-avatar-placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(126, 178, 171, 0.18);
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.slice-avatar-placeholder-lg {
+  width: 56px;
+  height: 56px;
+  font-size: 1.4rem;
+}
+
+.slice-avatar-lg {
+  width: 64px;
+  height: 64px;
+}
+
+.identity-avatar-upload {
+  display: grid;
+  gap: 10px;
+}
+
+.identity-avatar-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }

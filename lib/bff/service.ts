@@ -833,7 +833,9 @@ function toSession(account: AccountRecord, sessionToken: string): Session {
     handle: account.handle,
     displayName: account.displayName,
     roles: account.roles,
-    sessionToken
+    sessionToken,
+    avatarUrl: account.avatarUrl,
+    bio: account.bio
   };
 }
 
@@ -6590,6 +6592,38 @@ const gatewayMethods: CommerceGateway = {
       return {
         persist: !db.accounts.some((a) => a.email === email && a.id !== account!.id),
         result: toSession(account, `supa_${supabaseUser.id}`)
+      };
+    });
+  },
+
+  async updateAccountProfile(
+    accountId: string,
+    updates: { displayName?: string; avatarUrl?: string; bio?: string }
+  ): Promise<Session | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account) {
+        return { persist: false, result: null };
+      }
+
+      let changed = false;
+      if (updates.displayName !== undefined && updates.displayName !== account.displayName) {
+        account.displayName = updates.displayName;
+        changed = true;
+      }
+      if (updates.avatarUrl !== undefined && updates.avatarUrl !== account.avatarUrl) {
+        account.avatarUrl = updates.avatarUrl;
+        changed = true;
+      }
+      if (updates.bio !== undefined && updates.bio !== account.bio) {
+        account.bio = updates.bio;
+        changed = true;
+      }
+
+      const session = db.sessions.find((s) => s.accountId === accountId);
+      return {
+        persist: changed,
+        result: toSession(account, session?.token ?? `profile_${accountId}`)
       };
     });
   }

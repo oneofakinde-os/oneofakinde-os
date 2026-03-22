@@ -1,3 +1,4 @@
+import { AvatarUploadField } from "./avatar-upload-field";
 import { requireSession } from "@/lib/server/session";
 import { normalizeReturnTo } from "@/lib/session";
 import { routes } from "@/lib/routes";
@@ -61,12 +62,7 @@ export default async function ProfileSetupPage({ searchParams }: ProfileSetupPag
 
           <label className="identity-field">
             <span className="identity-label">choose your avatar image</span>
-            <div className="identity-upload-row">
-              <button type="button" className="identity-chip" disabled>
-                upload image
-              </button>
-              <span className="identity-upload-note">png, jpg, or webp</span>
-            </div>
+            <AvatarUploadField currentAvatarUrl={session.avatarUrl} handle={session.handle} />
           </label>
 
           <label className="identity-field">
@@ -76,7 +72,13 @@ export default async function ProfileSetupPage({ searchParams }: ProfileSetupPag
 
           <label className="identity-field">
             <span className="identity-label">choose your name</span>
-            <input className="identity-input" type="text" name="displayName" placeholder="your display name" />
+            <input
+              className="identity-input"
+              type="text"
+              name="displayName"
+              placeholder="your display name"
+              defaultValue={session.displayName}
+            />
           </label>
 
           <label className="identity-field">
@@ -85,6 +87,7 @@ export default async function ProfileSetupPage({ searchParams }: ProfileSetupPag
               className="identity-input identity-textarea"
               name="bio"
               placeholder="identity statement for your studio"
+              defaultValue={session.bio ?? ""}
             />
           </label>
 

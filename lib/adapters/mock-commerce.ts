@@ -2498,5 +2498,9 @@ export const commerceGateway: CommerceGateway = {
 
   async resolveSupabaseSession(): Promise<Session | null> {
     return null;
+  },
+
+  async updateAccountProfile(): Promise<Session | null> {
+    return null;
   }
 };

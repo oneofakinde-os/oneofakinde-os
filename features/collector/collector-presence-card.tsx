@@ -7,6 +7,7 @@ import "./collector-presence.css";
 type CollectorPresenceCardProps = {
   handle: string;
   displayName: string;
+  avatarUrl?: string;
   collectionCount: number;
   badgeCount: number;
   patronWorlds: Array<{
@@ -21,6 +22,7 @@ type CollectorPresenceCardProps = {
 export function CollectorPresenceCard({
   handle,
   displayName,
+  avatarUrl,
   collectionCount,
   badgeCount,
   patronWorlds,
@@ -54,6 +56,15 @@ export function CollectorPresenceCard({
       className={isCompact ? "slice-list-row" : "slice-drop-card"}
       data-testid="collector-presence-card"
     >
+      {!isCompact && avatarUrl ? (
+        <img
+          src={avatarUrl}
+          alt={`@${handle}`}
+          className="slice-avatar"
+          width={40}
+          height={40}
+        />
+      ) : null}
       <div>
         <p className="slice-label">
           <Link href={routes.collector(handle)} className="slice-link">
