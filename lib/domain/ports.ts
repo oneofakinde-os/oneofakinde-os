@@ -150,4 +150,9 @@ export interface CommerceGateway {
     email?: string;
     user_metadata?: Record<string, unknown>;
   }): Promise<Session | null>;
+
+  updateAccountProfile(
+    accountId: string,
+    updates: { displayName?: string; avatarUrl?: string; bio?: string }
+  ): Promise<Session | null>;
 }

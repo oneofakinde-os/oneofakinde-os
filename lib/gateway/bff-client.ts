@@ -768,6 +768,10 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
       // The gateway client delegates Supabase resolution to the server-side
       // BFF service directly — this stub satisfies the interface.
       return null;
+    },
+
+    async updateAccountProfile(): Promise<Session | null> {
+      return null;
     }
   };
 }

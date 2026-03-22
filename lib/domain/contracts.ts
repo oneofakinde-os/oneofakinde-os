@@ -7,6 +7,8 @@ export type Session = {
   displayName: string;
   roles: AccountRole[];
   sessionToken: string;
+  avatarUrl?: string;
+  bio?: string;
 };
 
 export type DropPreviewMode = "watch" | "listen" | "read" | "photos" | "live";

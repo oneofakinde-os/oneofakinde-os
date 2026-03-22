@@ -57,7 +57,26 @@ export function AppShell({ title, subtitle, session, activeNav, children }: AppS
         </nav>
       </header>
 
-      {session ? <p className="slice-session">signed in as @{session.handle}</p> : <p className="slice-session">public preview mode</p>}
+      {session ? (
+        <p className="slice-session">
+          {session.avatarUrl ? (
+            <img
+              src={session.avatarUrl}
+              alt={`@${session.handle}`}
+              className="slice-avatar"
+              width={28}
+              height={28}
+            />
+          ) : (
+            <span className="slice-avatar-placeholder" aria-hidden>
+              {session.handle.charAt(0)}
+            </span>
+          )}
+          signed in as @{session.handle}
+        </p>
+      ) : (
+        <p className="slice-session">public preview mode</p>
+      )}
 
       <section className="slice-content">{children}</section>
     </main>

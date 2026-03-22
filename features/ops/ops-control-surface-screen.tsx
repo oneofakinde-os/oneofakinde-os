@@ -513,27 +513,63 @@ function renderPayoutsBody() {
 
 function renderSettingsAccountBody(session: Session) {
   return (
-    <section className="slice-panel">
-      <p className="slice-label">identity + contact</p>
-      <div className="ops-settings-grid">
-        <label className="slice-field">
-          email
-          <input className="slice-input" value={session.email} readOnly />
-        </label>
-        <label className="slice-field">
-          handle
-          <input className="slice-input" value={`@${session.handle}`} readOnly />
-        </label>
-        <label className="slice-field">
-          display name
-          <input className="slice-input" value={session.displayName} readOnly />
-        </label>
-        <label className="slice-field">
-          role access
-          <input className="slice-input" value={session.roles.join(", ")} readOnly />
-        </label>
-      </div>
-    </section>
+    <>
+      <section className="slice-panel">
+        <p className="slice-label">profile</p>
+        <div className="ops-settings-grid">
+          <div className="slice-field" style={{ alignItems: "center", display: "flex", gap: 12 }}>
+            {session.avatarUrl ? (
+              <img
+                src={session.avatarUrl}
+                alt={`@${session.handle}`}
+                className="slice-avatar"
+                width={56}
+                height={56}
+              />
+            ) : (
+              <span className="slice-avatar-placeholder slice-avatar-placeholder-lg" aria-hidden>
+                {session.handle.charAt(0)}
+              </span>
+            )}
+            <span className="slice-meta">
+              upload a new avatar from the{" "}
+              <Link href="/onboarding/profile-setup" className="slice-link">
+                profile setup
+              </Link>
+              {" "}page
+            </span>
+          </div>
+          {session.bio ? (
+            <div className="slice-field">
+              <span className="slice-meta">bio</span>
+              <p className="slice-copy">{session.bio}</p>
+            </div>
+          ) : null}
+        </div>
+      </section>
+
+      <section className="slice-panel">
+        <p className="slice-label">identity + contact</p>
+        <div className="ops-settings-grid">
+          <label className="slice-field">
+            email
+            <input className="slice-input" value={session.email} readOnly />
+          </label>
+          <label className="slice-field">
+            handle
+            <input className="slice-input" value={`@${session.handle}`} readOnly />
+          </label>
+          <label className="slice-field">
+            display name
+            <input className="slice-input" value={session.displayName} readOnly />
+          </label>
+          <label className="slice-field">
+            role access
+            <input className="slice-input" value={session.roles.join(", ")} readOnly />
+          </label>
+        </div>
+      </section>
+    </>
   );
 }
 

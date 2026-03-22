@@ -58,6 +58,8 @@ export type AccountRecord = {
   displayName: string;
   roles: AccountRole[];
   createdAt: string;
+  avatarUrl?: string;
+  bio?: string;
 };
 
 export type SessionRecord = {
@@ -3657,7 +3659,7 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       roles: string[];
       createdAt: string;
     }>(
-      'SELECT id, email, handle, display_name AS "displayName", roles, created_at AS "createdAt" FROM bff_accounts ORDER BY created_at ASC'
+      'SELECT id, email, handle, display_name AS "displayName", roles, created_at AS "createdAt", avatar_url AS "avatarUrl", bio FROM bff_accounts ORDER BY created_at ASC'
     ),
     client.query<SessionRecord>(
       'SELECT token, account_id AS "accountId", created_at AS "createdAt", expires_at AS "expiresAt" FROM bff_sessions ORDER BY created_at ASC'
@@ -4501,8 +4503,8 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
 
   for (const account of db.accounts) {
     await client.query(
-      "INSERT INTO bff_accounts (id, email, handle, display_name, roles, created_at) VALUES ($1, $2, $3, $4, $5, $6)",
-      [account.id, account.email, account.handle, account.displayName, account.roles, account.createdAt]
+      "INSERT INTO bff_accounts (id, email, handle, display_name, roles, created_at, avatar_url, bio) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+      [account.id, account.email, account.handle, account.displayName, account.roles, account.createdAt, account.avatarUrl ?? null, account.bio ?? null]
     );
   }
 
