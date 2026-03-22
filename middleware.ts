@@ -1,8 +1,9 @@
 import { evaluateRoutePolicy } from "@/lib/route-policy";
 import { parseSessionRoles, SESSION_COOKIE, SESSION_ROLES_COOKIE } from "@/lib/session";
+import { refreshSupabaseSession } from "@/lib/supabase/middleware";
 import { NextRequest, NextResponse } from "next/server";
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const hasSession = Boolean(request.cookies.get(SESSION_COOKIE)?.value);
   const sessionRoles = parseSessionRoles(request.cookies.get(SESSION_ROLES_COOKIE)?.value);
 
@@ -27,10 +28,14 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(url, decision.status);
   }
 
-  const response = NextResponse.next();
+  let response = NextResponse.next();
   for (const [key, value] of Object.entries(decision.headers)) {
     response.headers.set(key, value);
   }
+
+  // Refresh Supabase session (updates cookies if access token expired).
+  response = await refreshSupabaseSession(request, response);
+
   return response;
 }
 

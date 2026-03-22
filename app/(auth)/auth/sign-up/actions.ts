@@ -3,6 +3,7 @@
 import type { AccountRole } from "@/lib/domain/contracts";
 import { gateway } from "@/lib/gateway";
 import { normalizeReturnTo, serializeSessionRoles, SESSION_COOKIE, SESSION_ROLES_COOKIE } from "@/lib/session";
+import { isSupabaseAuthEnabled } from "@/lib/supabase/config";
 import { cookies } from "next/headers";
 import type { Route } from "next";
 import { redirect } from "next/navigation";
@@ -13,6 +14,7 @@ function normalizeRole(value: FormDataEntryValue | null): AccountRole {
 
 export async function signUpAction(formData: FormData): Promise<void> {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const password = String(formData.get("password") ?? "");
   const role = normalizeRole(formData.get("role"));
   const returnTo = String(formData.get("returnTo") ?? "");
 
@@ -20,6 +22,55 @@ export async function signUpAction(formData: FormData): Promise<void> {
     redirect(`/auth/sign-up?error=invalid_email&returnTo=${encodeURIComponent(returnTo)}` as Route);
   }
 
+  // --- Supabase Auth path ---
+  if (isSupabaseAuthEnabled()) {
+    const { createClient } = await import("@/lib/supabase/server");
+    const supabase = await createClient();
+
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { role }
+      }
+    });
+
+    if (error) {
+      const errorCode = error.message.includes("already registered")
+        ? "email_taken"
+        : "signup_failed";
+      redirect(
+        `/auth/sign-up?error=${errorCode}&returnTo=${encodeURIComponent(returnTo)}` as Route
+      );
+    }
+
+    // Supabase sets its own auth cookies.
+    // Set legacy cookies so the middleware route policy works.
+    const cookieStore = await cookies();
+    cookieStore.set({
+      name: SESSION_COOKIE,
+      value: `supa_bridge_${Date.now()}`,
+      httpOnly: true,
+      path: "/",
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 60 * 60 * 24 * 14
+    });
+    cookieStore.set({
+      name: SESSION_ROLES_COOKIE,
+      value: serializeSessionRoles([role]),
+      httpOnly: true,
+      path: "/",
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 60 * 60 * 24 * 14
+    });
+
+    const finalReturnTo = normalizeReturnTo(returnTo, "/townhall");
+    redirect(finalReturnTo as Route);
+  }
+
+  // --- Legacy custom auth path ---
   let session: Awaited<ReturnType<typeof gateway.createSession>>;
   try {
     session = await gateway.createSession({ email, role });

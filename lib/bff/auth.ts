@@ -2,6 +2,7 @@ import { unauthorized, type RouteContext } from "@/lib/bff/http";
 import { commerceBffService } from "@/lib/bff/service";
 import type { Session } from "@/lib/domain/contracts";
 import { SESSION_COOKIE } from "@/lib/session";
+import { isSupabaseAuthEnabled } from "@/lib/supabase/config";
 import type { NextResponse } from "next/server";
 
 type SessionGuardResult =
@@ -45,7 +46,54 @@ function getRequestSessionToken(request: Request): string | null {
   return cookieToken || null;
 }
 
+/**
+ * Attempt to resolve a session from Supabase Auth cookies on the request.
+ * Returns null if Supabase is not configured or no valid user is found.
+ */
+async function getSupabaseSessionFromRequest(request: Request): Promise<Session | null> {
+  if (!isSupabaseAuthEnabled()) {
+    return null;
+  }
+
+  try {
+    // Dynamic import to avoid errors when @supabase/ssr is not installed
+    const { createServerClient } = await import("@supabase/ssr");
+    const cookies = parseCookieHeader(request.headers.get("cookie"));
+
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return Object.entries(cookies).map(([name, value]) => ({ name, value }));
+          },
+          setAll() {
+            // Route handlers can't set cookies on the incoming request
+          }
+        }
+      }
+    );
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return null;
+    }
+
+    return commerceBffService.resolveSupabaseSession(user);
+  } catch {
+    return null;
+  }
+}
+
 export async function getRequestSession(request: Request): Promise<Session | null> {
+  // 1. Try Supabase Auth first (if configured)
+  const supabaseSession = await getSupabaseSessionFromRequest(request);
+  if (supabaseSession) {
+    return supabaseSession;
+  }
+
+  // 2. Fall back to custom session token
   const token = getRequestSessionToken(request);
   if (!token) {
     return null;

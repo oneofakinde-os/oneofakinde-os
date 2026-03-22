@@ -26,6 +26,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
   const signUpReturnTo = extractFinalReturnTo(returnTo);
   const errorCode = firstParam(resolvedParams.error);
   const hasInvalidEmail = errorCode === "invalid_email";
+  const hasInvalidCredentials = errorCode === "invalid_credentials";
   const hasRoleError = errorCode === "role_required";
   const hasAuthServiceError = errorCode === "auth_service_unavailable";
 
@@ -93,6 +94,9 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
           </section>
 
           {hasInvalidEmail ? <p className="identity-error">enter a valid email to continue.</p> : null}
+          {hasInvalidCredentials ? (
+            <p className="identity-error">email or password is incorrect. try again.</p>
+          ) : null}
           {hasRoleError ? (
             <p className="identity-error">this route requires creator access. switch mode and continue.</p>
           ) : null}

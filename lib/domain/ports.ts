@@ -145,4 +145,9 @@ export interface CommerceGateway {
   getSessionByToken(sessionToken: string): Promise<Session | null>;
   createSession(input: CreateSessionInput): Promise<Session>;
   clearSession(sessionToken: string): Promise<void>;
+  resolveSupabaseSession(supabaseUser: {
+    id: string;
+    email?: string;
+    user_metadata?: Record<string, unknown>;
+  }): Promise<Session | null>;
 }

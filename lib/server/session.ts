@@ -1,10 +1,43 @@
 import { gateway } from "@/lib/gateway";
+import { commerceBffService } from "@/lib/bff/service";
 import type { AccountRole, Session } from "@/lib/domain/contracts";
 import { SESSION_COOKIE, normalizeReturnTo } from "@/lib/session";
+import { isSupabaseAuthEnabled } from "@/lib/supabase/config";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
+/**
+ * Try to resolve a session from Supabase Auth.
+ * Returns null if Supabase is not configured or no valid user.
+ */
+async function getSupabaseSession(): Promise<Session | null> {
+  if (!isSupabaseAuthEnabled()) {
+    return null;
+  }
+
+  try {
+    const { createClient } = await import("@/lib/supabase/server");
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return null;
+    }
+
+    return commerceBffService.resolveSupabaseSession(user);
+  } catch {
+    return null;
+  }
+}
+
 export async function getOptionalSession(): Promise<Session | null> {
+  // 1. Try Supabase Auth first
+  const supabaseSession = await getSupabaseSession();
+  if (supabaseSession) {
+    return supabaseSession;
+  }
+
+  // 2. Fall back to custom session token
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;
 
