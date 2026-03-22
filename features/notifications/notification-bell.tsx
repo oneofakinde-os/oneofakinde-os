@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { routes } from "@/lib/routes";
-import "./notifications.css";
 
 type NotificationBellProps = {
   initialUnreadCount: number;
