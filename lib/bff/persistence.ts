@@ -3632,7 +3632,18 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     worldCollectOwnershipsResult,
     worldReleaseQueueResult,
     ledgerTransactionsResult,
-    ledgerLineItemsResult
+    ledgerLineItemsResult,
+    libraryEligibilityStatesResult,
+    workshopProProfilesResult,
+    liveSessionAttendeesResult,
+    liveSessionArtifactsResult,
+    liveSessionConversationMessagesResult,
+    townhallPostSavesResult,
+    townhallPostFollowsResult,
+    townhallPostSharesResult,
+    dropVersionsResult,
+    authorizedDerivativesResult,
+    studioFollowsResult
   ] = await Promise.all([
     client.query<{ key: string; value: string }>("SELECT key, value FROM bff_meta"),
     client.query<{ data: unknown }>("SELECT data FROM bff_catalog_drops ORDER BY id ASC"),
@@ -3921,7 +3932,63 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       createdAt: string;
     }>(
       'SELECT id, transaction_id AS "transactionId", kind, scope, amount_usd AS "amountUsd", currency, recipient_account_id AS "recipientAccountId", created_at AS "createdAt" FROM bff_ledger_line_items ORDER BY created_at ASC'
-    )
+    ),
+    client.query<LibraryEligibilityStateRecord>(
+      'SELECT account_id AS "accountId", drop_id AS "dropId", state, updated_at AS "updatedAt" FROM bff_library_eligibility_states'
+    ).catch(() => ({ rows: [] as LibraryEligibilityStateRecord[], rowCount: 0 })),
+    client.query<WorkshopProProfileRecord>(
+      'SELECT studio_handle AS "studioHandle", state, cycle_anchor_at AS "cycleAnchorAt", past_due_at AS "pastDueAt", grace_ends_at AS "graceEndsAt", locked_at AS "lockedAt", updated_at AS "updatedAt" FROM bff_workshop_pro_profiles'
+    ).catch(() => ({ rows: [] as WorkshopProProfileRecord[], rowCount: 0 })),
+    client.query<LiveSessionAttendeeRecord>(
+      'SELECT id, live_session_id AS "liveSessionId", account_id AS "accountId", joined_at AS "joinedAt" FROM bff_live_session_attendees ORDER BY joined_at ASC'
+    ).catch(() => ({ rows: [] as LiveSessionAttendeeRecord[], rowCount: 0 })),
+    client.query<LiveSessionArtifactRecord>(
+      'SELECT id, live_session_id AS "liveSessionId", studio_handle AS "studioHandle", world_id AS "worldId", source_drop_id AS "sourceDropId", artifact_kind AS "artifactKind", title, synopsis, status, captured_at AS "capturedAt", approved_at AS "approvedAt", catalog_drop_id AS "catalogDropId", approved_by_handle AS "approvedByHandle" FROM bff_live_session_artifacts ORDER BY captured_at DESC'
+    ).catch(() => ({ rows: [] as LiveSessionArtifactRecord[], rowCount: 0 })),
+    client.query<{
+      id: string;
+      liveSessionId: string;
+      accountId: string;
+      parentMessageId: string | null;
+      body: string;
+      createdAt: string;
+      visibility: WorldConversationVisibility;
+      reportCount: number | string;
+      reportedAt: string | null;
+      moderatedAt: string | null;
+      moderatedByAccountId: string | null;
+      appealRequestedAt: string | null;
+      appealRequestedByAccountId: string | null;
+    }>(
+      'SELECT id, live_session_id AS "liveSessionId", account_id AS "accountId", parent_message_id AS "parentMessageId", body, created_at AS "createdAt", visibility AS "visibility", report_count AS "reportCount", reported_at AS "reportedAt", moderated_at AS "moderatedAt", moderated_by_account_id AS "moderatedByAccountId", appeal_requested_at AS "appealRequestedAt", appeal_requested_by_account_id AS "appealRequestedByAccountId" FROM bff_live_session_conversation_messages ORDER BY created_at ASC'
+    ).catch(() => ({ rows: [] as Array<{ id: string; liveSessionId: string; accountId: string; parentMessageId: string | null; body: string; createdAt: string; visibility: WorldConversationVisibility; reportCount: number | string; reportedAt: string | null; moderatedAt: string | null; moderatedByAccountId: string | null; appealRequestedAt: string | null; appealRequestedByAccountId: string | null }>, rowCount: 0 })),
+    client.query<TownhallPostSaveRecord>(
+      'SELECT account_id AS "accountId", post_id AS "postId", saved_at AS "savedAt" FROM bff_townhall_post_saves'
+    ).catch(() => ({ rows: [] as TownhallPostSaveRecord[], rowCount: 0 })),
+    client.query<TownhallPostFollowRecord>(
+      'SELECT account_id AS "accountId", post_id AS "postId", followed_at AS "followedAt" FROM bff_townhall_post_follows'
+    ).catch(() => ({ rows: [] as TownhallPostFollowRecord[], rowCount: 0 })),
+    client.query<TownhallPostShareRecord>(
+      'SELECT id, account_id AS "accountId", post_id AS "postId", channel, shared_at AS "sharedAt" FROM bff_townhall_post_shares ORDER BY shared_at DESC'
+    ).catch(() => ({ rows: [] as TownhallPostShareRecord[], rowCount: 0 })),
+    client.query<DropVersionRecord>(
+      'SELECT id, drop_id AS "dropId", label, notes, created_by_handle AS "createdByHandle", created_at AS "createdAt", released_at AS "releasedAt" FROM bff_drop_versions ORDER BY created_at DESC'
+    ).catch(() => ({ rows: [] as DropVersionRecord[], rowCount: 0 })),
+    client.query<{
+      id: string;
+      sourceDropId: string;
+      derivativeDropId: string;
+      kind: AuthorizedDerivativeKind;
+      attribution: string;
+      revenueSplits: AuthorizedDerivativeRevenueSplitRecord[];
+      authorizedByHandle: string;
+      createdAt: string;
+    }>(
+      'SELECT id, source_drop_id AS "sourceDropId", derivative_drop_id AS "derivativeDropId", kind, attribution, revenue_splits AS "revenueSplits", authorized_by_handle AS "authorizedByHandle", created_at AS "createdAt" FROM bff_authorized_derivatives ORDER BY created_at DESC'
+    ).catch(() => ({ rows: [] as Array<{ id: string; sourceDropId: string; derivativeDropId: string; kind: AuthorizedDerivativeKind; attribution: string; revenueSplits: AuthorizedDerivativeRevenueSplitRecord[]; authorizedByHandle: string; createdAt: string }>, rowCount: 0 })),
+    client.query<StudioFollowRecord>(
+      'SELECT id, account_id AS "accountId", studio_handle AS "studioHandle", created_at AS "createdAt" FROM bff_studio_follows ORDER BY created_at DESC'
+    ).catch(() => ({ rows: [] as StudioFollowRecord[], rowCount: 0 }))
   ]);
 
   const isEmpty =
@@ -3987,10 +4054,9 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     ownerships: ownershipsResult.rows,
     savedDrops: savedDropsResult.rows,
     libraryEligibilityStates: normalizeLibraryEligibilityStateRecords(
-      parseMetaJsonValue<LibraryEligibilityStateRecord[]>(
-        meta.get("library_eligibility_states_json"),
-        []
-      )
+      libraryEligibilityStatesResult.rows.length > 0
+        ? libraryEligibilityStatesResult.rows
+        : parseMetaJsonValue<LibraryEligibilityStateRecord[]>(meta.get("library_eligibility_states_json"), [])
     ),
     receipts: receiptsResult.rows.map((row) => ({
       id: row.id,
@@ -4093,10 +4159,9 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       }))
     ),
     workshopProProfiles: normalizeWorkshopProProfileRecords(
-      parseMetaJsonValue<WorkshopProProfileRecord[]>(
-        meta.get("workshop_pro_profiles_json"),
-        []
-      )
+      workshopProProfilesResult.rows.length > 0
+        ? workshopProProfilesResult.rows
+        : parseMetaJsonValue<WorkshopProProfileRecord[]>(meta.get("workshop_pro_profiles_json"), [])
     ),
     liveSessions: normalizeLiveSessionRecords(
       liveSessionsResult.rows.map((row) => ({
@@ -4123,16 +4188,14 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       }))
     ),
     liveSessionAttendees: normalizeLiveSessionAttendeeRecords(
-      parseMetaJsonValue<LiveSessionAttendeeRecord[]>(
-        meta.get("live_session_attendees_json"),
-        []
-      )
+      liveSessionAttendeesResult.rows.length > 0
+        ? liveSessionAttendeesResult.rows
+        : parseMetaJsonValue<LiveSessionAttendeeRecord[]>(meta.get("live_session_attendees_json"), [])
     ),
     liveSessionArtifacts: normalizeLiveSessionArtifactRecords(
-      parseMetaJsonValue<LiveSessionArtifactRecord[]>(
-        meta.get("live_session_artifacts_json"),
-        []
-      )
+      liveSessionArtifactsResult.rows.length > 0
+        ? liveSessionArtifactsResult.rows
+        : parseMetaJsonValue<LiveSessionArtifactRecord[]>(meta.get("live_session_artifacts_json"), [])
     ),
     townhallLikes: townhallLikesResult.rows,
     townhallComments: normalizeTownhallCommentRecords(townhallCommentsResult.rows),
@@ -4156,22 +4219,19 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       }))
     ),
     townhallPostSaves: normalizeTownhallPostSaveRecords(
-      parseMetaJsonValue<TownhallPostSaveRecord[]>(
-        meta.get("townhall_post_saves_json"),
-        []
-      )
+      townhallPostSavesResult.rows.length > 0
+        ? townhallPostSavesResult.rows
+        : parseMetaJsonValue<TownhallPostSaveRecord[]>(meta.get("townhall_post_saves_json"), [])
     ),
     townhallPostFollows: normalizeTownhallPostFollowRecords(
-      parseMetaJsonValue<TownhallPostFollowRecord[]>(
-        meta.get("townhall_post_follows_json"),
-        []
-      )
+      townhallPostFollowsResult.rows.length > 0
+        ? townhallPostFollowsResult.rows
+        : parseMetaJsonValue<TownhallPostFollowRecord[]>(meta.get("townhall_post_follows_json"), [])
     ),
     townhallPostShares: normalizeTownhallPostShareRecords(
-      parseMetaJsonValue<TownhallPostShareRecord[]>(
-        meta.get("townhall_post_shares_json"),
-        []
-      )
+      townhallPostSharesResult.rows.length > 0
+        ? townhallPostSharesResult.rows
+        : parseMetaJsonValue<TownhallPostShareRecord[]>(meta.get("townhall_post_shares_json"), [])
     ),
     townhallShares: townhallSharesResult.rows,
     townhallTelemetryEvents: townhallTelemetryEventsResult.rows.map((row) => ({
@@ -4202,10 +4262,23 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       }))
     ),
     liveSessionConversationMessages: normalizeLiveSessionConversationMessageRecords(
-      parseMetaJsonValue<LiveSessionConversationMessageRecord[]>(
-        meta.get("live_session_conversation_messages_json"),
-        []
-      )
+      liveSessionConversationMessagesResult.rows.length > 0
+        ? liveSessionConversationMessagesResult.rows.map((row) => ({
+            id: row.id,
+            liveSessionId: row.liveSessionId,
+            accountId: row.accountId,
+            parentMessageId: row.parentMessageId,
+            body: row.body,
+            createdAt: row.createdAt,
+            visibility: row.visibility,
+            reportCount: Number(row.reportCount),
+            reportedAt: row.reportedAt,
+            moderatedAt: row.moderatedAt,
+            moderatedByAccountId: row.moderatedByAccountId,
+            appealRequestedAt: row.appealRequestedAt,
+            appealRequestedByAccountId: row.appealRequestedByAccountId
+          }))
+        : parseMetaJsonValue<LiveSessionConversationMessageRecord[]>(meta.get("live_session_conversation_messages_json"), [])
     ),
     collectOffers: normalizeCollectOfferRecords(
       collectOffersResult.rows.map((row) => ({
@@ -4261,13 +4334,23 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       }))
     ),
     dropVersions: normalizeDropVersionRecords(
-      parseMetaJsonValue<DropVersionRecord[]>(meta.get("drop_versions_json"), [])
+      dropVersionsResult.rows.length > 0
+        ? dropVersionsResult.rows
+        : parseMetaJsonValue<DropVersionRecord[]>(meta.get("drop_versions_json"), [])
     ),
     authorizedDerivatives: normalizeAuthorizedDerivativeRecords(
-      parseMetaJsonValue<AuthorizedDerivativeRecord[]>(
-        meta.get("authorized_derivatives_json"),
-        []
-      )
+      authorizedDerivativesResult.rows.length > 0
+        ? authorizedDerivativesResult.rows.map((row) => ({
+            id: row.id,
+            sourceDropId: row.sourceDropId,
+            derivativeDropId: row.derivativeDropId,
+            kind: row.kind,
+            attribution: row.attribution,
+            revenueSplits: Array.isArray(row.revenueSplits) ? row.revenueSplits : [],
+            authorizedByHandle: row.authorizedByHandle,
+            createdAt: row.createdAt
+          }))
+        : parseMetaJsonValue<AuthorizedDerivativeRecord[]>(meta.get("authorized_derivatives_json"), [])
     ),
     ledgerTransactions: normalizeLedgerTransactionRecords(
       ledgerTransactionsResult.rows.map((row) => ({
@@ -4300,10 +4383,9 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       }))
     ),
     studioFollows: normalizeStudioFollowRecords(
-      parseMetaJsonValue<StudioFollowRecord[]>(
-        meta.get("studio_follows_json"),
-        []
-      )
+      studioFollowsResult.rows.length > 0
+        ? studioFollowsResult.rows
+        : parseMetaJsonValue<StudioFollowRecord[]>(meta.get("studio_follows_json"), [])
     ),
     notificationEntries: await (async () => {
       try {
@@ -4349,6 +4431,17 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
     TRUNCATE TABLE
       bff_notification_entries,
       bff_notification_preferences,
+      bff_studio_follows,
+      bff_library_eligibility_states,
+      bff_drop_versions,
+      bff_authorized_derivatives,
+      bff_workshop_pro_profiles,
+      bff_live_session_attendees,
+      bff_live_session_artifacts,
+      bff_live_session_conversation_messages,
+      bff_townhall_post_saves,
+      bff_townhall_post_follows,
+      bff_townhall_post_shares,
       bff_ledger_line_items,
       bff_ledger_transactions,
       bff_townhall_telemetry_events,
@@ -4384,46 +4477,6 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
   `);
 
   await client.query("INSERT INTO bff_meta (key, value) VALUES ($1, $2)", ["version", String(db.version)]);
-  await client.query("INSERT INTO bff_meta (key, value) VALUES ($1, $2)", [
-    "library_eligibility_states_json",
-    JSON.stringify(db.libraryEligibilityStates)
-  ]);
-  await client.query("INSERT INTO bff_meta (key, value) VALUES ($1, $2)", [
-    "drop_versions_json",
-    JSON.stringify(db.dropVersions)
-  ]);
-  await client.query("INSERT INTO bff_meta (key, value) VALUES ($1, $2)", [
-    "authorized_derivatives_json",
-    JSON.stringify(db.authorizedDerivatives)
-  ]);
-  await client.query("INSERT INTO bff_meta (key, value) VALUES ($1, $2)", [
-    "workshop_pro_profiles_json",
-    JSON.stringify(db.workshopProProfiles)
-  ]);
-  await client.query("INSERT INTO bff_meta (key, value) VALUES ($1, $2)", [
-    "live_session_attendees_json",
-    JSON.stringify(db.liveSessionAttendees)
-  ]);
-  await client.query("INSERT INTO bff_meta (key, value) VALUES ($1, $2)", [
-    "live_session_artifacts_json",
-    JSON.stringify(db.liveSessionArtifacts)
-  ]);
-  await client.query("INSERT INTO bff_meta (key, value) VALUES ($1, $2)", [
-    "live_session_conversation_messages_json",
-    JSON.stringify(db.liveSessionConversationMessages)
-  ]);
-  await client.query("INSERT INTO bff_meta (key, value) VALUES ($1, $2)", [
-    "townhall_post_saves_json",
-    JSON.stringify(db.townhallPostSaves)
-  ]);
-  await client.query("INSERT INTO bff_meta (key, value) VALUES ($1, $2)", [
-    "townhall_post_follows_json",
-    JSON.stringify(db.townhallPostFollows)
-  ]);
-  await client.query("INSERT INTO bff_meta (key, value) VALUES ($1, $2)", [
-    "townhall_post_shares_json",
-    JSON.stringify(db.townhallPostShares)
-  ]);
 
   for (const drop of db.catalog.drops) {
     await client.query("INSERT INTO bff_catalog_drops (id, data) VALUES ($1, $2::jsonb)", [
@@ -4928,6 +4981,138 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
         pref.mutedTypes,
         pref.digestEnabled
       ]
+    );
+  }
+
+  // --- Collections migrated from bff_meta JSON blobs to proper tables ---
+
+  for (const state of db.libraryEligibilityStates) {
+    await client.query(
+      "INSERT INTO bff_library_eligibility_states (account_id, drop_id, state, updated_at) VALUES ($1, $2, $3, $4) ON CONFLICT (account_id, drop_id) DO UPDATE SET state = EXCLUDED.state, updated_at = EXCLUDED.updated_at",
+      [state.accountId, state.dropId, state.state, state.updatedAt]
+    );
+  }
+
+  for (const profile of db.workshopProProfiles) {
+    await client.query(
+      "INSERT INTO bff_workshop_pro_profiles (studio_handle, state, cycle_anchor_at, past_due_at, grace_ends_at, locked_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (studio_handle) DO UPDATE SET state = EXCLUDED.state, cycle_anchor_at = EXCLUDED.cycle_anchor_at, past_due_at = EXCLUDED.past_due_at, grace_ends_at = EXCLUDED.grace_ends_at, locked_at = EXCLUDED.locked_at, updated_at = EXCLUDED.updated_at",
+      [
+        profile.studioHandle,
+        profile.state,
+        profile.cycleAnchorAt,
+        profile.pastDueAt,
+        profile.graceEndsAt,
+        profile.lockedAt,
+        profile.updatedAt
+      ]
+    );
+  }
+
+  for (const attendee of db.liveSessionAttendees) {
+    await client.query(
+      "INSERT INTO bff_live_session_attendees (id, live_session_id, account_id, joined_at) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING",
+      [attendee.id, attendee.liveSessionId, attendee.accountId, attendee.joinedAt]
+    );
+  }
+
+  for (const artifact of db.liveSessionArtifacts) {
+    await client.query(
+      "INSERT INTO bff_live_session_artifacts (id, live_session_id, studio_handle, world_id, source_drop_id, artifact_kind, title, synopsis, status, captured_at, approved_at, catalog_drop_id, approved_by_handle) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) ON CONFLICT (id) DO NOTHING",
+      [
+        artifact.id,
+        artifact.liveSessionId,
+        artifact.studioHandle,
+        artifact.worldId,
+        artifact.sourceDropId,
+        artifact.artifactKind,
+        artifact.title,
+        artifact.synopsis,
+        artifact.status,
+        artifact.capturedAt,
+        artifact.approvedAt,
+        artifact.catalogDropId,
+        artifact.approvedByHandle
+      ]
+    );
+  }
+
+  for (const message of db.liveSessionConversationMessages) {
+    await client.query(
+      "INSERT INTO bff_live_session_conversation_messages (id, live_session_id, account_id, parent_message_id, body, created_at, visibility, report_count, reported_at, moderated_at, moderated_by_account_id, appeal_requested_at, appeal_requested_by_account_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) ON CONFLICT (id) DO NOTHING",
+      [
+        message.id,
+        message.liveSessionId,
+        message.accountId,
+        message.parentMessageId,
+        message.body,
+        message.createdAt,
+        message.visibility,
+        message.reportCount,
+        message.reportedAt,
+        message.moderatedAt,
+        message.moderatedByAccountId,
+        message.appealRequestedAt,
+        message.appealRequestedByAccountId
+      ]
+    );
+  }
+
+  for (const save of db.townhallPostSaves) {
+    await client.query(
+      "INSERT INTO bff_townhall_post_saves (account_id, post_id, saved_at) VALUES ($1, $2, $3) ON CONFLICT (account_id, post_id) DO NOTHING",
+      [save.accountId, save.postId, save.savedAt]
+    );
+  }
+
+  for (const follow of db.townhallPostFollows) {
+    await client.query(
+      "INSERT INTO bff_townhall_post_follows (account_id, post_id, followed_at) VALUES ($1, $2, $3) ON CONFLICT (account_id, post_id) DO NOTHING",
+      [follow.accountId, follow.postId, follow.followedAt]
+    );
+  }
+
+  for (const share of db.townhallPostShares) {
+    await client.query(
+      "INSERT INTO bff_townhall_post_shares (id, account_id, post_id, channel, shared_at) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING",
+      [share.id, share.accountId, share.postId, share.channel, share.sharedAt]
+    );
+  }
+
+  for (const version of db.dropVersions) {
+    await client.query(
+      "INSERT INTO bff_drop_versions (id, drop_id, label, notes, created_by_handle, created_at, released_at) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (id) DO NOTHING",
+      [
+        version.id,
+        version.dropId,
+        version.label,
+        version.notes,
+        version.createdByHandle,
+        version.createdAt,
+        version.releasedAt
+      ]
+    );
+  }
+
+  for (const derivative of db.authorizedDerivatives) {
+    await client.query(
+      "INSERT INTO bff_authorized_derivatives (id, source_drop_id, derivative_drop_id, kind, attribution, revenue_splits, authorized_by_handle, created_at) VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8) ON CONFLICT (id) DO NOTHING",
+      [
+        derivative.id,
+        derivative.sourceDropId,
+        derivative.derivativeDropId,
+        derivative.kind,
+        derivative.attribution,
+        JSON.stringify(derivative.revenueSplits),
+        derivative.authorizedByHandle,
+        derivative.createdAt
+      ]
+    );
+  }
+
+  for (const follow of db.studioFollows) {
+    await client.query(
+      "INSERT INTO bff_studio_follows (id, account_id, studio_handle, created_at) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING",
+      [follow.id, follow.accountId, follow.studioHandle, follow.createdAt]
     );
   }
 }
