@@ -11240,32 +11240,42 @@ export const commerceBffService = {
 
   async getNotificationFeed(accountId: string): Promise<NotificationFeed> {
     return withDatabase(async (db) => {
-      const store = (db as unknown as Record<string, Record<string, NotificationEntry[]>>).notifications ?? {};
-      const notifications = store[accountId] ?? [];
-      const unreadCount = notifications.filter((n) => !n.read).length;
+      const entries = db.notificationEntries.filter((e) => e.accountId === accountId);
+      entries.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      const unreadCount = entries.filter((e) => !e.read).length;
       return {
         persist: false,
-        result: { entries: notifications, unreadCount }
+        result: {
+          entries: entries.map((e) => ({
+            id: e.id,
+            accountId: e.accountId,
+            type: e.type as NotificationEntry["type"],
+            title: e.title,
+            body: e.body,
+            href: e.href,
+            read: e.read,
+            createdAt: e.createdAt
+          })),
+          unreadCount
+        }
       };
     });
   },
 
   async getNotificationUnreadCount(accountId: string): Promise<number> {
     return withDatabase(async (db) => {
-      const store = (db as unknown as Record<string, Record<string, NotificationEntry[]>>).notifications ?? {};
-      const notifications = store[accountId] ?? [];
-      return {
-        persist: false,
-        result: notifications.filter((n) => !n.read).length
-      };
+      const count = db.notificationEntries.filter(
+        (e) => e.accountId === accountId && !e.read
+      ).length;
+      return { persist: false, result: count };
     });
   },
 
   async markNotificationRead(accountId: string, notificationId: string): Promise<void> {
     return withDatabase(async (db) => {
-      const store = (db as unknown as Record<string, Record<string, NotificationEntry[]>>).notifications ?? {};
-      const notifications = store[accountId] ?? [];
-      const entry = notifications.find((n) => n.id === notificationId);
+      const entry = db.notificationEntries.find(
+        (e) => e.id === notificationId && e.accountId === accountId
+      );
       if (entry) {
         entry.read = true;
       }
@@ -11275,10 +11285,10 @@ export const commerceBffService = {
 
   async markAllNotificationsRead(accountId: string): Promise<void> {
     return withDatabase(async (db) => {
-      const store = (db as unknown as Record<string, Record<string, NotificationEntry[]>>).notifications ?? {};
-      const notifications = store[accountId] ?? [];
-      for (const entry of notifications) {
-        entry.read = true;
+      for (const entry of db.notificationEntries) {
+        if (entry.accountId === accountId) {
+          entry.read = true;
+        }
       }
       return { persist: true, result: undefined };
     });
