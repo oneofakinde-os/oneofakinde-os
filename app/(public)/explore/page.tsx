@@ -1,9 +1,13 @@
-import { routes } from '@/lib/routes';
-import { redirect } from 'next/navigation';
+import { ExploreScreen } from "@/features/explore/explore-screen";
+import { gateway } from "@/lib/gateway";
+import { getOptionalSession } from "@/lib/server/session";
 
-const EXPLORE_REQUIRED_TERM = 'drops';
+export default async function ExplorePage() {
+  const [session, drops, worlds] = await Promise.all([
+    getOptionalSession(),
+    gateway.listDrops(),
+    gateway.listWorlds()
+  ]);
 
-export default function ExplorePage() {
-  void EXPLORE_REQUIRED_TERM;
-  redirect(routes.showroom());
+  return <ExploreScreen session={session} drops={drops} worlds={worlds} />;
 }

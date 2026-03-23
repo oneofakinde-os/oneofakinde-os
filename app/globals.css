@@ -3632,3 +3632,73 @@ a {
   justify-content: center;
   margin-top: 1rem;
 }
+
+/* ── explore surface ── */
+.explore-quick-links {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.75rem;
+}
+
+.explore-quick-link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1.25rem 0.75rem;
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  color: var(--text);
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.explore-quick-link:hover {
+  background: var(--surface-2);
+  border-color: var(--accent);
+}
+
+.explore-quick-icon {
+  font-size: 1.5rem;
+}
+
+.explore-media-lanes {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.explore-media-lane {
+  /* individual lane */
+}
+
+.explore-media-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.75rem;
+}
+
+.explore-media-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  text-decoration: none;
+  color: var(--text);
+  transition: opacity 0.15s ease;
+}
+
+.explore-media-card:hover {
+  opacity: 0.85;
+}
+
+.explore-media-card-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin: 0.25rem 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

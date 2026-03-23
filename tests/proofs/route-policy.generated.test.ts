@@ -134,10 +134,6 @@ const redirectCases = [
   {
     "sourcePathname": "/townhall/gallery",
     "targetPathname": "/townhall/photos"
-  },
-  {
-    "sourcePathname": "/explore",
-    "targetPathname": "/showroom"
   }
 ] as const;
 const metadataCases = [

@@ -2163,9 +2163,7 @@
     },
     {
       "route": "/showroom",
-      "legacy_routes": [
-        "/explore"
-      ],
+      "legacy_routes": [],
       "surface_key": "showroom",
       "ui_title": "showroom",
       "ui_nouns": [
@@ -2433,8 +2431,7 @@
     "/invest": "/collect",
     "/auctions": "/collect",
     "/gallery": "/photos",
-    "/townhall/gallery": "/townhall/photos",
-    "/explore": "/showroom"
+    "/townhall/gallery": "/townhall/photos"
   },
   "session_required_route_patterns": [
     "/logout",
