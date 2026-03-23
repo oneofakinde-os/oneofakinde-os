@@ -1,3 +1,4 @@
+import { OptimizedImage } from "@/features/media/optimized-image";
 import { PatronBadge } from "@/features/patron/patron-badge";
 import { AppShell } from "@/features/shell/app-shell";
 import { formatUsd } from "@/features/shared/format";
@@ -128,13 +129,62 @@ export function WorldDetailScreen({
   return (
     <AppShell
       title="world"
-      subtitle="world detail with related drops and studio linkage"
+      subtitle={world.title}
       session={session}
       activeNav="worlds"
     >
+      {/* ── World hero ──────────────────────────────────────── */}
       <section className="slice-panel">
-        <p className="slice-label">studio @{world.studioHandle}</p>
-        <h2 className="slice-title">{world.title}</h2>
+        {world.visualIdentity?.coverImageSrc ? (
+          <div
+            style={{
+              position: "relative",
+              borderRadius: "0.75rem",
+              overflow: "hidden",
+              marginBottom: 16
+            }}
+          >
+            <OptimizedImage
+              src={world.visualIdentity.coverImageSrc}
+              alt={`${world.title} cover`}
+              preset="dropPosterCard"
+              style={{
+                width: "100%",
+                height: 200,
+                objectFit: "cover",
+                display: "block"
+              }}
+            />
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: "linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 60%)"
+              }}
+            />
+            <div style={{ position: "absolute", bottom: 12, left: 16, right: 16 }}>
+              <h2 className="slice-title" style={{ color: "#fff", margin: 0 }}>{world.title}</h2>
+              <p className="slice-meta" style={{ color: "rgba(255,255,255,0.75)" }}>
+                by{" "}
+                <Link href={routes.studio(world.studioHandle)} className="slice-link" style={{ color: "rgba(255,255,255,0.9)" }}>
+                  @{world.studioHandle}
+                </Link>
+                {" · "}{drops.length} drops
+                {world.entryRule ? ` · ${ENTRY_RULE_COPY[world.entryRule]}` : ""}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <>
+            <p className="slice-label">
+              studio{" "}
+              <Link href={routes.studio(world.studioHandle)} className="slice-link">
+                @{world.studioHandle}
+              </Link>
+            </p>
+            <h2 className="slice-title">{world.title}</h2>
+          </>
+        )}
         <p className="slice-copy">{world.synopsis}</p>
         <div className="slice-button-row">
           <Link href={routes.worldDrops(world.id)} className="slice-button">
@@ -497,24 +547,46 @@ export function WorldDetailScreen({
           <p className="slice-copy">no drops published in this world yet.</p>
         ) : (
           <ul className="slice-grid" aria-label="world drop highlights">
-            {orderedDrops.slice(0, 6).map((drop) => (
-              <li key={drop.id} className="slice-drop-card">
-                {drop.worldOrderIndex ? (
-                  <p className="slice-label">world order #{drop.worldOrderIndex}</p>
-                ) : null}
-                <h2 className="slice-title">{drop.title}</h2>
-                <p className="slice-copy">{drop.synopsis}</p>
-                <p className="slice-meta">{formatUsd(drop.priceUsd)}</p>
-                <div className="slice-button-row">
-                  <Link href={routes.drop(drop.id)} className="slice-button ghost">
-                    open drop
-                  </Link>
-                  <Link href={routes.dropPreview(drop.id)} className="slice-button alt">
-                    preview
-                  </Link>
-                </div>
-              </li>
-            ))}
+            {orderedDrops.slice(0, 6).map((drop) => {
+              const dropPoster = drop.previewMedia?.watch?.posterSrc
+                ?? drop.previewMedia?.photos?.src
+                ?? null;
+              return (
+                <li key={drop.id} className="slice-drop-card">
+                  <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                    {dropPoster ? (
+                      <OptimizedImage
+                        src={dropPoster}
+                        alt={drop.title}
+                        width={48}
+                        height={72}
+                        preset="thumbnail"
+                        style={{ borderRadius: 4, objectFit: "cover", flexShrink: 0 }}
+                      />
+                    ) : null}
+                    <div style={{ flex: 1 }}>
+                      {drop.worldOrderIndex ? (
+                        <p className="slice-label">#{drop.worldOrderIndex}</p>
+                      ) : null}
+                      <h2 className="slice-title" style={{ fontSize: "0.95rem" }}>{drop.title}</h2>
+                      <p className="slice-meta">{formatUsd(drop.priceUsd)}</p>
+                    </div>
+                  </div>
+                  <p className="slice-copy" style={{ marginTop: 8 }}>{drop.synopsis}</p>
+                  <div className="slice-button-row" style={{ marginTop: 8 }}>
+                    <Link href={routes.drop(drop.id)} className="slice-button ghost">
+                      open
+                    </Link>
+                    <Link href={routes.dropPreview(drop.id)} className="slice-button alt">
+                      preview
+                    </Link>
+                    <Link href={routes.collectDrop(drop.id)} className="slice-button">
+                      collect
+                    </Link>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
