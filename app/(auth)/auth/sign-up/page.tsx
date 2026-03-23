@@ -1,3 +1,4 @@
+import { SocialAuthButtons } from "@/features/auth/social-auth-buttons";
 import { normalizeReturnTo } from "@/lib/session";
 import { routes } from "@/lib/routes";
 import Link from "next/link";
@@ -72,20 +73,7 @@ export default async function SignUpPage({ searchParams }: SignUpPageProps) {
             </label>
           </fieldset>
 
-          <section className="identity-social" aria-label="social sign up options">
-            <p>social options</p>
-            <div>
-              <button type="button" className="identity-chip" disabled>
-                google
-              </button>
-              <button type="button" className="identity-chip" disabled>
-                apple
-              </button>
-              <button type="button" className="identity-chip" disabled>
-                discord
-              </button>
-            </div>
-          </section>
+          <SocialAuthButtons mode="sign-up" returnTo={returnTo} />
 
           {hasInvalidEmail ? <p className="identity-error">enter a valid email to continue.</p> : null}
           {hasEmailTaken ? (
