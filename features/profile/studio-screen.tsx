@@ -2,6 +2,7 @@ import { OptimizedImage } from "@/features/media/optimized-image";
 import { PatronBadge } from "@/features/patron/patron-badge";
 import { AppShell } from "@/features/shell/app-shell";
 import { formatUsd } from "@/features/shared/format";
+import { resolveDropPoster, resolveWorldCover } from "@/features/shared/resolve-poster";
 import { FollowStudioButton } from "@/features/studio/follow-studio-button";
 import { isStudioPinned, sortDropsForStudioSurface } from "@/lib/catalog/drop-curation";
 import type { Drop, Session, Studio, World } from "@/lib/domain/contracts";
@@ -33,15 +34,6 @@ type StudioScreenProps = {
   followerCount?: number;
   viewerPatronIndicator?: StudioViewerPatronIndicator | null;
 };
-
-function resolveDropPoster(drop: Drop): string | undefined {
-  const preview = drop.previewMedia?.watch ?? drop.previewMedia?.photos;
-  return preview?.posterSrc ?? preview?.src ?? undefined;
-}
-
-function resolveWorldCover(world: World): string | undefined {
-  return world.visualIdentity?.coverImageSrc ?? undefined;
-}
 
 export function StudioScreen({
   session,
