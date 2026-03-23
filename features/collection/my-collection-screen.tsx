@@ -1,5 +1,6 @@
 import { OptimizedImage } from "@/features/media/optimized-image";
 import { AppShell } from "@/features/shell/app-shell";
+import { StatusToast } from "@/features/shared/status-toast";
 import { ResaleListingForm } from "@/features/collect/resale-listing-form";
 import { CollectionCurationPanel } from "@/features/collection/collection-curation-panel";
 import { ShowcaseToggle } from "@/features/collection/collection-curation-toolbar";
@@ -67,6 +68,17 @@ export function MyCollectionScreen({
       session={session}
       activeNav="my_collection"
     >
+      <StatusToast
+        status={status}
+        messages={{
+          completed: { message: "purchase completed! drop added to your collection.", variant: "success" },
+          checkout_success: { message: "checkout completed — receipt on the way.", variant: "success" },
+          already_owned: { message: "this drop is already in your collection.", variant: "info" },
+          checkout_cancelled: { message: "checkout cancelled. you can retry anytime.", variant: "warning" },
+          payment_pending: { message: "payment processing — your drop will appear shortly.", variant: "info" }
+        }}
+      />
+
       {/* ── Status banner ────────────────────────────────────── */}
       {status ? (
         <section className="slice-banner" aria-live="polite">
