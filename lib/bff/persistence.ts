@@ -1254,7 +1254,58 @@ function createSeedDatabase(): BffDatabase {
     ledgerTransactions: [],
     ledgerLineItems: [],
     studioFollows: [],
-    notificationEntries: [],
+    notificationEntries: [
+      {
+        id: "notif_seed_1",
+        accountId,
+        type: "drop_collected",
+        title: "you collected stardust",
+        body: "stardust is now in your collection. watch, listen, or read whenever you like.",
+        href: "/drops/stardust",
+        read: false,
+        createdAt: new Date(now.valueOf() - DAY_MS * 0.5).toISOString()
+      },
+      {
+        id: "notif_seed_2",
+        accountId,
+        type: "world_update",
+        title: "dark matter — new drop available",
+        body: "voidrunner has been released in dark matter. collect it before the window closes.",
+        href: "/drops/voidrunner",
+        read: false,
+        createdAt: new Date(now.valueOf() - DAY_MS * 1).toISOString()
+      },
+      {
+        id: "notif_seed_3",
+        accountId,
+        type: "comment_reply",
+        title: "@oneofakinde replied to your thread",
+        body: "thanks for the reflection — stardust was designed to reward close attention.",
+        href: "/townhall",
+        read: true,
+        createdAt: new Date(now.valueOf() - DAY_MS * 2).toISOString()
+      },
+      {
+        id: "notif_seed_4",
+        accountId,
+        type: "receipt_confirmed",
+        title: "receipt confirmed for stardust",
+        body: "your purchase of stardust ($1.99) has been confirmed. certificate issued.",
+        href: "/my-collection?receipt=rcpt_seed_stardust",
+        read: true,
+        createdAt: new Date(now.valueOf() - DAY_MS * 3).toISOString()
+      },
+      {
+        id: "notif_seed_5",
+        accountId,
+        type: "membership_change",
+        title: "welcome to oneofakinde",
+        body: "your collector account is active. explore the showroom and townhall to discover drops.",
+        href: "/showroom",
+        read: true,
+        createdAt: new Date(now.valueOf() - DAY_MS * 5).toISOString()
+      }
+    ],
     notificationPreferences: []
   };
 }
