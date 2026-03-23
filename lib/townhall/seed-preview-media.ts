@@ -1,17 +1,18 @@
 import type { DropPreviewMap, DropPreviewMode } from "@/lib/domain/contracts";
+import { resolveAssetUrl } from "@/lib/media/resolve-asset-url";
 
-const SEED_PREVIEW_MEDIA_BY_DROP_ID: Record<string, DropPreviewMap> = {
-  stardust: {
+const SEED_PREVIEW_MEDIA_BY_DROP_ID: Record<string, () => DropPreviewMap> = {
+  stardust: () => ({
     watch: {
       type: "video",
-      src: "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-      posterSrc: "https://picsum.photos/seed/ook-stardust/960/1600",
+      src: resolveAssetUrl("stardust:watch:video"),
+      posterSrc: resolveAssetUrl("stardust:watch:poster"),
       alt: "stardust watch preview"
     },
     listen: {
       type: "audio",
-      src: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
-      posterSrc: "https://picsum.photos/seed/ook-stardust-listen/960/1600",
+      src: resolveAssetUrl("stardust:listen:audio"),
+      posterSrc: resolveAssetUrl("stardust:listen:poster"),
       alt: "stardust listen preview"
     },
     read: {
@@ -20,27 +21,27 @@ const SEED_PREVIEW_MEDIA_BY_DROP_ID: Record<string, DropPreviewMap> = {
     },
     photos: {
       type: "image",
-      src: "https://picsum.photos/seed/ook-stardust-photos/1200/2000",
+      src: resolveAssetUrl("stardust:photos:image"),
       alt: "stardust photos preview"
     },
     live: {
       type: "video",
-      src: "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
-      posterSrc: "https://picsum.photos/seed/ook-stardust-live/960/1600",
+      src: resolveAssetUrl("stardust:live:video"),
+      posterSrc: resolveAssetUrl("stardust:live:poster"),
       alt: "stardust live preview"
     }
-  },
-  "twilight-whispers": {
+  }),
+  "twilight-whispers": () => ({
     watch: {
       type: "video",
-      src: "https://storage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
-      posterSrc: "https://picsum.photos/seed/ook-twilight-watch/960/1600",
+      src: resolveAssetUrl("twilight-whispers:watch:video"),
+      posterSrc: resolveAssetUrl("twilight-whispers:watch:poster"),
       alt: "twilight whispers watch preview"
     },
     listen: {
       type: "audio",
-      src: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
-      posterSrc: "https://picsum.photos/seed/ook-twilight-listen/960/1600",
+      src: resolveAssetUrl("twilight-whispers:listen:audio"),
+      posterSrc: resolveAssetUrl("twilight-whispers:listen:poster"),
       alt: "twilight whispers listen preview"
     },
     read: {
@@ -49,27 +50,27 @@ const SEED_PREVIEW_MEDIA_BY_DROP_ID: Record<string, DropPreviewMap> = {
     },
     photos: {
       type: "image",
-      src: "https://picsum.photos/seed/ook-twilight-photos/1200/2000",
+      src: resolveAssetUrl("twilight-whispers:photos:image"),
       alt: "twilight whispers photos preview"
     },
     live: {
       type: "video",
-      src: "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4",
-      posterSrc: "https://picsum.photos/seed/ook-twilight-live/960/1600",
+      src: resolveAssetUrl("twilight-whispers:live:video"),
+      posterSrc: resolveAssetUrl("twilight-whispers:live:poster"),
       alt: "twilight whispers live preview"
     }
-  },
-  voidrunner: {
+  }),
+  voidrunner: () => ({
     watch: {
       type: "video",
-      src: "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
-      posterSrc: "https://picsum.photos/seed/ook-voidrunner-watch/960/1600",
+      src: resolveAssetUrl("voidrunner:watch:video"),
+      posterSrc: resolveAssetUrl("voidrunner:watch:poster"),
       alt: "voidrunner watch preview"
     },
     listen: {
       type: "audio",
-      src: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
-      posterSrc: "https://picsum.photos/seed/ook-voidrunner-listen/960/1600",
+      src: resolveAssetUrl("voidrunner:listen:audio"),
+      posterSrc: resolveAssetUrl("voidrunner:listen:poster"),
       alt: "voidrunner listen preview"
     },
     read: {
@@ -78,27 +79,27 @@ const SEED_PREVIEW_MEDIA_BY_DROP_ID: Record<string, DropPreviewMap> = {
     },
     photos: {
       type: "image",
-      src: "https://picsum.photos/seed/ook-voidrunner-photos/1200/2000",
+      src: resolveAssetUrl("voidrunner:photos:image"),
       alt: "voidrunner photos preview"
     },
     live: {
       type: "video",
-      src: "https://storage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4",
-      posterSrc: "https://picsum.photos/seed/ook-voidrunner-live/960/1600",
+      src: resolveAssetUrl("voidrunner:live:video"),
+      posterSrc: resolveAssetUrl("voidrunner:live:poster"),
       alt: "voidrunner live preview"
     }
-  },
-  "through-the-lens": {
+  }),
+  "through-the-lens": () => ({
     watch: {
       type: "video",
-      src: "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4",
-      posterSrc: "https://picsum.photos/seed/ook-through-lens-watch/960/1600",
+      src: resolveAssetUrl("through-the-lens:watch:video"),
+      posterSrc: resolveAssetUrl("through-the-lens:watch:poster"),
       alt: "through the lens watch preview"
     },
     listen: {
       type: "audio",
-      src: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
-      posterSrc: "https://picsum.photos/seed/ook-through-lens-listen/960/1600",
+      src: resolveAssetUrl("through-the-lens:listen:audio"),
+      posterSrc: resolveAssetUrl("through-the-lens:listen:poster"),
       alt: "through the lens listen preview"
     },
     read: {
@@ -107,24 +108,25 @@ const SEED_PREVIEW_MEDIA_BY_DROP_ID: Record<string, DropPreviewMap> = {
     },
     photos: {
       type: "image",
-      src: "https://picsum.photos/seed/ook-through-lens-photos/1200/2000",
+      src: resolveAssetUrl("through-the-lens:photos:image"),
       alt: "through the lens photos preview"
     },
     live: {
       type: "video",
-      src: "https://storage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4",
-      posterSrc: "https://picsum.photos/seed/ook-through-lens-live/960/1600",
+      src: resolveAssetUrl("through-the-lens:live:video"),
+      posterSrc: resolveAssetUrl("through-the-lens:live:poster"),
       alt: "through the lens live preview"
     }
-  }
+  })
 };
 
 export function seedPreviewMediaForDrop(dropId: string): DropPreviewMap | undefined {
-  const previewMedia = SEED_PREVIEW_MEDIA_BY_DROP_ID[dropId];
-  if (!previewMedia) {
+  const factory = SEED_PREVIEW_MEDIA_BY_DROP_ID[dropId];
+  if (!factory) {
     return undefined;
   }
 
+  const previewMedia = factory();
   const cloned: DropPreviewMap = {};
   for (const mode of Object.keys(previewMedia) as DropPreviewMode[]) {
     const asset = previewMedia[mode];
