@@ -6026,6 +6026,15 @@ const gatewayMethods: CommerceGateway = {
     });
   },
 
+  async getViewerFollowedStudioHandles(accountId: string): Promise<string[]> {
+    return withDatabase<string[]>(async (db) => {
+      const handles = db.studioFollows
+        .filter((f) => f.accountId === accountId)
+        .map((f) => f.studioHandle);
+      return { persist: false, result: handles };
+    });
+  },
+
   async getReceipt(accountId: string, receiptId: string): Promise<PurchaseReceipt | null> {
     return withDatabase(async (db) => {
       const receipt = db.receipts.find(
@@ -11284,6 +11293,15 @@ export const commerceBffService = {
         (f) => f.studioHandle.toLowerCase() === studioHandle.toLowerCase()
       ).length;
       return { persist: false, result: count };
+    });
+  },
+
+  async getViewerFollowedStudioHandles(accountId: string): Promise<string[]> {
+    return withDatabase<string[]>(async (db) => {
+      const handles = db.studioFollows
+        .filter((f) => f.accountId === accountId)
+        .map((f) => f.studioHandle);
+      return { persist: false, result: handles };
     });
   },
 

@@ -430,6 +430,16 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
       return response.payload.panel;
     },
 
+    async getViewerFollowedStudioHandles(accountId: string): Promise<string[]> {
+      void accountId;
+      const response = await requestJson<{ handles: string[] }>(
+        options,
+        "/api/v1/viewer/followed-studios"
+      );
+      if (!response.ok || !response.payload) return [];
+      return response.payload.handles;
+    },
+
     async getReceipt(_accountId: string, receiptId: string): Promise<PurchaseReceipt | null> {
       const response = await requestJson<{ receipt: PurchaseReceipt }>(
         options,
