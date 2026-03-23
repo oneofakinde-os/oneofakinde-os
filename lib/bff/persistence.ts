@@ -48,6 +48,7 @@ import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { Pool, type PoolClient } from "pg";
+import { resolveAssetUrl } from "@/lib/media/resolve-asset-url";
 import { seedPreviewMediaForDrop } from "@/lib/townhall/seed-preview-media";
 import { buildCollectSettlementQuote } from "@/lib/domain/quote-engine";
 
@@ -682,12 +683,12 @@ function createSeedDatabase(): BffDatabase {
       synopsis: "cinematic drops exploring identity and memory.",
       studioHandle: "oneofakinde",
       visualIdentity: {
-        coverImageSrc: "/images/worlds/dark-matter-cover.jpg",
+        coverImageSrc: resolveAssetUrl("world:dark-matter:cover"),
         colorPrimary: "#0b132b",
         colorSecondary: "#1c2541",
         motionTreatment: "world_ambient_v1"
       },
-      ambientAudioSrc: "https://cdn.oneofakinde.dev/worlds/dark-matter/ambient.mp3",
+      ambientAudioSrc: resolveAssetUrl("world:dark-matter:ambient"),
       entryRule: "membership",
       lore: "dark matter tracks identity through memory, movement, and live openings.",
       releaseStructure: {
@@ -731,12 +732,12 @@ function createSeedDatabase(): BffDatabase {
       synopsis: "camera-led drops for real-world atmospheres.",
       studioHandle: "oneofakinde",
       visualIdentity: {
-        coverImageSrc: "/images/worlds/through-the-lens-cover.jpg",
+        coverImageSrc: resolveAssetUrl("world:through-the-lens:cover"),
         colorPrimary: "#102a43",
         colorSecondary: "#334e68",
         motionTreatment: "world_ambient_v1"
       },
-      ambientAudioSrc: "https://cdn.oneofakinde.dev/worlds/through-the-lens/ambient.mp3",
+      ambientAudioSrc: resolveAssetUrl("world:through-the-lens:ambient"),
       entryRule: "open",
       lore: "through the lens reframes daily scenes into episodic chapters.",
       releaseStructure: {
