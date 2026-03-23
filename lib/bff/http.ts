@@ -24,6 +24,13 @@ export function conflict(message = "conflict"): NextResponse<{ error: string }> 
   return NextResponse.json({ error: message }, { status: 409 });
 }
 
+export function tooManyRequests(
+  message = "too many requests",
+  headers?: Record<string, string>
+): NextResponse<{ error: string }> {
+  return NextResponse.json({ error: message }, { status: 429, headers });
+}
+
 export function serviceUnavailable(message = "service unavailable"): NextResponse<{ error: string }> {
   return NextResponse.json({ error: message }, { status: 503 });
 }

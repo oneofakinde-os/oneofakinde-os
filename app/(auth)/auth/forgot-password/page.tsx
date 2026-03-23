@@ -55,6 +55,9 @@ export default async function ForgotPasswordPage({ searchParams }: ForgotPasswor
             {errorCode === "not_available" ? (
               <p className="identity-error">password reset is not available in this environment.</p>
             ) : null}
+            {errorCode === "rate_limited" ? (
+              <p className="identity-error">too many attempts. please wait a few minutes and try again.</p>
+            ) : null}
 
             <button type="submit" className="identity-cta">
               send reset link

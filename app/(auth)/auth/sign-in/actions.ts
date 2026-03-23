@@ -2,10 +2,11 @@
 
 import { gateway } from "@/lib/gateway";
 import type { AccountRole } from "@/lib/domain/contracts";
+import { checkRateLimit, AUTH_RATE_LIMIT } from "@/lib/security/rate-limit";
 import { normalizeReturnTo, serializeSessionRoles, SESSION_COOKIE, SESSION_ROLES_COOKIE } from "@/lib/session";
 import { isSupabaseAuthEnabled } from "@/lib/supabase/config";
 import { buildDefaultEntryFlow } from "@/lib/system-flow";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import type { Route } from "next";
 import { redirect } from "next/navigation";
 
@@ -21,6 +22,14 @@ export async function signInAction(formData: FormData): Promise<void> {
 
   if (!email || !email.includes("@")) {
     redirect(`/auth/sign-in?error=invalid_email&returnTo=${encodeURIComponent(returnTo)}` as Route);
+  }
+
+  // Rate limit by IP.
+  const headerStore = await headers();
+  const ip = headerStore.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const rateLimitResult = checkRateLimit(`sign-in:${ip}`, AUTH_RATE_LIMIT);
+  if (!rateLimitResult.allowed) {
+    redirect(`/auth/sign-in?error=rate_limited&returnTo=${encodeURIComponent(returnTo)}` as Route);
   }
 
   // --- Supabase Auth path ---
