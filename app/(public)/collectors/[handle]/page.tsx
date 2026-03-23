@@ -24,10 +24,14 @@ export default async function CollectorPage({ params }: CollectorPageProps) {
     <CollectorPublicScreen
       handle={collector.handle}
       displayName={collector.displayName}
+      avatarUrl={collector.avatarUrl}
+      bio={collector.bio}
       roles={collector.roles}
+      memberSince={collector.memberSince}
       collectionCount={collector.collectionCount}
       badgeCount={collector.badgeCount}
       patronWorlds={collector.patronWorlds}
+      ownedDrops={collector.ownedDrops}
       session={session}
     />
   );
