@@ -26,6 +26,7 @@
     "lint:terminology": "node --import tsx scripts/lint-terminology.ts",
     "prepare:architecture": "npm run generate:surface-map && npm run generate:policy-tests && npm run check:surface-sync && npm run lint:terminology && npm run check:feature-flags && npm run check:freeze-checklist && npm run check:action-matrix-status && npm run check:launch-certification-status && npm run check:release-provenance && npm run check:canary-rollout-status",
     "test:proofs": "node --import tsx --test tests/proofs/*.test.ts",
+    "seed:storage": "node --import tsx scripts/seed-storage-upload.ts",
     "rc:dry-run": "node --import tsx scripts/release-candidate-dry-run.ts",
     "rc:verify": "node --import tsx scripts/rc-verify.ts",
     "generate:policy-tests": "node --import tsx scripts/generate-route-policy-tests.ts",
