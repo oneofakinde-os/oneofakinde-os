@@ -11317,25 +11317,34 @@ export const commerceBffService = {
   async getCollectorPublic(handle: string): Promise<{
     handle: string;
     displayName: string;
+    avatarUrl: string | null;
+    bio: string | null;
     roles: string[];
+    memberSince: string;
     collectionCount: number;
     badgeCount: number;
     patronWorlds: Array<{ worldId: string; worldTitle: string; status: string; recognitionTier: "founding" | "active" }>;
+    ownedDrops: Array<{ dropId: string; title: string; studioHandle: string; posterSrc: string | null; acquiredAt: string }>;
   } | null> {
     return withDatabase<{
       handle: string;
       displayName: string;
+      avatarUrl: string | null;
+      bio: string | null;
       roles: string[];
+      memberSince: string;
       collectionCount: number;
       badgeCount: number;
       patronWorlds: Array<{ worldId: string; worldTitle: string; status: string; recognitionTier: "founding" | "active" }>;
+      ownedDrops: Array<{ dropId: string; title: string; studioHandle: string; posterSrc: string | null; acquiredAt: string }>;
     } | null>(async (db) => {
       const account = findAccountByHandle(db, handle);
       if (!account) {
         return { persist: false, result: null };
       }
 
-      const collectionCount = db.ownerships.filter((o) => o.accountId === account.id).length;
+      const ownerships = db.ownerships.filter((o) => o.accountId === account.id);
+      const collectionCount = ownerships.length;
       const badgeCount = db.receiptBadges.filter((b) => b.ownerAccountId === account.id).length;
       const patronRecords = db.patrons.filter((p) => p.accountId === account.id);
       const patronWorlds = patronRecords
@@ -11351,15 +11360,36 @@ export const commerceBffService = {
         })
         .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
 
+      // Resolve owned drops with poster images (public drops only).
+      const ownedDrops = ownerships
+        .map((o) => {
+          const drop = db.catalog.drops.find((d) => d.id === o.dropId);
+          if (!drop || drop.visibility !== "public") return null;
+          const posterSrc = drop.previewMedia?.watch?.posterSrc ?? drop.previewMedia?.photos?.src ?? null;
+          return {
+            dropId: drop.id,
+            title: drop.title,
+            studioHandle: drop.studioHandle,
+            posterSrc,
+            acquiredAt: o.acquiredAt
+          };
+        })
+        .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
+        .sort((a, b) => b.acquiredAt.localeCompare(a.acquiredAt));
+
       return {
         persist: false,
         result: {
           handle: account.handle,
           displayName: account.displayName,
+          avatarUrl: account.avatarUrl ?? null,
+          bio: account.bio ?? null,
           roles: account.roles,
+          memberSince: account.createdAt,
           collectionCount,
           badgeCount,
-          patronWorlds
+          patronWorlds,
+          ownedDrops
         }
       };
     });
