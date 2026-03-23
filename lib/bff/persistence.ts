@@ -3301,6 +3301,11 @@ async function readFileDatabase(dbPath: string): Promise<BffDatabase | null> {
       return null;
     }
 
+    if (error instanceof SyntaxError) {
+      console.warn(`[bff] corrupted database file at ${dbPath}, re-seeding`);
+      return null;
+    }
+
     throw error;
   }
 }
@@ -3319,8 +3324,11 @@ async function loadFileDb(): Promise<BffDatabase> {
   }
 
   const seeded = createSeedDatabase();
-  await fs.mkdir(path.dirname(dbPath), { recursive: true });
-  await fs.writeFile(dbPath, JSON.stringify(seeded, null, 2) + "\n", "utf8");
+  const dir = path.dirname(dbPath);
+  await fs.mkdir(dir, { recursive: true });
+  const tmpPath = `${dbPath}.${Date.now()}.tmp`;
+  await fs.writeFile(tmpPath, JSON.stringify(seeded, null, 2) + "\n", "utf8");
+  await fs.rename(tmpPath, dbPath);
   cachedPath = dbPath;
   cachedDb = seeded;
   return cachedDb;
@@ -3328,8 +3336,12 @@ async function loadFileDb(): Promise<BffDatabase> {
 
 async function persistFileDb(db: BffDatabase): Promise<void> {
   const dbPath = resolveDbPath();
-  await fs.mkdir(path.dirname(dbPath), { recursive: true });
-  await fs.writeFile(dbPath, JSON.stringify(db, null, 2) + "\n", "utf8");
+  const dir = path.dirname(dbPath);
+  await fs.mkdir(dir, { recursive: true });
+  const tmpPath = `${dbPath}.${Date.now()}.tmp`;
+  const content = JSON.stringify(db, null, 2) + "\n";
+  await fs.writeFile(tmpPath, content, "utf8");
+  await fs.rename(tmpPath, dbPath);
 }
 
 function normalizeDropVisibility(value: unknown): DropVisibility {
