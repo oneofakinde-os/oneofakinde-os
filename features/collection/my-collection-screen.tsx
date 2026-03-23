@@ -1,3 +1,5 @@
+"use client";
+
 import { OptimizedImage } from "@/features/media/optimized-image";
 import { AppShell } from "@/features/shell/app-shell";
 import { StatusToast } from "@/features/shared/status-toast";
