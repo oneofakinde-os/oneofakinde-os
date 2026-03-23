@@ -33,6 +33,7 @@ export type CatalogSearchWorldResult = {
   title: string;
   synopsis: string;
   studioHandle: string;
+  coverImageSrc: string | null;
 };
 
 export type CatalogSearchDropResult = {
@@ -43,6 +44,7 @@ export type CatalogSearchDropResult = {
   worldLabel: string;
   studioHandle: string;
   priceUsd: number;
+  posterSrc: string | null;
   collect: {
     lane: CollectMarketLane;
     listingType: CollectInventoryListing["listingType"];
@@ -219,7 +221,8 @@ export function searchCatalogFromData(input: CatalogSearchData): CatalogSearchRe
       id: world.id,
       title: world.title,
       synopsis: world.synopsis,
-      studioHandle: world.studioHandle
+      studioHandle: world.studioHandle,
+      coverImageSrc: world.visualIdentity?.coverImageSrc ?? null
     }));
 
   const matchedDrops = sortByScore(
@@ -231,6 +234,7 @@ export function searchCatalogFromData(input: CatalogSearchData): CatalogSearchRe
     .slice(0, limit)
     .map<CatalogSearchDropResult>((drop) => {
       const listing = collectListingByDropId.get(drop.id) ?? null;
+      const preview = drop.previewMedia?.watch ?? drop.previewMedia?.photos;
       return {
         id: drop.id,
         title: drop.title,
@@ -239,6 +243,7 @@ export function searchCatalogFromData(input: CatalogSearchData): CatalogSearchRe
         worldLabel: drop.worldLabel,
         studioHandle: drop.studioHandle,
         priceUsd: drop.priceUsd,
+        posterSrc: preview?.posterSrc ?? preview?.src ?? null,
         collect: listing
           ? {
               lane: listing.lane,
