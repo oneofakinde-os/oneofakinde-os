@@ -1,5 +1,6 @@
 import { requireRequestSession } from "@/lib/bff/auth";
 import { badRequest, forbidden, ok } from "@/lib/bff/http";
+import { applyAccountRateLimit, UPLOAD_RATE_LIMIT } from "@/lib/security/rate-limit-guard";
 import { uploadFile, listFiles, deleteFiles, type StorageBucket } from "@/lib/supabase/storage";
 import { emitOperationalEvent } from "@/lib/ops/observability";
 
@@ -30,6 +31,9 @@ export async function POST(request: Request) {
   if (!guard.session.roles.includes("creator")) {
     return forbidden("creator role is required");
   }
+
+  const rateGuard = applyAccountRateLimit(request, guard.session.accountId, UPLOAD_RATE_LIMIT);
+  if (!rateGuard.ok) return rateGuard.response;
 
   let formData: FormData;
   try {

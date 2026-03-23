@@ -32,6 +32,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
   const hasInvalidCredentials = errorCode === "invalid_credentials";
   const hasRoleError = errorCode === "role_required";
   const hasAuthServiceError = errorCode === "auth_service_unavailable";
+  const hasRateLimited = errorCode === "rate_limited";
   const hasPasswordReset = status === "password_reset";
 
   return (
@@ -96,6 +97,9 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
           ) : null}
           {hasAuthServiceError ? (
             <p className="identity-error">sign-in is temporarily unavailable. try again in a moment.</p>
+          ) : null}
+          {hasRateLimited ? (
+            <p className="identity-error">too many sign-in attempts. please wait a minute and try again.</p>
           ) : null}
 
           <button type="submit" className="identity-cta">

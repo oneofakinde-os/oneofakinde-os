@@ -1,7 +1,9 @@
 "use server";
 
+import { checkRateLimit, PASSWORD_RESET_RATE_LIMIT } from "@/lib/security/rate-limit";
 import { isSupabaseAuthEnabled } from "@/lib/supabase/config";
 import type { Route } from "next";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 export async function forgotPasswordAction(formData: FormData): Promise<void> {
@@ -9,6 +11,14 @@ export async function forgotPasswordAction(formData: FormData): Promise<void> {
 
   if (!email || !email.includes("@")) {
     redirect("/auth/forgot-password?error=invalid_email" as Route);
+  }
+
+  // Rate limit by IP to prevent enumeration/abuse.
+  const headerStore = await headers();
+  const ip = headerStore.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const rateLimitResult = checkRateLimit(`pwd-reset:${ip}`, PASSWORD_RESET_RATE_LIMIT);
+  if (!rateLimitResult.allowed) {
+    redirect("/auth/forgot-password?error=rate_limited" as Route);
   }
 
   if (!isSupabaseAuthEnabled()) {

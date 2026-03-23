@@ -85,6 +85,9 @@ export default async function SignUpPage({ searchParams }: SignUpPageProps) {
           {hasAuthServiceError ? (
             <p className="identity-error">account creation is temporarily unavailable. try again in a moment.</p>
           ) : null}
+          {errorCode === "rate_limited" ? (
+            <p className="identity-error">too many attempts. please wait a minute and try again.</p>
+          ) : null}
 
           <button type="submit" className="identity-cta">
             let&apos;s go
