@@ -156,8 +156,8 @@ test.describe("authenticated collector journey", () => {
     // Should show the edit button
     await expect(page.getByText("edit").first()).toBeVisible();
 
-    // Should show collector_demo's email
-    await expect(page.getByText("collector@oneofakinde.com").first()).toBeVisible();
+    // Should show collector_demo's email (rendered in an input field)
+    await expect(page.locator('input[value="collector@oneofakinde.com"]')).toBeVisible();
   });
 
   test("sign in → settings nav navigates between tabs", async ({ page }) => {
