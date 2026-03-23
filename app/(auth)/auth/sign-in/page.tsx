@@ -1,3 +1,4 @@
+import { SocialAuthButtons } from "@/features/auth/social-auth-buttons";
 import { normalizeReturnTo } from "@/lib/session";
 import { routes } from "@/lib/routes";
 import { buildDefaultEntryFlow, extractFinalReturnTo } from "@/lib/system-flow";
@@ -81,20 +82,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
             </label>
           </fieldset>
 
-          <section className="identity-social" aria-label="social sign in options">
-            <p>or continue with</p>
-            <div>
-              <button type="button" className="identity-chip" disabled>
-                google
-              </button>
-              <button type="button" className="identity-chip" disabled>
-                apple
-              </button>
-              <button type="button" className="identity-chip" disabled>
-                x
-              </button>
-            </div>
-          </section>
+          <SocialAuthButtons mode="sign-in" returnTo={returnTo} />
 
           {hasPasswordReset ? (
             <p className="identity-success">password updated successfully. sign in with your new password.</p>
