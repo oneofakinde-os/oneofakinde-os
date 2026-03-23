@@ -13,6 +13,7 @@ import type {
   Drop,
   DropLiveArtifactsSnapshot,
   DropLineageSnapshot,
+  DropPreviewMap,
   DropVersion,
   LibrarySnapshot,
   LiveSession,
@@ -771,6 +772,10 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
     },
 
     async updateAccountProfile(): Promise<Session | null> {
+      return null;
+    },
+
+    async updateDropPreviewMedia(): Promise<DropPreviewMap | null> {
       return null;
     }
   };

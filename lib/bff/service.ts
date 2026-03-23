@@ -24,6 +24,8 @@ import type {
   DropLiveArtifactEntry,
   DropLiveArtifactsSnapshot,
   DropLineageSnapshot,
+  DropPreviewMap,
+  DropPreviewMode,
   DropVersion,
   DropVersionLabel,
   LibraryEligibilitySnapshot,
@@ -106,6 +108,7 @@ import type {
   WorldCollectBundleType,
   WorldCollectOwnership,
   WorldCollectUpgradePreview,
+  UpdateDropPreviewMediaInput,
   UpsertWorkshopPatronTierConfigInput,
   World
 } from "@/lib/domain/contracts";
@@ -5775,6 +5778,14 @@ const gatewayMethods: CommerceGateway = {
     return commerceBffService.createAuthorizedDerivative(accountId, sourceDropId, input);
   },
 
+  async updateDropPreviewMedia(
+    accountId: string,
+    dropId: string,
+    input: UpdateDropPreviewMediaInput
+  ): Promise<DropPreviewMap | null> {
+    return commerceBffService.updateDropPreviewMedia(accountId, dropId, input);
+  },
+
   async getCheckoutPreview(accountId: string, dropId: string): Promise<CheckoutPreview | null> {
     return withDatabase(async (db) => {
       const account = findAccountById(db, accountId);
@@ -8832,6 +8843,54 @@ export const commerceBffService = {
         persist: true,
         result: toAuthorizedDerivative(record)
       };
+    });
+  },
+
+  async updateDropPreviewMedia(
+    accountId: string,
+    dropId: string,
+    input: UpdateDropPreviewMediaInput
+  ): Promise<DropPreviewMap | null> {
+    const VALID_MODES = new Set(["watch", "listen", "read", "photos", "live"]);
+    const VALID_TYPES = new Set(["video", "audio", "image", "text"]);
+
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      const drop = findDropById(db, dropId);
+      if (!account || !drop || !account.roles.includes("creator")) {
+        return { persist: false, result: null };
+      }
+
+      if (account.handle !== drop.studioHandle) {
+        return { persist: false, result: null };
+      }
+
+      const updated: DropPreviewMap = { ...(drop.previewMedia ?? {}) };
+
+      for (const [modeKey, value] of Object.entries(input)) {
+        if (!VALID_MODES.has(modeKey)) continue;
+        const mode = modeKey as DropPreviewMode;
+
+        if (value === null) {
+          delete updated[mode];
+          continue;
+        }
+
+        if (!value || typeof value !== "object") continue;
+        if (!VALID_TYPES.has(value.type)) continue;
+
+        updated[mode] = {
+          type: value.type,
+          ...(value.src ? { src: value.src } : {}),
+          ...(value.posterSrc ? { posterSrc: value.posterSrc } : {}),
+          ...(value.alt ? { alt: value.alt } : {}),
+          ...(value.text ? { text: value.text } : {})
+        };
+      }
+
+      drop.previewMedia = updated;
+
+      return { persist: true, result: updated };
     });
   },
 
