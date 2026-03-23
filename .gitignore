@@ -22,3 +22,4 @@ tsconfig.tsbuildinfo
 artifacts/
 playwright-report
 test-results
+.vercel
