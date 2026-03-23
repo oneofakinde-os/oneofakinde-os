@@ -1,3 +1,4 @@
+import { OptimizedImage } from "@/features/media/optimized-image";
 import { AppShell } from "@/features/shell/app-shell";
 import { formatUsd } from "@/features/shared/format";
 import type { Drop, OpsAnalyticsPanel, Session } from "@/lib/domain/contracts";
@@ -519,12 +520,13 @@ function renderSettingsAccountBody(session: Session) {
         <div className="ops-settings-grid">
           <div className="slice-field" style={{ alignItems: "center", display: "flex", gap: 12 }}>
             {session.avatarUrl ? (
-              <img
+              <OptimizedImage
                 src={session.avatarUrl}
                 alt={`@${session.handle}`}
                 className="slice-avatar"
                 width={56}
                 height={56}
+                preset="avatarSettings"
               />
             ) : (
               <span className="slice-avatar-placeholder slice-avatar-placeholder-lg" aria-hidden>

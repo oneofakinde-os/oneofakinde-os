@@ -1,5 +1,6 @@
 "use client";
 
+import { OptimizedImage } from "@/features/media/optimized-image";
 import { formatUsd } from "@/features/shared/format";
 import type { Drop } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
@@ -104,11 +105,12 @@ export function ShowroomFeaturedRail({ initialEntries }: ShowroomFeaturedRailPro
             data-testid={`showroom-featured-card-${entry.drop.id}`}
           >
             {entry.drop.previewMedia?.watch?.posterSrc ? (
-              <img
+              <OptimizedImage
                 className="showroom-featured-card-poster"
                 src={entry.drop.previewMedia.watch.posterSrc}
                 alt={entry.drop.title}
                 loading="lazy"
+                preset="dropPosterCard"
               />
             ) : (
               <div className="showroom-featured-card-poster showroom-featured-card-poster-placeholder">

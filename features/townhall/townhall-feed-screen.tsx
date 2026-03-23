@@ -1,5 +1,6 @@
 "use client";
 
+import { OptimizedImage } from "@/features/media/optimized-image";
 import { formatUsd } from "@/features/shared/format";
 import type {
   Drop,
@@ -1540,11 +1541,12 @@ export function TownhallFeedScreen({
                   {previewAsset.type === "video" ? (
                     <>
                       {previewAsset.posterSrc ? (
-                        <img
+                        <OptimizedImage
                           className={`townhall-preview-video-poster ${showVideoPoster ? "" : "hidden"}`}
                           src={previewAsset.posterSrc}
                           alt={previewAsset.alt}
                           loading={isActive ? "eager" : "lazy"}
+                          preset="dropPosterFull"
                           onError={() => {
                             revealVideoDrop(drop.id);
                           }}
@@ -1608,11 +1610,12 @@ export function TownhallFeedScreen({
                   ) : null}
 
                   {previewAsset.type === "image" ? (
-                    <img
+                    <OptimizedImage
                       className="townhall-preview-image"
                       src={previewAsset.src}
                       alt={previewAsset.alt}
                       loading={isActive ? "eager" : "lazy"}
+                      preset="dropPosterFull"
                       onError={() => {
                         markPreviewAssetFailure(resolvedPreview.assetKey);
                       }}

@@ -1,3 +1,4 @@
+import { OptimizedImage } from "@/features/media/optimized-image";
 import { PatronBadge } from "@/features/patron/patron-badge";
 import type { PatronStatus } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
@@ -57,12 +58,13 @@ export function CollectorPresenceCard({
       data-testid="collector-presence-card"
     >
       {!isCompact && avatarUrl ? (
-        <img
+        <OptimizedImage
           src={avatarUrl}
           alt={`@${handle}`}
           className="slice-avatar"
           width={40}
           height={40}
+          preset="avatarCard"
         />
       ) : null}
       <div>
