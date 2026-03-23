@@ -1,4 +1,7 @@
 import { OptimizedImage } from "@/features/media/optimized-image";
+import { SettingsAccountForm } from "@/features/settings/settings-account-form";
+import { SettingsNav } from "@/features/settings/settings-nav";
+import { SettingsNotificationsForm } from "@/features/settings/settings-notifications-form";
 import { AppShell } from "@/features/shell/app-shell";
 import { formatUsd } from "@/features/shared/format";
 import type { Drop, OpsAnalyticsPanel, Session } from "@/lib/domain/contracts";
@@ -513,95 +516,51 @@ function renderPayoutsBody() {
 }
 
 function renderSettingsAccountBody(session: Session) {
-  return (
-    <>
-      <section className="slice-panel">
-        <p className="slice-label">profile</p>
-        <div className="ops-settings-grid">
-          <div className="slice-field" style={{ alignItems: "center", display: "flex", gap: 12 }}>
-            {session.avatarUrl ? (
-              <OptimizedImage
-                src={session.avatarUrl}
-                alt={`@${session.handle}`}
-                className="slice-avatar"
-                width={56}
-                height={56}
-                preset="avatarSettings"
-              />
-            ) : (
-              <span className="slice-avatar-placeholder slice-avatar-placeholder-lg" aria-hidden>
-                {session.handle.charAt(0)}
-              </span>
-            )}
-            <span className="slice-meta">
-              upload a new avatar from the{" "}
-              <Link href="/onboarding/profile-setup" className="slice-link">
-                profile setup
-              </Link>
-              {" "}page
-            </span>
-          </div>
-          {session.bio ? (
-            <div className="slice-field">
-              <span className="slice-meta">bio</span>
-              <p className="slice-copy">{session.bio}</p>
-            </div>
-          ) : null}
-        </div>
-      </section>
-
-      <section className="slice-panel">
-        <p className="slice-label">identity + contact</p>
-        <div className="ops-settings-grid">
-          <label className="slice-field">
-            email
-            <input className="slice-input" value={session.email} readOnly />
-          </label>
-          <label className="slice-field">
-            handle
-            <input className="slice-input" value={`@${session.handle}`} readOnly />
-          </label>
-          <label className="slice-field">
-            display name
-            <input className="slice-input" value={session.displayName} readOnly />
-          </label>
-          <label className="slice-field">
-            role access
-            <input className="slice-input" value={session.roles.join(", ")} readOnly />
-          </label>
-        </div>
-      </section>
-    </>
-  );
+  return <SettingsAccountForm session={session} />;
 }
 
 function renderSettingsSecurityBody(session: Session) {
   return (
-    <section className="slice-panel">
-      <p className="slice-label">security controls</p>
-      <dl className="slice-list">
-        <div>
-          <dt>active sessions</dt>
-          <dd>3 devices</dd>
+    <>
+      <section className="slice-panel">
+        <p className="slice-label">security overview</p>
+        <dl className="slice-list">
+          <div>
+            <dt>signed in as</dt>
+            <dd>@{session.handle} ({session.email})</dd>
+          </div>
+          <div>
+            <dt>account roles</dt>
+            <dd>{session.roles.join(", ")}</dd>
+          </div>
+          <div>
+            <dt>2fa status</dt>
+            <dd style={{ color: "var(--accent-bright)" }}>enabled</dd>
+          </div>
+          <div>
+            <dt>active sessions</dt>
+            <dd>1 device (current)</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section className="slice-panel">
+        <p className="slice-label">actions</p>
+        <div className="slice-button-row">
+          <Link href={routes.settingsNotifications()} className="slice-button alt">
+            notification rules
+          </Link>
+          <Link href={routes.settingsAccount()} className="slice-button ghost">
+            account details
+          </Link>
         </div>
-        <div>
-          <dt>2fa status</dt>
-          <dd>enabled</dd>
-        </div>
-        <div>
-          <dt>last sign in</dt>
-          <dd>@{session.handle} · 12 minutes ago</dd>
-        </div>
-      </dl>
-      <div className="slice-button-row">
-        <Link href={routes.settingsNotifications()} className="slice-button alt">
-          notification rules
-        </Link>
-        <Link href={routes.settingsAccount()} className="slice-button ghost">
-          account details
-        </Link>
-      </div>
-    </section>
+        <p className="slice-meta" style={{ marginTop: 12 }}>
+          to change your password or enable 2fa, use the{" "}
+          <Link href="/auth/sign-in" className="slice-link">authentication provider</Link>
+          {" "}settings.
+        </p>
+      </section>
+    </>
   );
 }
 
@@ -625,29 +584,7 @@ function renderSettingsAppsBody() {
 }
 
 function renderSettingsNotificationsBody() {
-  return (
-    <section className="slice-panel">
-      <p className="slice-label">delivery channels</p>
-      <div className="ops-settings-grid">
-        <label className="ops-toggle">
-          <input type="checkbox" defaultChecked />
-          <span>townhall replies and mentions</span>
-        </label>
-        <label className="ops-toggle">
-          <input type="checkbox" defaultChecked />
-          <span>drop purchase and receipt updates</span>
-        </label>
-        <label className="ops-toggle">
-          <input type="checkbox" defaultChecked />
-          <span>campaign performance alerts</span>
-        </label>
-        <label className="ops-toggle">
-          <input type="checkbox" />
-          <span>weekly digest only</span>
-        </label>
-      </div>
-    </section>
-  );
+  return <SettingsNotificationsForm />;
 }
 
 function renderBody(
@@ -676,6 +613,13 @@ function renderBody(
   );
 }
 
+const SETTINGS_SURFACES: OpsSurface[] = [
+  "settings_account",
+  "settings_security",
+  "settings_apps",
+  "settings_notifications",
+];
+
 export function OpsControlSurfaceScreen({
   surface,
   session,
@@ -683,9 +627,11 @@ export function OpsControlSurfaceScreen({
   opsAnalyticsPanel = null
 }: OpsControlSurfaceScreenProps) {
   const meta = SURFACE_META[surface];
+  const isSettings = SETTINGS_SURFACES.includes(surface);
 
   return (
     <AppShell title={meta.title} subtitle={meta.subtitle} session={session} activeNav={meta.activeNav}>
+      {isSettings ? <SettingsNav /> : null}
       {renderBody(surface, session, drops, opsAnalyticsPanel)}
     </AppShell>
   );
