@@ -13,7 +13,9 @@ import type {
   Drop,
   DropLiveArtifactsSnapshot,
   DropLineageSnapshot,
+  DropPreviewMap,
   DropVersion,
+  UpdateDropPreviewMediaInput,
   LibrarySnapshot,
   LiveSession,
   LiveSessionArtifact,
@@ -60,6 +62,11 @@ export interface CommerceGateway {
     sourceDropId: string,
     input: CreateAuthorizedDerivativeInput
   ): Promise<AuthorizedDerivative | null>;
+  updateDropPreviewMedia(
+    accountId: string,
+    dropId: string,
+    input: UpdateDropPreviewMediaInput
+  ): Promise<DropPreviewMap | null>;
   getCheckoutPreview(accountId: string, dropId: string): Promise<CheckoutPreview | null>;
   createCheckoutSession(
     accountId: string,

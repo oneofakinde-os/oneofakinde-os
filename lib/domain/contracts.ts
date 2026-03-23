@@ -426,6 +426,19 @@ export type CreateDropVersionInput = {
   releasedAt?: string | null;
 };
 
+export type UpdateDropPreviewMediaInput = Partial<
+  Record<
+    DropPreviewMode,
+    {
+      type: DropPreviewAssetType;
+      src?: string;
+      posterSrc?: string;
+      alt?: string;
+      text?: string;
+    } | null
+  >
+>;
+
 export type CreateAuthorizedDerivativeInput = {
   derivativeDropId: string;
   kind: AuthorizedDerivativeKind;

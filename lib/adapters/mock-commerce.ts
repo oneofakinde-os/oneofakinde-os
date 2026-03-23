@@ -15,6 +15,7 @@ import type {
   Drop,
   DropLiveArtifactsSnapshot,
   DropLineageSnapshot,
+  DropPreviewMap,
   DropVersion,
   DropVersionLabel,
   LibraryDrop,
@@ -2502,6 +2503,10 @@ export const commerceGateway: CommerceGateway = {
   },
 
   async updateAccountProfile(): Promise<Session | null> {
+    return null;
+  },
+
+  async updateDropPreviewMedia(): Promise<DropPreviewMap | null> {
     return null;
   }
 };
