@@ -1,8 +1,8 @@
 "use server";
 
 import { gateway } from "@/lib/gateway";
-import { SESSION_COOKIE } from "@/lib/session";
-import { cookies, headers } from "next/headers";
+import { getOptionalSession } from "@/lib/server/session";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 function trimTrailingSlashes(value: string): string {
@@ -10,7 +10,10 @@ function trimTrailingSlashes(value: string): string {
 }
 
 async function resolveAppBaseUrl(): Promise<string> {
-  const configured = process.env.OOK_APP_BASE_URL?.trim();
+  // Check explicit config first, then NEXT_PUBLIC_SITE_URL, then headers.
+  const configured =
+    process.env.OOK_APP_BASE_URL?.trim() ||
+    process.env.NEXT_PUBLIC_SITE_URL?.trim();
   if (configured) {
     return trimTrailingSlashes(configured);
   }
@@ -35,9 +38,8 @@ export async function purchaseDropAction(formData: FormData): Promise<void> {
     redirect("/my-collection");
   }
 
-  const cookieStore = await cookies();
-  const token = cookieStore.get(SESSION_COOKIE)?.value;
-  const session = token ? await gateway.getSessionByToken(token) : null;
+  // Use unified session resolution (Supabase first, then legacy cookie).
+  const session = await getOptionalSession();
 
   if (!session) {
     redirect(`/auth/sign-in?returnTo=${encodeURIComponent(`/collect/${dropId}`)}`);
@@ -50,7 +52,7 @@ export async function purchaseDropAction(formData: FormData): Promise<void> {
   });
 
   if (!checkoutSession) {
-    redirect("/my-collection?status=checkout_unavailable");
+    redirect(`/collect/${encodeURIComponent(dropId)}?status=checkout_unavailable`);
   }
 
   if (checkoutSession.status === "already_owned") {
@@ -70,7 +72,7 @@ export async function purchaseDropAction(formData: FormData): Promise<void> {
   }
 
   if (!checkoutSession.checkoutUrl) {
-    redirect("/my-collection?status=checkout_missing_url");
+    redirect(`/collect/${encodeURIComponent(dropId)}?status=checkout_missing_url`);
   }
 
   redirect(checkoutSession.checkoutUrl as never);
