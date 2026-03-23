@@ -1,4 +1,5 @@
 import type { UrlObject } from "url";
+import { OptimizedImage } from "@/features/media/optimized-image";
 import { MarketActivityCard } from "@/features/collect/market-activity-card";
 import { formatUsd } from "@/features/shared/format";
 import type {
@@ -68,6 +69,9 @@ export function DropDetailScreen({
   ownershipHistory,
   recentOffers
 }: DropDetailScreenProps) {
+  const posterSrc = drop.previewMedia?.watch?.posterSrc
+    ?? drop.previewMedia?.photos?.src
+    ?? null;
   const collectHref = session
     ? routes.collectDrop(drop.id)
     : routes.signIn(routes.collectDrop(drop.id));
@@ -89,7 +93,24 @@ export function DropDetailScreen({
         </header>
 
         <section className="dropflow-stage">
-          <div className="dropflow-backdrop" />
+          {posterSrc ? (
+            <OptimizedImage
+              src={posterSrc}
+              alt={drop.title}
+              className="dropflow-backdrop-poster"
+              preset="dropPosterFull"
+              style={{
+                position: "absolute",
+                inset: 0,
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                zIndex: 0
+              }}
+            />
+          ) : (
+            <div className="dropflow-backdrop" />
+          )}
           <div className="dropflow-overlay" />
 
           <aside className="dropflow-social-rail" aria-label="drop social actions">
