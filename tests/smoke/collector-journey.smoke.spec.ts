@@ -13,23 +13,35 @@ import { expect, test } from "@playwright/test";
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
-async function signIn(page: import("@playwright/test").Page) {
-  await page.goto("/auth/sign-in", { waitUntil: "domcontentloaded" });
+async function signIn(page: import("@playwright/test").Page, retries = 2) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    await page.goto("/auth/sign-in", { waitUntil: "domcontentloaded" });
 
-  const emailInput = page.locator('input[type="email"], input[name="email"]');
-  await emailInput.fill("collector@oneofakinde.com");
+    const emailInput = page.locator('input[type="email"], input[name="email"]');
+    await emailInput.fill("collector@oneofakinde.com");
 
-  const passwordInput = page.locator('input[type="password"]');
-  await passwordInput.fill("collector123");
+    const passwordInput = page.locator('input[type="password"]');
+    await passwordInput.fill("collector123");
 
-  // Click the "let's go" submit button (last button on the page)
-  const submitButton = page.locator("button").filter({ hasText: /let.?s go/i });
-  await submitButton.click();
+    // Click the "let's go" submit button (last button on the page)
+    const submitButton = page.locator("button").filter({ hasText: /let.?s go/i });
+    await submitButton.click();
 
-  // Wait for navigation away from sign-in
-  await page.waitForURL((url) => !url.pathname.includes("/auth/sign-in"), {
-    timeout: 10_000
-  });
+    try {
+      // Wait for navigation away from sign-in
+      await page.waitForURL((url) => !url.pathname.includes("/auth/sign-in"), {
+        timeout: 10_000
+      });
+      return; // success
+    } catch {
+      // If rate-limited, wait briefly and retry
+      if (attempt < retries && page.url().includes("rate_limited")) {
+        await page.waitForTimeout(2_000);
+        continue;
+      }
+      throw new Error(`Sign-in failed after ${attempt + 1} attempts. URL: ${page.url()}`);
+    }
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -136,9 +148,10 @@ test.describe("authenticated collector journey", () => {
     await page.goto("/settings/account", { waitUntil: "domcontentloaded" });
 
     // Settings nav should be visible
-    await expect(page.getByText("account").first()).toBeVisible({ timeout: 8_000 });
-    await expect(page.getByText("security").first()).toBeVisible();
-    await expect(page.getByText("notifications").first()).toBeVisible();
+    const settingsNav = page.getByLabel("settings navigation");
+    await expect(settingsNav.getByText("account")).toBeVisible({ timeout: 8_000 });
+    await expect(settingsNav.getByText("security")).toBeVisible();
+    await expect(settingsNav.getByText("notifications")).toBeVisible();
 
     // Should show the edit button
     await expect(page.getByText("edit").first()).toBeVisible();
@@ -157,8 +170,8 @@ test.describe("authenticated collector journey", () => {
     await page.waitForURL("**/settings/security");
     await expect(page.getByText("security overview").first()).toBeVisible({ timeout: 8_000 });
 
-    // Click notifications tab
-    await page.getByRole("link", { name: "notifications" }).click();
+    // Click notifications tab (scoped to settings nav to avoid matching the notification bell)
+    await page.getByLabel("settings navigation").getByRole("link", { name: "notifications" }).click();
     await page.waitForURL("**/settings/notifications");
     await expect(page.getByText("delivery channels").first()).toBeVisible({ timeout: 8_000 });
   });
