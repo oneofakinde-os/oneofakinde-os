@@ -3326,9 +3326,15 @@ async function loadFileDb(): Promise<BffDatabase> {
   const seeded = createSeedDatabase();
   const dir = path.dirname(dbPath);
   await fs.mkdir(dir, { recursive: true });
+  const content = JSON.stringify(seeded, null, 2) + "\n";
   const tmpPath = `${dbPath}.${Date.now()}.tmp`;
-  await fs.writeFile(tmpPath, JSON.stringify(seeded, null, 2) + "\n", "utf8");
-  await fs.rename(tmpPath, dbPath);
+  try {
+    await fs.writeFile(tmpPath, content, "utf8");
+    await fs.rename(tmpPath, dbPath);
+  } catch {
+    await fs.writeFile(dbPath, content, "utf8");
+    try { await fs.unlink(tmpPath); } catch { /* ignore cleanup */ }
+  }
   cachedPath = dbPath;
   cachedDb = seeded;
   return cachedDb;
@@ -3338,10 +3344,18 @@ async function persistFileDb(db: BffDatabase): Promise<void> {
   const dbPath = resolveDbPath();
   const dir = path.dirname(dbPath);
   await fs.mkdir(dir, { recursive: true });
-  const tmpPath = `${dbPath}.${Date.now()}.tmp`;
   const content = JSON.stringify(db, null, 2) + "\n";
-  await fs.writeFile(tmpPath, content, "utf8");
-  await fs.rename(tmpPath, dbPath);
+
+  // Atomic write: temp file then rename. Fall back to direct write on error.
+  const tmpPath = `${dbPath}.${Date.now()}.tmp`;
+  try {
+    await fs.writeFile(tmpPath, content, "utf8");
+    await fs.rename(tmpPath, dbPath);
+  } catch {
+    // Rename can fail on certain CI/Docker filesystems — fall back to direct write.
+    await fs.writeFile(dbPath, content, "utf8");
+    try { await fs.unlink(tmpPath); } catch { /* ignore cleanup */ }
+  }
 }
 
 function normalizeDropVisibility(value: unknown): DropVisibility {
