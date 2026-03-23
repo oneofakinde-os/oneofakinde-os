@@ -1,3 +1,4 @@
+import { OptimizedImage } from "@/features/media/optimized-image";
 import { NotificationBell } from "@/features/notifications/notification-bell";
 import type { Session } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
@@ -60,12 +61,13 @@ export function AppShell({ title, subtitle, session, activeNav, children }: AppS
       {session ? (
         <p className="slice-session">
           {session.avatarUrl ? (
-            <img
+            <OptimizedImage
               src={session.avatarUrl}
               alt={`@${session.handle}`}
               className="slice-avatar"
               width={28}
               height={28}
+              preset="avatarNav"
             />
           ) : (
             <span className="slice-avatar-placeholder" aria-hidden>

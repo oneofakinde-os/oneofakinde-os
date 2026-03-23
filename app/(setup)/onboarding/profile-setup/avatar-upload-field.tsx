@@ -1,5 +1,6 @@
 "use client";
 
+import { OptimizedImage } from "@/features/media/optimized-image";
 import { useMediaUpload } from "@/lib/hooks/use-media-upload";
 import { useCallback, useState } from "react";
 
@@ -54,12 +55,13 @@ export function AvatarUploadField({ currentAvatarUrl, handle }: AvatarUploadFiel
 
       <div className="identity-avatar-preview">
         {avatarUrl ? (
-          <img
+          <OptimizedImage
             src={avatarUrl}
             alt={`@${handle}`}
             className="slice-avatar slice-avatar-lg"
             width={64}
             height={64}
+            preset="avatarUpload"
           />
         ) : (
           <span className="slice-avatar-placeholder slice-avatar-placeholder-lg" aria-hidden>

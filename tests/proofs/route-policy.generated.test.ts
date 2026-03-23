@@ -212,6 +212,20 @@ const metadataCases = [
     "sessionRoles": []
   },
   {
+    "pathname": "/auth/forgot-password",
+    "surfaceKey": "auth_forgot_password",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
+    "pathname": "/auth/reset-password",
+    "surfaceKey": "auth_reset_password",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
     "pathname": "/logout",
     "surfaceKey": "logout",
     "publicSafe": "false",
