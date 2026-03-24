@@ -45,6 +45,14 @@ export function AppShell({ title, subtitle, session, activeNav, children }: AppS
           </Link>
           {session ? (
             <>
+              {session.roles.includes("creator") ? (
+                <Link
+                  href={routes.workshop()}
+                  className={`slice-link ${activeNav === "workshop" ? "active" : ""}`}
+                >
+                  workshop
+                </Link>
+              ) : null}
               <NotificationBell initialUnreadCount={0} accountId={session.accountId} />
               <Link href={routes.logout()} className="slice-link">
                 log out
