@@ -1,5 +1,6 @@
 import { OptimizedImage } from "@/features/media/optimized-image";
 import { NotificationBell } from "@/features/notifications/notification-bell";
+import { MobileNavToggle } from "@/features/shell/mobile-nav-toggle";
 import type { Session } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
 import Link from "next/link";
@@ -26,44 +27,46 @@ export function AppShell({ title, subtitle, session, activeNav, initialUnreadCou
         </div>
 
         <nav className="slice-nav" aria-label="primary">
-          <Link href={routes.townhall()} className={`slice-link ${activeNav === "townhall" ? "active" : ""}`}>
-            townhall
-          </Link>
-          <Link href={routes.collect()} className={`slice-link ${activeNav === "collect" ? "active" : ""}`}>
-            collect
-          </Link>
-          <Link
-            href={routes.myCollection()}
-            className={`slice-link ${activeNav === "my_collection" ? "active" : ""}`}
-          >
-            my collection
-          </Link>
-          <Link href={routes.library()} className={`slice-link ${activeNav === "library" ? "active" : ""}`}>
-            library
-          </Link>
-          <Link href={routes.worlds()} className={`slice-link ${activeNav === "worlds" ? "active" : ""}`}>
-            worlds
-          </Link>
-          {session ? (
-            <>
-              {session.roles.includes("creator") ? (
-                <Link
-                  href={routes.workshop()}
-                  className={`slice-link ${activeNav === "workshop" ? "active" : ""}`}
-                >
-                  workshop
-                </Link>
-              ) : null}
-              <NotificationBell initialUnreadCount={initialUnreadCount ?? 0} accountId={session.accountId} />
-              <Link href={routes.logout()} className="slice-link">
-                log out
-              </Link>
-            </>
-          ) : (
-            <Link href={routes.signIn()} className="slice-link">
-              sign in
+          <MobileNavToggle>
+            <Link href={routes.townhall()} className={`slice-link ${activeNav === "townhall" ? "active" : ""}`}>
+              townhall
             </Link>
-          )}
+            <Link href={routes.collect()} className={`slice-link ${activeNav === "collect" ? "active" : ""}`}>
+              collect
+            </Link>
+            <Link
+              href={routes.myCollection()}
+              className={`slice-link ${activeNav === "my_collection" ? "active" : ""}`}
+            >
+              my collection
+            </Link>
+            <Link href={routes.library()} className={`slice-link ${activeNav === "library" ? "active" : ""}`}>
+              library
+            </Link>
+            <Link href={routes.worlds()} className={`slice-link ${activeNav === "worlds" ? "active" : ""}`}>
+              worlds
+            </Link>
+            {session ? (
+              <>
+                {session.roles.includes("creator") ? (
+                  <Link
+                    href={routes.workshop()}
+                    className={`slice-link ${activeNav === "workshop" ? "active" : ""}`}
+                  >
+                    workshop
+                  </Link>
+                ) : null}
+                <NotificationBell initialUnreadCount={initialUnreadCount ?? 0} accountId={session.accountId} />
+                <Link href={routes.logout()} className="slice-link">
+                  log out
+                </Link>
+              </>
+            ) : (
+              <Link href={routes.signIn()} className="slice-link">
+                sign in
+              </Link>
+            )}
+          </MobileNavToggle>
         </nav>
       </header>
 

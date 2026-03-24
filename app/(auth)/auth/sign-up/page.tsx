@@ -1,8 +1,13 @@
 import { SocialAuthButtons } from "@/features/auth/social-auth-buttons";
 import { normalizeReturnTo } from "@/lib/session";
 import { routes } from "@/lib/routes";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { signUpAction } from "./actions";
+
+export const metadata: Metadata = {
+  title: "sign up",
+};
 
 type SignUpPageProps = {
   searchParams: Promise<{

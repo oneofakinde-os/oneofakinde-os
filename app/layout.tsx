@@ -7,19 +7,23 @@ import { resolveMetadataBase } from "@/lib/seo/metadata";
 
 export const metadata: Metadata = {
   metadataBase: resolveMetadataBase(),
-  title: "oneofakinde",
-  description: "oneofakinde is a cinematic collector platform for drops, worlds, and studios.",
+  title: {
+    default: "oneofakinde",
+    template: "%s · oneofakinde",
+  },
+  description: "discover, collect, and own one-of-a-kind digital media — drops, worlds, and live sessions from independent studios.",
   openGraph: {
-    title: "oneofakinde",
-    description: "oneofakinde is a cinematic collector platform for drops, worlds, and studios.",
+    type: "website",
     siteName: "oneofakinde",
-    type: "website"
+    locale: "en_US",
   },
   twitter: {
-    card: "summary",
-    title: "oneofakinde",
-    description: "oneofakinde is a cinematic collector platform for drops, worlds, and studios."
-  }
+    card: "summary_large_image",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
