@@ -88,6 +88,7 @@ export interface CommerceGateway {
   ): Promise<LibrarySnapshot | null>;
   getWorkshopAnalyticsPanel(accountId: string): Promise<WorkshopAnalyticsPanel | null>;
   getOpsAnalyticsPanel(accountId: string): Promise<OpsAnalyticsPanel | null>;
+  getViewerFollowedStudioHandles(accountId: string): Promise<string[]>;
   getReceipt(accountId: string, receiptId: string): Promise<PurchaseReceipt | null>;
   hasDropEntitlement(accountId: string, dropId: string): Promise<boolean>;
   listMembershipEntitlements(accountId: string): Promise<MembershipEntitlement[]>;

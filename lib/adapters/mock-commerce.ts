@@ -2120,6 +2120,14 @@ export const commerceGateway: CommerceGateway = {
     return getOpsAnalyticsPanelForAccount();
   },
 
+  async getViewerFollowedStudioHandles(_accountId: string): Promise<string[]> {
+    // Mock returns the first studio handle from the catalog
+    const handles = Array.from(
+      new Set(Array.from(store.drops.values()).map((d) => d.studioHandle))
+    );
+    return handles.slice(0, 1);
+  },
+
   async getReceipt(accountId: string, receiptId: string): Promise<PurchaseReceipt | null> {
     const receipts = store.receiptsByAccount.get(accountId) ?? [];
     return receipts.find((receipt) => receipt.id === receiptId) ?? null;
