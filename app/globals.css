@@ -3702,3 +3702,148 @@ a {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ── error boundaries ── */
+.error-boundary {
+  min-height: 60vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+}
+
+.error-boundary-card {
+  max-width: 440px;
+  text-align: center;
+  padding: 48px 32px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.error-boundary-title {
+  font-size: 1.5rem;
+  color: var(--text);
+  margin: 0 0 12px;
+}
+
+.error-boundary-message {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  margin: 0 0 8px;
+  line-height: 1.5;
+}
+
+.error-boundary-digest {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  opacity: 0.6;
+  margin: 0 0 24px;
+  font-family: monospace;
+}
+
+.error-boundary-retry {
+  display: inline-block;
+  padding: 10px 28px;
+  background: var(--accent);
+  color: var(--panel);
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  margin-top: 16px;
+}
+
+.error-boundary-retry:hover {
+  background: var(--accent-bright);
+}
+
+/* ── loading skeletons ── */
+.loading-skeleton {
+  padding: 40px 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.loading-skeleton-header {
+  margin-bottom: 32px;
+}
+
+.loading-skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 20px;
+}
+
+.skeleton-block {
+  background: var(--panel-2);
+  border-radius: 8px;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+.skeleton-title {
+  height: 28px;
+  width: 200px;
+  margin-bottom: 12px;
+}
+
+.skeleton-subtitle {
+  height: 16px;
+  width: 300px;
+}
+
+.skeleton-card {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  overflow: hidden;
+}
+
+.skeleton-image {
+  height: 160px;
+  width: 100%;
+  margin-bottom: 12px;
+  border-radius: 8px;
+}
+
+.skeleton-text {
+  height: 14px;
+  width: 80%;
+  margin-bottom: 8px;
+}
+
+.skeleton-text-short {
+  height: 14px;
+  width: 50%;
+}
+
+.skeleton-form {
+  max-width: 400px;
+  margin: 0 auto;
+  padding: 48px 32px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.skeleton-input {
+  height: 44px;
+  width: 100%;
+  margin-bottom: 16px;
+  border-radius: 8px;
+}
+
+.skeleton-button {
+  height: 44px;
+  width: 100%;
+  border-radius: 8px;
+  margin-top: 8px;
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
