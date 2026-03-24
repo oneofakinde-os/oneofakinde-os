@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-23T21:54:03.765Z",
+  "generated_at": "2026-03-24T23:01:38.092Z",
   "source_path": "config/surface-map.source.txt",
   "source_metadata": {
     "format": "lintable_txt_v1",
@@ -1832,6 +1832,84 @@
       "rules": []
     },
     {
+      "route": "/create/drop",
+      "legacy_routes": [],
+      "surface_key": "create_drop",
+      "ui_title": "create drop",
+      "ui_nouns": [
+        "drop",
+        "workshop"
+      ],
+      "lint_targets": [
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "creator"
+      ],
+      "public_safe": false,
+      "contract_deps": [
+        "openapi_v1.workshop",
+        "schema_v1.drops"
+      ],
+      "proof_ids": [
+        "p_session_required"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/create/world",
+      "legacy_routes": [],
+      "surface_key": "create_world",
+      "ui_title": "create world",
+      "ui_nouns": [
+        "world",
+        "workshop"
+      ],
+      "lint_targets": [
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "creator"
+      ],
+      "public_safe": false,
+      "contract_deps": [
+        "openapi_v1.workshop",
+        "schema_v1.worlds"
+      ],
+      "proof_ids": [
+        "p_session_required"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/become-creator",
+      "legacy_routes": [],
+      "surface_key": "become_creator",
+      "ui_title": "become a creator",
+      "ui_nouns": [
+        "studio",
+        "workshop"
+      ],
+      "lint_targets": [
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "collector"
+      ],
+      "public_safe": false,
+      "contract_deps": [
+        "openapi_v1.workshop",
+        "schema_v1.accounts"
+      ],
+      "proof_ids": [
+        "p_session_required"
+      ],
+      "rules": []
+    },
+    {
       "route": "/dashboard",
       "legacy_routes": [],
       "surface_key": "dashboard",
@@ -2163,7 +2241,9 @@
     },
     {
       "route": "/showroom",
-      "legacy_routes": [],
+      "legacy_routes": [
+        "/explore"
+      ],
       "surface_key": "showroom",
       "ui_title": "showroom",
       "ui_nouns": [
@@ -2431,7 +2511,8 @@
     "/invest": "/collect",
     "/auctions": "/collect",
     "/gallery": "/photos",
-    "/townhall/gallery": "/townhall/photos"
+    "/townhall/gallery": "/townhall/photos",
+    "/explore": "/showroom"
   },
   "session_required_route_patterns": [
     "/logout",
@@ -2458,6 +2539,9 @@
     "/notifications",
     "/settings/security",
     "/create",
+    "/create/drop",
+    "/create/world",
+    "/become-creator",
     "/dashboard",
     "/my-campaigns",
     "/payouts"
@@ -2516,9 +2600,9 @@
     "canon_payments_stripe"
   ],
   "stats": {
-    "route_count": 70,
+    "route_count": 73,
     "public_safe_count": 43,
-    "session_required_count": 27,
+    "session_required_count": 30,
     "legacy_redirect_count": 34
   }
 }

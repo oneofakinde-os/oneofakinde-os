@@ -134,6 +134,10 @@ const redirectCases = [
   {
     "sourcePathname": "/townhall/gallery",
     "targetPathname": "/townhall/photos"
+  },
+  {
+    "sourcePathname": "/explore",
+    "targetPathname": "/showroom"
   }
 ] as const;
 const metadataCases = [
@@ -550,6 +554,33 @@ const metadataCases = [
     ]
   },
   {
+    "pathname": "/create/drop",
+    "surfaceKey": "create_drop",
+    "publicSafe": "false",
+    "hasSession": true,
+    "sessionRoles": [
+      "creator"
+    ]
+  },
+  {
+    "pathname": "/create/world",
+    "surfaceKey": "create_world",
+    "publicSafe": "false",
+    "hasSession": true,
+    "sessionRoles": [
+      "creator"
+    ]
+  },
+  {
+    "pathname": "/become-creator",
+    "surfaceKey": "become_creator",
+    "publicSafe": "false",
+    "hasSession": true,
+    "sessionRoles": [
+      "collector"
+    ]
+  },
+  {
     "pathname": "/dashboard",
     "surfaceKey": "dashboard",
     "publicSafe": "false",
@@ -756,6 +787,15 @@ const sessionCases = [
     "pathname": "/create"
   },
   {
+    "pathname": "/create/drop"
+  },
+  {
+    "pathname": "/create/world"
+  },
+  {
+    "pathname": "/become-creator"
+  },
+  {
     "pathname": "/dashboard"
   },
   {
@@ -956,6 +996,27 @@ const roleRequiredCases = [
     "disallowedRole": "collector"
   },
   {
+    "pathname": "/create/drop",
+    "allowedRoles": [
+      "creator"
+    ],
+    "disallowedRole": "collector"
+  },
+  {
+    "pathname": "/create/world",
+    "allowedRoles": [
+      "creator"
+    ],
+    "disallowedRole": "collector"
+  },
+  {
+    "pathname": "/become-creator",
+    "allowedRoles": [
+      "collector"
+    ],
+    "disallowedRole": "creator"
+  },
+  {
     "pathname": "/dashboard",
     "allowedRoles": [
       "creator"
@@ -1049,6 +1110,15 @@ const proofSessionCases = [
   },
   {
     "pathname": "/create"
+  },
+  {
+    "pathname": "/create/drop"
+  },
+  {
+    "pathname": "/create/world"
+  },
+  {
+    "pathname": "/become-creator"
   },
   {
     "pathname": "/dashboard"

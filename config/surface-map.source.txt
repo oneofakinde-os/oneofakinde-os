@@ -747,6 +747,39 @@ surfaces:
     contract_deps: ["openapi_v1.workshop", "schema_v1.workshop"]
     proof_ids: ["p_session_required"]
 
+  - route: "/create/drop"
+    legacy_routes: []
+    surface_key: "create_drop"
+    ui_title: "create drop"
+    ui_nouns: ["drop", "workshop"]
+    lint_targets: ["h1", "metadata_labels"]
+    roles: ["creator"]
+    public_safe: false
+    contract_deps: ["openapi_v1.workshop", "schema_v1.drops"]
+    proof_ids: ["p_session_required"]
+
+  - route: "/create/world"
+    legacy_routes: []
+    surface_key: "create_world"
+    ui_title: "create world"
+    ui_nouns: ["world", "workshop"]
+    lint_targets: ["h1", "metadata_labels"]
+    roles: ["creator"]
+    public_safe: false
+    contract_deps: ["openapi_v1.workshop", "schema_v1.worlds"]
+    proof_ids: ["p_session_required"]
+
+  - route: "/become-creator"
+    legacy_routes: []
+    surface_key: "become_creator"
+    ui_title: "become a creator"
+    ui_nouns: ["studio", "workshop"]
+    lint_targets: ["h1", "metadata_labels"]
+    roles: ["collector"]
+    public_safe: false
+    contract_deps: ["openapi_v1.workshop", "schema_v1.accounts"]
+    proof_ids: ["p_session_required"]
+
   - route: "/dashboard"
     legacy_routes: []
     surface_key: "dashboard"
