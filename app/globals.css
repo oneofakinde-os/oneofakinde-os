@@ -3378,6 +3378,173 @@ a {
   color: var(--accent-bright);
 }
 
+/* ── command search modal ── */
+.command-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: min(20vh, 120px);
+  animation: command-fade-in 0.15s ease-out;
+}
+
+.command-dialog {
+  width: min(560px, 92vw);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
+  animation: command-slide-in 0.15s ease-out;
+}
+
+.command-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.command-icon {
+  color: var(--text-muted);
+  font-size: 1rem;
+}
+
+.command-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-size: 1rem;
+  font-family: inherit;
+}
+
+.command-input::placeholder {
+  color: var(--text-muted);
+}
+
+.command-kbd {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-family: inherit;
+}
+
+.command-results {
+  max-height: min(400px, 50vh);
+  overflow-y: auto;
+}
+
+.command-section {
+  padding: 8px 0;
+}
+
+.command-section-label {
+  padding: 4px 16px;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.command-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 16px;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  font-size: 0.9rem;
+  transition: background 0.1s;
+}
+
+.command-item:hover,
+.command-item-active {
+  background: var(--panel-2);
+}
+
+.command-item-poster {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.command-item-poster-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--panel-2);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.command-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.command-item-title {
+  font-weight: 500;
+}
+
+.command-item-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.command-empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.command-footer {
+  display: flex;
+  gap: 16px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--line);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.command-footer kbd {
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  font-size: 0.65rem;
+  font-family: inherit;
+}
+
+@keyframes command-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes command-slide-in {
+  from { opacity: 0; transform: translateY(-12px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 /* ── inline toast feedback ── */
 .slice-toast {
   padding: 10px 16px;

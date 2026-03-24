@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "@/features/notifications/notifications.css";
+import { CommandSearch } from "@/features/shell/command-search";
 import { ToastProvider } from "@/features/shared/toast-context";
 import { ToastContainer } from "@/features/shared/toast-container";
 
@@ -16,6 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ToastProvider>
           {children}
           <ToastContainer />
+          <CommandSearch />
         </ToastProvider>
       </body>
     </html>
