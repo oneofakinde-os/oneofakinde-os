@@ -6,9 +6,11 @@ import type {
   CheckoutSession,
   CheckoutPreview,
   CreateAuthorizedDerivativeInput,
+  CreateDropInput,
   CreateDropVersionInput,
   CreateWorkshopWorldReleaseInput,
   CreateWorkshopLiveSessionInput,
+  CreateWorldInput,
   CreateSessionInput,
   Drop,
   DropLiveArtifactsSnapshot,
@@ -35,6 +37,8 @@ import type {
   UpsertWorkshopPatronTierConfigInput,
   WorldReleaseQueueItem,
   WorldReleaseQueueStatus,
+  SetupCreatorStudioInput,
+  SetupCreatorStudioResult,
   Session,
   Studio,
   World
@@ -305,6 +309,44 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
       );
       if (!response.ok || !response.payload) return null;
       return response.payload.derivative;
+    },
+
+    /* ── creator onboarding ── */
+
+    async setupCreatorStudio(
+      _accountId: string,
+      input: SetupCreatorStudioInput
+    ): Promise<SetupCreatorStudioResult | null> {
+      void _accountId;
+      const response = await requestJson<SetupCreatorStudioResult>(
+        options,
+        "/api/v1/workshop/setup-studio",
+        { method: "POST", body: JSON.stringify(input) }
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload;
+    },
+
+    async createDrop(_accountId: string, input: CreateDropInput): Promise<Drop | null> {
+      void _accountId;
+      const response = await requestJson<{ drop: Drop }>(
+        options,
+        "/api/v1/workshop/drops",
+        { method: "POST", body: JSON.stringify(input) }
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.drop;
+    },
+
+    async createWorld(_accountId: string, input: CreateWorldInput): Promise<World | null> {
+      void _accountId;
+      const response = await requestJson<{ world: World }>(
+        options,
+        "/api/v1/workshop/worlds",
+        { method: "POST", body: JSON.stringify(input) }
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.world;
     },
 
     async getCheckoutPreview(_accountId: string, dropId: string): Promise<CheckoutPreview | null> {

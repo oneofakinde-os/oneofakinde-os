@@ -18,8 +18,10 @@ import type {
   CreateWorkshopWorldReleaseInput,
   CreateWorkshopLiveSessionInput,
   CreateAuthorizedDerivativeInput,
+  CreateDropInput,
   CreateDropVersionInput,
   CreateSessionInput,
+  CreateWorldInput,
   Drop,
   DropLiveArtifactEntry,
   DropLiveArtifactsSnapshot,
@@ -108,6 +110,8 @@ import type {
   WorldCollectBundleType,
   WorldCollectOwnership,
   WorldCollectUpgradePreview,
+  SetupCreatorStudioInput,
+  SetupCreatorStudioResult,
   UpdateDropPreviewMediaInput,
   UpsertWorkshopPatronTierConfigInput,
   World
@@ -152,6 +156,7 @@ import {
   type WatchSessionRecord,
   createAccountFromEmail,
   normalizeEmail,
+  toHandle,
   withDatabase,
   type AccountRecord,
   type BffDatabase,
@@ -5786,6 +5791,163 @@ const gatewayMethods: CommerceGateway = {
     return commerceBffService.updateDropPreviewMedia(accountId, dropId, input);
   },
 
+  /* ── creator onboarding ── */
+
+  async setupCreatorStudio(
+    accountId: string,
+    input: SetupCreatorStudioInput
+  ): Promise<SetupCreatorStudioResult | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account) return { persist: false, result: null };
+
+      // Already a creator
+      if (account.roles.includes("creator")) return { persist: false, result: null };
+
+      const title = input.studioTitle.trim();
+      const synopsis = input.studioSynopsis.trim();
+      if (!title || title.length > 80) return { persist: false, result: null };
+      if (synopsis.length > 500) return { persist: false, result: null };
+
+      // Derive handle from account handle (studio handle = account handle)
+      const studioHandle = account.handle;
+
+      // Check if studio already exists
+      const existing = db.catalog.studios.find((s) => s.handle === studioHandle);
+      if (existing) return { persist: false, result: null };
+
+      // Upgrade account to creator
+      account.roles = [...account.roles, "creator"];
+
+      // Create studio
+      const studio: Studio = {
+        handle: studioHandle,
+        title,
+        synopsis,
+        worldIds: []
+      };
+      db.catalog.studios.push(studio);
+
+      // Build updated session
+      const session: Session = {
+        accountId: account.id,
+        email: account.email,
+        handle: account.handle,
+        displayName: account.displayName,
+        roles: [...account.roles],
+        sessionToken: "",
+        avatarUrl: account.avatarUrl,
+        bio: account.bio
+      };
+
+      return { persist: true, result: { studio, session } };
+    });
+  },
+
+  async createDrop(
+    accountId: string,
+    input: CreateDropInput
+  ): Promise<Drop | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account || !account.roles.includes("creator")) {
+        return { persist: false, result: null };
+      }
+
+      const studio = db.catalog.studios.find((s) => s.handle === account.handle);
+      if (!studio) return { persist: false, result: null };
+
+      const world = findWorldById(db, input.worldId);
+      if (!world || world.studioHandle !== account.handle) {
+        return { persist: false, result: null };
+      }
+
+      const title = input.title.trim();
+      const synopsis = input.synopsis.trim();
+      if (!title || title.length > 200) return { persist: false, result: null };
+      if (!synopsis || synopsis.length > 2000) return { persist: false, result: null };
+      if (input.priceUsd < 0 || input.priceUsd > 99999) return { persist: false, result: null };
+
+      // Generate slug-style ID
+      const slug = title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+      const id = slug || `drop-${randomUUID().slice(0, 8)}`;
+
+      // Avoid duplicate IDs
+      if (findDropById(db, id)) {
+        return { persist: false, result: null };
+      }
+
+      const drop: Drop = {
+        id,
+        title,
+        seasonLabel: input.seasonLabel?.trim() || "season one",
+        episodeLabel: input.episodeLabel?.trim() || "",
+        studioHandle: account.handle,
+        worldId: world.id,
+        worldLabel: world.title,
+        synopsis,
+        releaseDate: new Date().toISOString().slice(0, 10),
+        priceUsd: input.priceUsd,
+        visibility: input.visibility ?? "public",
+        previewPolicy: input.previewPolicy ?? "full"
+      };
+
+      db.catalog.drops.push(drop);
+
+      return { persist: true, result: drop };
+    });
+  },
+
+  async createWorld(
+    accountId: string,
+    input: CreateWorldInput
+  ): Promise<World | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account || !account.roles.includes("creator")) {
+        return { persist: false, result: null };
+      }
+
+      const studio = db.catalog.studios.find((s) => s.handle === account.handle);
+      if (!studio) return { persist: false, result: null };
+
+      const title = input.title.trim();
+      const synopsis = input.synopsis.trim();
+      if (!title || title.length > 200) return { persist: false, result: null };
+      if (!synopsis || synopsis.length > 2000) return { persist: false, result: null };
+
+      // Generate slug-style ID
+      const slug = title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+      const id = slug || `world-${randomUUID().slice(0, 8)}`;
+
+      // Avoid duplicate IDs
+      if (findWorldById(db, id)) return { persist: false, result: null };
+
+      const world: World = {
+        id,
+        title,
+        synopsis,
+        studioHandle: account.handle,
+        visualIdentity: input.visualIdentity,
+        entryRule: input.entryRule ?? "open",
+        lore: input.lore,
+        releaseStructure: input.releaseStructure,
+        defaultDropVisibility: input.defaultDropVisibility ?? "public"
+      };
+
+      db.catalog.worlds.push(world);
+      studio.worldIds.push(id);
+
+      return { persist: true, result: world };
+    });
+  },
+
   async getCheckoutPreview(accountId: string, dropId: string): Promise<CheckoutPreview | null> {
     return withDatabase(async (db) => {
       const account = findAccountById(db, accountId);
@@ -6544,14 +6706,26 @@ const gatewayMethods: CommerceGateway = {
   async createSession(input: CreateSessionInput): Promise<Session> {
     return withDatabase(async (db) => {
       const email = normalizeEmail(input.email);
+      const candidateHandle = toHandle(email);
       let account =
+        // 1. Exact match: same email + single matching role
         db.accounts.find(
           (entry) => entry.email === email && entry.roles.length === 1 && entry.roles[0] === input.role
-        ) ?? null;
+        ) ??
+        // 2. Email match: same email, any role set
+        db.accounts.find((entry) => entry.email === email) ??
+        // 3. Handle match: existing account with matching handle (avoids duplicates)
+        db.accounts.find((entry) => entry.handle === candidateHandle) ??
+        null;
 
       if (!account) {
         account = createAccountFromEmail(email, input.role);
         db.accounts.push(account);
+      }
+
+      // Ensure the requested role is present
+      if (!account.roles.includes(input.role)) {
+        account.roles = [...account.roles, input.role];
       }
 
       const createdAt = new Date().toISOString();

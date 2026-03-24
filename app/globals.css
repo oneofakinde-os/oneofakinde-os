@@ -3887,3 +3887,183 @@ select:focus-visible {
 :focus:not(:focus-visible) {
   outline: none;
 }
+
+/* ── create stepper ── */
+.create-stepper {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 1.5rem 0;
+}
+
+.create-stepper-progress {
+  height: 3px;
+  background: var(--line);
+  border-radius: 2px;
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+
+.create-stepper-progress-bar {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.create-stepper-step {
+  animation: command-fade-in 0.2s ease-out;
+}
+
+.create-stepper-step h2 {
+  margin-bottom: 0.25rem;
+}
+
+.create-stepper-step .slice-copy {
+  margin-bottom: 1rem;
+}
+
+.create-stepper-optional {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.create-stepper-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.create-stepper-world-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.create-stepper-world-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 1rem;
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s;
+}
+
+.create-stepper-world-card:hover {
+  border-color: var(--text-muted);
+}
+
+.create-stepper-world-card.selected {
+  border-color: var(--accent);
+  background: var(--panel-2);
+}
+
+.create-stepper-world-title {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.create-stepper-price-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.create-stepper-price-currency {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.create-stepper-price-row .identity-input {
+  max-width: 140px;
+  font-size: 1.25rem;
+}
+
+.create-stepper-review {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.create-stepper-review-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.create-stepper-review-row .slice-meta {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.create-stepper-color-row {
+  margin-bottom: 1rem;
+}
+
+.create-stepper-color-preview {
+  height: 120px;
+  border-radius: var(--radius);
+  display: flex;
+  align-items: flex-end;
+  padding: 1rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.create-stepper-color-preview-title {
+  color: #fff;
+  font-weight: 600;
+  font-size: 1.1rem;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.create-stepper-option-grid {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.create-stepper-option-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s;
+}
+
+.create-stepper-option-card:hover {
+  border-color: var(--text-muted);
+}
+
+.create-stepper-option-card.selected {
+  border-color: var(--accent);
+  background: var(--panel-2);
+}
+
+.create-stepper-option-label {
+  font-weight: 600;
+  color: var(--text);
+}
+
+@media (max-width: 480px) {
+  .create-stepper-optional {
+    grid-template-columns: 1fr;
+  }
+}

@@ -20,10 +20,10 @@ export default async function CreatePage() {
           use workshop steppers to complete publish contract sections before release.
         </p>
         <div className="slice-button-row">
-          <Link href="/workshop?compose=drop" className="slice-button">
+          <Link href="/create/drop" className="slice-button">
             create drop stepper
           </Link>
-          <Link href="/workshop?compose=world" className="slice-button alt">
+          <Link href="/create/world" className="slice-button alt">
             create world stepper
           </Link>
           <Link href={routes.workshop()} className="slice-button ghost">
