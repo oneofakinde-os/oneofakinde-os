@@ -14,6 +14,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
+        <a href="#main-content" className="skip-to-content">
+          skip to content
+        </a>
         <ToastProvider>
           {children}
           <ToastContainer />
