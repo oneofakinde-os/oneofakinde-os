@@ -50,41 +50,6 @@ function toHrefObject(pathnameWithSearch: string): UrlObject {
     : { pathname: parsed.pathname };
 }
 
-export async function generateMetadata({ params }: DropDetailPageProps): Promise<Metadata> {
-  const { id } = await params;
-  const drop = await gateway.getDropById(id);
-
-  if (!drop) {
-    return { title: "drop not found" };
-  }
-
-  const poster = drop.previewMedia?.watch?.posterSrc
-    ?? drop.previewMedia?.photos?.posterSrc
-    ?? drop.previewMedia?.listen?.posterSrc
-    ?? undefined;
-
-  const description = drop.synopsis
-    ? `${drop.synopsis.slice(0, 155)}${drop.synopsis.length > 155 ? "…" : ""}`
-    : `a drop by @${drop.studioHandle} in ${drop.worldLabel}`;
-
-  return {
-    title: drop.title,
-    description,
-    openGraph: {
-      title: drop.title,
-      description,
-      type: "article",
-      ...(poster ? { images: [{ url: poster, width: 1200, height: 630 }] } : {}),
-    },
-    twitter: {
-      card: poster ? "summary_large_image" : "summary",
-      title: drop.title,
-      description,
-      ...(poster ? { images: [poster] } : {}),
-    },
-  };
-}
-
 export default async function DropDetailPage({ params, searchParams }: DropDetailPageProps) {
   const { id } = await params;
   const resolvedSearchParams = (await searchParams) ?? {};
