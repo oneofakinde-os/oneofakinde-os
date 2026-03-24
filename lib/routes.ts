@@ -11,6 +11,9 @@ export const routes = {
   connect: (): Route => asRoute("/connect"),
   auctions: (): Route => asRoute("/auctions"),
   create: (): Route => asRoute("/create"),
+  createDrop: (): Route => asRoute("/create/drop"),
+  createWorld: (): Route => asRoute("/create/world"),
+  becomeCreator: (): Route => asRoute("/become-creator"),
 
   showroom: (): Route => asRoute("/showroom"),
   showroomSearch: (query?: string): Route =>

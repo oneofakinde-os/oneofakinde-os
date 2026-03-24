@@ -6,9 +6,11 @@ import type {
   CheckoutSession,
   CheckoutPreview,
   CreateAuthorizedDerivativeInput,
+  CreateDropInput,
   CreateDropVersionInput,
   CreateWorkshopWorldReleaseInput,
   CreateWorkshopLiveSessionInput,
+  CreateWorldInput,
   CreateSessionInput,
   Drop,
   DropLiveArtifactsSnapshot,
@@ -36,6 +38,8 @@ import type {
   UpsertWorkshopPatronTierConfigInput,
   WorldReleaseQueueItem,
   WorldReleaseQueueStatus,
+  SetupCreatorStudioInput,
+  SetupCreatorStudioResult,
   Session,
   Studio,
   World
@@ -67,6 +71,14 @@ export interface CommerceGateway {
     dropId: string,
     input: UpdateDropPreviewMediaInput
   ): Promise<DropPreviewMap | null>;
+  /* ── creator onboarding ── */
+  setupCreatorStudio(
+    accountId: string,
+    input: SetupCreatorStudioInput
+  ): Promise<SetupCreatorStudioResult | null>;
+  createDrop(accountId: string, input: CreateDropInput): Promise<Drop | null>;
+  createWorld(accountId: string, input: CreateWorldInput): Promise<World | null>;
+
   getCheckoutPreview(accountId: string, dropId: string): Promise<CheckoutPreview | null>;
   createCheckoutSession(
     accountId: string,

@@ -420,6 +420,46 @@ export type DropLineageSnapshot = {
   derivatives: AuthorizedDerivative[];
 };
 
+/* ── creator onboarding ── */
+
+export type SetupCreatorStudioInput = {
+  studioTitle: string;
+  studioSynopsis: string;
+};
+
+export type SetupCreatorStudioResult = {
+  studio: Studio;
+  session: Session;
+};
+
+export type CreateDropInput = {
+  title: string;
+  worldId: string;
+  synopsis: string;
+  priceUsd: number;
+  seasonLabel?: string;
+  episodeLabel?: string;
+  visibility?: DropVisibility;
+  previewPolicy?: PreviewPolicy;
+};
+
+export type CreateWorldInput = {
+  title: string;
+  synopsis: string;
+  visualIdentity?: {
+    coverImageSrc: string;
+    colorPrimary: string;
+    colorSecondary?: string;
+  };
+  entryRule?: "open" | "membership" | "patron";
+  lore?: string;
+  releaseStructure?: {
+    mode: "continuous" | "seasons" | "chapters";
+    currentLabel?: string;
+  };
+  defaultDropVisibility?: DropVisibility;
+};
+
 export type CreateDropVersionInput = {
   label: DropVersionLabel;
   notes?: string | null;

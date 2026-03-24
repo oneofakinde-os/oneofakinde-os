@@ -8,9 +8,11 @@ import type {
   CheckoutSession,
   CheckoutPreview,
   CreateAuthorizedDerivativeInput,
+  CreateDropInput,
   CreateDropVersionInput,
   CreateWorkshopWorldReleaseInput,
   CreateWorkshopLiveSessionInput,
+  CreateWorldInput,
   CreateSessionInput,
   Drop,
   DropLiveArtifactsSnapshot,
@@ -46,6 +48,8 @@ import type {
   WorldReleaseQueueItem,
   WorldReleaseQueuePacingMode,
   WorldReleaseQueueStatus,
+  SetupCreatorStudioInput,
+  SetupCreatorStudioResult,
   World
 } from "@/lib/domain/contracts";
 import type { CommerceGateway } from "@/lib/domain/ports";
@@ -1875,6 +1879,109 @@ export const commerceGateway: CommerceGateway = {
     };
     store.authorizedDerivatives.unshift(derivative);
     return derivative;
+  },
+
+  /* ── creator onboarding ── */
+
+  async setupCreatorStudio(
+    accountId: string,
+    input: SetupCreatorStudioInput
+  ): Promise<SetupCreatorStudioResult | null> {
+    const account = store.accounts.get(accountId);
+    if (!account) return null;
+    if (account.roles.includes("creator")) return null;
+
+    const title = input.studioTitle.trim();
+    const synopsis = input.studioSynopsis.trim();
+    if (!title || title.length > 80) return null;
+    if (synopsis.length > 500) return null;
+
+    const studioHandle = account.handle;
+    if (store.studios.get(studioHandle)) return null;
+
+    account.roles = [...account.roles, "creator"];
+    const studio: Studio = { handle: studioHandle, title, synopsis, worldIds: [] };
+    store.studios.set(studioHandle, studio);
+
+    const session: Session = {
+      accountId: account.id,
+      email: account.email,
+      handle: account.handle,
+      displayName: account.displayName,
+      roles: [...account.roles],
+      sessionToken: ""
+    };
+    return { studio, session };
+  },
+
+  async createDrop(accountId: string, input: CreateDropInput): Promise<Drop | null> {
+    const account = store.accounts.get(accountId);
+    if (!account || !account.roles.includes("creator")) return null;
+
+    const studio = store.studios.get(account.handle);
+    if (!studio) return null;
+
+    const world = store.worlds.get(input.worldId);
+    if (!world || world.studioHandle !== account.handle) return null;
+
+    const title = input.title.trim();
+    const synopsis = input.synopsis.trim();
+    if (!title || !synopsis) return null;
+    if (input.priceUsd < 0) return null;
+
+    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const id = slug || `drop-${randomUUID().slice(0, 8)}`;
+    if (store.drops.get(id)) return null;
+
+    const drop: Drop = {
+      id,
+      title,
+      seasonLabel: input.seasonLabel?.trim() || "season one",
+      episodeLabel: input.episodeLabel?.trim() || "",
+      studioHandle: account.handle,
+      worldId: world.id,
+      worldLabel: world.title,
+      synopsis,
+      releaseDate: new Date().toISOString().slice(0, 10),
+      priceUsd: input.priceUsd,
+      visibility: input.visibility ?? "public",
+      previewPolicy: input.previewPolicy ?? "full"
+    };
+
+    store.drops.set(id, drop);
+    return drop;
+  },
+
+  async createWorld(accountId: string, input: CreateWorldInput): Promise<World | null> {
+    const account = store.accounts.get(accountId);
+    if (!account || !account.roles.includes("creator")) return null;
+
+    const studio = store.studios.get(account.handle);
+    if (!studio) return null;
+
+    const title = input.title.trim();
+    const synopsis = input.synopsis.trim();
+    if (!title || !synopsis) return null;
+
+    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const id = slug || `world-${randomUUID().slice(0, 8)}`;
+    if (store.worlds.get(id)) return null;
+
+    const world: World = {
+      id,
+      title,
+      synopsis,
+      studioHandle: account.handle,
+      visualIdentity: input.visualIdentity,
+      entryRule: input.entryRule ?? "open",
+      lore: input.lore,
+      releaseStructure: input.releaseStructure,
+      defaultDropVisibility: input.defaultDropVisibility ?? "public"
+    };
+
+    store.worlds.set(id, world);
+    studio.worldIds.push(id);
+    return world;
   },
 
   async getCheckoutPreview(accountId: string, dropId: string): Promise<CheckoutPreview | null> {

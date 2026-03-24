@@ -539,7 +539,7 @@ let cachedDb: BffDatabase | null = null;
 let postgresPool: Pool | null = null;
 let migrationsBootstrappedFor = "";
 
-function toHandle(email: string): string {
+export function toHandle(email: string): string {
   const base = email.split("@")[0] ?? "collector";
   return base.toLowerCase().replace(/[^a-z0-9_]/g, "") || "collector";
 }
@@ -899,6 +899,15 @@ function createSeedDatabase(): BffDatabase {
         displayName: "collector demo",
         roles: ["collector"],
         createdAt: nowIso
+      },
+      {
+        id: "acct_creator_demo",
+        email: "creator@oneofakinde.com",
+        handle: "oneofakinde",
+        displayName: "oneofakinde studio",
+        roles: ["collector", "creator"],
+        createdAt: nowIso,
+        bio: "the official oneofakinde studio account. publishing drops across live, read, listen, and watch modes."
       }
     ],
     sessions: [],
