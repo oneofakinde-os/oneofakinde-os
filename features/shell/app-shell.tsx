@@ -88,7 +88,7 @@ export function AppShell({ title, subtitle, session, activeNav, children }: AppS
         <p className="slice-session">public preview mode</p>
       )}
 
-      <section className="slice-content">{children}</section>
+      <section id="main-content" className="slice-content">{children}</section>
     </main>
   );
 }
