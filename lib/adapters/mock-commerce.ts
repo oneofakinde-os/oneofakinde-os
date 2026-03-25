@@ -2228,6 +2228,7 @@ export const commerceGateway: CommerceGateway = {
   },
 
   async getViewerFollowedStudioHandles(_accountId: string): Promise<string[]> {
+    void _accountId;
     // Mock returns the first studio handle from the catalog
     const handles = Array.from(
       new Set(Array.from(store.drops.values()).map((d) => d.studioHandle))

@@ -1,11 +1,14 @@
 import { expect, test, type Page } from "@playwright/test";
+import { signInViaUi } from "./session-auth";
 
 async function signInAsCreator(page: Page) {
-  await page.goto("/auth/sign-in?returnTo=%2Fworkshop", { waitUntil: "domcontentloaded" });
-  await page.getByLabel("what's your email?").fill("oneofakinde@oneofakinde.com");
-  await page.getByLabel("enter your password").fill("smoke-password");
-  await page.getByRole("radio", { name: "creator" }).check();
-  await page.getByRole("button", { name: "let's go" }).click();
+  await signInViaUi(page, {
+    email: "oneofakinde@oneofakinde.com",
+    password: "smoke-password",
+    role: "creator",
+    returnTo: "/workshop",
+    retries: 3
+  });
   await page.waitForURL("**/workshop", { timeout: 12000 });
 }
 

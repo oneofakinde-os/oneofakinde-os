@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import type { SurfaceActionVerb, SurfaceName, SurfaceTelemetryEvent } from "@/lib/domain/contracts";
+import type { SurfaceName, SurfaceTelemetryEvent } from "@/lib/domain/contracts";
 
 type TrackEventInput = Omit<SurfaceTelemetryEvent, "surface"> & {
   surface?: SurfaceName;
