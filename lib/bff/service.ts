@@ -6991,6 +6991,26 @@ async function completePendingPaymentById(
   });
 }
 
+type CreatorRefundPaymentInput = {
+  paymentId?: string;
+  receiptId?: string;
+};
+
+type CreatorRefundPaymentResult =
+  | {
+      ok: true;
+      paymentId: string;
+      receiptId: string | null;
+      dropId: string;
+      status: "refunded";
+      alreadyRefunded: boolean;
+      ownershipRevoked: boolean;
+    }
+  | {
+      ok: false;
+      reason: "invalid_input" | "forbidden" | "not_found" | "not_refundable";
+    };
+
 type StripePaymentLookupInput = {
   paymentId?: string;
   checkoutSessionId?: string;
@@ -7466,6 +7486,104 @@ export const commerceBffService = {
     return completePendingPaymentById(paymentId, {
       expectedAccountId: accountId,
       allowedProviders: ["manual"]
+    });
+  },
+
+  async refundPaymentForCreator(
+    creatorAccountId: string,
+    input: CreatorRefundPaymentInput
+  ): Promise<CreatorRefundPaymentResult> {
+    return withDatabase<CreatorRefundPaymentResult>(async (db) => {
+      const creator = findAccountById(db, creatorAccountId);
+      if (!creator || !creator.roles.includes("creator")) {
+        return {
+          persist: false,
+          result: {
+            ok: false,
+            reason: "forbidden"
+          }
+        };
+      }
+
+      const paymentId = input.paymentId?.trim() ?? "";
+      const receiptId = input.receiptId?.trim() ?? "";
+      if (!paymentId && !receiptId) {
+        return {
+          persist: false,
+          result: {
+            ok: false,
+            reason: "invalid_input"
+          }
+        };
+      }
+
+      const payment = paymentId
+        ? (db.payments.find((entry) => entry.id === paymentId) ?? null)
+        : (db.payments.find((entry) => entry.receiptId === receiptId) ?? null);
+      if (!payment) {
+        return {
+          persist: false,
+          result: {
+            ok: false,
+            reason: "not_found"
+          }
+        };
+      }
+
+      const drop = findDropById(db, payment.dropId);
+      if (!drop || drop.studioHandle !== creator.handle) {
+        return {
+          persist: false,
+          result: {
+            ok: false,
+            reason: "forbidden"
+          }
+        };
+      }
+
+      if (payment.status === "refunded") {
+        return {
+          persist: false,
+          result: {
+            ok: true,
+            paymentId: payment.id,
+            receiptId: payment.receiptId ?? null,
+            dropId: payment.dropId,
+            status: "refunded",
+            alreadyRefunded: true,
+            ownershipRevoked: false
+          }
+        };
+      }
+
+      if (payment.status !== "succeeded") {
+        return {
+          persist: false,
+          result: {
+            ok: false,
+            reason: "not_refundable"
+          }
+        };
+      }
+
+      payment.status = "refunded";
+      payment.updatedAt = new Date().toISOString();
+      const ownershipRevoked = payment.receiptId
+        ? markRefundByReceipt(db, payment.accountId, payment.receiptId)
+        : false;
+
+      return {
+        persist: true,
+        result: {
+          ok: true,
+          paymentId: payment.id,
+          receiptId: payment.receiptId ?? null,
+          dropId: payment.dropId,
+          status: "refunded",
+          alreadyRefunded: false,
+          ownershipRevoked
+        }
+      };
     });
   },
 
