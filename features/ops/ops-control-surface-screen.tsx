@@ -1,4 +1,5 @@
 import { OptimizedImage } from "@/features/media/optimized-image";
+import { RefundHandlingPanel } from "@/features/ops/refund-handling-panel";
 import { SettingsAccountForm } from "@/features/settings/settings-account-form";
 import { SettingsNav } from "@/features/settings/settings-nav";
 import { SettingsNotificationsForm } from "@/features/settings/settings-notifications-form";
@@ -411,6 +412,15 @@ function renderDashboardBody(drops: Drop[], opsAnalyticsPanel: OpsAnalyticsPanel
           <p className="slice-meta">updated {new Date(opsAnalyticsPanel.updatedAt).toLocaleString()}</p>
         </section>
       ) : null}
+
+      <section className="slice-panel">
+        <p className="slice-label">refund handling</p>
+        <h2 className="slice-title">refund a completed payment</h2>
+        <p className="slice-copy">
+          submit a payment or receipt id to run refund revocation and entitlement rollback.
+        </p>
+        <RefundHandlingPanel />
+      </section>
 
       <section className="slice-panel">
         <p className="slice-label">quick links</p>
