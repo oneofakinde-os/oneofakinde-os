@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 type RealtimeEvent = "INSERT" | "UPDATE" | "DELETE" | "*";
+const DEFAULT_EVENTS: RealtimeEvent[] = ["*"];
 
 type UseSupabaseRealtimeOptions = {
   /** Postgres table name to subscribe to (e.g. "bff_notification_entries"). */
@@ -37,7 +38,7 @@ export function useSupabaseRealtime(options: UseSupabaseRealtimeOptions): {
   const {
     table,
     schema = "public",
-    events = ["*"],
+    events = DEFAULT_EVENTS,
     filter,
     onChange,
     enabled = true
@@ -118,7 +119,7 @@ export function useSupabaseRealtime(options: UseSupabaseRealtimeOptions): {
       cancelled = true;
       cleanup?.();
     };
-  }, [table, schema, filter, enabled, events.join(",")]);
+  }, [table, schema, filter, enabled, events]);
 
   return { state };
 }

@@ -2,8 +2,10 @@ import { DropDetailScreen } from "@/features/drops/drop-detail-screen";
 import { commerceBffService } from "@/lib/bff/service";
 import { gateway } from "@/lib/gateway";
 import { routes } from "@/lib/routes";
+import { buildDropMetadata } from "@/lib/seo/metadata";
 import { getOptionalSession } from "@/lib/server/session";
 import { normalizeReturnTo } from "@/lib/session";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import type { UrlObject } from "node:url";
 
@@ -11,6 +13,20 @@ type DropDetailPageProps = {
   params: Promise<{ id: string }>;
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
+
+export async function generateMetadata({ params }: DropDetailPageProps): Promise<Metadata> {
+  const { id } = await params;
+  const drop = await gateway.getDropById(id);
+
+  if (!drop) {
+    return {
+      title: "drop not found",
+      description: "the requested drop could not be found."
+    };
+  }
+
+  return buildDropMetadata(drop);
+}
 
 function firstQueryValue(value: string | string[] | undefined): string | null {
   if (Array.isArray(value)) {

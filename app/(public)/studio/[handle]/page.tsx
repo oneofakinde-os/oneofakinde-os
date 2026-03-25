@@ -2,12 +2,32 @@ import "@/features/patron/patron-badge.css";
 import { StudioScreen } from "@/features/studio/studio-screen";
 import { commerceBffService } from "@/lib/bff/service";
 import { gateway } from "@/lib/gateway";
+import { buildStudioMetadata } from "@/lib/seo/metadata";
 import { getOptionalSession } from "@/lib/server/session";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 type StudioPageProps = {
   params: Promise<{ handle: string }>;
 };
+
+export async function generateMetadata({ params }: StudioPageProps): Promise<Metadata> {
+  const { handle } = await params;
+  const studio = await gateway.getStudioByHandle(handle);
+
+  if (!studio) {
+    return {
+      title: "studio not found",
+      description: "the requested studio could not be found."
+    };
+  }
+
+  const worlds = (
+    await Promise.all(studio.worldIds.map((worldId) => gateway.getWorldById(worldId)))
+  ).filter((world): world is NonNullable<typeof world> => Boolean(world));
+
+  return buildStudioMetadata(studio, worlds);
+}
 
 export default async function StudioCanonicalPage({ params }: StudioPageProps) {
   const { handle } = await params;

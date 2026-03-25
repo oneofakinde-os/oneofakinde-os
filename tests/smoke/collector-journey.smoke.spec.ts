@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { signInViaUi } from "./session-auth";
 
 /**
  * E2E collector journey smoke test.
@@ -13,35 +14,14 @@ import { expect, test } from "@playwright/test";
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
-async function signIn(page: import("@playwright/test").Page, retries = 2) {
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    await page.goto("/auth/sign-in", { waitUntil: "domcontentloaded" });
-
-    const emailInput = page.locator('input[type="email"], input[name="email"]');
-    await emailInput.fill("collector@oneofakinde.com");
-
-    const passwordInput = page.locator('input[type="password"]');
-    await passwordInput.fill("collector123");
-
-    // Click the "let's go" submit button (last button on the page)
-    const submitButton = page.locator("button").filter({ hasText: /let.?s go/i });
-    await submitButton.click();
-
-    try {
-      // Wait for navigation away from sign-in
-      await page.waitForURL((url) => !url.pathname.includes("/auth/sign-in"), {
-        timeout: 10_000
-      });
-      return; // success
-    } catch {
-      // If rate-limited, wait briefly and retry
-      if (attempt < retries && page.url().includes("rate_limited")) {
-        await page.waitForTimeout(2_000);
-        continue;
-      }
-      throw new Error(`Sign-in failed after ${attempt + 1} attempts. URL: ${page.url()}`);
-    }
-  }
+async function signIn(page: import("@playwright/test").Page) {
+  await signInViaUi(page, {
+    email: "collector@oneofakinde.com",
+    password: "collector123",
+    role: "collector",
+    returnTo: "/my-collection",
+    retries: 3
+  });
 }
 
 /* ------------------------------------------------------------------ */

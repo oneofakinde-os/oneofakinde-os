@@ -4,7 +4,6 @@ import { commerceBffService } from "@/lib/bff/service";
 import type {
   SurfaceActionVerb,
   SurfaceName,
-  SurfaceTelemetryEvent,
   TownhallTelemetryEventType,
   TownhallTelemetryMetadata
 } from "@/lib/domain/contracts";
