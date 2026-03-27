@@ -56,6 +56,7 @@ import type {
   MembershipEntitlement,
   NotificationEntry,
   NotificationFeed,
+  NotificationType,
   OpsAnalyticsPanel,
   OwnedDrop,
   OwnershipHistoryEntry,
@@ -116,7 +117,6 @@ import type {
   UpsertWorkshopPatronTierConfigInput,
   World
 } from "@/lib/domain/contracts";
-import type { CommerceGateway } from "@/lib/domain/ports";
 import type { CheckoutSessionResult, CreateCheckoutSessionInput, StripeWebhookApplyResult } from "@/lib/bff/contracts";
 import {
   buildCollectInventorySnapshotFromOffers,
@@ -168,6 +168,7 @@ import {
   type TownhallPostRecord,
   type TownhallPostSaveRecord,
   type TownhallPostShareRecord,
+  type NotificationEntryRecord,
   type TownhallTelemetryEventRecord
 } from "@/lib/bff/persistence";
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
@@ -4942,6 +4943,20 @@ function createWorkshopLiveSessionInDatabase(
 
   db.liveSessions.unshift(record);
 
+  const followers = db.studioFollows.filter(
+    (f) => f.studioHandle.toLowerCase() === account.handle.toLowerCase()
+  );
+  for (const follower of followers) {
+    emitNotification(
+      db,
+      follower.accountId,
+      "live_session_starting",
+      `@${account.handle} scheduled a live session`,
+      `${title} is coming up. mark your calendar.`,
+      null
+    );
+  }
+
   return {
     persist: true,
     result: toLiveSession(db, record)
@@ -5493,6 +5508,20 @@ function createWorkshopWorldReleaseInDatabase(
   db.worldReleaseQueue.push(record);
   trimWorldReleaseQueue(db);
 
+  const followers = db.studioFollows.filter(
+    (f) => f.studioHandle.toLowerCase() === account.handle.toLowerCase()
+  );
+  for (const follower of followers) {
+    emitNotification(
+      db,
+      follower.accountId,
+      "world_update",
+      `${world.title} — new release scheduled`,
+      `${drop.title} is scheduled for release in ${world.title}.`,
+      `/worlds/${world.id}`
+    );
+  }
+
   return {
     persist: true,
     result: toWorldReleaseQueueItem(record)
@@ -5604,6 +5633,27 @@ function createSubmittedOfferRecord(input: {
   };
 }
 
+function emitNotification(
+  db: BffDatabase,
+  accountId: string,
+  type: NotificationType,
+  title: string,
+  body: string,
+  href: string | null
+): void {
+  const entry: NotificationEntryRecord = {
+    id: `notif_${randomUUID()}`,
+    accountId,
+    type,
+    title,
+    body,
+    href,
+    read: false,
+    createdAt: new Date().toISOString()
+  };
+  db.notificationEntries.unshift(entry);
+}
+
 function purchaseDropInDatabase(
   db: BffDatabase,
   accountId: string,
@@ -5679,13 +5729,31 @@ function purchaseDropInDatabase(
     updatedAt: receipt.purchasedAt
   });
 
+  emitNotification(
+    db,
+    account.id,
+    "drop_collected",
+    `you collected ${drop.title}`,
+    `${drop.title} is now in your collection. watch, listen, or read whenever you like.`,
+    `/my-collection?receipt=${receipt.id}`
+  );
+
+  emitNotification(
+    db,
+    account.id,
+    "receipt_confirmed",
+    `receipt confirmed for ${drop.title}`,
+    `your purchase of ${drop.title} ($${quote.totalUsd.toFixed(2)}) has been confirmed. certificate issued.`,
+    `/my-collection?receipt=${receipt.id}`
+  );
+
   return {
     persist: true,
     result: receipt
   };
 }
 
-const gatewayMethods: CommerceGateway = {
+const gatewayMethods = {
   async listDrops(viewerAccountId?: string | null): Promise<Drop[]> {
     return withDatabase(async (db) => ({
       persist: false,
@@ -7572,6 +7640,18 @@ export const commerceBffService = {
         ? markRefundByReceipt(db, payment.accountId, payment.receiptId)
         : false;
 
+      const refundedDrop = findDropById(db, payment.dropId);
+      if (refundedDrop) {
+        emitNotification(
+          db,
+          payment.accountId,
+          "receipt_confirmed",
+          `refund processed for ${refundedDrop.title}`,
+          `your purchase of ${refundedDrop.title} ($${payment.amountUsd.toFixed(2)}) has been refunded.${ownershipRevoked ? " ownership has been revoked." : ""}`,
+          `/my-collection`
+        );
+      }
+
       return {
         persist: true,
         result: {
@@ -7925,6 +8005,27 @@ export const commerceBffService = {
 
       db.patronCommitments.unshift(commitmentRecord);
       trimPatronCommitments(db);
+
+      emitNotification(
+        db,
+        account.id,
+        "patron_renewal",
+        `you are now a patron of @${studio.handle}`,
+        `your patronage commitment is active. thank you for supporting this creator.`,
+        `/studio/${studio.handle}`
+      );
+
+      const creatorAccount = db.accounts.find((a) => a.handle === studio.handle);
+      if (creatorAccount) {
+        emitNotification(
+          db,
+          creatorAccount.id,
+          "patron_renewal",
+          `@${account.handle} became a patron`,
+          `you have a new patron commitment from @${account.handle}.`,
+          `/workshop`
+        );
+      }
 
       return {
         persist: true,
@@ -11529,6 +11630,18 @@ export const commerceBffService = {
       const followerCount = db.studioFollows.filter(
         (f) => f.studioHandle.toLowerCase() === studio.handle.toLowerCase()
       ).length;
+
+      const creatorAccount = db.accounts.find((a) => a.handle === studio.handle);
+      if (creatorAccount) {
+        emitNotification(
+          db,
+          creatorAccount.id,
+          "world_update",
+          `@${account.handle} followed your studio`,
+          `you now have ${followerCount} follower${followerCount === 1 ? "" : "s"}.`,
+          `/studio/${studio.handle}`
+        );
+      }
 
       return {
         persist: true,

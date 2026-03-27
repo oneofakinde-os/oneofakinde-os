@@ -29,6 +29,7 @@ import type {
   MembershipEntitlement,
   MyCollectionAnalyticsPanel,
   MyCollectionSnapshot,
+  NotificationFeed,
   OwnedDrop,
   OpsAnalyticsPanel,
   PatronCommitmentCadence,
@@ -2624,5 +2625,17 @@ export const commerceGateway: CommerceGateway = {
 
   async updateDropPreviewMedia(): Promise<DropPreviewMap | null> {
     return null;
-  }
+  },
+
+  async getNotificationFeed(): Promise<NotificationFeed> {
+    return { entries: [], unreadCount: 0 };
+  },
+
+  async getNotificationUnreadCount(): Promise<number> {
+    return 0;
+  },
+
+  async markNotificationRead(): Promise<void> {},
+
+  async markAllNotificationsRead(): Promise<void> {}
 };

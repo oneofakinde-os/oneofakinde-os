@@ -24,6 +24,7 @@ import type {
   MembershipEntitlement,
   MyCollectionAnalyticsPanel,
   MyCollectionSnapshot,
+  NotificationFeed,
   OpsAnalyticsPanel,
   PatronTierConfig,
   PurchaseReceipt,
@@ -829,6 +830,34 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
 
     async updateDropPreviewMedia(): Promise<DropPreviewMap | null> {
       return null;
+    },
+
+    async getNotificationFeed(_accountId: string): Promise<NotificationFeed> {
+      const response = await requestJson<NotificationFeed>(options, "/api/v1/notifications", {
+        method: "GET"
+      });
+      if (!response.ok || !response.payload) return { entries: [], unreadCount: 0 };
+      return response.payload;
+    },
+
+    async getNotificationUnreadCount(_accountId: string): Promise<number> {
+      const response = await requestJson<{ unreadCount: number }>(options, "/api/v1/notifications/unread-count", {
+        method: "GET"
+      });
+      if (!response.ok || !response.payload) return 0;
+      return response.payload.unreadCount;
+    },
+
+    async markNotificationRead(_accountId: string, notificationId: string): Promise<void> {
+      await requestJson(options, `/api/v1/notifications/${notificationId}/read`, {
+        method: "POST"
+      });
+    },
+
+    async markAllNotificationsRead(): Promise<void> {
+      await requestJson(options, "/api/v1/notifications/read-all", {
+        method: "POST"
+      });
     }
   };
 }

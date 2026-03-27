@@ -40,6 +40,7 @@ import type {
   WorldReleaseQueueStatus,
   SetupCreatorStudioInput,
   SetupCreatorStudioResult,
+  NotificationFeed,
   Session,
   Studio,
   World
@@ -175,4 +176,9 @@ export interface CommerceGateway {
     accountId: string,
     updates: { displayName?: string; avatarUrl?: string; bio?: string }
   ): Promise<Session | null>;
+
+  getNotificationFeed(accountId: string): Promise<NotificationFeed>;
+  getNotificationUnreadCount(accountId: string): Promise<number>;
+  markNotificationRead(accountId: string, notificationId: string): Promise<void>;
+  markAllNotificationsRead(accountId: string): Promise<void>;
 }
