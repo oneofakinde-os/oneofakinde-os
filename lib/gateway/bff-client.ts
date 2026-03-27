@@ -824,7 +824,21 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
       return null;
     },
 
-    async updateAccountProfile(): Promise<Session | null> {
+    async updateAccountProfile(
+      _accountId: string,
+      updates: { displayName?: string; avatarUrl?: string; bio?: string }
+    ): Promise<Session | null> {
+      const response = await requestJson<{ profile: { displayName: string; avatarUrl: string | null; bio: string | null } }>(
+        options,
+        "/api/v1/account/profile",
+        {
+          method: "PATCH",
+          body: JSON.stringify(updates)
+        }
+      );
+      if (!response.ok || !response.payload) return null;
+      // The API returns the updated profile fields, not a full session.
+      // Return null to signal success without a full session refresh.
       return null;
     },
 
