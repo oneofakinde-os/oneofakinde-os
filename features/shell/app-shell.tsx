@@ -11,10 +11,11 @@ type AppShellProps = {
   subtitle: string;
   session?: Session | null;
   activeNav?: AppShellNavKey;
+  initialUnreadCount?: number;
   children: React.ReactNode;
 };
 
-export function AppShell({ title, subtitle, session, activeNav, children }: AppShellProps) {
+export function AppShell({ title, subtitle, session, activeNav, initialUnreadCount, children }: AppShellProps) {
   return (
     <main className="slice-shell">
       <header className="slice-topbar">
@@ -53,7 +54,7 @@ export function AppShell({ title, subtitle, session, activeNav, children }: AppS
                   workshop
                 </Link>
               ) : null}
-              <NotificationBell initialUnreadCount={0} accountId={session.accountId} />
+              <NotificationBell initialUnreadCount={initialUnreadCount ?? 0} accountId={session.accountId} />
               <Link href={routes.logout()} className="slice-link">
                 log out
               </Link>

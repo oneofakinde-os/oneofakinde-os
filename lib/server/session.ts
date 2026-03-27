@@ -74,3 +74,15 @@ export async function requireSessionRoles(
     `/auth/sign-in?error=role_required&returnTo=${encodeURIComponent(normalizeReturnTo(returnTo))}`
   );
 }
+
+/**
+ * Fetch the unread notification count for a session.
+ * Returns 0 on failure — never blocks page rendering.
+ */
+export async function getUnreadNotificationCount(accountId: string): Promise<number> {
+  try {
+    return await gateway.getNotificationUnreadCount(accountId);
+  } catch {
+    return 0;
+  }
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { routes } from "@/lib/routes";
 import { useEventStream } from "@/lib/hooks/use-event-stream";
@@ -28,6 +28,13 @@ export function NotificationBell({ initialUnreadCount, accountId }: Notification
       // Non-critical — SSE fallback will catch up
     }
   }, []);
+
+  // Immediate fetch on mount — resolves the 0→N flash before SSE connects
+  useEffect(() => {
+    if (accountId) {
+      refetchCount();
+    }
+  }, [accountId, refetchCount]);
 
   const { state: realtimeState } = useSupabaseRealtime({
     table: "bff_notification_entries",
