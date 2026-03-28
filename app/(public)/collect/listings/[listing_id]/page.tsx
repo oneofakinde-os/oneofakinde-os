@@ -1,5 +1,5 @@
 import { ListingDetailScreen } from "@/features/collect/listing-detail-screen";
-import { commerceBffService } from "@/lib/bff/service";
+import { gateway } from "@/lib/gateway";
 import { getOptionalSession } from "@/lib/server/session";
 import { notFound } from "next/navigation";
 
@@ -11,7 +11,7 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
   const { listing_id: listingId } = await params;
 
   const session = await getOptionalSession();
-  const inventoryResult = await commerceBffService.getCollectInventory(
+  const inventoryResult = await gateway.getCollectInventory(
     session?.accountId ?? "",
     "all"
   );
@@ -24,7 +24,7 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
     notFound();
   }
 
-  const offersResult = await commerceBffService.getCollectDropOffers(
+  const offersResult = await gateway.getCollectDropOffers(
     listingId,
     session?.accountId ?? null
   );

@@ -1,5 +1,4 @@
 import { DropDetailScreen } from "@/features/drops/drop-detail-screen";
-import { commerceBffService } from "@/lib/bff/service";
 import { gateway } from "@/lib/gateway";
 import { routes } from "@/lib/routes";
 import { buildDropMetadata } from "@/lib/seo/metadata";
@@ -68,9 +67,9 @@ export default async function DropDetailPage({ params, searchParams }: DropDetai
   }
 
   const [ownershipHistory, offersResult] = await Promise.all([
-    commerceBffService.getDropOwnershipHistory(id),
+    gateway.getDropOwnershipHistory(id),
     session
-      ? commerceBffService.getCollectDropOffers(id, session.accountId)
+      ? gateway.getCollectDropOffers(id, session.accountId)
       : Promise.resolve(null)
   ]);
 

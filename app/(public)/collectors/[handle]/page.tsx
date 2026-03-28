@@ -1,6 +1,5 @@
-import "@/features/patron/patron-badge.css";
 import { CollectorPublicScreen } from "@/features/collector/collector-public-screen";
-import { commerceBffService } from "@/lib/bff/service";
+import { gateway } from "@/lib/gateway";
 import { getOptionalSession } from "@/lib/server/session";
 import { notFound } from "next/navigation";
 
@@ -13,7 +12,7 @@ export default async function CollectorPage({ params }: CollectorPageProps) {
 
   const [session, collector] = await Promise.all([
     getOptionalSession(),
-    commerceBffService.getCollectorPublic(handle)
+    gateway.getCollectorPublic(handle)
   ]);
 
   if (!collector) {

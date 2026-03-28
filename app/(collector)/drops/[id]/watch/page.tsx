@@ -1,5 +1,4 @@
 import { DropConsumeScreen } from "@/features/drops/drop-consume-screen";
-import { commerceBffService } from "@/lib/bff/service";
 import { gateway } from "@/lib/gateway";
 import { requireSession } from "@/lib/server/session";
 import { notFound } from "next/navigation";
@@ -21,13 +20,13 @@ export default async function DropWatchPage({ params }: DropWatchPageProps) {
   let hasWatchAccess = false;
 
   if (hasEntitlement) {
-    const watchAccessToken = await commerceBffService.createWatchAccessToken(
+    const watchAccessToken = await gateway.createWatchAccessToken(
       session.accountId,
       id
     );
 
     if (watchAccessToken) {
-      const consumeResult = await commerceBffService.consumeWatchAccessToken({
+      const consumeResult = await gateway.consumeWatchAccessToken({
         accountId: session.accountId,
         dropId: id,
         token: watchAccessToken.token
@@ -35,7 +34,7 @@ export default async function DropWatchPage({ params }: DropWatchPageProps) {
       hasWatchAccess = consumeResult.granted;
 
       if (consumeResult.granted) {
-        await commerceBffService.recordTownhallTelemetryEvent({
+        await gateway.recordTownhallTelemetryEvent({
           accountId: session.accountId,
           dropId: id,
           eventType: "access_start",

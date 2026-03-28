@@ -1,6 +1,6 @@
 import { LiveSessionScreen } from "@/features/live/live-session-screen";
-import { commerceBffService } from "@/lib/bff/service";
 import type { LiveSessionConversationThread, LiveSessionEligibility } from "@/lib/domain/contracts";
+import { gateway } from "@/lib/gateway";
 import { getOptionalSession } from "@/lib/server/session";
 import { notFound } from "next/navigation";
 
@@ -13,7 +13,7 @@ export default async function LiveSessionPage({ params }: LiveSessionPageProps) 
 
   const [session, liveSession] = await Promise.all([
     getOptionalSession(),
-    commerceBffService.getLiveSessionById(session_id)
+    gateway.getLiveSessionById(session_id)
   ]);
 
   if (!liveSession) {
@@ -25,8 +25,8 @@ export default async function LiveSessionPage({ params }: LiveSessionPageProps) 
 
   if (session) {
     const [eligibilityResult, conversationResult] = await Promise.all([
-      commerceBffService.getCollectLiveSessionEligibility(session.accountId, liveSession.id),
-      commerceBffService.getLiveSessionConversationThread(session.accountId, liveSession.id)
+      gateway.getCollectLiveSessionEligibility(session.accountId, liveSession.id),
+      gateway.getLiveSessionConversationThread(session.accountId, liveSession.id)
     ]);
 
     eligibility = eligibilityResult;

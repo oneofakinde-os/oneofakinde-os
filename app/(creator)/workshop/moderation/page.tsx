@@ -1,5 +1,5 @@
 import { ModerationDashboardScreen } from "@/features/moderation/moderation-dashboard-screen";
-import { commerceBffService } from "@/lib/bff/service";
+import { gateway } from "@/lib/gateway";
 import { requireSession } from "@/lib/server/session";
 import { routes } from "@/lib/routes";
 
@@ -12,9 +12,9 @@ export default async function ModerationDashboardPage() {
   }
 
   const [worldConversationQueue, townhallQueue, liveSessionQueue] = await Promise.all([
-    commerceBffService.listWorldConversationModerationQueue(session.accountId),
-    commerceBffService.listTownhallModerationQueue(session.accountId),
-    commerceBffService.listLiveSessionConversationModerationQueue(session.accountId)
+    gateway.listWorldConversationModerationQueue(session.accountId),
+    gateway.listTownhallModerationQueue(session.accountId),
+    gateway.listLiveSessionConversationModerationQueue(session.accountId)
   ]);
 
   return (

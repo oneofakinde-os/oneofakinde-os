@@ -1,5 +1,5 @@
 import { DropOffersScreen } from "@/features/collect/drop-offers-screen";
-import { commerceBffService } from "@/lib/bff/service";
+import { gateway } from "@/lib/gateway";
 import { getOptionalSession } from "@/lib/server/session";
 import { notFound } from "next/navigation";
 
@@ -12,8 +12,8 @@ export default async function DropOffersPage({ params }: DropOffersPageProps) {
 
   const session = await getOptionalSession();
   const [drop, collect] = await Promise.all([
-    commerceBffService.getDropById(id),
-    commerceBffService.getCollectDropOffers(id, session?.accountId ?? null)
+    gateway.getDropById(id),
+    gateway.getCollectDropOffers(id, session?.accountId ?? null)
   ]);
 
   if (!drop || !collect) {

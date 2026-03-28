@@ -831,6 +831,46 @@ export type ReceiptBadge = {
   createdAt: string;
 };
 
+export type CollectorPublicProfile = {
+  handle: string;
+  displayName: string;
+  avatarUrl: string | null;
+  bio: string | null;
+  roles: string[];
+  memberSince: string;
+  collectionCount: number;
+  badgeCount: number;
+  patronWorlds: Array<{
+    worldId: string;
+    worldTitle: string;
+    status: string;
+    recognitionTier: "founding" | "active";
+  }>;
+  ownedDrops: Array<{
+    dropId: string;
+    title: string;
+    studioHandle: string;
+    posterSrc: string | null;
+    acquiredAt: string;
+  }>;
+};
+
+export type WatchAccessTokenResult = {
+  token: string;
+  tokenId: string;
+  expiresAt: string;
+};
+
+export type WatchAccessConsumeResult =
+  | { granted: true }
+  | { granted: false; reason: string };
+
+export type PatronIndicator = {
+  recognitionTier: "founding" | "active";
+  status: "active" | "lapsed";
+  committedAt: string;
+};
+
 export type OwnershipHistoryEventKind = "collect" | "refund";
 
 export type OwnershipHistoryEntry = {

@@ -1,6 +1,4 @@
-import "@/features/patron/patron-badge.css";
 import { StudioScreen } from "@/features/studio/studio-screen";
-import { commerceBffService } from "@/lib/bff/service";
 import { gateway } from "@/lib/gateway";
 import { buildStudioMetadata } from "@/lib/seo/metadata";
 import { getOptionalSession } from "@/lib/server/session";
@@ -48,9 +46,9 @@ export default async function StudioCanonicalPage({ params }: StudioPageProps) {
 
   const [membershipEntitlements, viewerFollowing, followerCount, viewerPatronIndicator] = await Promise.all([
     session ? gateway.listMembershipEntitlements(session.accountId) : Promise.resolve([]),
-    session ? commerceBffService.isFollowingStudio(session.accountId, handle) : Promise.resolve(false),
-    commerceBffService.getStudioFollowerCount(handle),
-    session ? commerceBffService.getViewerPatronIndicator(session.accountId, handle) : Promise.resolve(null)
+    session ? gateway.isFollowingStudio(session.accountId, handle) : Promise.resolve(false),
+    gateway.getStudioFollowerCount(handle),
+    session ? gateway.getViewerPatronIndicator(session.accountId, handle) : Promise.resolve(null)
   ]);
 
   const activeStudioMemberships = membershipEntitlements.filter(
