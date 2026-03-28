@@ -9,6 +9,24 @@ export default async function SettingsSecurityPage() {
     <AppShell title="settings" subtitle="security" session={session}>
       <SettingsNav />
       <section className="slice-panel">
+        <p className="slice-label">security overview</p>
+        <dl className="slice-list">
+          <div>
+            <dt>signed in as</dt>
+            <dd>@{session.handle} ({session.email})</dd>
+          </div>
+          <div>
+            <dt>account roles</dt>
+            <dd>{session.roles.join(", ")}</dd>
+          </div>
+          <div>
+            <dt>active sessions</dt>
+            <dd>1 device (current)</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section className="slice-panel">
         <p className="slice-label">password</p>
         <div className="ops-settings-grid">
           <p className="slice-copy">
