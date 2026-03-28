@@ -9,7 +9,6 @@ import type {
 } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
 import Link from "next/link";
-import "./notifications.css";
 
 type NotificationsScreenProps = {
   session: Session;
