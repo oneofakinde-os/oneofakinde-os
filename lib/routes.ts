@@ -120,6 +120,8 @@ export const routes = {
   collectListings: (): Route => asRoute("/collect/listings"),
   collectListing: (listingId: string): Route => asRoute(`/collect/listings/${listingId}`),
   worldMembership: (worldId: string): Route => asRoute(`/worlds/${worldId}/membership`),
+  worldUpgrade: (worldId: string): Route => asRoute(`/worlds/${worldId}/upgrade`),
+  workshopWorldSchedule: (worldId: string): Route => asRoute(`/workshop/worlds/${worldId}/schedule`),
   notifications: (): Route => asRoute("/notifications")
 };
 
