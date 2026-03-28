@@ -1,5 +1,4 @@
 import { MembershipTiersScreen } from "@/features/membership/membership-tiers-screen";
-import { commerceBffService } from "@/lib/bff/service";
 import { gateway } from "@/lib/gateway";
 import { routes } from "@/lib/routes";
 import { requireSession } from "@/lib/server/session";
@@ -20,9 +19,9 @@ export default async function MembershipPage({ params }: MembershipPageProps) {
   }
 
   const [isMember, patronIndicator, patronTierConfigs] = await Promise.all([
-    commerceBffService.hasActiveMembership(session.accountId, id),
-    commerceBffService.getViewerPatronIndicator(session.accountId, world.studioHandle),
-    commerceBffService.listWorkshopPatronTierConfigs(session.accountId)
+    gateway.hasActiveMembership(session.accountId, id),
+    gateway.getViewerPatronIndicator(session.accountId, world.studioHandle),
+    gateway.listWorkshopPatronTierConfigs(session.accountId)
   ]);
 
   const worldTierConfigs = patronTierConfigs.filter(

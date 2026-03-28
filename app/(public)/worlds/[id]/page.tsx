@@ -1,6 +1,4 @@
-import "@/features/patron/patron-badge.css";
 import { WorldDetailScreen } from "@/features/world/world-detail-screen";
-import { commerceBffService } from "@/lib/bff/service";
 import type { CollectLiveSessionSnapshot } from "@/lib/domain/contracts";
 import { gateway } from "@/lib/gateway";
 import { buildWorldMetadata } from "@/lib/seo/metadata";
@@ -41,10 +39,10 @@ export default async function WorldPage({ params }: WorldPageProps) {
 
   const [worldCollectSnapshot, worldPatronRosterResult, collectLiveSessions, isMember] = session
     ? await Promise.all([
-        commerceBffService.getCollectWorldBundlesForWorld(session.accountId, world.id),
-        commerceBffService.listWorldPatronRoster(session.accountId, world.id),
-        commerceBffService.listCollectLiveSessions(session.accountId),
-        commerceBffService.hasActiveMembership(session.accountId, world.id)
+        gateway.getCollectWorldBundlesForWorld(session.accountId, world.id),
+        gateway.listWorldPatronRoster(session.accountId, world.id),
+        gateway.listCollectLiveSessions(session.accountId),
+        gateway.hasActiveMembership(session.accountId, world.id)
       ])
     : [null, null, [] as CollectLiveSessionSnapshot[], false];
   const worldLiveSessions = collectLiveSessions.filter(

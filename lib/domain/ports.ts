@@ -2,7 +2,11 @@ import type {
   AuthorizedDerivative,
   CaptureWorkshopLiveSessionArtifactInput,
   Certificate,
+  CollectInventoryListing,
   CollectLiveSessionSnapshot,
+  CollectMarketLane,
+  CollectOffer,
+  CollectorPublicProfile,
   CheckoutSession,
   CheckoutPreview,
   CreateAuthorizedDerivativeInput,
@@ -15,32 +19,45 @@ import type {
   Drop,
   DropLiveArtifactsSnapshot,
   DropLineageSnapshot,
+  DropOwnershipHistory,
   DropPreviewMap,
   DropVersion,
   UpdateDropPreviewMediaInput,
   LibrarySnapshot,
   LiveSession,
   LiveSessionArtifact,
+  LiveSessionConversationThread,
   LiveSessionEligibility,
+  LiveSessionConversationModerationQueueItem,
   MembershipEntitlement,
   MyCollectionAnalyticsPanel,
   MyCollectionSnapshot,
+  NotificationFeed,
   OpsAnalyticsPanel,
+  PatronIndicator,
+  PatronTierConfig,
   PurchaseReceipt,
+  ReceiptBadge,
   TownhallModerationCaseResolution,
   TownhallModerationCaseResolveResult,
   TownhallDropSocialSnapshot,
   TownhallModerationQueueItem,
+  TownhallTelemetryEventType,
+  TownhallTelemetryMetadata,
+  WatchAccessConsumeResult,
+  WatchAccessTokenResult,
+  WorldCollectBundleSnapshot,
+  WorldConversationModerationQueueItem,
+  WorldConversationThread,
+  WorldPatronRosterSnapshot,
   WorkshopAnalyticsPanel,
   WorkshopProProfile,
   WorkshopProState,
-  PatronTierConfig,
   UpsertWorkshopPatronTierConfigInput,
   WorldReleaseQueueItem,
   WorldReleaseQueueStatus,
   SetupCreatorStudioInput,
   SetupCreatorStudioResult,
-  NotificationFeed,
   Session,
   Studio,
   World
@@ -181,4 +198,86 @@ export interface CommerceGateway {
   getNotificationUnreadCount(accountId: string): Promise<number>;
   markNotificationRead(accountId: string, notificationId: string): Promise<void>;
   markAllNotificationsRead(accountId: string): Promise<void>;
+
+  /* ── social ── */
+  isFollowingStudio(accountId: string, studioHandle: string): Promise<boolean>;
+  getStudioFollowerCount(studioHandle: string): Promise<number>;
+  getViewerPatronIndicator(
+    accountId: string,
+    studioHandle: string
+  ): Promise<PatronIndicator | null>;
+
+  /* ── collect & commerce read models ── */
+  getDropOwnershipHistory(dropId: string): Promise<DropOwnershipHistory | null>;
+  getCollectDropOffers(
+    dropId: string,
+    accountId: string | null
+  ): Promise<{ listing: CollectInventoryListing; offers: CollectOffer[] } | null>;
+  getCollectInventory(
+    accountId: string | null,
+    lane?: CollectMarketLane
+  ): Promise<{ lane: CollectMarketLane; listings: CollectInventoryListing[] }>;
+  getCollectWorldBundlesForWorld(
+    accountId: string,
+    worldId: string
+  ): Promise<WorldCollectBundleSnapshot | null>;
+  listWorldPatronRoster(
+    accountId: string,
+    worldId: string
+  ): Promise<
+    | { ok: true; snapshot: WorldPatronRosterSnapshot }
+    | { ok: false; reason: "not_found" | "forbidden" }
+  >;
+  hasActiveMembership(accountId: string, worldId: string): Promise<boolean>;
+
+  /* ── live sessions ── */
+  getLiveSessionById(liveSessionId: string): Promise<LiveSession | null>;
+  getLiveSessionConversationThread(
+    accountId: string,
+    liveSessionId: string
+  ): Promise<
+    | { ok: true; thread: LiveSessionConversationThread }
+    | { ok: false; reason: "not_found" | "forbidden" }
+  >;
+
+  /* ── conversations ── */
+  getWorldConversationThread(
+    accountId: string,
+    worldId: string
+  ): Promise<
+    | { ok: true; thread: WorldConversationThread }
+    | { ok: false; reason: "not_found" | "forbidden" }
+  >;
+
+  /* ── moderation ── */
+  listWorldConversationModerationQueue(
+    accountId: string
+  ): Promise<WorldConversationModerationQueueItem[]>;
+  listLiveSessionConversationModerationQueue(
+    accountId: string
+  ): Promise<LiveSessionConversationModerationQueueItem[]>;
+
+  /* ── collector public ── */
+  getCollectorPublic(handle: string): Promise<CollectorPublicProfile | null>;
+  getReceiptBadgeById(badgeId: string): Promise<ReceiptBadge | null>;
+
+  /* ── watch access ── */
+  createWatchAccessToken(
+    accountId: string,
+    dropId: string
+  ): Promise<WatchAccessTokenResult | null>;
+  consumeWatchAccessToken(input: {
+    accountId: string;
+    dropId: string;
+    token: string;
+  }): Promise<WatchAccessConsumeResult>;
+  recordTownhallTelemetryEvent(input: {
+    accountId: string | null;
+    dropId: string;
+    eventType: TownhallTelemetryEventType;
+    watchTimeSeconds?: number;
+    completionPercent?: number;
+    metadata?: TownhallTelemetryMetadata;
+    occurredAt?: string;
+  }): Promise<boolean>;
 }

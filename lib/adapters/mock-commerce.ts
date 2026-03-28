@@ -36,6 +36,7 @@ import type {
   PatronTierConfig,
   PatronTierStatus,
   PurchaseReceipt,
+  ReceiptBadge,
   Session,
   Studio,
   TownhallModerationCaseResolution,
@@ -2637,5 +2638,146 @@ export const commerceGateway: CommerceGateway = {
 
   async markNotificationRead(): Promise<void> {},
 
-  async markAllNotificationsRead(): Promise<void> {}
+  async markAllNotificationsRead(): Promise<void> {},
+
+  async isFollowingStudio(): Promise<boolean> {
+    return false;
+  },
+
+  async getStudioFollowerCount(): Promise<number> {
+    return 0;
+  },
+
+  async getViewerPatronIndicator(): Promise<null> {
+    return null;
+  },
+
+  async getDropOwnershipHistory(dropId: string) {
+    const drop = store.drops.get(dropId);
+    if (!drop) return null;
+
+    const entries: Array<{
+      id: string;
+      dropId: string;
+      occurredAt: string;
+      kind: "collect" | "refund";
+      actorHandle: string;
+      receiptId: string | null;
+      certificateId: string | null;
+      publicAmountUsd: number | null;
+    }> = [];
+
+    for (const [, ownedDrops] of store.ownershipByAccount) {
+      for (const owned of ownedDrops) {
+        if (owned.drop.id === dropId) {
+          const cert = store.certificatesById.get(owned.certificateId);
+          entries.push({
+            id: `oh_${owned.receiptId}`,
+            dropId,
+            occurredAt: owned.acquiredAt,
+            kind: "collect",
+            actorHandle: cert?.ownerHandle ?? "unknown",
+            receiptId: owned.receiptId,
+            certificateId: owned.certificateId,
+            publicAmountUsd: drop.priceUsd
+          });
+        }
+      }
+    }
+
+    return { dropId, entries };
+  },
+
+  async getCollectDropOffers() {
+    return null;
+  },
+
+  async getCollectInventory(_accountId, lane = "all") {
+    return { lane, listings: [] };
+  },
+
+  async getCollectWorldBundlesForWorld() {
+    return null;
+  },
+
+  async listWorldPatronRoster() {
+    return { ok: false as const, reason: "not_found" as const };
+  },
+
+  async hasActiveMembership(accountId: string, worldId: string): Promise<boolean> {
+    return store.membershipEntitlements.some(
+      (e) => e.accountId === accountId && e.worldId === worldId && e.status === "active"
+    );
+  },
+
+  async getLiveSessionById(liveSessionId: string): Promise<LiveSession | null> {
+    const record = store.liveSessions.find((e) => e.id === liveSessionId);
+    if (!record) return null;
+    return {
+      ...record,
+      whatYouGet: "live experience with the creator"
+    };
+  },
+
+  async getLiveSessionConversationThread() {
+    return { ok: false as const, reason: "not_found" as const };
+  },
+
+  async getWorldConversationThread() {
+    return { ok: false as const, reason: "not_found" as const };
+  },
+
+  async listWorldConversationModerationQueue() {
+    return [];
+  },
+
+  async listLiveSessionConversationModerationQueue() {
+    return [];
+  },
+
+  async getCollectorPublic(handle: string) {
+    const account = [...store.accounts.values()].find(
+      (a) => a.handle.toLowerCase() === handle.toLowerCase()
+    );
+    if (!account) return null;
+
+    const ownedDrops = (store.ownershipByAccount.get(account.id) ?? [])
+      .map((o) => ({
+        dropId: o.drop.id,
+        title: o.drop.title,
+        studioHandle: o.drop.studioHandle,
+        posterSrc: o.drop.previewMedia?.watch?.posterSrc ?? o.drop.previewMedia?.photos?.src ?? null,
+        acquiredAt: o.acquiredAt
+      }))
+      .sort((a, b) => b.acquiredAt.localeCompare(a.acquiredAt));
+
+    return {
+      handle: account.handle,
+      displayName: account.displayName,
+      avatarUrl: null,
+      bio: null,
+      roles: [...account.roles],
+      memberSince: "2026-01-01T00:00:00.000Z",
+      collectionCount: ownedDrops.length,
+      badgeCount: 0,
+      patronWorlds: [],
+      ownedDrops
+    };
+  },
+
+  async getReceiptBadgeById(): Promise<ReceiptBadge | null> {
+    return null;
+  },
+
+  async createWatchAccessToken(): Promise<null> {
+    return null;
+  },
+
+  async consumeWatchAccessToken() {
+    return { granted: false as const, reason: "not_available" };
+  },
+
+  async recordTownhallTelemetryEvent(): Promise<boolean> {
+    return false;
+  }
 };

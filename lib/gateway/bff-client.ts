@@ -2,7 +2,11 @@ import type {
   AuthorizedDerivative,
   Certificate,
   CaptureWorkshopLiveSessionArtifactInput,
+  CollectInventoryListing,
   CollectLiveSessionSnapshot,
+  CollectMarketLane,
+  CollectOffer,
+  CollectorPublicProfile,
   CheckoutSession,
   CheckoutPreview,
   CreateAuthorizedDerivativeInput,
@@ -15,23 +19,36 @@ import type {
   Drop,
   DropLiveArtifactsSnapshot,
   DropLineageSnapshot,
+  DropOwnershipHistory,
   DropPreviewMap,
   DropVersion,
   LibrarySnapshot,
   LiveSession,
   LiveSessionArtifact,
+  LiveSessionConversationThread,
   LiveSessionEligibility,
+  LiveSessionConversationModerationQueueItem,
   MembershipEntitlement,
   MyCollectionAnalyticsPanel,
   MyCollectionSnapshot,
   NotificationFeed,
   OpsAnalyticsPanel,
+  PatronIndicator,
   PatronTierConfig,
   PurchaseReceipt,
+  ReceiptBadge,
   TownhallModerationCaseResolution,
   TownhallModerationCaseResolveResult,
   TownhallDropSocialSnapshot,
   TownhallModerationQueueItem,
+  TownhallTelemetryEventType,
+  TownhallTelemetryMetadata,
+  WatchAccessConsumeResult,
+  WatchAccessTokenResult,
+  WorldCollectBundleSnapshot,
+  WorldConversationModerationQueueItem,
+  WorldConversationThread,
+  WorldPatronRosterSnapshot,
   WorkshopAnalyticsPanel,
   WorkshopProProfile,
   WorkshopProState,
@@ -872,6 +889,275 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
       await requestJson(options, "/api/v1/notifications/read-all", {
         method: "POST"
       });
+    },
+
+    async isFollowingStudio(_accountId: string, studioHandle: string): Promise<boolean> {
+      const response = await requestJson<{ following: boolean }>(
+        options,
+        `/api/v1/studios/${encodeURIComponent(studioHandle)}/following`,
+        { method: "GET" }
+      );
+      if (!response.ok || !response.payload) return false;
+      return response.payload.following;
+    },
+
+    async getStudioFollowerCount(studioHandle: string): Promise<number> {
+      const response = await requestJson<{ count: number }>(
+        options,
+        `/api/v1/studios/${encodeURIComponent(studioHandle)}/followers/count`,
+        { method: "GET" }
+      );
+      if (!response.ok || !response.payload) return 0;
+      return response.payload.count;
+    },
+
+    async getViewerPatronIndicator(
+      _accountId: string,
+      studioHandle: string
+    ): Promise<PatronIndicator | null> {
+      const response = await requestJson<{ indicator: PatronIndicator | null }>(
+        options,
+        `/api/v1/studios/${encodeURIComponent(studioHandle)}/patron-indicator`,
+        { method: "GET" }
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.indicator;
+    },
+
+    async getDropOwnershipHistory(dropId: string): Promise<DropOwnershipHistory | null> {
+      const response = await requestJson<{ history: DropOwnershipHistory }>(
+        options,
+        `/api/v1/ownership-history/drops/${encodeURIComponent(dropId)}`,
+        { method: "GET" }
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.history;
+    },
+
+    async getCollectDropOffers(
+      dropId: string,
+      _accountId: string | null
+    ): Promise<{ listing: CollectInventoryListing; offers: CollectOffer[] } | null> {
+      const response = await requestJson<{
+        listing: CollectInventoryListing;
+        offers: CollectOffer[];
+      }>(
+        options,
+        `/api/v1/collect/offers/${encodeURIComponent(dropId)}`,
+        { method: "GET" }
+      );
+      if (!response.ok || !response.payload) return null;
+      return { listing: response.payload.listing, offers: response.payload.offers };
+    },
+
+    async getCollectInventory(
+      _accountId: string | null,
+      lane: CollectMarketLane = "all"
+    ): Promise<{ lane: CollectMarketLane; listings: CollectInventoryListing[] }> {
+      const response = await requestJson<{
+        lane: CollectMarketLane;
+        listings: CollectInventoryListing[];
+      }>(
+        options,
+        `/api/v1/collect/inventory?lane=${encodeURIComponent(lane)}`,
+        { method: "GET" }
+      );
+      if (!response.ok || !response.payload) return { lane, listings: [] };
+      return { lane: response.payload.lane, listings: response.payload.listings };
+    },
+
+    async getCollectWorldBundlesForWorld(
+      _accountId: string,
+      worldId: string
+    ): Promise<WorldCollectBundleSnapshot | null> {
+      const response = await requestJson<{ snapshot: WorldCollectBundleSnapshot }>(
+        options,
+        `/api/v1/collect/worlds/${encodeURIComponent(worldId)}/bundles`,
+        { method: "GET" }
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.snapshot;
+    },
+
+    async listWorldPatronRoster(
+      _accountId: string,
+      worldId: string
+    ): Promise<
+      | { ok: true; snapshot: WorldPatronRosterSnapshot }
+      | { ok: false; reason: "not_found" | "forbidden" }
+    > {
+      const response = await requestJson<{ snapshot: WorldPatronRosterSnapshot }>(
+        options,
+        `/api/v1/worlds/${encodeURIComponent(worldId)}/patron-roster`,
+        { method: "GET" }
+      );
+      if (!response.ok || !response.payload) {
+        return { ok: false, reason: "not_found" };
+      }
+      return { ok: true, snapshot: response.payload.snapshot };
+    },
+
+    async hasActiveMembership(_accountId: string, worldId: string): Promise<boolean> {
+      const response = await requestJson<{ active: boolean }>(
+        options,
+        `/api/v1/worlds/${encodeURIComponent(worldId)}/membership-check`,
+        { method: "GET" }
+      );
+      if (!response.ok || !response.payload) return false;
+      return response.payload.active;
+    },
+
+    async getLiveSessionById(liveSessionId: string): Promise<LiveSession | null> {
+      const response = await requestJson<{ liveSession: LiveSession }>(
+        options,
+        `/api/v1/live-sessions/${encodeURIComponent(liveSessionId)}/detail`,
+        { method: "GET" }
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.liveSession;
+    },
+
+    async getLiveSessionConversationThread(
+      _accountId: string,
+      liveSessionId: string
+    ): Promise<
+      | { ok: true; thread: LiveSessionConversationThread }
+      | { ok: false; reason: "not_found" | "forbidden" }
+    > {
+      const response = await requestJson<{ thread: LiveSessionConversationThread }>(
+        options,
+        `/api/v1/live-sessions/${encodeURIComponent(liveSessionId)}/conversation`,
+        { method: "GET" }
+      );
+      if (!response.ok || !response.payload) {
+        return { ok: false, reason: "not_found" };
+      }
+      return { ok: true, thread: response.payload.thread };
+    },
+
+    async getWorldConversationThread(
+      _accountId: string,
+      worldId: string
+    ): Promise<
+      | { ok: true; thread: WorldConversationThread }
+      | { ok: false; reason: "not_found" | "forbidden" }
+    > {
+      const response = await requestJson<{ thread: WorldConversationThread }>(
+        options,
+        `/api/v1/worlds/${encodeURIComponent(worldId)}/conversation`,
+        { method: "GET" }
+      );
+      if (!response.ok || !response.payload) {
+        return { ok: false, reason: "not_found" };
+      }
+      return { ok: true, thread: response.payload.thread };
+    },
+
+    async listWorldConversationModerationQueue(
+      _accountId: string
+    ): Promise<WorldConversationModerationQueueItem[]> {
+      const response = await requestJson<{ queue: WorldConversationModerationQueueItem[] }>(
+        options,
+        "/api/v1/workshop/moderation/world-conversation",
+        { method: "GET" }
+      );
+      if (!response.ok || !response.payload) return [];
+      return response.payload.queue;
+    },
+
+    async listLiveSessionConversationModerationQueue(
+      _accountId: string
+    ): Promise<LiveSessionConversationModerationQueueItem[]> {
+      const response = await requestJson<{ queue: LiveSessionConversationModerationQueueItem[] }>(
+        options,
+        "/api/v1/workshop/moderation/live-session-conversation",
+        { method: "GET" }
+      );
+      if (!response.ok || !response.payload) return [];
+      return response.payload.queue;
+    },
+
+    async getCollectorPublic(handle: string): Promise<CollectorPublicProfile | null> {
+      const response = await requestJson<{ collector: CollectorPublicProfile }>(
+        options,
+        `/api/v1/catalog/collectors/${encodeURIComponent(handle)}`,
+        { method: "GET" }
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.collector;
+    },
+
+    async getReceiptBadgeById(badgeId: string): Promise<ReceiptBadge | null> {
+      const response = await requestJson<{ badge: ReceiptBadge }>(
+        options,
+        `/api/v1/badges/${encodeURIComponent(badgeId)}`,
+        { method: "GET" }
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.badge;
+    },
+
+    async createWatchAccessToken(
+      _accountId: string,
+      dropId: string
+    ): Promise<WatchAccessTokenResult | null> {
+      const response = await requestJson<{ watchAccess: { token: string; expiresAt: string } }>(
+        options,
+        `/api/v1/watch/access/${encodeURIComponent(dropId)}`,
+        { method: "POST" }
+      );
+      if (!response.ok || !response.payload) return null;
+      return {
+        token: response.payload.watchAccess.token,
+        tokenId: "",
+        expiresAt: response.payload.watchAccess.expiresAt
+      };
+    },
+
+    async consumeWatchAccessToken(input: {
+      accountId: string;
+      dropId: string;
+      token: string;
+    }): Promise<WatchAccessConsumeResult> {
+      const response = await requestJson<{ watchAccess: WatchAccessConsumeResult }>(
+        options,
+        `/api/v1/watch/access/${encodeURIComponent(input.dropId)}/consume`,
+        {
+          method: "POST",
+          body: JSON.stringify({ token: input.token })
+        }
+      );
+      if (!response.ok || !response.payload) {
+        return { granted: false, reason: "request_failed" };
+      }
+      return response.payload.watchAccess;
+    },
+
+    async recordTownhallTelemetryEvent(input: {
+      accountId: string | null;
+      dropId: string;
+      eventType: TownhallTelemetryEventType;
+      watchTimeSeconds?: number;
+      completionPercent?: number;
+      metadata?: TownhallTelemetryMetadata;
+      occurredAt?: string;
+    }): Promise<boolean> {
+      const response = await requestJson<{ accepted: boolean }>(
+        options,
+        "/api/v1/townhall/telemetry",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            dropId: input.dropId,
+            eventType: input.eventType,
+            watchTimeSeconds: input.watchTimeSeconds,
+            completionPercent: input.completionPercent,
+            metadata: input.metadata
+          })
+        }
+      );
+      if (!response.ok || !response.payload) return false;
+      return response.payload.accepted;
     }
   };
 }

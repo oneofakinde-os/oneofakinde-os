@@ -1,5 +1,4 @@
 import { WorldConversationScreen } from "@/features/world/world-conversation-screen";
-import { commerceBffService } from "@/lib/bff/service";
 import { gateway } from "@/lib/gateway";
 import { requireSession } from "@/lib/server/session";
 import { notFound, redirect } from "next/navigation";
@@ -19,7 +18,7 @@ export default async function WorldConversationPage({ params }: WorldConversatio
     notFound();
   }
 
-  const threadResult = await commerceBffService.getWorldConversationThread(
+  const threadResult = await gateway.getWorldConversationThread(
     session.accountId,
     id
   );
