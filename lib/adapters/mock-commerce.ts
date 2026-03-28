@@ -2640,16 +2640,28 @@ export const commerceGateway: CommerceGateway = {
 
   async markAllNotificationsRead(): Promise<void> {},
 
-  async isFollowingStudio(): Promise<boolean> {
-    return false;
+  async isFollowingStudio(accountId: string, studioHandle: string): Promise<boolean> {
+    const account = store.accounts.get(accountId);
+    if (!account) return false;
+    // collector_demo follows oneofakinde in seed data
+    return account.handle === "collector_demo" && studioHandle === "oneofakinde";
   },
 
-  async getStudioFollowerCount(): Promise<number> {
-    return 0;
+  async getStudioFollowerCount(studioHandle: string): Promise<number> {
+    // oneofakinde has 1 follower (collector_demo) in seed data
+    return studioHandle === "oneofakinde" ? 1 : 0;
   },
 
-  async getViewerPatronIndicator(): Promise<null> {
-    return null;
+  async getViewerPatronIndicator(accountId: string, studioHandle: string) {
+    const membership = store.membershipEntitlements.find(
+      (e) => e.accountId === accountId && e.studioHandle === studioHandle && e.status === "active"
+    );
+    if (!membership) return null;
+    return {
+      recognitionTier: "founding" as const,
+      status: "active" as const,
+      committedAt: membership.startedAt
+    };
   },
 
   async getDropOwnershipHistory(dropId: string) {
@@ -2688,20 +2700,140 @@ export const commerceGateway: CommerceGateway = {
     return { dropId, entries };
   },
 
-  async getCollectDropOffers() {
-    return null;
+  async getCollectDropOffers(dropId: string, _accountId: string | null) {
+    const drop = store.drops.get(dropId);
+    if (!drop) return null;
+
+    return {
+      listing: {
+        drop,
+        listingType: "sale" as const,
+        lane: "sale" as const,
+        priceUsd: drop.priceUsd,
+        offerCount: 0,
+        highestOfferUsd: null,
+        latestOfferState: "listed" as const
+      },
+      offers: []
+    };
   },
 
   async getCollectInventory(_accountId, lane = "all") {
-    return { lane, listings: [] };
+    const listings = [...store.drops.values()]
+      .filter((drop) => drop.visibility === "public")
+      .map((drop) => ({
+        drop,
+        listingType: "sale" as const,
+        lane: "sale" as const,
+        priceUsd: drop.priceUsd,
+        offerCount: 0,
+        highestOfferUsd: null,
+        latestOfferState: "listed" as const
+      }));
+
+    const filtered = lane === "all"
+      ? listings
+      : listings.filter((l) => l.lane === lane);
+
+    return { lane, listings: filtered };
   },
 
-  async getCollectWorldBundlesForWorld() {
-    return null;
+  async getCollectWorldBundlesForWorld(accountId: string, worldId: string) {
+    const world = store.worlds.get(worldId);
+    if (!world || !world.collectBundles?.length) return null;
+
+    // Check if user has existing ownership
+    const ownedDrops = store.ownershipByAccount.get(accountId) ?? [];
+    const worldDropIds = [...store.drops.values()]
+      .filter((d) => d.worldId === worldId)
+      .map((d) => d.id);
+
+    const bundles = world.collectBundles.map((bundle) => {
+      const eligible = bundle.eligibilityRule === "public"
+        || store.membershipEntitlements.some(
+          (e) => e.accountId === accountId && e.worldId === worldId && e.status === "active"
+        );
+
+      return {
+        bundle,
+        upgradePreview: {
+          worldId,
+          targetBundleType: bundle.bundleType,
+          currentBundleType: null as import("@/lib/domain/contracts").WorldCollectBundleType | null,
+          eligible,
+          eligibilityReason: (eligible ? "eligible" : "membership_required") as import("@/lib/domain/contracts").WorldCollectUpgradeEligibilityReason,
+          previousOwnershipCreditUsd: 0,
+          prorationStrategy: "placeholder_linear_proration_v1" as const,
+          prorationRatio: 1,
+          subtotalUsd: bundle.priceUsd,
+          totalUsd: bundle.priceUsd,
+          currency: "USD" as const
+        },
+        ownershipScope: {
+          includedDropIds: bundle.bundleType === "full_world" ? worldDropIds : worldDropIds.slice(0, 1),
+          includedDropCount: bundle.bundleType === "full_world" ? worldDropIds.length : 1,
+          includesFutureCanonicalDrops: bundle.bundleType === "full_world",
+          coverageLabel: bundle.bundleType === "full_world"
+            ? "all drops + future canonical"
+            : bundle.bundleType === "season_pass_window"
+              ? `rolling ${bundle.seasonWindowDays}-day window`
+              : "current chapter only"
+        }
+      };
+    });
+
+    return {
+      world,
+      activeOwnership: null,
+      bundles
+    };
   },
 
-  async listWorldPatronRoster() {
-    return { ok: false as const, reason: "not_found" as const };
+  async listWorldPatronRoster(accountId: string, worldId: string) {
+    const world = store.worlds.get(worldId);
+    if (!world) return { ok: false as const, reason: "not_found" as const };
+
+    // Build patron list from membership entitlements for this world
+    const worldMembers = store.membershipEntitlements
+      .filter((e) => e.worldId === worldId && e.status === "active");
+
+    const patrons = worldMembers.map((e) => {
+      const account = store.accounts.get(e.accountId);
+      return {
+        handle: account?.handle ?? "unknown",
+        status: "active" as const,
+        recognitionTier: "founding" as const,
+        committedAt: e.startedAt
+      };
+    });
+
+    const account = store.accounts.get(accountId);
+    const isCreator = account?.roles.includes("creator") && account.handle === world.studioHandle;
+    const hasMembership = store.membershipEntitlements.some(
+      (e) => e.accountId === accountId && e.worldId === worldId && e.status === "active"
+    );
+
+    return {
+      ok: true as const,
+      snapshot: {
+        worldId,
+        studioHandle: world.studioHandle,
+        patrons,
+        totals: {
+          totalCount: patrons.length,
+          activeCount: patrons.length,
+          lapsedCount: 0
+        },
+        viewerAccess: {
+          hasMembershipEntitlement: hasMembership,
+          hasCollectEntitlement: (store.ownershipByAccount.get(accountId) ?? []).some(
+            (o) => o.drop.worldId === worldId
+          ),
+          hasCreatorAccess: !!isCreator,
+          hasPatronCommitment: hasMembership
+        }
+      }
+    };
   },
 
   async hasActiveMembership(accountId: string, worldId: string): Promise<boolean> {
@@ -2719,20 +2851,155 @@ export const commerceGateway: CommerceGateway = {
     };
   },
 
-  async getLiveSessionConversationThread() {
-    return { ok: false as const, reason: "not_found" as const };
+  async getLiveSessionConversationThread(accountId: string, liveSessionId: string) {
+    const session = store.liveSessions.find((s) => s.id === liveSessionId);
+    if (!session) return { ok: false as const, reason: "not_found" as const };
+
+    const account = store.accounts.get(accountId);
+    if (!account) return { ok: false as const, reason: "forbidden" as const };
+
+    return {
+      ok: true as const,
+      thread: {
+        liveSessionId,
+        messages: [
+          {
+            id: `lsmsg_seed_${liveSessionId}_1`,
+            liveSessionId,
+            parentMessageId: null,
+            depth: 0,
+            replyCount: 0,
+            authorHandle: "oneofakinde",
+            body: `welcome to ${session.title}! glad to have everyone here.`,
+            createdAt: session.startsAt,
+            visibility: "visible" as const,
+            reportCount: 0,
+            canModerate: account.roles.includes("creator"),
+            canReport: true,
+            canReply: true,
+            canAppeal: false,
+            appealRequested: false
+          }
+        ]
+      }
+    };
   },
 
-  async getWorldConversationThread() {
-    return { ok: false as const, reason: "not_found" as const };
+  async getWorldConversationThread(accountId: string, worldId: string) {
+    const world = store.worlds.get(worldId);
+    if (!world) return { ok: false as const, reason: "not_found" as const };
+
+    const hasMembership = store.membershipEntitlements.some(
+      (e) => e.accountId === accountId && e.worldId === worldId && e.status === "active"
+    );
+    const account = store.accounts.get(accountId);
+    const isCreator = account?.roles.includes("creator") && account.handle === world.studioHandle;
+
+    if (!hasMembership && !isCreator) {
+      return { ok: false as const, reason: "forbidden" as const };
+    }
+
+    return {
+      ok: true as const,
+      thread: {
+        worldId,
+        messages: [
+          {
+            id: `wmsg_seed_${worldId}_1`,
+            worldId,
+            parentMessageId: null,
+            depth: 0,
+            replyCount: 1,
+            authorHandle: "oneofakinde",
+            body: `welcome to ${world.title}. this is where we share updates and discuss new releases.`,
+            createdAt: "2026-02-16T12:00:00.000Z",
+            visibility: "visible" as const,
+            reportCount: 0,
+            canModerate: !!isCreator,
+            canReport: true,
+            canReply: true,
+            canAppeal: false,
+            appealRequested: false
+          },
+          {
+            id: `wmsg_seed_${worldId}_2`,
+            worldId,
+            parentMessageId: `wmsg_seed_${worldId}_1`,
+            depth: 1,
+            replyCount: 0,
+            authorHandle: account?.handle ?? "unknown",
+            body: "excited to be here! looking forward to new drops.",
+            createdAt: "2026-02-17T08:00:00.000Z",
+            visibility: "visible" as const,
+            reportCount: 0,
+            canModerate: !!isCreator,
+            canReport: false,
+            canReply: true,
+            canAppeal: false,
+            appealRequested: false
+          }
+        ]
+      }
+    };
   },
 
-  async listWorldConversationModerationQueue() {
-    return [];
+  async listWorldConversationModerationQueue(accountId: string) {
+    const account = store.accounts.get(accountId);
+    if (!account?.roles.includes("creator")) return [];
+
+    // Return a sample flagged message for the creator's worlds
+    const creatorWorlds = [...store.worlds.values()].filter(
+      (w) => w.studioHandle === account.handle
+    );
+    if (creatorWorlds.length === 0) return [];
+
+    const world = creatorWorlds[0]!;
+    return [
+      {
+        worldId: world.id,
+        worldTitle: world.title,
+        messageId: `wmsg_flagged_${world.id}_1`,
+        parentMessageId: null,
+        authorHandle: "flagged_user",
+        body: "this message was flagged for review by the community.",
+        visibility: "restricted" as const,
+        reportCount: 2,
+        reportedAt: "2026-02-20T14:00:00.000Z",
+        moderatedAt: null,
+        appealRequested: false,
+        appealRequestedAt: null,
+        createdAt: "2026-02-20T13:00:00.000Z"
+      }
+    ];
   },
 
-  async listLiveSessionConversationModerationQueue() {
-    return [];
+  async listLiveSessionConversationModerationQueue(accountId: string) {
+    const account = store.accounts.get(accountId);
+    if (!account?.roles.includes("creator")) return [];
+
+    const creatorSessions = store.liveSessions.filter(
+      (s) => s.studioHandle === account.handle
+    );
+    if (creatorSessions.length === 0) return [];
+
+    const session = creatorSessions[0]!;
+    return [
+      {
+        liveSessionId: session.id,
+        liveSessionTitle: session.title,
+        messageId: `lsmsg_flagged_${session.id}_1`,
+        parentMessageId: null,
+        authorHandle: "flagged_user",
+        body: "this live chat message was flagged for review.",
+        visibility: "restricted" as const,
+        reportCount: 1,
+        reportedAt: "2026-02-18T15:00:00.000Z",
+        moderatedAt: null,
+        appealRequested: false,
+        appealRequestedAt: null,
+        createdAt: "2026-02-18T14:30:00.000Z"
+      }
+    ];
   },
 
   async getCollectorPublic(handle: string) {
@@ -2765,19 +3032,56 @@ export const commerceGateway: CommerceGateway = {
     };
   },
 
-  async getReceiptBadgeById(): Promise<ReceiptBadge | null> {
-    return null;
+  async getReceiptBadgeById(badgeId: string): Promise<ReceiptBadge | null> {
+    // Derive badge from certificate if it exists with matching pattern
+    const certId = badgeId.replace("badge_", "cert_");
+    const cert = store.certificatesById.get(certId);
+    if (!cert) return null;
+
+    const drop = store.drops.get(cert.dropId);
+    const world = drop ? store.worlds.get(drop.worldId) : null;
+
+    return {
+      id: badgeId,
+      dropTitle: cert.dropTitle,
+      worldTitle: world?.title,
+      collectDate: cert.issuedAt,
+      editionPosition: "1 of 1",
+      collectorHandle: cert.ownerHandle,
+      createdAt: cert.issuedAt
+    };
   },
 
-  async createWatchAccessToken(): Promise<null> {
-    return null;
+  async createWatchAccessToken(accountId: string, dropId: string) {
+    // Grant watch access if the user owns the drop
+    const owned = (store.ownershipByAccount.get(accountId) ?? []).some(
+      (o) => o.drop.id === dropId
+    );
+    if (!owned) return null;
+
+    const tokenId = `wat_${randomUUID()}`;
+    return {
+      token: `wt_${randomUUID()}`,
+      tokenId,
+      expiresAt: new Date(Date.now() + 3600_000).toISOString()
+    };
   },
 
-  async consumeWatchAccessToken() {
-    return { granted: false as const, reason: "not_available" };
+  async consumeWatchAccessToken(input: {
+    accountId: string;
+    dropId: string;
+    token: string;
+  }) {
+    // Grant access if user owns the drop (token validation is simplified in mock)
+    const owned = (store.ownershipByAccount.get(input.accountId) ?? []).some(
+      (o) => o.drop.id === input.dropId
+    );
+    if (!owned) return { granted: false as const, reason: "not_owned" };
+    return { granted: true as const };
   },
 
   async recordTownhallTelemetryEvent(): Promise<boolean> {
-    return false;
+    // Always succeed in mock — telemetry is fire-and-forget
+    return true;
   }
 };
