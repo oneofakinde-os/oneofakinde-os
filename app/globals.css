@@ -930,11 +930,14 @@ a {
 .entry-page {
   min-height: 100vh;
   display: grid;
-  place-items: center;
+  gap: clamp(40px, 6vw, 80px);
   padding: clamp(16px, 3vw, 36px);
+  max-width: 960px;
+  margin: 0 auto;
 }
 
 .entry-phone-shell {
+  justify-self: center;
   width: min(100%, 440px);
   min-height: min(90vh, 760px);
   border-radius: 34px;
@@ -1035,6 +1038,133 @@ a {
   display: grid;
   gap: 5px;
   font-size: 0.81rem;
+}
+
+/* ── entry: value proposition ── */
+.entry-value-section {
+  text-align: center;
+}
+
+.entry-value-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+}
+
+.entry-value-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  padding: clamp(16px, 3vw, 28px);
+}
+
+.entry-value-card h3 {
+  margin: 0 0 8px;
+  font-size: 1.1rem;
+  color: var(--accent);
+}
+
+.entry-value-card p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+/* ── entry: featured sections (drops + worlds) ── */
+.entry-featured-section {
+  display: grid;
+  gap: 16px;
+}
+
+.entry-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.entry-section-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: var(--text);
+}
+
+.entry-section-link {
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.entry-featured-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.entry-featured-card {
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  background: var(--panel);
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+
+.entry-featured-card:hover {
+  border-color: var(--accent-2);
+}
+
+.entry-featured-poster-placeholder {
+  width: 100%;
+  height: 180px;
+  display: grid;
+  place-items: center;
+  background: var(--panel-2);
+  color: var(--text-muted);
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.entry-featured-card-body {
+  padding: 12px 14px 16px;
+}
+
+.entry-featured-card-body h3 {
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.entry-featured-meta {
+  margin: 0 0 6px;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.entry-featured-synopsis {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ── entry: footer CTA ── */
+.entry-footer-cta {
+  text-align: center;
+  padding: clamp(20px, 4vw, 48px) 0;
+}
+
+.entry-footer-cta .entry-actions {
+  max-width: 340px;
+  margin: 0 auto;
+}
+
+.entry-footer-cta .entry-tagline {
+  margin-bottom: 12px;
+  font-size: 1.1rem;
 }
 
 .townhall-page {
