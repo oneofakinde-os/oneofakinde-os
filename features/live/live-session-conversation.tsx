@@ -4,7 +4,6 @@ import type { LiveSessionConversationThread } from "@/lib/domain/contracts";
 import { useEventStream } from "@/lib/hooks/use-event-stream";
 import { useSupabaseRealtime } from "@/lib/hooks/use-supabase-realtime";
 import { useCallback, useEffect, useRef, useState } from "react";
-import "./live-chat.css";
 
 type LiveSessionConversationProps = {
   liveSessionId: string;

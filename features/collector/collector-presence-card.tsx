@@ -3,7 +3,6 @@ import { PatronBadge } from "@/features/patron/patron-badge";
 import type { PatronStatus } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
 import Link from "next/link";
-import "./collector-presence.css";
 
 type CollectorPresenceCardProps = {
   handle: string;

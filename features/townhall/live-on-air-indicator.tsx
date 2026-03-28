@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import "./live-on-air-indicator.css";
 
 type LiveSessionEntry = {
   liveSession: {
