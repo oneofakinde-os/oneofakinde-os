@@ -931,6 +931,11 @@ export type WorkshopAnalyticsPanel = {
     payoutRecipients: number;
     missingLedgerReceiptCount: number;
   };
+  resaleRoyalties: {
+    resaleTransactions: number;
+    royaltyGrossUsd: number;
+    royaltyLedgerLineItems: number;
+  };
   freshnessTimestamp: string;
   updatedAt: string;
 };
@@ -954,6 +959,11 @@ export type MyCollectionAnalyticsPanel = {
   totalSpentUsd: number;
   averageCollectPriceUsd: number;
   recentCollectCount30d: number;
+  resaleActivity: {
+    soldCount: number;
+    soldProceedsUsd: number;
+    purchasedViaResaleCount: number;
+  };
   participation: {
     likes: number;
     comments: number;

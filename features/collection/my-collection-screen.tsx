@@ -155,6 +155,20 @@ export function MyCollectionScreen({
           </div>
           <dl className="slice-metadata-grid" style={{ marginTop: 12 }}>
             <div>
+              <dt className="slice-meta">resales sold</dt>
+              <dd className="slice-copy">{analyticsPanel.resaleActivity.soldCount}</dd>
+            </div>
+            <div>
+              <dt className="slice-meta">resale proceeds</dt>
+              <dd className="slice-copy">{formatUsd(analyticsPanel.resaleActivity.soldProceedsUsd)}</dd>
+            </div>
+            <div>
+              <dt className="slice-meta">bought via resale</dt>
+              <dd className="slice-copy">{analyticsPanel.resaleActivity.purchasedViaResaleCount}</dd>
+            </div>
+          </dl>
+          <dl className="slice-metadata-grid" style={{ marginTop: 12 }}>
+            <div>
               <dt className="slice-meta">likes</dt>
               <dd className="slice-copy">{analyticsPanel.participation.likes}</dd>
             </div>

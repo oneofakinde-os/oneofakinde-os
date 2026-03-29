@@ -1234,12 +1234,30 @@ function toWorkshopAnalyticsPanel(db: BffDatabase, account: AccountRecord): Work
   const linkedPayoutLineItems = linkedCollectTransactions.flatMap(
     (transaction) => payoutLineItemsByTransactionId.get(transaction.id) ?? []
   );
+
+  // Resale royalty earnings: find all resale ledger transactions on this creator's drops
+  // where the creator_royalty_resale line item is addressed to this creator
+  const resaleTransactions = db.ledgerTransactions.filter(
+    (entry) => entry.kind === "resale" && entry.dropId !== null && studioDropIds.has(entry.dropId)
+  );
+  const resaleTransactionIds = new Set(resaleTransactions.map((entry) => entry.id));
+  const royaltyLineItems = db.ledgerLineItems.filter(
+    (entry) =>
+      resaleTransactionIds.has(entry.transactionId) &&
+      entry.kind === "creator_royalty_resale" &&
+      entry.recipientAccountId === account.id
+  );
+  const royaltyGrossUsd = clampCurrencyAmount(
+    royaltyLineItems.reduce((sum, entry) => sum + entry.amountUsd, 0)
+  );
+
   const freshnessTimestamp = toLatestTimestamp(
     telemetry.map((entry) => entry.occurredAt).concat(
       completedReceipts.map((receipt) => receipt.purchasedAt),
       studioDrops.map((drop) => drop.releaseDate),
       linkedCollectTransactions.map((transaction) => transaction.createdAt),
-      linkedPayoutLineItems.map((lineItem) => lineItem.createdAt)
+      linkedPayoutLineItems.map((lineItem) => lineItem.createdAt),
+      resaleTransactions.map((entry) => entry.createdAt)
     )
   );
 
@@ -1264,6 +1282,11 @@ function toWorkshopAnalyticsPanel(db: BffDatabase, account: AccountRecord): Work
       payoutLedgerLineItems,
       payoutRecipients: payoutRecipientAccountIds.size,
       missingLedgerReceiptCount
+    },
+    resaleRoyalties: {
+      resaleTransactions: resaleTransactions.length,
+      royaltyGrossUsd,
+      royaltyLedgerLineItems: royaltyLineItems.length
     },
     freshnessTimestamp,
     updatedAt: freshnessTimestamp
@@ -1296,6 +1319,20 @@ function toMyCollectionAnalyticsPanel(
   const shares = db.townhallShares.filter((entry) => entry.accountId === account.id).length;
   const saves = db.savedDrops.filter((entry) => entry.accountId === account.id).length;
 
+  // Resale activity: pieces sold (seller payout addressed to this account) and purchased via resale
+  const sellerPayoutLineItems = db.ledgerLineItems.filter(
+    (entry) =>
+      entry.kind === "seller_payout_resale" &&
+      entry.recipientAccountId === account.id
+  );
+  const soldCount = sellerPayoutLineItems.length;
+  const soldProceedsUsd = clampCurrencyAmount(
+    sellerPayoutLineItems.reduce((sum, entry) => sum + entry.amountUsd, 0)
+  );
+  const purchasedViaResaleCount = db.ledgerTransactions.filter(
+    (entry) => entry.kind === "resale" && entry.accountId === account.id
+  ).length;
+
   return {
     accountHandle: account.handle,
     holdingsCount: ownedDrops.length,
@@ -1303,6 +1340,11 @@ function toMyCollectionAnalyticsPanel(
     totalSpentUsd: Number(totalSpentUsd.toFixed(2)),
     averageCollectPriceUsd,
     recentCollectCount30d,
+    resaleActivity: {
+      soldCount,
+      soldProceedsUsd,
+      purchasedViaResaleCount
+    },
     participation: {
       likes,
       comments,

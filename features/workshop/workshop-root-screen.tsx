@@ -494,6 +494,22 @@ export function WorkshopRootScreen({
             </li>
           </ul>
 
+          <p className="slice-label">resale royalty earnings</p>
+          <ul className="slice-list" aria-label="workshop resale royalty summary">
+            <li>
+              <span>resale transactions on your drops</span>
+              <span>{analyticsPanel.resaleRoyalties.resaleTransactions}</span>
+            </li>
+            <li>
+              <span>royalty income earned</span>
+              <span>{formatUsd(analyticsPanel.resaleRoyalties.royaltyGrossUsd)}</span>
+            </li>
+            <li>
+              <span>royalty ledger line items</span>
+              <span>{analyticsPanel.resaleRoyalties.royaltyLedgerLineItems}</span>
+            </li>
+          </ul>
+
           <p className="slice-meta">
             freshness timestamp: {new Date(analyticsPanel.freshnessTimestamp).toLocaleString()}
           </p>
