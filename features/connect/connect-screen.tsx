@@ -143,7 +143,7 @@ export function ConnectScreen({
     try {
       const payload: Record<string, unknown> = { action };
       if (channel) payload.channel = channel;
-      const response = await fetch(`/api/v1/townhall/posts/${postId}/${action}`, {
+      const response = await fetch(`/api/v1/townhall/posts/${postId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
