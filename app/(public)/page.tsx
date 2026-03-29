@@ -3,9 +3,9 @@ import { gateway } from "@/lib/gateway";
 import { getOptionalSession } from "@/lib/server/session";
 
 export default async function IndexPage() {
-  const [session, drops, worlds] = await Promise.all([
-    getOptionalSession(),
-    gateway.listDrops(),
+  const session = await getOptionalSession();
+  const [drops, worlds] = await Promise.all([
+    gateway.listDrops(session?.accountId ?? null),
     gateway.listWorlds()
   ]);
 
