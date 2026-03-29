@@ -10,7 +10,7 @@ type CollectorPageProps = {
 
 export async function generateMetadata({ params }: CollectorPageProps): Promise<Metadata> {
   const { handle } = await params;
-  const collector = await commerceBffService.getCollectorPublic(handle);
+  const collector = await gateway.getCollectorPublic(handle);
 
   if (!collector) {
     return { title: "collector not found" };
