@@ -26,7 +26,7 @@ export async function generateMetadata({ params }: CollectorPageProps): Promise<
     openGraph: {
       title: collector.displayName,
       description,
-      type: "profile",
+      type: "website",
       ...(collector.avatarUrl ? { images: [{ url: collector.avatarUrl }] } : {}),
     },
   };
