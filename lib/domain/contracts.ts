@@ -60,6 +60,8 @@ export type Drop = {
   visibilitySource?: DropVisibilitySource;
   previewPolicy?: PreviewPolicy;
   releaseAt?: string;
+  /** Per-drop creator royalty override in basis points (100 = 1%). Falls back to platform default when undefined. */
+  resaleRoyaltyBps?: number;
 };
 
 export type MembershipEntitlementStatus = "active" | "expired" | "canceled";
@@ -713,7 +715,12 @@ export type SettlementLineItemKind =
   | "membership_subtotal"
   | "platform_commission_membership"
   | "patron_subtotal"
-  | "platform_commission_patron";
+  | "platform_commission_patron"
+  | "resale_subtotal"
+  | "resale_processing_fee"
+  | "platform_commission_resale"
+  | "creator_royalty_resale"
+  | "seller_payout_resale";
 
 export type SettlementLineItem = {
   id: string;
@@ -726,7 +733,7 @@ export type SettlementLineItem = {
   createdAt: string;
 };
 
-export type SettlementQuoteKind = "collect" | "membership" | "patron";
+export type SettlementQuoteKind = "collect" | "membership" | "patron" | "resale";
 
 export type SettlementQuote = {
   engineVersion: "quote_engine_v1";
@@ -746,7 +753,7 @@ export type SettlementQuote = {
   }>;
 };
 
-export type LedgerTransactionKind = "collect" | "refund" | "membership" | "patron";
+export type LedgerTransactionKind = "collect" | "refund" | "membership" | "patron" | "resale";
 
 export type LedgerTransaction = {
   id: string;
@@ -871,7 +878,7 @@ export type PatronIndicator = {
   committedAt: string;
 };
 
-export type OwnershipHistoryEventKind = "collect" | "refund";
+export type OwnershipHistoryEventKind = "collect" | "refund" | "resale";
 
 export type OwnershipHistoryEntry = {
   id: string;
@@ -924,6 +931,11 @@ export type WorkshopAnalyticsPanel = {
     payoutRecipients: number;
     missingLedgerReceiptCount: number;
   };
+  resaleRoyalties: {
+    resaleTransactions: number;
+    royaltyGrossUsd: number;
+    royaltyLedgerLineItems: number;
+  };
   freshnessTimestamp: string;
   updatedAt: string;
 };
@@ -947,6 +959,11 @@ export type MyCollectionAnalyticsPanel = {
   totalSpentUsd: number;
   averageCollectPriceUsd: number;
   recentCollectCount30d: number;
+  resaleActivity: {
+    soldCount: number;
+    soldProceedsUsd: number;
+    purchasedViaResaleCount: number;
+  };
   participation: {
     likes: number;
     comments: number;
@@ -1286,6 +1303,8 @@ export type NotificationChannel = "in_app" | "email" | "push";
 export type NotificationType =
   | "drop_collected"
   | "receipt_confirmed"
+  | "resale_completed"
+  | "resale_royalty_earned"
   | "comment_reply"
   | "comment_mention"
   | "world_update"

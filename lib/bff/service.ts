@@ -131,7 +131,7 @@ import {
 import { sortDropsForStudioSurface, sortDropsForWorldSurface } from "@/lib/catalog/drop-curation";
 import { applyCollectOfferAction, canApplyCollectOfferAction } from "@/lib/collect/offer-state-machine";
 import { createCheckoutSession, parseStripeWebhook, type ParsedStripeWebhookEvent } from "@/lib/bff/payments";
-import { buildCollectSettlementQuote, buildPatronSettlementQuote } from "@/lib/domain/quote-engine";
+import { buildCollectSettlementQuote, buildPatronSettlementQuote, buildResaleSettlementQuote } from "@/lib/domain/quote-engine";
 import {
   type AuthorizedDerivativeRecord,
   type DropVersionRecord,
@@ -1234,12 +1234,30 @@ function toWorkshopAnalyticsPanel(db: BffDatabase, account: AccountRecord): Work
   const linkedPayoutLineItems = linkedCollectTransactions.flatMap(
     (transaction) => payoutLineItemsByTransactionId.get(transaction.id) ?? []
   );
+
+  // Resale royalty earnings: find all resale ledger transactions on this creator's drops
+  // where the creator_royalty_resale line item is addressed to this creator
+  const resaleTransactions = db.ledgerTransactions.filter(
+    (entry) => entry.kind === "resale" && entry.dropId !== null && studioDropIds.has(entry.dropId)
+  );
+  const resaleTransactionIds = new Set(resaleTransactions.map((entry) => entry.id));
+  const royaltyLineItems = db.ledgerLineItems.filter(
+    (entry) =>
+      resaleTransactionIds.has(entry.transactionId) &&
+      entry.kind === "creator_royalty_resale" &&
+      entry.recipientAccountId === account.id
+  );
+  const royaltyGrossUsd = clampCurrencyAmount(
+    royaltyLineItems.reduce((sum, entry) => sum + entry.amountUsd, 0)
+  );
+
   const freshnessTimestamp = toLatestTimestamp(
     telemetry.map((entry) => entry.occurredAt).concat(
       completedReceipts.map((receipt) => receipt.purchasedAt),
       studioDrops.map((drop) => drop.releaseDate),
       linkedCollectTransactions.map((transaction) => transaction.createdAt),
-      linkedPayoutLineItems.map((lineItem) => lineItem.createdAt)
+      linkedPayoutLineItems.map((lineItem) => lineItem.createdAt),
+      resaleTransactions.map((entry) => entry.createdAt)
     )
   );
 
@@ -1264,6 +1282,11 @@ function toWorkshopAnalyticsPanel(db: BffDatabase, account: AccountRecord): Work
       payoutLedgerLineItems,
       payoutRecipients: payoutRecipientAccountIds.size,
       missingLedgerReceiptCount
+    },
+    resaleRoyalties: {
+      resaleTransactions: resaleTransactions.length,
+      royaltyGrossUsd,
+      royaltyLedgerLineItems: royaltyLineItems.length
     },
     freshnessTimestamp,
     updatedAt: freshnessTimestamp
@@ -1296,6 +1319,20 @@ function toMyCollectionAnalyticsPanel(
   const shares = db.townhallShares.filter((entry) => entry.accountId === account.id).length;
   const saves = db.savedDrops.filter((entry) => entry.accountId === account.id).length;
 
+  // Resale activity: pieces sold (seller payout addressed to this account) and purchased via resale
+  const sellerPayoutLineItems = db.ledgerLineItems.filter(
+    (entry) =>
+      entry.kind === "seller_payout_resale" &&
+      entry.recipientAccountId === account.id
+  );
+  const soldCount = sellerPayoutLineItems.length;
+  const soldProceedsUsd = clampCurrencyAmount(
+    sellerPayoutLineItems.reduce((sum, entry) => sum + entry.amountUsd, 0)
+  );
+  const purchasedViaResaleCount = db.ledgerTransactions.filter(
+    (entry) => entry.kind === "resale" && entry.accountId === account.id
+  ).length;
+
   return {
     accountHandle: account.handle,
     holdingsCount: ownedDrops.length,
@@ -1303,6 +1340,11 @@ function toMyCollectionAnalyticsPanel(
     totalSpentUsd: Number(totalSpentUsd.toFixed(2)),
     averageCollectPriceUsd,
     recentCollectCount30d,
+    resaleActivity: {
+      soldCount,
+      soldProceedsUsd,
+      purchasedViaResaleCount
+    },
     participation: {
       likes,
       comments,
@@ -1662,8 +1704,8 @@ function buildDropOwnershipHistory(db: BffDatabase, dropId: string): DropOwnersh
     (
       entry
     ): entry is LedgerTransactionRecord & {
-      kind: "collect" | "refund";
-    } => entry.dropId === dropId && (entry.kind === "collect" || entry.kind === "refund")
+      kind: "collect" | "refund" | "resale";
+    } => entry.dropId === dropId && (entry.kind === "collect" || entry.kind === "refund" || entry.kind === "resale")
   );
 
   const entries: OwnershipHistoryEntry[] = ownershipTransactions
@@ -1681,7 +1723,11 @@ function buildDropOwnershipHistory(db: BffDatabase, dropId: string): DropOwnersh
         actorHandle: actor?.handle ?? "unknown",
         receiptId: entry.receiptId,
         certificateId: certificate?.id ?? null,
-        publicAmountUsd: resolvePublicLineItemAmountUsd(db, entry.id, "collect_subtotal")
+        publicAmountUsd: resolvePublicLineItemAmountUsd(
+          db,
+          entry.id,
+          entry.kind === "resale" ? "resale_subtotal" : "collect_subtotal"
+        )
       };
     });
 
@@ -10510,6 +10556,145 @@ export const commerceBffService = {
         }
         offer.executionPriceUsd = normalizedExecution;
         offer.executionVisibility = offer.listingType === "resale" ? "private" : "public";
+
+        /* ── resale settlement: quote → ledger → ownership transfer → notifications ── */
+        if (offer.listingType === "resale") {
+          const drop = findDropById(db, offer.dropId);
+          if (drop) {
+            const buyerAccount = findAccountById(db, offer.accountId);
+            const settledAt = new Date().toISOString();
+
+            // Resolve the original creator (royalty recipient) from the drop's studio
+            const creatorAccount = findAccountByHandle(db, drop.studioHandle);
+            const creatorAccountId = creatorAccount?.id ?? null;
+
+            // Resolve the seller: the current owner of the drop (NOT the caller — the
+            // caller is the creator who moderates the settlement)
+            const sellerOwnership = db.ownerships.find(
+              (entry) => entry.dropId === drop.id
+            );
+            if (!sellerOwnership) {
+              return { persist: false, result: null };
+            }
+            const sellerAccountId = sellerOwnership.accountId;
+
+            // Compute the resale quote — honors per-drop royalty override if set
+            const resaleQuote = buildResaleSettlementQuote({
+              executionPriceUsd: normalizedExecution,
+              processingUsd: PROCESSING_FEE_USD,
+              creatorAccountId,
+              sellerAccountId,
+              creatorRoyaltyOverrideBps: drop.resaleRoyaltyBps ?? null
+            });
+
+            // Create a receipt for the buyer
+            const receiptId = `rcpt_${randomUUID()}`;
+            const receipt: PurchaseReceipt = {
+              id: receiptId,
+              accountId: offer.accountId,
+              dropId: drop.id,
+              amountUsd: resaleQuote.totalUsd,
+              subtotalUsd: resaleQuote.subtotalUsd,
+              processingUsd: resaleQuote.processingUsd,
+              commissionUsd: resaleQuote.commissionUsd,
+              payoutUsd: resaleQuote.payoutUsd,
+              quoteEngineVersion: resaleQuote.engineVersion,
+              ledgerTransactionId: null,
+              lineItems: [],
+              status: "completed",
+              purchasedAt: settledAt
+            };
+
+            // Record ledger entries
+            const ledger = appendLedgerEntries(db, {
+              kind: "resale",
+              accountId: offer.accountId,
+              dropId: drop.id,
+              paymentId: null,
+              receiptId,
+              quote: resaleQuote,
+              createdAt: settledAt
+            });
+            receipt.ledgerTransactionId = ledger.transaction.id;
+            receipt.lineItems = ledger.lineItems;
+            db.receipts.unshift(receipt);
+
+            // Transfer ownership: revoke seller's certificate and ownership
+            const sellerOwnershipIndex = db.ownerships.findIndex(
+              (entry) => entry.accountId === sellerAccountId && entry.dropId === drop.id
+            );
+            if (sellerOwnershipIndex >= 0) {
+              db.ownerships.splice(sellerOwnershipIndex, 1);
+            }
+            const sellerCertificate = db.certificates.find(
+              (entry) => entry.ownerAccountId === sellerAccountId && entry.dropId === drop.id && entry.status === "verified"
+            );
+            if (sellerCertificate) {
+              sellerCertificate.status = "revoked";
+            }
+
+            // Issue new certificate and ownership for buyer
+            if (buyerAccount) {
+              const newCertificateId = `cert_${randomUUID()}`;
+              db.certificates.push({
+                id: newCertificateId,
+                dropId: drop.id,
+                dropTitle: drop.title,
+                ownerHandle: buyerAccount.handle,
+                issuedAt: settledAt,
+                receiptId,
+                status: "verified",
+                ownerAccountId: buyerAccount.id
+              });
+              db.ownerships.unshift({
+                accountId: buyerAccount.id,
+                dropId: drop.id,
+                certificateId: newCertificateId,
+                receiptId,
+                acquiredAt: settledAt
+              });
+            }
+
+            // Emit notifications to all ecosystem participants
+            // 1. Seller: your resale completed
+            emitNotification(
+              db,
+              sellerAccountId,
+              "resale_completed",
+              "Resale completed",
+              `Your listing for "${drop.title}" has been sold for $${normalizedExecution.toFixed(2)}.`,
+              `/my-collection`
+            );
+
+            // 2. Buyer: drop collected via resale
+            if (buyerAccount) {
+              emitNotification(
+                db,
+                buyerAccount.id,
+                "drop_collected",
+                "Drop collected",
+                `You acquired "${drop.title}" via resale.`,
+                `/my-collection`
+              );
+            }
+
+            // 3. Creator: royalty earned from resale
+            if (creatorAccountId) {
+              const royaltyLine = resaleQuote.lineItems.find((li) => li.kind === "creator_royalty_resale");
+              const royaltyAmount = royaltyLine?.amountUsd ?? 0;
+              if (royaltyAmount > 0) {
+                emitNotification(
+                  db,
+                  creatorAccountId,
+                  "resale_royalty_earned",
+                  "Royalty earned",
+                  `You earned $${royaltyAmount.toFixed(2)} in royalties from a resale of "${drop.title}".`,
+                  `/workshop`
+                );
+              }
+            }
+          }
+        }
       }
 
       return {

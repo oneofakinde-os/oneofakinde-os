@@ -790,6 +790,11 @@ function getWorkshopAnalyticsPanelForAccount(account: AccountRecord): WorkshopAn
       payoutRecipients: payoutRecipients.size,
       missingLedgerReceiptCount: 0
     },
+    resaleRoyalties: {
+      resaleTransactions: 0,
+      royaltyGrossUsd: 0,
+      royaltyLedgerLineItems: 0
+    },
     freshnessTimestamp,
     updatedAt: freshnessTimestamp
   };
@@ -820,6 +825,11 @@ function getMyCollectionAnalyticsPanelForAccount(account: AccountRecord): MyColl
     totalSpentUsd: Number(totalSpentUsd.toFixed(2)),
     averageCollectPriceUsd,
     recentCollectCount30d,
+    resaleActivity: {
+      soldCount: 0,
+      soldProceedsUsd: 0,
+      purchasedViaResaleCount: 0
+    },
     participation: {
       likes: 0,
       comments: 0,
@@ -2716,6 +2726,15 @@ export const commerceGateway: CommerceGateway = {
       },
       offers: []
     };
+  },
+
+  async transitionCollectOffer(_input: {
+    accountId: string;
+    offerId: string;
+    action: import("@/lib/domain/contracts").CollectOfferAction;
+    executionPriceUsd?: number;
+  }) {
+    return null;
   },
 
   async getCollectInventory(_accountId, lane = "all") {

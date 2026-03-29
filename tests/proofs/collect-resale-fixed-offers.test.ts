@@ -35,6 +35,10 @@ test("proof: fixed resale offers persist and private execution values stay hidde
     await fs.rm(dbPath, { force: true });
   });
 
+  const seller = await commerceBffService.createSession({
+    email: `resale-seller-${randomUUID()}@oneofakinde.test`,
+    role: "collector"
+  });
   const collector = await commerceBffService.createSession({
     email: `resale-collector-${randomUUID()}@oneofakinde.test`,
     role: "collector"
@@ -57,6 +61,10 @@ test("proof: fixed resale offers persist and private execution values stay hidde
   }>(inventoryResponse);
   const resaleDropId = inventoryPayload.listings[0]?.drop.id;
   assert.ok(resaleDropId, "expected resale lane drop");
+
+  // Seller acquires the drop so settlement can resolve an owner
+  const sellerReceipt = await commerceBffService.purchaseDrop(seller.accountId, resaleDropId);
+  assert.ok(sellerReceipt, "seller should own the drop");
 
   const submitResponse = await postCollectDropOffersRoute(
     new Request(`http://127.0.0.1:3000/api/v1/collect/offers/${resaleDropId}`, {

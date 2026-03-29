@@ -430,6 +430,15 @@ const metadataCases = [
     ]
   },
   {
+    "pathname": "/workshop/offers",
+    "surfaceKey": "workshop_offers",
+    "publicSafe": "false",
+    "hasSession": true,
+    "sessionRoles": [
+      "creator"
+    ]
+  },
+  {
     "pathname": "/worlds/id-sample/membership",
     "surfaceKey": "world_membership",
     "publicSafe": "false",
@@ -748,6 +757,9 @@ const sessionCases = [
     "pathname": "/workshop/moderation"
   },
   {
+    "pathname": "/workshop/offers"
+  },
+  {
     "pathname": "/worlds/id-sample/membership"
   },
   {
@@ -887,6 +899,13 @@ const roleRequiredCases = [
   },
   {
     "pathname": "/workshop/moderation",
+    "allowedRoles": [
+      "creator"
+    ],
+    "disallowedRole": "collector"
+  },
+  {
+    "pathname": "/workshop/offers",
     "allowedRoles": [
       "creator"
     ],
@@ -1071,6 +1090,9 @@ const proofSessionCases = [
   },
   {
     "pathname": "/workshop/moderation"
+  },
+  {
+    "pathname": "/workshop/offers"
   },
   {
     "pathname": "/worlds/id-sample/membership"

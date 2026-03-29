@@ -150,6 +150,9 @@ export function WorkshopRootScreen({
           <Link href={routes.townhall()} className="slice-button alt">
             open townhall
           </Link>
+          <Link href={routes.workshopOffers()} className="slice-button alt">
+            manage offers
+          </Link>
         </div>
       </section>
 
@@ -488,6 +491,22 @@ export function WorkshopRootScreen({
             <li>
               <span>missing ledger receipt links</span>
               <span>{analyticsPanel.payouts.missingLedgerReceiptCount}</span>
+            </li>
+          </ul>
+
+          <p className="slice-label">resale royalty earnings</p>
+          <ul className="slice-list" aria-label="workshop resale royalty summary">
+            <li>
+              <span>resale transactions on your drops</span>
+              <span>{analyticsPanel.resaleRoyalties.resaleTransactions}</span>
+            </li>
+            <li>
+              <span>royalty income earned</span>
+              <span>{formatUsd(analyticsPanel.resaleRoyalties.royaltyGrossUsd)}</span>
+            </li>
+            <li>
+              <span>royalty ledger line items</span>
+              <span>{analyticsPanel.resaleRoyalties.royaltyLedgerLineItems}</span>
             </li>
           </ul>
 

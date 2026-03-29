@@ -27,6 +27,11 @@ function toWorkshopPanelPayload(panel: WorkshopAnalyticsPanel): WorkshopAnalytic
       payoutRecipients: panel.payouts.payoutRecipients,
       missingLedgerReceiptCount: panel.payouts.missingLedgerReceiptCount
     },
+    resaleRoyalties: {
+      resaleTransactions: panel.resaleRoyalties.resaleTransactions,
+      royaltyGrossUsd: panel.resaleRoyalties.royaltyGrossUsd,
+      royaltyLedgerLineItems: panel.resaleRoyalties.royaltyLedgerLineItems
+    },
     freshnessTimestamp: panel.freshnessTimestamp,
     updatedAt: panel.updatedAt
   };
