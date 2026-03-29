@@ -11,6 +11,8 @@ export type QuoteEngineConfig = {
   collectCommissionCapCents: number | null;
   membershipCommissionFlatCents: number;
   patronCommissionFlatCents: number;
+  resaleCommissionRateBps: number;
+  resaleCreatorRoyaltyRateBps: number;
 };
 
 export type BuildCollectQuoteInput = {
@@ -176,6 +178,14 @@ export function resolveQuoteEngineConfigFromEnv(): QuoteEngineConfig {
     patronCommissionFlatCents: parsePositiveInt(
       process.env.OOK_PATRON_COMMISSION_FLAT_CENTS,
       50
+    ),
+    resaleCommissionRateBps: parsePositiveInt(
+      process.env.OOK_RESALE_COMMISSION_RATE_BPS,
+      250
+    ),
+    resaleCreatorRoyaltyRateBps: parsePositiveInt(
+      process.env.OOK_RESALE_CREATOR_ROYALTY_RATE_BPS,
+      1000
     )
   };
 }
@@ -265,6 +275,62 @@ export function buildPatronSettlementQuote(
     lineItems: [
       buildLineItem("patron_subtotal", normalizedSubtotal, "public", null),
       buildLineItem("platform_commission_patron", commissionUsd, "internal", null)
+    ]
+  };
+}
+
+/* ── resale settlement ─────────────────────────────────────────────── */
+
+export type BuildResaleQuoteInput = {
+  /** The agreed execution price of the resale */
+  executionPriceUsd: number;
+  processingUsd: number;
+  currency?: "USD";
+  /** The original creator's account ID — receives the royalty */
+  creatorAccountId: string | null;
+  /** The selling collector's account ID — receives the seller payout */
+  sellerAccountId: string | null;
+  /** Optional per-drop royalty override in basis points (100 = 1%) */
+  creatorRoyaltyOverrideBps?: number | null;
+};
+
+export function buildResaleSettlementQuote(
+  input: BuildResaleQuoteInput,
+  config = resolveQuoteEngineConfigFromEnv()
+): SettlementQuote {
+  const subtotalUsd = ensureAmount(input.executionPriceUsd);
+  const processingUsd = ensureAmount(input.processingUsd);
+  const currency = input.currency ?? "USD";
+
+  // Platform commission on resale (default 2.5%)
+  const commissionUsd = roundUsd(subtotalUsd * (config.resaleCommissionRateBps / 10_000));
+
+  // Creator royalty on resale (default 10%, overridable per-drop)
+  const royaltyBps = input.creatorRoyaltyOverrideBps ?? config.resaleCreatorRoyaltyRateBps;
+  const royaltyUsd = roundUsd(subtotalUsd * (royaltyBps / 10_000));
+
+  // Seller gets the rest: subtotal - commission - royalty
+  const sellerPayoutUsd = roundUsd(Math.max(0, subtotalUsd - commissionUsd - royaltyUsd));
+  const totalUsd = roundUsd(subtotalUsd + processingUsd);
+
+  // payoutUsd in SettlementQuote = total distributed (royalty + seller)
+  const payoutUsd = roundUsd(royaltyUsd + sellerPayoutUsd);
+
+  return {
+    engineVersion: QUOTE_ENGINE_VERSION,
+    quoteKind: "resale",
+    subtotalUsd,
+    processingUsd,
+    totalUsd,
+    commissionUsd,
+    payoutUsd,
+    currency,
+    lineItems: [
+      buildLineItem("resale_subtotal", subtotalUsd, "public", null),
+      buildLineItem("resale_processing_fee", processingUsd, "public", null),
+      buildLineItem("platform_commission_resale", commissionUsd, "internal", null),
+      buildLineItem("creator_royalty_resale", royaltyUsd, "participant_private", input.creatorAccountId),
+      buildLineItem("seller_payout_resale", sellerPayoutUsd, "participant_private", input.sellerAccountId)
     ]
   };
 }
