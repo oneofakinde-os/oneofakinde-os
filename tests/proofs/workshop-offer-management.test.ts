@@ -111,6 +111,10 @@ test("proof: transitionCollectOffer on gateway port accepts and settles offers",
     email: "oneofakinde@oneofakinde.test",
     role: "creator"
   });
+  const seller = await commerceBffService.createSession({
+    email: `seller-${randomUUID()}@oneofakinde.test`,
+    role: "collector"
+  });
   const buyer = await commerceBffService.createSession({
     email: `buyer-${randomUUID()}@oneofakinde.test`,
     role: "collector"
@@ -127,6 +131,10 @@ test("proof: transitionCollectOffer on gateway port accepts and settles offers",
   }>(inventoryResponse);
   const resaleDrop = inventory.listings[0];
   assert.ok(resaleDrop);
+
+  // Seller acquires the drop first (so settlement has an owner to resolve)
+  const sellerReceipt = await commerceBffService.purchaseDrop(seller.accountId, resaleDrop.drop.id);
+  assert.ok(sellerReceipt, "seller should acquire the drop");
 
   // Submit offer via API
   await postCollectDropOffersRoute(

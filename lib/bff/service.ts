@@ -1723,7 +1723,11 @@ function buildDropOwnershipHistory(db: BffDatabase, dropId: string): DropOwnersh
         actorHandle: actor?.handle ?? "unknown",
         receiptId: entry.receiptId,
         certificateId: certificate?.id ?? null,
-        publicAmountUsd: resolvePublicLineItemAmountUsd(db, entry.id, "collect_subtotal")
+        publicAmountUsd: resolvePublicLineItemAmountUsd(
+          db,
+          entry.id,
+          entry.kind === "resale" ? "resale_subtotal" : "collect_subtotal"
+        )
       };
     });
 
@@ -10569,7 +10573,10 @@ export const commerceBffService = {
             const sellerOwnership = db.ownerships.find(
               (entry) => entry.dropId === drop.id
             );
-            const sellerAccountId = sellerOwnership?.accountId ?? account.id;
+            if (!sellerOwnership) {
+              return { persist: false, result: null };
+            }
+            const sellerAccountId = sellerOwnership.accountId;
 
             // Compute the resale quote — honors per-drop royalty override if set
             const resaleQuote = buildResaleSettlementQuote({
