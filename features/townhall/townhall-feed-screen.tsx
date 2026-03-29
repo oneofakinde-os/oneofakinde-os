@@ -46,7 +46,6 @@ import {
   SendIcon
 } from "./townhall-icons";
 import { ShowroomFeaturedRail } from "./showroom-featured-rail";
-import "./showroom-featured-rail.css";
 
 type TownhallFeedScreenProps = {
   mode: TownhallSurfaceMode;

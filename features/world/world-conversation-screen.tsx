@@ -10,7 +10,6 @@ import type {
 import { routes } from "@/lib/routes";
 import Link from "next/link";
 import { useCallback, useState } from "react";
-import "./world-conversation.css";
 
 type WorldConversationScreenProps = {
   world: World;
