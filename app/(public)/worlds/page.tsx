@@ -5,7 +5,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "worlds",
-  description: "explore curated worlds — collections of drops from independent studios on oneofakinde.",
+  description: "explore curated worlds — series of drops from independent studios on oneofakinde.",
 };
 
 export default async function WorldsPage() {
