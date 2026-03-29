@@ -150,6 +150,9 @@ export function WorkshopRootScreen({
           <Link href={routes.townhall()} className="slice-button alt">
             open townhall
           </Link>
+          <Link href={routes.workshopOffers()} className="slice-button alt">
+            manage offers
+          </Link>
         </div>
       </section>
 

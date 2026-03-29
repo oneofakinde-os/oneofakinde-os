@@ -6,6 +6,7 @@ import type {
   CollectLiveSessionSnapshot,
   CollectMarketLane,
   CollectOffer,
+  CollectOfferAction,
   CollectorPublicProfile,
   CheckoutSession,
   CheckoutPreview,
@@ -213,6 +214,12 @@ export interface CommerceGateway {
     dropId: string,
     accountId: string | null
   ): Promise<{ listing: CollectInventoryListing; offers: CollectOffer[] } | null>;
+  transitionCollectOffer(input: {
+    accountId: string;
+    offerId: string;
+    action: CollectOfferAction;
+    executionPriceUsd?: number;
+  }): Promise<{ listing: CollectInventoryListing; offers: CollectOffer[] } | null>;
   getCollectInventory(
     accountId: string | null,
     lane?: CollectMarketLane

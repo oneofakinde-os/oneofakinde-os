@@ -2718,6 +2718,15 @@ export const commerceGateway: CommerceGateway = {
     };
   },
 
+  async transitionCollectOffer(_input: {
+    accountId: string;
+    offerId: string;
+    action: import("@/lib/domain/contracts").CollectOfferAction;
+    executionPriceUsd?: number;
+  }) {
+    return null;
+  },
+
   async getCollectInventory(_accountId, lane = "all") {
     const listings = [...store.drops.values()]
       .filter((drop) => drop.visibility === "public")

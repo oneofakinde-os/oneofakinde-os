@@ -6,6 +6,7 @@ import type {
   CollectLiveSessionSnapshot,
   CollectMarketLane,
   CollectOffer,
+  CollectOfferAction,
   CollectorPublicProfile,
   CheckoutSession,
   CheckoutPreview,
@@ -945,6 +946,31 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
         options,
         `/api/v1/collect/offers/${encodeURIComponent(dropId)}`,
         { method: "GET" }
+      );
+      if (!response.ok || !response.payload) return null;
+      return { listing: response.payload.listing, offers: response.payload.offers };
+    },
+
+    async transitionCollectOffer(input: {
+      accountId: string;
+      offerId: string;
+      action: CollectOfferAction;
+      executionPriceUsd?: number;
+    }): Promise<{ listing: CollectInventoryListing; offers: CollectOffer[] } | null> {
+      const response = await requestJson<{
+        listing: CollectInventoryListing;
+        offers: CollectOffer[];
+      }>(
+        options,
+        `/api/v1/collect/offers/_transition`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            offerId: input.offerId,
+            action: input.action,
+            executionPriceUsd: input.executionPriceUsd
+          })
+        }
       );
       if (!response.ok || !response.payload) return null;
       return { listing: response.payload.listing, offers: response.payload.offers };
