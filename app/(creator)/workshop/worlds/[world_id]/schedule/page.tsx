@@ -12,7 +12,7 @@ type WorldSchedulePageProps = {
 export default async function WorldSchedulePage({ params }: WorldSchedulePageProps) {
   const { world_id } = await params;
   const session = await requireSessionRoles(
-    routes.signIn(routes.workshopWorldSchedule(world_id)),
+    routes.workshopWorldSchedule(world_id),
     ["creator"]
   );
 

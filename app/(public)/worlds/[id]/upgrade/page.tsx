@@ -12,7 +12,7 @@ type WorldUpgradePageProps = {
 
 export default async function WorldUpgradePage({ params }: WorldUpgradePageProps) {
   const { id } = await params;
-  const session = await requireSession(routes.signIn(routes.worldUpgrade(id)));
+  const session = await requireSession(routes.worldUpgrade(id));
   const world = await gateway.getWorldById(id);
 
   if (!world) {
@@ -69,7 +69,7 @@ export default async function WorldUpgradePage({ params }: WorldUpgradePageProps
                   {entry.upgradePreview.eligible && (
                     <div className="slice-button-row">
                       <Link
-                        href={routes.collectDrop(world.id)}
+                        href={`${routes.world(id)}?action=upgrade&bundle=${encodeURIComponent(entry.bundle.bundleType)}` as import("next").Route}
                         className="slice-button"
                       >
                         upgrade to {entry.bundle.bundleType.replaceAll("_", " ")}
