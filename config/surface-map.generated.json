@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-29T03:25:54.986Z",
+  "generated_at": "2026-03-29T18:16:31.929Z",
   "source_path": "config/surface-map.source.txt",
   "source_metadata": {
     "format": "lintable_txt_v1",
@@ -2486,6 +2486,51 @@
         "p_no_leaks_ci"
       ],
       "rules": []
+    },
+    {
+      "route": "/workshop/worlds/:world_id/schedule",
+      "legacy_routes": [],
+      "surface_key": "workshop_release_queue",
+      "ui_title": "schedule",
+      "ui_nouns": [
+        "workshop",
+        "world",
+        "drop"
+      ],
+      "lint_targets": [
+        "nav",
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "studio"
+      ],
+      "public_safe": false,
+      "contract_deps": [],
+      "proof_ids": [],
+      "rules": []
+    },
+    {
+      "route": "/worlds/:id/upgrade",
+      "legacy_routes": [],
+      "surface_key": "world_collect_upgrade",
+      "ui_title": "collect",
+      "ui_nouns": [
+        "world",
+        "collect"
+      ],
+      "lint_targets": [
+        "nav",
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "collector"
+      ],
+      "public_safe": true,
+      "contract_deps": [],
+      "proof_ids": [],
+      "rules": []
     }
   ],
   "enforcement_checklist": {
@@ -2500,9 +2545,7 @@
       "honor exceptions.by_route and exceptions.by_context",
       "no free-text notes; add any new logic as structured rules",
       "collector_public",
-      "respect_visibility",
-      "/workshop/worlds/:world_id/schedule",
-      "/worlds/:world_id/upgrade"
+      "respect_visibility"
     ]
   },
   "legacy_redirects": {
@@ -2617,7 +2660,8 @@
     "/showroom/read",
     "/showroom/photos",
     "/showroom/live",
-    "/showroom/search"
+    "/showroom/search",
+    "/worlds/:id/upgrade"
   ],
   "canon_dependencies": [
     "canon_badges",
@@ -2628,8 +2672,8 @@
     "canon_payments_stripe"
   ],
   "stats": {
-    "route_count": 74,
-    "public_safe_count": 43,
+    "route_count": 76,
+    "public_safe_count": 44,
     "session_required_count": 31,
     "legacy_redirect_count": 34
   }

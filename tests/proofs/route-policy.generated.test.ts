@@ -720,6 +720,22 @@ const metadataCases = [
     "publicSafe": "true",
     "hasSession": false,
     "sessionRoles": []
+  },
+  {
+    "pathname": "/workshop/worlds/world_id-sample/schedule",
+    "surfaceKey": "workshop_release_queue",
+    "publicSafe": "false",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
+    "pathname": "/worlds/id-sample/upgrade",
+    "surfaceKey": "world_collect_upgrade",
+    "publicSafe": "true",
+    "hasSession": true,
+    "sessionRoles": [
+      "collector"
+    ]
   }
 ] as const;
 const sessionCases = [
@@ -1055,6 +1071,13 @@ const roleRequiredCases = [
       "creator"
     ],
     "disallowedRole": "collector"
+  },
+  {
+    "pathname": "/worlds/id-sample/upgrade",
+    "allowedRoles": [
+      "collector"
+    ],
+    "disallowedRole": "creator"
   }
 ] as const;
 const proofSessionCases = [

@@ -988,6 +988,23 @@ surfaces:
     public_safe: true
     contract_deps: ["openapi_v1.search", "schema_v1.catalog", "canon_no_leaks_scan"]
     proof_ids: ["p_no_leaks_ci"]
+
+- route: "/workshop/worlds/:world_id/schedule"
+  surface_key: "workshop_release_queue"
+  ui_title: "schedule"
+  ui_nouns: ["workshop", "world", "drop"]
+  lint_targets: ["nav", "h1", "metadata_labels"]
+  roles: ["studio"]
+  public_safe: false
+
+- route: "/worlds/:id/upgrade"
+  surface_key: "world_collect_upgrade"
+  ui_title: "collect"
+  ui_nouns: ["world", "collect"]
+  lint_targets: ["nav", "h1", "metadata_labels"]
+  roles: ["collector"]
+  public_safe: true
+
 enforcement_checklist:
   designers:
     - "ui_title must be used exactly as written for the surface key"
@@ -1011,26 +1028,6 @@ enforcement_checklist:
   rules:
     - kind: "respect_visibility"
       fields: ["profile_visibility", "ownership_visibility"]
-
-⸻
-
-surfaces (v2.0 additions)
-
-- route: "/workshop/worlds/:world_id/schedule"
-  surface_key: "workshop_release_queue"
-  ui_title: "schedule"
-  ui_nouns: ["workshop", "world", "drop"]
-  lint_targets: ["nav", "h1", "metadata_labels"]
-  roles: ["studio"]
-  public_safe: false
-
-- route: "/worlds/:world_id/upgrade"
-  surface_key: "world_collect_upgrade"
-  ui_title: "collect"
-  ui_nouns: ["world", "collect"]
-  lint_targets: ["nav", "h1", "metadata_labels"]
-  roles: ["collector"]
-  public_safe: true
 
 ⸻
 
