@@ -1,7 +1,13 @@
 import { MyCollectionScreen } from "@/features/collection/my-collection-screen";
 import { gateway } from "@/lib/gateway";
 import { requireSession } from "@/lib/server/session";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+
+export const metadata: Metadata = {
+  title: "my collection",
+  description: "your collected drops and ownership history on oneofakinde.",
+};
 
 type MyCollectionPageProps = {
   searchParams: Promise<{

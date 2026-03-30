@@ -4,7 +4,13 @@ import {
   parseTownhallFeedFocusPosition,
   townhallFeedFocusQueryKeys
 } from "@/lib/townhall/feed-focus";
+import type { Metadata } from "next";
 import { loadTownhallFeedContext } from "./load-feed-context";
+
+export const metadata: Metadata = {
+  title: "showroom",
+  description: "browse the latest drops from independent studios on oneofakinde.",
+};
 
 type ShowroomPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;

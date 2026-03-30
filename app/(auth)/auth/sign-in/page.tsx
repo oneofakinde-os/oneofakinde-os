@@ -2,8 +2,13 @@ import { SocialAuthButtons } from "@/features/auth/social-auth-buttons";
 import { normalizeReturnTo } from "@/lib/session";
 import { routes } from "@/lib/routes";
 import { buildDefaultEntryFlow, extractFinalReturnTo } from "@/lib/system-flow";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { signInAction } from "./actions";
+
+export const metadata: Metadata = {
+  title: "sign in",
+};
 
 type SignInPageProps = {
   searchParams: Promise<{
