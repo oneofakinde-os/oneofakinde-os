@@ -1,12 +1,15 @@
 "use client";
 
 import { formatUsd } from "@/features/shared/format";
-import { useState } from "react";
+import { previewResalePayout } from "@/lib/collect/resale-economics";
+import { useState, useMemo } from "react";
 
 type ResaleListingFormProps = {
   dropId: string;
   dropTitle: string;
   originalPriceUsd: number;
+  resaleRoyaltyBps?: number | null;
+  studioHandle?: string;
 };
 
 type FormState = "idle" | "submitting" | "success" | "error";
@@ -14,7 +17,9 @@ type FormState = "idle" | "submitting" | "success" | "error";
 export function ResaleListingForm({
   dropId,
   dropTitle,
-  originalPriceUsd
+  originalPriceUsd,
+  resaleRoyaltyBps,
+  studioHandle
 }: ResaleListingFormProps) {
   const [askingPrice, setAskingPrice] = useState("");
   const [formState, setFormState] = useState<FormState>("idle");
@@ -22,6 +27,12 @@ export function ResaleListingForm({
 
   const suggestedMin = originalPriceUsd;
   const suggestedMax = Number((originalPriceUsd * 1.5).toFixed(2));
+
+  const payoutPreview = useMemo(() => {
+    const parsed = Number(askingPrice);
+    if (!Number.isFinite(parsed) || parsed <= 0) return null;
+    return previewResalePayout(parsed, resaleRoyaltyBps);
+  }, [askingPrice, resaleRoyaltyBps]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -98,6 +109,20 @@ export function ResaleListingForm({
           disabled={formState === "submitting"}
           required
         />
+
+        {/* ── Payout preview ── */}
+        {payoutPreview && (
+          <dl className="slice-dl" data-testid="resale-payout-preview" style={{ marginTop: 8 }}>
+            <dt>creator royalty ({payoutPreview.royaltyRatePercent}%{studioHandle ? ` to @${studioHandle}` : ""})</dt>
+            <dd>{formatUsd(payoutPreview.creatorRoyaltyUsd)}</dd>
+            <dt>platform fee ({payoutPreview.commissionRatePercent}%)</dt>
+            <dd>{formatUsd(payoutPreview.platformCommissionUsd)}</dd>
+            <dt>processing fee</dt>
+            <dd>{formatUsd(payoutPreview.processingFeeUsd)}</dd>
+            <dt><strong>your estimated payout</strong></dt>
+            <dd><strong>{formatUsd(payoutPreview.sellerPayoutUsd)}</strong></dd>
+          </dl>
+        )}
 
         {formState === "error" && errorMessage ? (
           <p className="slice-error" role="alert">

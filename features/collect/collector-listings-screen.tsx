@@ -2,6 +2,7 @@
 
 import { formatUsd } from "@/features/shared/format";
 import { WithdrawListingButton } from "@/features/collect/withdraw-listing-button";
+import { previewResalePayout } from "@/lib/collect/resale-economics";
 import type { CollectorListingSnapshot, Session } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
 import Link from "next/link";
@@ -167,12 +168,21 @@ export function CollectorListingsScreen({
                       <dd>{formatDate(listing.offer.expiresAt)}</dd>
                     </>
                   )}
-                  {listing.offer.executionPriceUsd !== null && (
-                    <>
-                      <dt>final price</dt>
-                      <dd>{formatUsd(listing.offer.executionPriceUsd)}</dd>
-                    </>
-                  )}
+                  {listing.offer.executionPriceUsd !== null && (() => {
+                    const payout = previewResalePayout(listing.offer.executionPriceUsd);
+                    return (
+                      <>
+                        <dt>final price</dt>
+                        <dd>{formatUsd(listing.offer.executionPriceUsd)}</dd>
+                        <dt>creator royalty ({payout.royaltyRatePercent}%)</dt>
+                        <dd>{formatUsd(payout.creatorRoyaltyUsd)}</dd>
+                        <dt>platform fee ({payout.commissionRatePercent}%)</dt>
+                        <dd>{formatUsd(payout.platformCommissionUsd)}</dd>
+                        <dt><strong>your payout</strong></dt>
+                        <dd><strong>{formatUsd(payout.sellerPayoutUsd)}</strong></dd>
+                      </>
+                    );
+                  })()}
                 </dl>
 
                 <div className="slice-button-row" style={{ marginTop: 10 }}>

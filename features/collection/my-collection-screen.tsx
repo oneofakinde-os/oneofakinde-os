@@ -291,6 +291,8 @@ export function MyCollectionScreen({
                     dropId={owned.drop.id}
                     dropTitle={owned.drop.title}
                     originalPriceUsd={owned.drop.priceUsd}
+                    resaleRoyaltyBps={owned.drop.resaleRoyaltyBps}
+                    studioHandle={owned.drop.studioHandle}
                   />
                 </>
               );
