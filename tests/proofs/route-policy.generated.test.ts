@@ -364,6 +364,22 @@ const metadataCases = [
     ]
   },
   {
+    "pathname": "/collect/listings",
+    "surfaceKey": "collector_listings",
+    "publicSafe": "false",
+    "hasSession": true,
+    "sessionRoles": [
+      "collector"
+    ]
+  },
+  {
+    "pathname": "/collect/listings/listing_id-sample",
+    "surfaceKey": "listing_detail",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
     "pathname": "/collect/drop_id-sample",
     "surfaceKey": "collect_drop",
     "publicSafe": "false",
@@ -412,13 +428,6 @@ const metadataCases = [
     "sessionRoles": [
       "creator"
     ]
-  },
-  {
-    "pathname": "/collect/listings/listing_id-sample",
-    "surfaceKey": "listing_detail",
-    "publicSafe": "true",
-    "hasSession": false,
-    "sessionRoles": []
   },
   {
     "pathname": "/workshop/moderation",
@@ -758,6 +767,9 @@ const sessionCases = [
     "pathname": "/drops/id-sample/photos"
   },
   {
+    "pathname": "/collect/listings"
+  },
+  {
     "pathname": "/collect/drop_id-sample"
   },
   {
@@ -881,6 +893,13 @@ const roleRequiredCases = [
       "creator"
     ],
     "disallowedRole": null
+  },
+  {
+    "pathname": "/collect/listings",
+    "allowedRoles": [
+      "collector"
+    ],
+    "disallowedRole": "creator"
   },
   {
     "pathname": "/collect/drop_id-sample",
@@ -1100,6 +1119,9 @@ const proofSessionCases = [
     "pathname": "/drops/id-sample/photos"
   },
   {
+    "pathname": "/collect/listings"
+  },
+  {
     "pathname": "/collect/drop_id-sample"
   },
   {
@@ -1195,10 +1217,10 @@ const proofPublicSafeCases = [
     "pathname": "/drops/id-sample/preview/photos"
   },
   {
-    "pathname": "/certificates/cert_id-sample"
+    "pathname": "/collect/listings/listing_id-sample"
   },
   {
-    "pathname": "/collect/listings/listing_id-sample"
+    "pathname": "/certificates/cert_id-sample"
   },
   {
     "pathname": "/townhall"

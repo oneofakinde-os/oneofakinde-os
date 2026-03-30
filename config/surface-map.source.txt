@@ -470,6 +470,28 @@ surfaces:
   # -------------------------------------------------------------------
   # 8) money moments (hosted checkout; webhook-only mint trigger)
   # -------------------------------------------------------------------
+  - route: "/collect/listings"
+    legacy_routes: []
+    surface_key: "collector_listings"
+    ui_title: "my listings"
+    ui_nouns: ["listing", "offer", "resale"]
+    lint_targets: ["h1", "metadata_labels"]
+    roles: ["collector"]
+    public_safe: false
+    contract_deps: ["openapi_v1.session", "openapi_v1.collect"]
+    proof_ids: ["p_session_required"]
+
+  - route: "/collect/listings/:listing_id"
+    legacy_routes: []
+    surface_key: "listing_detail"
+    ui_title: "listing detail"
+    ui_nouns: ["listing", "drop", "offer"]
+    lint_targets: ["h1", "metadata_labels"]
+    roles: ["public", "collector", "creator"]
+    public_safe: true
+    contract_deps: ["openapi_v1.catalog", "openapi_v1.collect"]
+    proof_ids: ["p_public_safe_render"]
+
   - route: "/collect/:drop_id"
     legacy_routes: ["/pay/buy/:drop_id", "/pay/buy/:asset_id"]
     surface_key: "collect_drop"
@@ -562,28 +584,6 @@ surfaces:
       - kind: "ban_terms"
         terms: ["studio"]  # when meaning making suite
         replace_with: "workshop"
-
-  - route: "/collect/listings"
-    legacy_routes: []
-    surface_key: "collector_listings"
-    ui_title: "my listings"
-    ui_nouns: ["listing", "offer", "resale"]
-    lint_targets: ["h1", "metadata_labels"]
-    roles: ["collector"]
-    public_safe: false
-    contract_deps: ["openapi_v1.session", "openapi_v1.collect"]
-    proof_ids: ["p_session_required"]
-
-  - route: "/collect/listings/:listing_id"
-    legacy_routes: []
-    surface_key: "listing_detail"
-    ui_title: "listing detail"
-    ui_nouns: ["listing", "drop", "offer"]
-    lint_targets: ["h1", "metadata_labels"]
-    roles: ["public", "collector", "creator"]
-    public_safe: true
-    contract_deps: ["openapi_v1.catalog", "openapi_v1.collect"]
-    proof_ids: ["p_public_safe_render"]
 
   - route: "/workshop/moderation"
     legacy_routes: []
