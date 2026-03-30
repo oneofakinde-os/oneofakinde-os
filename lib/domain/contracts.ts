@@ -609,6 +609,14 @@ export type CollectInventoryListing = {
   latestOfferState: CollectOfferState;
 };
 
+export type CollectorListingSnapshot = {
+  offer: CollectOffer;
+  dropTitle: string;
+  dropId: string;
+  studioHandle: string;
+  originalPriceUsd: number;
+};
+
 export type WorldCollectBundleType = "current_only" | "season_pass_window" | "full_world";
 
 export type WorldCollectBundleEligibilityRule = "public" | "membership_active";

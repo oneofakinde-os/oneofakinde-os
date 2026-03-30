@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-29T18:16:31.929Z",
+  "generated_at": "2026-03-30T22:31:30.941Z",
   "source_path": "config/surface-map.source.txt",
   "source_metadata": {
     "format": "lintable_txt_v1",
@@ -1170,6 +1170,62 @@
       "rules": []
     },
     {
+      "route": "/collect/listings",
+      "legacy_routes": [],
+      "surface_key": "collector_listings",
+      "ui_title": "my listings",
+      "ui_nouns": [
+        "listing",
+        "offer",
+        "resale"
+      ],
+      "lint_targets": [
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "collector"
+      ],
+      "public_safe": false,
+      "contract_deps": [
+        "openapi_v1.session",
+        "openapi_v1.collect"
+      ],
+      "proof_ids": [
+        "p_session_required"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/collect/listings/:listing_id",
+      "legacy_routes": [],
+      "surface_key": "listing_detail",
+      "ui_title": "listing detail",
+      "ui_nouns": [
+        "listing",
+        "drop",
+        "offer"
+      ],
+      "lint_targets": [
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.catalog",
+        "openapi_v1.collect"
+      ],
+      "proof_ids": [
+        "p_public_safe_render"
+      ],
+      "rules": []
+    },
+    {
       "route": "/collect/:drop_id",
       "legacy_routes": [
         "/pay/buy/:drop_id",
@@ -1400,35 +1456,6 @@
           "replace_with": "workshop"
         }
       ]
-    },
-    {
-      "route": "/collect/listings/:listing_id",
-      "legacy_routes": [],
-      "surface_key": "listing_detail",
-      "ui_title": "listing detail",
-      "ui_nouns": [
-        "listing",
-        "drop",
-        "offer"
-      ],
-      "lint_targets": [
-        "h1",
-        "metadata_labels"
-      ],
-      "roles": [
-        "public",
-        "collector",
-        "creator"
-      ],
-      "public_safe": true,
-      "contract_deps": [
-        "openapi_v1.catalog",
-        "openapi_v1.collect"
-      ],
-      "proof_ids": [
-        "p_public_safe_render"
-      ],
-      "rules": []
     },
     {
       "route": "/workshop/moderation",
@@ -2591,6 +2618,7 @@
     "/drops/:id/listen",
     "/drops/:id/read",
     "/drops/:id/photos",
+    "/collect/listings",
     "/collect/:drop_id",
     "/my-collection",
     "/library",
@@ -2642,9 +2670,9 @@
     "/drops/:id/thread",
     "/drops/:id/preview",
     "/drops/:id/preview/photos",
+    "/collect/listings/:listing_id",
     "/certificates/:cert_id",
     "/badges/:badge_id",
-    "/collect/listings/:listing_id",
     "/auth/wallet-connect",
     "/photos",
     "/townhall",
@@ -2672,9 +2700,9 @@
     "canon_payments_stripe"
   ],
   "stats": {
-    "route_count": 76,
+    "route_count": 77,
     "public_safe_count": 44,
-    "session_required_count": 31,
+    "session_required_count": 32,
     "legacy_redirect_count": 34
   }
 }

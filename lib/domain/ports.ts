@@ -3,6 +3,7 @@ import type {
   CaptureWorkshopLiveSessionArtifactInput,
   Certificate,
   CollectInventoryListing,
+  CollectorListingSnapshot,
   CollectLiveSessionSnapshot,
   CollectMarketLane,
   CollectOffer,
@@ -213,6 +214,7 @@ export interface CommerceGateway {
 
   /* ── collect & commerce read models ── */
   getDropOwnershipHistory(dropId: string): Promise<DropOwnershipHistory | null>;
+  listCollectorOffers(accountId: string): Promise<CollectorListingSnapshot[]>;
   getCollectDropOffers(
     dropId: string,
     accountId: string | null

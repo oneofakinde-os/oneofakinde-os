@@ -43,6 +43,7 @@ import type {
   TownhallModerationCaseResolveResult,
   TownhallDropSocialSnapshot,
   TotpEnrollment,
+  CollectorListingSnapshot,
   WalletChain,
   WalletConnection,
   TownhallModerationQueueItem,
@@ -2711,6 +2712,10 @@ export const commerceGateway: CommerceGateway = {
     }
 
     return { dropId, entries };
+  },
+
+  async listCollectorOffers(): Promise<CollectorListingSnapshot[]> {
+    return [];
   },
 
   async getCollectDropOffers(dropId: string, _accountId: string | null) {

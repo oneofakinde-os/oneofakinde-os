@@ -84,6 +84,7 @@ import type {
   TownhallPostsSnapshot,
   TotpEnrollment,
   TownhallDropSocialSnapshot,
+  CollectorListingSnapshot,
   WalletChain,
   WalletConnection,
   TownhallModerationQueueItem,
@@ -10196,6 +10197,32 @@ export const commerceBffService = {
       persist: false,
       result: buildCollectInventoryView(db, accountId, lane)
     }));
+  },
+
+  async listCollectorOffers(accountId: string): Promise<CollectorListingSnapshot[]> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account) {
+        return { persist: false, result: [] };
+      }
+
+      const accountHandleById = accountHandleLookup(db);
+      const myOffers = db.collectOffers
+        .filter((o) => o.accountId === accountId)
+        .map((offer) => {
+          const drop = findDropById(db, offer.dropId);
+          return {
+            offer: toCollectOffer(offer, accountHandleById, accountId),
+            dropTitle: drop?.title ?? "unknown drop",
+            dropId: offer.dropId,
+            studioHandle: drop?.studioHandle ?? "unknown",
+            originalPriceUsd: drop?.priceUsd ?? 0
+          };
+        })
+        .sort((a, b) => b.offer.updatedAt.localeCompare(a.offer.updatedAt));
+
+      return { persist: false, result: myOffers };
+    });
   },
 
   async getCollectDropOffers(
