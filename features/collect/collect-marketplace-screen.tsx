@@ -251,6 +251,9 @@ export function CollectMarketplaceScreen({
           <p className="slice-total">
             {sales.length} sale · {auctions.length} auction · {resales.length} resale
           </p>
+          <Link href={routes.collectListings()} className="slice-button ghost">
+            my listings
+          </Link>
           <Link href={routes.myCollection()} className="slice-button ghost">
             my collection
           </Link>

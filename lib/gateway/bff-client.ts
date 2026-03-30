@@ -44,6 +44,7 @@ import type {
   TownhallModerationQueueItem,
   TotpEnrollment,
   TownhallTelemetryEventType,
+  CollectorListingSnapshot,
   WalletChain,
   WalletConnection,
   TownhallTelemetryMetadata,
@@ -936,6 +937,16 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
       );
       if (!response.ok || !response.payload) return null;
       return response.payload.history;
+    },
+
+    async listCollectorOffers(accountId: string): Promise<CollectorListingSnapshot[]> {
+      const response = await requestJson<{ listings: CollectorListingSnapshot[] }>(
+        options,
+        "/api/v1/account/offers",
+        { method: "GET" }
+      );
+      if (!response.ok || !response.payload) return [];
+      return response.payload.listings;
     },
 
     async getCollectDropOffers(

@@ -188,6 +188,11 @@ export function MyCollectionScreen({
           <p className="slice-meta" style={{ marginTop: 8 }}>
             updated {formatDate(analyticsPanel.updatedAt)}
           </p>
+          <div className="slice-button-row" style={{ marginTop: 12 }}>
+            <Link href={routes.collectListings()} className="slice-button ghost">
+              view my listings
+            </Link>
+          </div>
         </section>
       ) : null}
 
