@@ -45,6 +45,8 @@ import type {
   TownhallModerationQueueItem,
   TotpEnrollment,
   TownhallTelemetryEventType,
+  WalletChain,
+  WalletConnection,
   TownhallTelemetryMetadata,
   WatchAccessConsumeResult,
   WatchAccessTokenResult,
@@ -294,4 +296,10 @@ export interface CommerceGateway {
   createTotpEnrollment(accountId: string): Promise<TotpEnrollment | null>;
   verifyTotpEnrollment(accountId: string, code: string): Promise<TotpEnrollment | null>;
   disableTotpEnrollment(accountId: string): Promise<boolean>;
+
+  // Wallet connections
+  listWalletConnections(accountId: string): Promise<WalletConnection[]>;
+  connectWallet(accountId: string, input: { address: string; chain: WalletChain; label?: string }): Promise<WalletConnection | null>;
+  verifyWalletConnection(accountId: string, walletId: string, signature: string): Promise<WalletConnection | null>;
+  disconnectWallet(accountId: string, walletId: string): Promise<boolean>;
 }

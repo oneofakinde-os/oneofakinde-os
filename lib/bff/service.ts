@@ -84,6 +84,8 @@ import type {
   TownhallPostsSnapshot,
   TotpEnrollment,
   TownhallDropSocialSnapshot,
+  WalletChain,
+  WalletConnection,
   TownhallModerationQueueItem,
   TownhallShareChannel,
   TownhallSocialSnapshot,
@@ -171,7 +173,8 @@ import {
   type TownhallPostShareRecord,
   type NotificationEntryRecord,
   type TotpEnrollmentRecord,
-  type TownhallTelemetryEventRecord
+  type TownhallTelemetryEventRecord,
+  type WalletConnectionRecord
 } from "@/lib/bff/persistence";
 import { createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 
@@ -7100,6 +7103,139 @@ const gatewayMethods = {
         return { persist: false, result: false };
       }
       enrollment.status = "disabled";
+      return { persist: true, result: true };
+    });
+  },
+
+  // ── Wallet connections ──
+
+  async listWalletConnections(accountId: string): Promise<WalletConnection[]> {
+    return withDatabase(async (db) => {
+      const wallets = db.walletConnections.filter(
+        (w) => w.accountId === accountId && w.status !== "disconnected"
+      );
+      return {
+        persist: false,
+        result: wallets.map((w) => ({
+          id: w.id,
+          accountId: w.accountId,
+          address: w.address,
+          chain: w.chain,
+          label: w.label,
+          status: w.status,
+          challenge: w.status === "pending" ? w.challenge : null,
+          verifiedAt: w.verifiedAt,
+          createdAt: w.createdAt
+        }))
+      };
+    });
+  },
+
+  async connectWallet(
+    accountId: string,
+    input: { address: string; chain: WalletChain; label?: string }
+  ): Promise<WalletConnection | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account) {
+        return { persist: false, result: null };
+      }
+
+      // Reject if this address+chain is already connected (pending or verified)
+      const existing = db.walletConnections.find(
+        (w) =>
+          w.accountId === accountId &&
+          w.address.toLowerCase() === input.address.toLowerCase() &&
+          w.chain === input.chain &&
+          w.status !== "disconnected"
+      );
+      if (existing) {
+        return { persist: false, result: null };
+      }
+
+      // Generate a challenge message the wallet must sign to prove ownership
+      const challenge = `oneofakinde-verify:${account.handle}:${randomUUID()}`;
+
+      const record: WalletConnectionRecord = {
+        id: `wallet_${randomUUID()}`,
+        accountId,
+        address: input.address.toLowerCase(),
+        chain: input.chain,
+        label: input.label ?? null,
+        status: "pending",
+        challenge,
+        verifiedAt: null,
+        createdAt: new Date().toISOString()
+      };
+      db.walletConnections.push(record);
+
+      return {
+        persist: true,
+        result: {
+          id: record.id,
+          accountId: record.accountId,
+          address: record.address,
+          chain: record.chain,
+          label: record.label,
+          status: record.status,
+          challenge: record.challenge,
+          verifiedAt: null,
+          createdAt: record.createdAt
+        }
+      };
+    });
+  },
+
+  async verifyWalletConnection(
+    accountId: string,
+    walletId: string,
+    signature: string
+  ): Promise<WalletConnection | null> {
+    return withDatabase(async (db) => {
+      const wallet = db.walletConnections.find(
+        (w) => w.id === walletId && w.accountId === accountId && w.status === "pending"
+      );
+      if (!wallet) {
+        return { persist: false, result: null };
+      }
+
+      // In a real implementation, we'd verify the cryptographic signature
+      // against the challenge message using the wallet's public key.
+      // For the BFF mock, we accept any non-empty signature that starts
+      // with "0x" (simulating an Ethereum-style hex signature).
+      if (!signature || signature.length < 3) {
+        return { persist: false, result: null };
+      }
+
+      wallet.status = "verified";
+      wallet.verifiedAt = new Date().toISOString();
+
+      return {
+        persist: true,
+        result: {
+          id: wallet.id,
+          accountId: wallet.accountId,
+          address: wallet.address,
+          chain: wallet.chain,
+          label: wallet.label,
+          status: wallet.status,
+          challenge: null,
+          verifiedAt: wallet.verifiedAt,
+          createdAt: wallet.createdAt
+        }
+      };
+    });
+  },
+
+  async disconnectWallet(accountId: string, walletId: string): Promise<boolean> {
+    return withDatabase(async (db) => {
+      const wallet = db.walletConnections.find(
+        (w) => w.id === walletId && w.accountId === accountId && w.status !== "disconnected"
+      );
+      if (!wallet) {
+        return { persist: false, result: false };
+      }
+      wallet.status = "disconnected";
       return { persist: true, result: true };
     });
   },
