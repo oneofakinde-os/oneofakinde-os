@@ -478,6 +478,18 @@ export type TotpEnrollmentRecord = {
   createdAt: string;
 };
 
+export type WalletConnectionRecord = {
+  id: string;
+  accountId: string;
+  address: string;
+  chain: "ethereum" | "tezos" | "polygon";
+  label: string | null;
+  status: "pending" | "verified" | "disconnected";
+  challenge: string;
+  verifiedAt: string | null;
+  createdAt: string;
+};
+
 export type BffDatabase = {
   version: 1;
   catalog: {
@@ -527,6 +539,7 @@ export type BffDatabase = {
   notificationEntries: NotificationEntryRecord[];
   notificationPreferences: NotificationPreferencesRecord[];
   totpEnrollments: TotpEnrollmentRecord[];
+  walletConnections: WalletConnectionRecord[];
 };
 
 type MutationResult<T> = {
@@ -1328,7 +1341,8 @@ function createSeedDatabase(): BffDatabase {
       }
     ],
     notificationPreferences: [],
-    totpEnrollments: []
+    totpEnrollments: [],
+    walletConnections: []
   };
 }
 
@@ -1377,7 +1391,8 @@ function createCatalogSeedDatabase(): BffDatabase {
     studioFollows: [],
     notificationEntries: [],
     notificationPreferences: [],
-    totpEnrollments: []
+    totpEnrollments: [],
+    walletConnections: []
   };
 }
 
@@ -1430,7 +1445,8 @@ function createEmptyDatabase(): BffDatabase {
     studioFollows: [],
     notificationEntries: [],
     notificationPreferences: [],
-    totpEnrollments: []
+    totpEnrollments: [],
+    walletConnections: []
   };
 }
 
@@ -3216,6 +3232,9 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         : [],
       totpEnrollments: Array.isArray(input.totpEnrollments)
         ? (input.totpEnrollments as TotpEnrollmentRecord[])
+        : [],
+      walletConnections: Array.isArray(input.walletConnections)
+        ? (input.walletConnections as WalletConnectionRecord[])
         : []
     };
   }
@@ -3364,6 +3383,9 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         : [],
       totpEnrollments: Array.isArray(candidate.totpEnrollments)
         ? (candidate.totpEnrollments as TotpEnrollmentRecord[])
+        : [],
+      walletConnections: Array.isArray(candidate.walletConnections)
+        ? (candidate.walletConnections as WalletConnectionRecord[])
         : []
     };
   }
@@ -4537,6 +4559,16 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       try {
         const r = await client.query<TotpEnrollmentRecord>(
           'SELECT id, account_id AS "accountId", status, secret, totp_uri AS "totpUri", recovery_codes AS "recoveryCodes", verified_at AS "verifiedAt", created_at AS "createdAt" FROM bff_totp_enrollments ORDER BY created_at DESC'
+        );
+        return r.rows;
+      } catch {
+        return [];
+      }
+    })(),
+    walletConnections: await (async () => {
+      try {
+        const r = await client.query<WalletConnectionRecord>(
+          'SELECT id, account_id AS "accountId", address, chain, label, status, challenge, verified_at AS "verifiedAt", created_at AS "createdAt" FROM bff_wallet_connections ORDER BY created_at DESC'
         );
         return r.rows;
       } catch {

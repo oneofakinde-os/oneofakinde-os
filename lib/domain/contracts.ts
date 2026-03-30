@@ -1349,6 +1349,22 @@ export type NotificationFeed = {
   unreadCount: number;
 };
 
+export type WalletChain = "ethereum" | "tezos" | "polygon";
+
+export type WalletConnectionStatus = "pending" | "verified" | "disconnected";
+
+export type WalletConnection = {
+  id: string;
+  accountId: string;
+  address: string;
+  chain: WalletChain;
+  label: string | null;
+  status: WalletConnectionStatus;
+  challenge: string | null;
+  verifiedAt: string | null;
+  createdAt: string;
+};
+
 export type SurfaceTelemetryEvent = {
   surface: SurfaceName;
   action: SurfaceActionVerb;

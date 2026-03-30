@@ -43,6 +43,8 @@ import type {
   TownhallModerationCaseResolveResult,
   TownhallDropSocialSnapshot,
   TotpEnrollment,
+  WalletChain,
+  WalletConnection,
   TownhallModerationQueueItem,
   WorkshopAnalyticsPanel,
   WorkshopProProfile,
@@ -3118,6 +3120,22 @@ export const commerceGateway: CommerceGateway = {
   },
 
   async disableTotpEnrollment(): Promise<boolean> {
+    return false;
+  },
+
+  async listWalletConnections(): Promise<WalletConnection[]> {
+    return [];
+  },
+
+  async connectWallet(): Promise<WalletConnection | null> {
+    return null;
+  },
+
+  async verifyWalletConnection(): Promise<WalletConnection | null> {
+    return null;
+  },
+
+  async disconnectWallet(): Promise<boolean> {
     return false;
   }
 };

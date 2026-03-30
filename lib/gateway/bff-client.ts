@@ -44,6 +44,8 @@ import type {
   TownhallModerationQueueItem,
   TotpEnrollment,
   TownhallTelemetryEventType,
+  WalletChain,
+  WalletConnection,
   TownhallTelemetryMetadata,
   WatchAccessConsumeResult,
   WatchAccessTokenResult,
@@ -1225,6 +1227,53 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
       );
       if (!response.ok || !response.payload) return false;
       return response.payload.disabled;
+    },
+
+    async listWalletConnections(accountId: string): Promise<WalletConnection[]> {
+      const response = await requestJson<{ wallets: WalletConnection[] }>(
+        options,
+        "/api/v1/account/wallets",
+        { method: "GET" }
+      );
+      if (!response.ok || !response.payload) return [];
+      return response.payload.wallets;
+    },
+
+    async connectWallet(
+      accountId: string,
+      input: { address: string; chain: WalletChain; label?: string }
+    ): Promise<WalletConnection | null> {
+      const response = await requestJson<{ wallet: WalletConnection }>(
+        options,
+        "/api/v1/account/wallets",
+        { method: "POST", body: JSON.stringify({ action: "connect", ...input }) }
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.wallet;
+    },
+
+    async verifyWalletConnection(
+      accountId: string,
+      walletId: string,
+      signature: string
+    ): Promise<WalletConnection | null> {
+      const response = await requestJson<{ wallet: WalletConnection }>(
+        options,
+        "/api/v1/account/wallets",
+        { method: "POST", body: JSON.stringify({ action: "verify", walletId, signature }) }
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.wallet;
+    },
+
+    async disconnectWallet(accountId: string, walletId: string): Promise<boolean> {
+      const response = await requestJson<{ disconnected: boolean }>(
+        options,
+        "/api/v1/account/wallets",
+        { method: "POST", body: JSON.stringify({ action: "disconnect", walletId }) }
+      );
+      if (!response.ok || !response.payload) return false;
+      return response.payload.disconnected;
     }
   };
 }
