@@ -43,6 +43,7 @@ import type {
   TownhallModerationCaseResolveResult,
   TownhallDropSocialSnapshot,
   TownhallModerationQueueItem,
+  TotpEnrollment,
   TownhallTelemetryEventType,
   TownhallTelemetryMetadata,
   WatchAccessConsumeResult,
@@ -287,4 +288,10 @@ export interface CommerceGateway {
     metadata?: TownhallTelemetryMetadata;
     occurredAt?: string;
   }): Promise<boolean>;
+
+  // 2FA TOTP
+  getTotpEnrollment(accountId: string): Promise<TotpEnrollment | null>;
+  createTotpEnrollment(accountId: string): Promise<TotpEnrollment | null>;
+  verifyTotpEnrollment(accountId: string, code: string): Promise<TotpEnrollment | null>;
+  disableTotpEnrollment(accountId: string): Promise<boolean>;
 }

@@ -42,6 +42,7 @@ import type {
   TownhallModerationCaseResolution,
   TownhallModerationCaseResolveResult,
   TownhallDropSocialSnapshot,
+  TotpEnrollment,
   TownhallModerationQueueItem,
   WorkshopAnalyticsPanel,
   WorkshopProProfile,
@@ -3102,5 +3103,21 @@ export const commerceGateway: CommerceGateway = {
   async recordTownhallTelemetryEvent(): Promise<boolean> {
     // Always succeed in mock — telemetry is fire-and-forget
     return true;
+  },
+
+  async getTotpEnrollment(): Promise<TotpEnrollment | null> {
+    return null;
+  },
+
+  async createTotpEnrollment(): Promise<TotpEnrollment | null> {
+    return null;
+  },
+
+  async verifyTotpEnrollment(): Promise<TotpEnrollment | null> {
+    return null;
+  },
+
+  async disableTotpEnrollment(): Promise<boolean> {
+    return false;
   }
 };

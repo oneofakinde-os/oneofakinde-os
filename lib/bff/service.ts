@@ -82,6 +82,7 @@ import type {
   TownhallPostModerationCaseState,
   TownhallPostsFilter,
   TownhallPostsSnapshot,
+  TotpEnrollment,
   TownhallDropSocialSnapshot,
   TownhallModerationQueueItem,
   TownhallShareChannel,
@@ -169,9 +170,10 @@ import {
   type TownhallPostSaveRecord,
   type TownhallPostShareRecord,
   type NotificationEntryRecord,
+  type TotpEnrollmentRecord,
   type TownhallTelemetryEventRecord
 } from "@/lib/bff/persistence";
-import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 
 const PROCESSING_FEE_USD = 1.99;
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
@@ -233,6 +235,81 @@ const WATCH_TELEMETRY_LOG_LIMIT_MIN = 1;
 const WATCH_TELEMETRY_LOG_LIMIT_MAX = 200;
 const LIBRARY_QUEUE_DEFAULT_LIMIT = 24;
 const LIBRARY_QUEUE_MAX_LIMIT = 200;
+const TOTP_PERIOD_SECONDS = 30;
+const TOTP_DIGITS = 6;
+const TOTP_SECRET_BYTES = 20;
+
+const BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+
+function base32Encode(buffer: Buffer): string {
+  let bits = 0;
+  let value = 0;
+  let output = "";
+  for (const byte of buffer) {
+    value = (value << 8) | byte;
+    bits += 8;
+    while (bits >= 5) {
+      output += BASE32_ALPHABET[(value >>> (bits - 5)) & 0x1f];
+      bits -= 5;
+    }
+  }
+  if (bits > 0) {
+    output += BASE32_ALPHABET[(value << (5 - bits)) & 0x1f];
+  }
+  return output;
+}
+
+function base32Decode(encoded: string): Buffer {
+  const cleaned = encoded.replace(/=+$/, "").toUpperCase();
+  let bits = 0;
+  let value = 0;
+  const bytes: number[] = [];
+  for (const char of cleaned) {
+    const idx = BASE32_ALPHABET.indexOf(char);
+    if (idx === -1) continue;
+    value = (value << 5) | idx;
+    bits += 5;
+    if (bits >= 8) {
+      bytes.push((value >>> (bits - 8)) & 0xff);
+      bits -= 8;
+    }
+  }
+  return Buffer.from(bytes);
+}
+
+function generateTotpSecret(): string {
+  return base32Encode(randomBytes(TOTP_SECRET_BYTES));
+}
+
+function computeTotpCode(secret: string, counter: number): string {
+  const key = base32Decode(secret);
+  const buffer = Buffer.alloc(8);
+  buffer.writeUInt32BE(Math.floor(counter / 0x100000000), 0);
+  buffer.writeUInt32BE(counter >>> 0, 4);
+
+  const hmac = createHmac("sha1", key).update(buffer).digest();
+  const offset = hmac[hmac.length - 1]! & 0x0f;
+  const code =
+    ((hmac[offset]! & 0x7f) << 24) |
+    ((hmac[offset + 1]! & 0xff) << 16) |
+    ((hmac[offset + 2]! & 0xff) << 8) |
+    (hmac[offset + 3]! & 0xff);
+
+  return String(code % 10 ** TOTP_DIGITS).padStart(TOTP_DIGITS, "0");
+}
+
+function verifyTotpCode(secret: string, code: string): boolean {
+  const now = Math.floor(Date.now() / 1000);
+  const counter = Math.floor(now / TOTP_PERIOD_SECONDS);
+  // Allow ±1 window for clock drift
+  for (let offset = -1; offset <= 1; offset++) {
+    const expected = computeTotpCode(secret, counter + offset);
+    if (expected.length === code.length && timingSafeEqual(Buffer.from(expected), Buffer.from(code))) {
+      return true;
+    }
+  }
+  return false;
+}
 
 const COLLECT_ENFORCEMENT_SIGNAL_TYPES: CollectEnforcementSignalType[] = [
   "invalid_listing_action_blocked",
@@ -6901,6 +6978,129 @@ const gatewayMethods = {
         persist: !db.accounts.some((a) => a.email === email && a.id !== account!.id),
         result: toSession(account, `supa_${supabaseUser.id}`)
       };
+    });
+  },
+
+  async getTotpEnrollment(accountId: string): Promise<TotpEnrollment | null> {
+    return withDatabase(async (db) => {
+      const enrollment = db.totpEnrollments.find(
+        (e) => e.accountId === accountId && e.status !== "disabled"
+      );
+      if (!enrollment) {
+        return { persist: false, result: null };
+      }
+      return {
+        persist: false,
+        result: {
+          id: enrollment.id,
+          accountId: enrollment.accountId,
+          status: enrollment.status,
+          totpUri: enrollment.status === "pending" ? enrollment.totpUri : null,
+          recoveryCodes: enrollment.status === "pending" ? enrollment.recoveryCodes : [],
+          verifiedAt: enrollment.verifiedAt,
+          createdAt: enrollment.createdAt
+        }
+      };
+    });
+  },
+
+  async createTotpEnrollment(accountId: string): Promise<TotpEnrollment | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account) {
+        return { persist: false, result: null };
+      }
+
+      // Disable any existing pending enrollment
+      for (const existing of db.totpEnrollments) {
+        if (existing.accountId === accountId && existing.status === "pending") {
+          existing.status = "disabled";
+        }
+      }
+
+      // Reject if already verified
+      const alreadyVerified = db.totpEnrollments.find(
+        (e) => e.accountId === accountId && e.status === "verified"
+      );
+      if (alreadyVerified) {
+        return { persist: false, result: null };
+      }
+
+      const secret = generateTotpSecret();
+      const totpUri = `otpauth://totp/oneofakinde:${encodeURIComponent(account.email)}?secret=${secret}&issuer=oneofakinde&digits=6&period=30`;
+      const recoveryCodes = Array.from({ length: 8 }, () =>
+        randomUUID().replace(/-/g, "").slice(0, 8)
+      );
+
+      const enrollment: TotpEnrollmentRecord = {
+        id: `totp_${randomUUID()}`,
+        accountId,
+        status: "pending",
+        secret,
+        totpUri,
+        recoveryCodes,
+        verifiedAt: null,
+        createdAt: new Date().toISOString()
+      };
+      db.totpEnrollments.push(enrollment);
+
+      return {
+        persist: true,
+        result: {
+          id: enrollment.id,
+          accountId: enrollment.accountId,
+          status: enrollment.status,
+          totpUri: enrollment.totpUri,
+          recoveryCodes: enrollment.recoveryCodes,
+          verifiedAt: null,
+          createdAt: enrollment.createdAt
+        }
+      };
+    });
+  },
+
+  async verifyTotpEnrollment(accountId: string, code: string): Promise<TotpEnrollment | null> {
+    return withDatabase(async (db) => {
+      const enrollment = db.totpEnrollments.find(
+        (e) => e.accountId === accountId && e.status === "pending"
+      );
+      if (!enrollment) {
+        return { persist: false, result: null };
+      }
+
+      // Verify the TOTP code against the secret
+      if (!verifyTotpCode(enrollment.secret, code)) {
+        return { persist: false, result: null };
+      }
+
+      enrollment.status = "verified";
+      enrollment.verifiedAt = new Date().toISOString();
+
+      return {
+        persist: true,
+        result: {
+          id: enrollment.id,
+          accountId: enrollment.accountId,
+          status: enrollment.status,
+          totpUri: null,
+          recoveryCodes: [],
+          verifiedAt: enrollment.verifiedAt,
+          createdAt: enrollment.createdAt
+        }
+      };
+    });
+  },
+
+  async disableTotpEnrollment(accountId: string): Promise<boolean> {
+    return withDatabase(async (db) => {
+      const enrollment = db.totpEnrollments.find(
+        (e) => e.accountId === accountId && e.status === "verified"
+      );
+      if (!enrollment) {
+        return { persist: false, result: false };
+      }
+      enrollment.status = "disabled";
+      return { persist: true, result: true };
     });
   },
 

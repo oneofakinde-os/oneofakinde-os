@@ -42,6 +42,7 @@ import type {
   TownhallModerationCaseResolveResult,
   TownhallDropSocialSnapshot,
   TownhallModerationQueueItem,
+  TotpEnrollment,
   TownhallTelemetryEventType,
   TownhallTelemetryMetadata,
   WatchAccessConsumeResult,
@@ -1184,6 +1185,46 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
       );
       if (!response.ok || !response.payload) return false;
       return response.payload.accepted;
+    },
+
+    async getTotpEnrollment(accountId: string): Promise<TotpEnrollment | null> {
+      const response = await requestJson<{ enrollment: TotpEnrollment }>(
+        options,
+        "/api/v1/account/totp",
+        { method: "GET" }
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.enrollment;
+    },
+
+    async createTotpEnrollment(accountId: string): Promise<TotpEnrollment | null> {
+      const response = await requestJson<{ enrollment: TotpEnrollment }>(
+        options,
+        "/api/v1/account/totp",
+        { method: "POST", body: JSON.stringify({ action: "enroll" }) }
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.enrollment;
+    },
+
+    async verifyTotpEnrollment(accountId: string, code: string): Promise<TotpEnrollment | null> {
+      const response = await requestJson<{ enrollment: TotpEnrollment }>(
+        options,
+        "/api/v1/account/totp",
+        { method: "POST", body: JSON.stringify({ action: "verify", code }) }
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.enrollment;
+    },
+
+    async disableTotpEnrollment(accountId: string): Promise<boolean> {
+      const response = await requestJson<{ disabled: boolean }>(
+        options,
+        "/api/v1/account/totp",
+        { method: "POST", body: JSON.stringify({ action: "disable" }) }
+      );
+      if (!response.ok || !response.payload) return false;
+      return response.payload.disabled;
     }
   };
 }

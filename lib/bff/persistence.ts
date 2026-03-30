@@ -467,6 +467,17 @@ export type NotificationPreferencesRecord = {
   digestEnabled: boolean;
 };
 
+export type TotpEnrollmentRecord = {
+  id: string;
+  accountId: string;
+  status: "pending" | "verified" | "disabled";
+  secret: string;
+  totpUri: string;
+  recoveryCodes: string[];
+  verifiedAt: string | null;
+  createdAt: string;
+};
+
 export type BffDatabase = {
   version: 1;
   catalog: {
@@ -515,6 +526,7 @@ export type BffDatabase = {
   studioFollows: StudioFollowRecord[];
   notificationEntries: NotificationEntryRecord[];
   notificationPreferences: NotificationPreferencesRecord[];
+  totpEnrollments: TotpEnrollmentRecord[];
 };
 
 type MutationResult<T> = {
@@ -1315,7 +1327,8 @@ function createSeedDatabase(): BffDatabase {
         createdAt: new Date(now.valueOf() - DAY_MS * 5).toISOString()
       }
     ],
-    notificationPreferences: []
+    notificationPreferences: [],
+    totpEnrollments: []
   };
 }
 
@@ -1363,7 +1376,8 @@ function createCatalogSeedDatabase(): BffDatabase {
     ledgerLineItems: [],
     studioFollows: [],
     notificationEntries: [],
-    notificationPreferences: []
+    notificationPreferences: [],
+    totpEnrollments: []
   };
 }
 
@@ -1415,7 +1429,8 @@ function createEmptyDatabase(): BffDatabase {
     ledgerLineItems: [],
     studioFollows: [],
     notificationEntries: [],
-    notificationPreferences: []
+    notificationPreferences: [],
+    totpEnrollments: []
   };
 }
 
@@ -3198,6 +3213,9 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         : [],
       notificationPreferences: Array.isArray(input.notificationPreferences)
         ? (input.notificationPreferences as NotificationPreferencesRecord[])
+        : [],
+      totpEnrollments: Array.isArray(input.totpEnrollments)
+        ? (input.totpEnrollments as TotpEnrollmentRecord[])
         : []
     };
   }
@@ -3343,6 +3361,9 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         : [],
       notificationPreferences: Array.isArray(candidate.notificationPreferences)
         ? (candidate.notificationPreferences as NotificationPreferencesRecord[])
+        : [],
+      totpEnrollments: Array.isArray(candidate.totpEnrollments)
+        ? (candidate.totpEnrollments as TotpEnrollmentRecord[])
         : []
     };
   }
@@ -4509,6 +4530,16 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
         return r.rows;
       } catch {
         // Table may not exist yet (pre-migration)
+        return [];
+      }
+    })(),
+    totpEnrollments: await (async () => {
+      try {
+        const r = await client.query<TotpEnrollmentRecord>(
+          'SELECT id, account_id AS "accountId", status, secret, totp_uri AS "totpUri", recovery_codes AS "recoveryCodes", verified_at AS "verifiedAt", created_at AS "createdAt" FROM bff_totp_enrollments ORDER BY created_at DESC'
+        );
+        return r.rows;
+      } catch {
         return [];
       }
     })()
