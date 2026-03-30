@@ -1,9 +1,28 @@
 import { SettingsNav } from "@/features/settings/settings-nav";
+import { TotpEnrollmentForm } from "@/features/settings/totp-enrollment-form";
 import { AppShell } from "@/features/shell/app-shell";
+import { gateway } from "@/lib/gateway";
 import { requireSession } from "@/lib/server/session";
 
-export default async function SettingsSecurityPage() {
+const TOTP_STATUS_MESSAGES: Record<string, string> = {
+  enroll_failed: "could not start 2fa enrollment. you may already have 2fa active.",
+  invalid_code: "please enter a valid 6-digit code.",
+  verify_failed: "verification failed. check your authenticator app and try again.",
+  verified: "2fa is now active. your account is protected.",
+  disable_failed: "could not disable 2fa. no active enrollment found.",
+  disabled: "2fa has been disabled."
+};
+
+type SecurityPageProps = {
+  searchParams: Promise<{ totp_status?: string }>;
+};
+
+export default async function SettingsSecurityPage({ searchParams }: SecurityPageProps) {
   const session = await requireSession("/settings/security");
+  const params = await searchParams;
+
+  const enrollment = await gateway.getTotpEnrollment(session.accountId);
+  const statusMessage = params.totp_status ? (TOTP_STATUS_MESSAGES[params.totp_status] ?? null) : null;
 
   return (
     <AppShell title="settings" subtitle="security" session={session}>
@@ -23,6 +42,10 @@ export default async function SettingsSecurityPage() {
             <dt>active sessions</dt>
             <dd>1 device (current)</dd>
           </div>
+          <div>
+            <dt>2fa status</dt>
+            <dd>{enrollment?.status === "verified" ? "active" : "not enabled"}</dd>
+          </div>
         </dl>
       </section>
 
@@ -39,18 +62,7 @@ export default async function SettingsSecurityPage() {
         </div>
       </section>
 
-      <section className="slice-panel">
-        <p className="slice-label">two-factor authentication</p>
-        <div className="ops-settings-grid">
-          <p className="slice-copy">
-            two-factor authentication adds an extra layer of security to your account.
-            this feature will be available soon.
-          </p>
-          <button type="button" className="slice-button ghost" disabled>
-            enable 2fa (coming soon)
-          </button>
-        </div>
-      </section>
+      <TotpEnrollmentForm enrollment={enrollment} statusMessage={statusMessage} />
 
       <section className="slice-panel">
         <p className="slice-label">active sessions</p>

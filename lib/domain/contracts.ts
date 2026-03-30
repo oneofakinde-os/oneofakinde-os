@@ -11,6 +11,18 @@ export type Session = {
   bio?: string;
 };
 
+export type TotpEnrollmentStatus = "pending" | "verified" | "disabled";
+
+export type TotpEnrollment = {
+  id: string;
+  accountId: string;
+  status: TotpEnrollmentStatus;
+  totpUri: string | null;
+  recoveryCodes: string[];
+  verifiedAt: string | null;
+  createdAt: string;
+};
+
 export type DropPreviewMode = "watch" | "listen" | "read" | "photos" | "live";
 
 export type DropPreviewAssetType = "video" | "audio" | "image" | "text";
