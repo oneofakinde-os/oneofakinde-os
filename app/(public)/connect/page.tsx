@@ -1,13 +1,13 @@
-import { RouteStub } from "@/components/route-stub";
+import { ConnectScreen } from "@/features/connect/connect-screen";
+import { loadConnectContext } from "./load-connect-context";
 
-export default function ConnectPage() {
+export default async function ConnectPage() {
+  const { viewer, posts, filter } = await loadConnectContext();
   return (
-    <RouteStub
-      title="connect"
-      route="/connect"
-      roles={["public", "collector", "creator"]}
-      publicSafe={true}
-      summary="community discourse and market conversation — the social-market lane inside townhall"
+    <ConnectScreen
+      viewer={viewer}
+      initialPosts={posts}
+      initialFilter={filter}
     />
   );
 }
