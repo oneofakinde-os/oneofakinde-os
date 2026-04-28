@@ -1,7 +1,7 @@
 "use client";
 
 import type { CreateDropResult } from "@/app/(creator)/create/drop/actions";
-import type { World } from "@/lib/domain/contracts";
+import type { WalletChain, World } from "@/lib/domain/contracts";
 import { useState, useTransition } from "react";
 
 type CreateDropStepperProps = {
@@ -9,8 +9,16 @@ type CreateDropStepperProps = {
   createDropAction: (formData: FormData) => Promise<CreateDropResult>;
 };
 
-const STEPS = ["title", "world", "synopsis", "pricing", "review"] as const;
+const STEPS = ["title", "world", "synopsis", "pricing", "gating", "review"] as const;
 type Step = (typeof STEPS)[number];
+
+type WalletGateChoice = "none" | WalletChain;
+const WALLET_CHAIN_OPTIONS: ReadonlyArray<{ value: WalletGateChoice; label: string; description: string }> = [
+  { value: "none", label: "no gate", description: "anyone can collect this drop." },
+  { value: "ethereum", label: "ethereum", description: "requires a verified ethereum wallet." },
+  { value: "tezos", label: "tezos", description: "requires a verified tezos wallet." },
+  { value: "polygon", label: "polygon", description: "requires a verified polygon wallet." }
+];
 
 export function CreateDropStepper({
   worlds,
@@ -23,6 +31,7 @@ export function CreateDropStepper({
   const [priceUsd, setPriceUsd] = useState("1.99");
   const [seasonLabel, setSeasonLabel] = useState("");
   const [episodeLabel, setEpisodeLabel] = useState("");
+  const [walletGate, setWalletGate] = useState<WalletGateChoice>("none");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -65,6 +74,7 @@ export function CreateDropStepper({
     formData.set("priceUsd", priceUsd);
     if (seasonLabel.trim()) formData.set("seasonLabel", seasonLabel.trim());
     if (episodeLabel.trim()) formData.set("episodeLabel", episodeLabel.trim());
+    if (walletGate !== "none") formData.set("walletGate", walletGate);
 
     startTransition(async () => {
       const result = await createDropAction(formData);
@@ -219,6 +229,44 @@ export function CreateDropStepper({
         </section>
       ) : null}
 
+      {/* step: gating */}
+      {step === "gating" ? (
+        <section className="create-stepper-step" aria-label="wallet gating">
+          <h2 className="slice-title">restrict to verified wallets?</h2>
+          <p className="slice-copy">
+            optional: require collectors to have a verified on-chain wallet
+            on a specific chain before they can collect this drop.
+          </p>
+          <fieldset className="create-stepper-world-grid" style={{ border: 0, padding: 0, margin: 0 }}>
+            <legend className="slice-meta" style={{ marginBottom: "0.5rem" }}>
+              wallet gate
+            </legend>
+            {WALLET_CHAIN_OPTIONS.map((option) => (
+              <label
+                key={option.value}
+                className={`create-stepper-world-card${walletGate === option.value ? " selected" : ""}`}
+                style={{ cursor: "pointer", textAlign: "left" }}
+              >
+                <input
+                  type="radio"
+                  name="walletGate"
+                  value={option.value}
+                  checked={walletGate === option.value}
+                  onChange={() => setWalletGate(option.value)}
+                  style={{ marginRight: "0.5rem" }}
+                />
+                <span className="create-stepper-world-title">{option.label}</span>
+                <span className="slice-meta">{option.description}</span>
+              </label>
+            ))}
+          </fieldset>
+          <p className="slice-meta" style={{ marginTop: "0.5rem" }}>
+            collectors can connect a wallet anytime in{" "}
+            <a href="/settings/apps" className="slice-link">settings → apps</a>.
+          </p>
+        </section>
+      ) : null}
+
       {/* step: review */}
       {step === "review" ? (
         <section className="create-stepper-step" aria-label="review and publish">
@@ -254,6 +302,12 @@ export function CreateDropStepper({
             <div className="create-stepper-review-row">
               <span className="slice-meta">price</span>
               <span className="slice-copy">${Number.parseFloat(priceUsd).toFixed(2)}</span>
+            </div>
+            <div className="create-stepper-review-row">
+              <span className="slice-meta">wallet gate</span>
+              <span className="slice-copy">
+                {walletGate === "none" ? "none — any collector can collect" : `requires verified ${walletGate} wallet`}
+              </span>
             </div>
           </div>
         </section>

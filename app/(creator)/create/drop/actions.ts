@@ -2,6 +2,7 @@
 
 import { gateway } from "@/lib/gateway";
 import { requireSessionRoles } from "@/lib/server/session";
+import type { WalletChain } from "@/lib/domain/contracts";
 import { redirect } from "next/navigation";
 
 export type CreateDropResult = {
@@ -9,6 +10,8 @@ export type CreateDropResult = {
   dropId?: string;
   error?: string;
 };
+
+const VALID_WALLET_CHAINS: ReadonlySet<WalletChain> = new Set(["ethereum", "tezos", "polygon"]);
 
 export async function createDropAction(formData: FormData): Promise<CreateDropResult> {
   const session = await requireSessionRoles("/create/drop", ["creator"]);
@@ -19,6 +22,11 @@ export async function createDropAction(formData: FormData): Promise<CreateDropRe
   const priceStr = String(formData.get("priceUsd") ?? "0").trim();
   const seasonLabel = String(formData.get("seasonLabel") ?? "").trim() || undefined;
   const episodeLabel = String(formData.get("episodeLabel") ?? "").trim() || undefined;
+  const rawWalletGate = String(formData.get("walletGate") ?? "").trim();
+  const walletGate: WalletChain | undefined =
+    rawWalletGate && VALID_WALLET_CHAINS.has(rawWalletGate as WalletChain)
+      ? (rawWalletGate as WalletChain)
+      : undefined;
 
   if (!title) return { ok: false, error: "title is required" };
   if (title.length > 200) return { ok: false, error: "title must be under 200 characters" };
@@ -37,7 +45,8 @@ export async function createDropAction(formData: FormData): Promise<CreateDropRe
     synopsis,
     priceUsd: Math.round(priceUsd * 100) / 100,
     seasonLabel,
-    episodeLabel
+    episodeLabel,
+    walletGate
   });
 
   if (!drop) {
