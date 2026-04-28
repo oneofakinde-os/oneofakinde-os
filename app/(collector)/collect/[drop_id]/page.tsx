@@ -54,6 +54,7 @@ export default async function CollectDropPage({ params, searchParams }: CollectD
     ?? null;
   const provider = process.env.OOK_PAYMENTS_PROVIDER?.trim().toLowerCase() ?? "manual";
   const isStripe = provider === "stripe";
+  const walletGateBlocked = Boolean(checkout.walletGate && !checkout.walletGate.satisfied);
 
   return (
     <SliceFrame
@@ -127,13 +128,42 @@ export default async function CollectDropPage({ params, searchParams }: CollectD
           </details>
         ) : null}
 
+        {/* ── Wallet gate notice ── */}
+        {checkout.walletGate ? (
+          <section
+            className="slice-banner"
+            style={{ marginTop: 16 }}
+            data-wallet-gate={checkout.walletGate.chain}
+            data-wallet-gate-satisfied={checkout.walletGate.satisfied ? "true" : "false"}
+          >
+            {checkout.walletGate.satisfied ? (
+              <>
+                ✓ verified {checkout.walletGate.chain} wallet on file
+                {checkout.walletGate.verifiedAddress ? (
+                  <span style={{ marginLeft: 6, fontFamily: "monospace", fontSize: "0.85em" }}>
+                    ({checkout.walletGate.verifiedAddress.slice(0, 6)}…{checkout.walletGate.verifiedAddress.slice(-4)})
+                  </span>
+                ) : null}
+              </>
+            ) : (
+              <>
+                🔒 this drop requires a verified {checkout.walletGate.chain} wallet.
+                {" "}connect one in <Link href={routes.settingsApps()} className="slice-link">settings → apps</Link>{" "}
+                to continue.
+              </>
+            )}
+          </section>
+        ) : null}
+
         {/* ── Context copy ── */}
         <p className="slice-copy" style={{ marginTop: 16 }}>
           {isAlreadyOwned
             ? "this drop is already in your my collection."
-            : isStripe
-              ? "you will be redirected to Stripe for secure payment. your drop will be added to your collection once payment is confirmed."
-              : "continue to complete your purchase. your drop will be added to your collection immediately."}
+            : walletGateBlocked
+              ? "checkout is blocked until you connect and verify a wallet on the required chain."
+              : isStripe
+                ? "you will be redirected to Stripe for secure payment. your drop will be added to your collection once payment is confirmed."
+                : "continue to complete your purchase. your drop will be added to your collection immediately."}
         </p>
 
         {/* ── Actions ── */}
@@ -144,18 +174,25 @@ export default async function CollectDropPage({ params, searchParams }: CollectD
           <Link href={routes.showroom()} className="slice-button alt">
             showroom
           </Link>
+          {walletGateBlocked ? (
+            <Link href={routes.settingsApps()} className="slice-button alt">
+              connect wallet
+            </Link>
+          ) : null}
         </div>
 
-        <form action={purchaseDropAction} className="slice-form" style={{ marginTop: 8 }}>
-          <input type="hidden" name="drop_id" value={checkout.drop.id} />
-          <button type="submit" className="slice-button">
-            {isAlreadyOwned
-              ? "open my collection"
-              : isStripe
-                ? `pay ${formatUsd(checkout.totalUsd)} with Stripe`
-                : `collect for ${formatUsd(checkout.totalUsd)}`}
-          </button>
-        </form>
+        {walletGateBlocked ? null : (
+          <form action={purchaseDropAction} className="slice-form" style={{ marginTop: 8 }}>
+            <input type="hidden" name="drop_id" value={checkout.drop.id} />
+            <button type="submit" className="slice-button">
+              {isAlreadyOwned
+                ? "open my collection"
+                : isStripe
+                  ? `pay ${formatUsd(checkout.totalUsd)} with Stripe`
+                  : `collect for ${formatUsd(checkout.totalUsd)}`}
+            </button>
+          </form>
+        )}
       </article>
     </SliceFrame>
   );

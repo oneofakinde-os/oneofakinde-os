@@ -1,7 +1,7 @@
 import { requireRequestSession } from "@/lib/bff/auth";
 import { badRequest, forbidden, getRequiredBodyString, ok, safeJson } from "@/lib/bff/http";
 import { commerceBffService } from "@/lib/bff/service";
-import type { DropVisibility, PreviewPolicy } from "@/lib/domain/contracts";
+import type { DropVisibility, PreviewPolicy, WalletChain } from "@/lib/domain/contracts";
 
 type CreateDropBody = {
   title?: string;
@@ -12,10 +12,12 @@ type CreateDropBody = {
   episodeLabel?: string;
   visibility?: string;
   previewPolicy?: string;
+  walletGate?: string;
 };
 
 const VALID_VISIBILITIES = new Set<DropVisibility>(["public", "world_members", "collectors_only"]);
 const VALID_PREVIEW_POLICIES = new Set<PreviewPolicy>(["full", "limited", "poster"]);
+const VALID_WALLET_CHAINS = new Set<WalletChain>(["ethereum", "tezos", "polygon"]);
 
 export async function POST(request: Request) {
   const guard = await requireRequestSession(request);
@@ -65,6 +67,11 @@ export async function POST(request: Request) {
   const seasonLabel = typeof body?.seasonLabel === "string" ? body.seasonLabel.trim() || undefined : undefined;
   const episodeLabel = typeof body?.episodeLabel === "string" ? body.episodeLabel.trim() || undefined : undefined;
 
+  const rawWalletGate = typeof body?.walletGate === "string" ? body.walletGate.trim() : undefined;
+  const walletGate = rawWalletGate && VALID_WALLET_CHAINS.has(rawWalletGate as WalletChain)
+    ? (rawWalletGate as WalletChain)
+    : undefined;
+
   const drop = await commerceBffService.createDrop(guard.session.accountId, {
     title,
     worldId,
@@ -73,7 +80,8 @@ export async function POST(request: Request) {
     seasonLabel,
     episodeLabel,
     visibility,
-    previewPolicy
+    previewPolicy,
+    walletGate
   });
 
   if (!drop) {

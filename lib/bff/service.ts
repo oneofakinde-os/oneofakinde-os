@@ -16,6 +16,7 @@ import type {
   CollectOffer,
   CollectOfferAction,
   CheckoutPreview,
+  CheckoutPreviewWalletGate,
   CreateWorkshopWorldReleaseInput,
   CreateWorkshopLiveSessionInput,
   CreateAuthorizedDerivativeInput,
@@ -4172,6 +4173,21 @@ function canAccountCollectDropDuringExclusiveLiveSessionWindow(
   return hasLiveSessionAttendance(db, liveSession.id, account.id);
 }
 
+/**
+ * Returns the first verified wallet address an account has on the given chain,
+ * or `null` if none exists. Used to evaluate per-drop wallet gates.
+ */
+function findVerifiedWalletAddressForChain(
+  db: BffDatabase,
+  accountId: string,
+  chain: WalletChain
+): string | null {
+  const wallet = db.walletConnections.find(
+    (w) => w.accountId === accountId && w.status === "verified" && w.chain === chain
+  );
+  return wallet ? wallet.address : null;
+}
+
 function canAccountCollectDropNow(
   db: BffDatabase,
   account: AccountRecord,
@@ -5838,6 +5854,19 @@ function purchaseDropInDatabase(
     };
   }
 
+  // Enforce wallet gate for new collects (studio owner bypasses).
+  if (drop.walletGate) {
+    const isStudioOwner =
+      account.roles.includes("creator") && account.handle === drop.studioHandle;
+    const verifiedAddress = findVerifiedWalletAddressForChain(db, account.id, drop.walletGate);
+    if (!isStudioOwner && verifiedAddress === null) {
+      return {
+        persist: false,
+        result: null
+      };
+    }
+  }
+
   const quote = resolveCollectQuote(db, drop);
   const receipt = issueOwnershipAndReceipt(db, account, drop, {
     quote
@@ -6088,7 +6117,8 @@ const gatewayMethods = {
         releaseDate: new Date().toISOString().slice(0, 10),
         priceUsd: input.priceUsd,
         visibility: input.visibility ?? "public",
-        previewPolicy: input.previewPolicy ?? "full"
+        previewPolicy: input.previewPolicy ?? "full",
+        ...(input.walletGate ? { walletGate: input.walletGate } : {})
       };
 
       db.catalog.drops.push(drop);
@@ -6167,6 +6197,20 @@ const gatewayMethods = {
         ? buildCollectSettlementQuote({ subtotalUsd: 0, processingUsd: 0 })
         : resolveCollectQuote(db, drop);
 
+      // Evaluate the wallet gate, if any. Studio owner and already-owned drops bypass.
+      let walletGate: CheckoutPreviewWalletGate | undefined;
+      if (drop.walletGate) {
+        const isStudioOwner =
+          account.roles.includes("creator") && account.handle === drop.studioHandle;
+        const verifiedAddress = findVerifiedWalletAddressForChain(db, account.id, drop.walletGate);
+        const satisfied = Boolean(existing) || isStudioOwner || verifiedAddress !== null;
+        walletGate = {
+          chain: drop.walletGate,
+          satisfied,
+          verifiedAddress
+        };
+      }
+
       return {
         persist: false,
         result: {
@@ -6175,7 +6219,8 @@ const gatewayMethods = {
           processingUsd: quote.processingUsd,
           totalUsd: quote.totalUsd,
           currency: "USD",
-          quote
+          quote,
+          ...(walletGate ? { walletGate } : {})
         }
       };
     });
@@ -7329,6 +7374,19 @@ async function createCheckoutSessionForPayment(
       };
     }
 
+    // Enforce wallet gate: only studio owner bypasses for new collects.
+    if (drop.walletGate) {
+      const isStudioOwner =
+        account.roles.includes("creator") && account.handle === drop.studioHandle;
+      const verifiedAddress = findVerifiedWalletAddressForChain(db, account.id, drop.walletGate);
+      if (!isStudioOwner && verifiedAddress === null) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+    }
+
     const quote = resolveCollectQuote(db, drop);
     const amountUsd = quote.totalUsd;
     const paymentId = `pay_${randomUUID()}`;
@@ -7446,6 +7504,21 @@ async function completePendingPaymentById(
         persist: true,
         result: receipt ? buildReceiptWithSettlement(db, receipt) : null
       };
+    }
+
+    // Enforce wallet gate at the moment of issuance (studio owner bypasses).
+    if (drop.walletGate) {
+      const isStudioOwner =
+        account.roles.includes("creator") && account.handle === drop.studioHandle;
+      const verifiedAddress = findVerifiedWalletAddressForChain(db, account.id, drop.walletGate);
+      if (!isStudioOwner && verifiedAddress === null) {
+        payment.status = "failed";
+        payment.updatedAt = new Date().toISOString();
+        return {
+          persist: true,
+          result: null
+        };
+      }
     }
 
     const quote = payment.quote ?? resolveCollectQuote(db, drop);
