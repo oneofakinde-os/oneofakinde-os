@@ -3,6 +3,7 @@ import type {
   AuthorizedDerivative,
   AuthorizedDerivativeKind,
   Certificate,
+  CertificateWallet,
   CaptureWorkshopLiveSessionArtifactInput,
   CollectLiveSessionSnapshot,
   CollectEnforcementSignal,
@@ -6858,6 +6859,29 @@ const gatewayMethods = {
       return {
         persist: false,
         result: certificate ? toPublicCertificate(certificate) : null
+      };
+    });
+  },
+
+  async getCertificateWallets(certificateId: string): Promise<CertificateWallet[]> {
+    return withDatabase(async (db) => {
+      const certificate = db.certificates.find((entry) => entry.id === certificateId);
+      if (!certificate) {
+        return { persist: false, result: [] };
+      }
+
+      const wallets = db.walletConnections.filter(
+        (w) => w.accountId === certificate.ownerAccountId && w.status === "verified"
+      );
+
+      return {
+        persist: false,
+        result: wallets.map((w) => ({
+          address: w.address,
+          chain: w.chain,
+          label: w.label ?? null,
+          verifiedAt: w.verifiedAt ?? w.createdAt
+        }))
       };
     });
   },

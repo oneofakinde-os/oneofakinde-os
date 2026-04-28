@@ -1,6 +1,7 @@
 import type {
   AuthorizedDerivative,
   Certificate,
+  CertificateWallet,
   CaptureWorkshopLiveSessionArtifactInput,
   CollectInventoryListing,
   CollectLiveSessionSnapshot,
@@ -809,6 +810,15 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
       );
       if (!response.ok || !response.payload) return null;
       return response.payload.certificate;
+    },
+
+    async getCertificateWallets(certificateId: string): Promise<CertificateWallet[]> {
+      const response = await requestJson<{ wallets: CertificateWallet[] }>(
+        options,
+        `/api/v1/certificates/${encodeURIComponent(certificateId)}/wallets`
+      );
+      if (!response.ok || !response.payload) return [];
+      return response.payload.wallets;
     },
 
     async getSessionByToken(sessionToken: string): Promise<Session | null> {

@@ -4,6 +4,7 @@ import type {
   AuthorizedDerivativeKind,
   CaptureWorkshopLiveSessionArtifactInput,
   Certificate,
+  CertificateWallet,
   CollectLiveSessionSnapshot,
   CheckoutSession,
   CheckoutPreview,
@@ -3142,5 +3143,9 @@ export const commerceGateway: CommerceGateway = {
 
   async disconnectWallet(): Promise<boolean> {
     return false;
+  },
+
+  async getCertificateWallets(_certificateId: string): Promise<CertificateWallet[]> {
+    return [];
   }
 };

@@ -2,6 +2,7 @@ import type {
   AuthorizedDerivative,
   CaptureWorkshopLiveSessionArtifactInput,
   Certificate,
+  CertificateWallet,
   CollectInventoryListing,
   CollectorListingSnapshot,
   CollectLiveSessionSnapshot,
@@ -184,6 +185,7 @@ export interface CommerceGateway {
 
   getCertificateById(certificateId: string): Promise<Certificate | null>;
   getCertificateByReceipt(accountId: string, receiptId: string): Promise<Certificate | null>;
+  getCertificateWallets(certificateId: string): Promise<CertificateWallet[]>;
 
   getSessionByToken(sessionToken: string): Promise<Session | null>;
   createSession(input: CreateSessionInput): Promise<Session>;
