@@ -21,7 +21,10 @@ export default async function CertificatePage({ params }: CertificatePageProps) 
     notFound();
   }
 
-  const drop = await gateway.getDropById(certificate.dropId);
+  const [drop, wallets] = await Promise.all([
+    gateway.getDropById(certificate.dropId),
+    gateway.getCertificateWallets(certificateId)
+  ]);
   if (!drop) {
     notFound();
   }
@@ -63,6 +66,22 @@ export default async function CertificatePage({ params }: CertificatePageProps) 
             <dd>{certificate.issuedAt}</dd>
           </div>
         </dl>
+
+        {wallets.length > 0 && (
+          <>
+            <p className="slice-label" style={{ marginTop: 20 }}>on-chain wallets</p>
+            <dl className="slice-list">
+              {wallets.map((w) => (
+                <div key={w.address}>
+                  <dt>{w.chain}{w.label ? ` · ${w.label}` : ""}</dt>
+                  <dd style={{ fontFamily: "monospace", fontSize: "0.85em", wordBreak: "break-all" }}>
+                    {w.address}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </>
+        )}
 
         <div className="slice-button-row">
           <Link href={routes.drop(drop.id)} className="slice-button ghost">

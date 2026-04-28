@@ -1373,6 +1373,17 @@ export type WalletConnection = {
   createdAt: string;
 };
 
+/**
+ * Public-safe wallet record surfaced on a certificate page.
+ * Never exposes accountId or the challenge nonce.
+ */
+export type CertificateWallet = {
+  address: string;
+  chain: WalletChain;
+  label: string | null;
+  verifiedAt: string;
+};
+
 export type SurfaceTelemetryEvent = {
   surface: SurfaceName;
   action: SurfaceActionVerb;
