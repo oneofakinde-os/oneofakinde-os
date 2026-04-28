@@ -72,7 +72,7 @@ export default async function CertificatePage({ params }: CertificatePageProps) 
             <p className="slice-label" style={{ marginTop: 20 }}>on-chain wallets</p>
             <dl className="slice-list">
               {wallets.map((w) => (
-                <div key={w.address}>
+                <div key={`${w.chain}:${w.address}`}>
                   <dt>{w.chain}{w.label ? ` · ${w.label}` : ""}</dt>
                   <dd style={{ fontFamily: "monospace", fontSize: "0.85em", wordBreak: "break-all" }}>
                     {w.address}
