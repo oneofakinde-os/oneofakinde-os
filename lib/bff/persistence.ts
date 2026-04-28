@@ -3643,7 +3643,8 @@ function parseDropJson(value: unknown): Drop {
     previewMedia:
       parsed.previewMedia && Object.keys(parsed.previewMedia).length > 0
         ? parsed.previewMedia
-        : seedPreviewMediaForDrop(String(parsed.id ?? ""))
+        : seedPreviewMediaForDrop(String(parsed.id ?? "")),
+    walletGate: parseWalletChain(parsed.walletGate)
   };
 
   return normalizeDropRecord(normalized);
@@ -3657,6 +3658,15 @@ function parseOptionalPositiveInt(value: unknown): number | undefined {
 
   const intValue = Math.trunc(parsed);
   return intValue > 0 ? intValue : undefined;
+}
+
+const VALID_WALLET_CHAINS = new Set<string>(["ethereum", "tezos", "polygon"]);
+
+function parseWalletChain(value: unknown): "ethereum" | "tezos" | "polygon" | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  return VALID_WALLET_CHAINS.has(value) ? (value as "ethereum" | "tezos" | "polygon") : undefined;
 }
 
 function parseWorldJson(value: unknown): World {

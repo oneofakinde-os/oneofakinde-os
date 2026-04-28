@@ -136,6 +136,11 @@ export function DropDetailScreen({
             </p>
             <p className="dropflow-synopsis">{drop.synopsis}</p>
             <p className="dropflow-meta">{drop.releaseDate} · {drop.worldLabel}</p>
+            {drop.walletGate ? (
+              <p className="dropflow-meta" data-wallet-gate={drop.walletGate}>
+                🔒 requires verified {drop.walletGate} wallet to collect
+              </p>
+            ) : null}
 
             <div className="dropflow-cta-row">
               <Link href={collectHref} className="dropflow-primary-cta">

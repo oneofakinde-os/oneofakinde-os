@@ -74,6 +74,8 @@ export type Drop = {
   releaseAt?: string;
   /** Per-drop creator royalty override in basis points (100 = 1%). Falls back to platform default when undefined. */
   resaleRoyaltyBps?: number;
+  /** When set, only collectors with a verified on-chain wallet on this chain can collect the drop. */
+  walletGate?: WalletChain;
 };
 
 export type MembershipEntitlementStatus = "active" | "expired" | "canceled";
@@ -455,6 +457,8 @@ export type CreateDropInput = {
   episodeLabel?: string;
   visibility?: DropVisibility;
   previewPolicy?: PreviewPolicy;
+  /** When set, only collectors with a verified wallet on this chain can collect. */
+  walletGate?: WalletChain;
 };
 
 export type CreateWorldInput = {
@@ -792,6 +796,20 @@ export type LedgerTransaction = {
   createdAt: string;
 };
 
+/**
+ * Wallet-gate evaluation surfaced on a checkout preview.
+ *
+ * When `chain` is set, the drop requires a verified wallet on that chain.
+ * `satisfied = true` means the viewer has at least one verified wallet on
+ * the required chain; `verifiedAddress` returns the first such address (for
+ * UI display) or `null` when the gate is unsatisfied.
+ */
+export type CheckoutPreviewWalletGate = {
+  chain: WalletChain;
+  satisfied: boolean;
+  verifiedAddress: string | null;
+};
+
 export type CheckoutPreview = {
   drop: Drop;
   subtotalUsd: number;
@@ -799,6 +817,7 @@ export type CheckoutPreview = {
   totalUsd: number;
   currency: "USD";
   quote: SettlementQuote;
+  walletGate?: CheckoutPreviewWalletGate;
 };
 
 export type PaymentProvider = "manual" | "stripe";
