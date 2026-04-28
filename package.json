@@ -42,7 +42,8 @@
     "next": "^15.5.15",
     "pg": "^8.16.3",
     "react": "18.2.0",
-    "react-dom": "18.2.0"
+    "react-dom": "18.2.0",
+    "viem": "^2.48.4"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",

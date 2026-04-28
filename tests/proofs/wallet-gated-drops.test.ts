@@ -72,10 +72,12 @@ test("proof: wallet-gated drop — checkout preview reports unsatisfied gate for
   const dbPath = createIsolatedDbPath();
   process.env.OOK_BFF_DB_PATH = dbPath;
   process.env.OOK_BFF_PERSISTENCE_BACKEND = "file";
+  process.env.OOK_WALLET_SIGNATURES = "mock";
 
   t.after(async () => {
     delete process.env.OOK_BFF_DB_PATH;
     delete process.env.OOK_BFF_PERSISTENCE_BACKEND;
+    delete process.env.OOK_WALLET_SIGNATURES;
     await fs.rm(dbPath, { force: true });
   });
 
@@ -93,10 +95,12 @@ test("proof: wallet-gated drop — purchase blocked when no verified wallet on r
   const dbPath = createIsolatedDbPath();
   process.env.OOK_BFF_DB_PATH = dbPath;
   process.env.OOK_BFF_PERSISTENCE_BACKEND = "file";
+  process.env.OOK_WALLET_SIGNATURES = "mock";
 
   t.after(async () => {
     delete process.env.OOK_BFF_DB_PATH;
     delete process.env.OOK_BFF_PERSISTENCE_BACKEND;
+    delete process.env.OOK_WALLET_SIGNATURES;
     await fs.rm(dbPath, { force: true });
   });
 
@@ -110,10 +114,12 @@ test("proof: wallet-gated drop — verified wallet on wrong chain still blocks",
   const dbPath = createIsolatedDbPath();
   process.env.OOK_BFF_DB_PATH = dbPath;
   process.env.OOK_BFF_PERSISTENCE_BACKEND = "file";
+  process.env.OOK_WALLET_SIGNATURES = "mock";
 
   t.after(async () => {
     delete process.env.OOK_BFF_DB_PATH;
     delete process.env.OOK_BFF_PERSISTENCE_BACKEND;
+    delete process.env.OOK_WALLET_SIGNATURES;
     await fs.rm(dbPath, { force: true });
   });
 
@@ -139,10 +145,12 @@ test("proof: wallet-gated drop — verified wallet on required chain unlocks pur
   const dbPath = createIsolatedDbPath();
   process.env.OOK_BFF_DB_PATH = dbPath;
   process.env.OOK_BFF_PERSISTENCE_BACKEND = "file";
+  process.env.OOK_WALLET_SIGNATURES = "mock";
 
   t.after(async () => {
     delete process.env.OOK_BFF_DB_PATH;
     delete process.env.OOK_BFF_PERSISTENCE_BACKEND;
+    delete process.env.OOK_WALLET_SIGNATURES;
     await fs.rm(dbPath, { force: true });
   });
 
@@ -172,10 +180,12 @@ test("proof: wallet-gated drop — studio owner bypasses their own gate", async 
   const dbPath = createIsolatedDbPath();
   process.env.OOK_BFF_DB_PATH = dbPath;
   process.env.OOK_BFF_PERSISTENCE_BACKEND = "file";
+  process.env.OOK_WALLET_SIGNATURES = "mock";
 
   t.after(async () => {
     delete process.env.OOK_BFF_DB_PATH;
     delete process.env.OOK_BFF_PERSISTENCE_BACKEND;
+    delete process.env.OOK_WALLET_SIGNATURES;
     await fs.rm(dbPath, { force: true });
   });
 
@@ -191,10 +201,12 @@ test("proof: drop without walletGate — preview omits walletGate descriptor", a
   const dbPath = createIsolatedDbPath();
   process.env.OOK_BFF_DB_PATH = dbPath;
   process.env.OOK_BFF_PERSISTENCE_BACKEND = "file";
+  process.env.OOK_WALLET_SIGNATURES = "mock";
 
   t.after(async () => {
     delete process.env.OOK_BFF_DB_PATH;
     delete process.env.OOK_BFF_PERSISTENCE_BACKEND;
+    delete process.env.OOK_WALLET_SIGNATURES;
     await fs.rm(dbPath, { force: true });
   });
 
@@ -216,10 +228,12 @@ test("proof: wallet-gated drop — already-owned receipt continues to surface as
   const dbPath = createIsolatedDbPath();
   process.env.OOK_BFF_DB_PATH = dbPath;
   process.env.OOK_BFF_PERSISTENCE_BACKEND = "file";
+  process.env.OOK_WALLET_SIGNATURES = "mock";
 
   t.after(async () => {
     delete process.env.OOK_BFF_DB_PATH;
     delete process.env.OOK_BFF_PERSISTENCE_BACKEND;
+    delete process.env.OOK_WALLET_SIGNATURES;
     await fs.rm(dbPath, { force: true });
   });
 

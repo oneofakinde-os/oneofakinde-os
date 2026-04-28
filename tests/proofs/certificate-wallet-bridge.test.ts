@@ -83,11 +83,13 @@ test("proof: getCertificateWallets — returns verified wallets for certificate 
   const dbPath = createIsolatedDbPath();
   process.env.OOK_BFF_DB_PATH = dbPath;
   process.env.OOK_BFF_PERSISTENCE_BACKEND = "file";
+  process.env.OOK_WALLET_SIGNATURES = "mock";
   process.env.OOK_PAYMENTS_PROVIDER = "manual";
 
   t.after(async () => {
     delete process.env.OOK_BFF_DB_PATH;
     delete process.env.OOK_BFF_PERSISTENCE_BACKEND;
+    delete process.env.OOK_WALLET_SIGNATURES;
     delete process.env.OOK_PAYMENTS_PROVIDER;
     await fs.rm(dbPath, { force: true });
   });
@@ -151,10 +153,12 @@ test("proof: getCertificateWallets — returns empty for unknown certificate", a
   const dbPath = createIsolatedDbPath();
   process.env.OOK_BFF_DB_PATH = dbPath;
   process.env.OOK_BFF_PERSISTENCE_BACKEND = "file";
+  process.env.OOK_WALLET_SIGNATURES = "mock";
 
   t.after(async () => {
     delete process.env.OOK_BFF_DB_PATH;
     delete process.env.OOK_BFF_PERSISTENCE_BACKEND;
+    delete process.env.OOK_WALLET_SIGNATURES;
     await fs.rm(dbPath, { force: true });
   });
 
@@ -166,10 +170,12 @@ test("proof: GET /api/v1/certificates/:cert_id/wallets — 404 for unknown cert"
   const dbPath = createIsolatedDbPath();
   process.env.OOK_BFF_DB_PATH = dbPath;
   process.env.OOK_BFF_PERSISTENCE_BACKEND = "file";
+  process.env.OOK_WALLET_SIGNATURES = "mock";
 
   t.after(async () => {
     delete process.env.OOK_BFF_DB_PATH;
     delete process.env.OOK_BFF_PERSISTENCE_BACKEND;
+    delete process.env.OOK_WALLET_SIGNATURES;
     await fs.rm(dbPath, { force: true });
   });
 
@@ -181,11 +187,13 @@ test("proof: GET /api/v1/certificates/:cert_id/wallets — 200 with verified wal
   const dbPath = createIsolatedDbPath();
   process.env.OOK_BFF_DB_PATH = dbPath;
   process.env.OOK_BFF_PERSISTENCE_BACKEND = "file";
+  process.env.OOK_WALLET_SIGNATURES = "mock";
   process.env.OOK_PAYMENTS_PROVIDER = "manual";
 
   t.after(async () => {
     delete process.env.OOK_BFF_DB_PATH;
     delete process.env.OOK_BFF_PERSISTENCE_BACKEND;
+    delete process.env.OOK_WALLET_SIGNATURES;
     delete process.env.OOK_PAYMENTS_PROVIDER;
     await fs.rm(dbPath, { force: true });
   });

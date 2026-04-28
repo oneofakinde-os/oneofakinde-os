@@ -136,6 +136,7 @@ import {
 } from "@/lib/collect/world-bundles";
 import { sortDropsForStudioSurface, sortDropsForWorldSurface } from "@/lib/catalog/drop-curation";
 import { applyCollectOfferAction, canApplyCollectOfferAction } from "@/lib/collect/offer-state-machine";
+import { verifyWalletSignature } from "@/lib/wallet/signatures";
 import { createCheckoutSession, parseStripeWebhook, type ParsedStripeWebhookEvent } from "@/lib/bff/payments";
 import { buildCollectSettlementQuote, buildPatronSettlementQuote, buildResaleSettlementQuote } from "@/lib/domain/quote-engine";
 import {
@@ -7269,11 +7270,21 @@ const gatewayMethods = {
         return { persist: false, result: null };
       }
 
-      // In a real implementation, we'd verify the cryptographic signature
-      // against the challenge message using the wallet's public key.
-      // For the BFF mock, we accept any non-empty signature that starts
-      // with "0x" (simulating an Ethereum-style hex signature).
-      if (!signature || signature.length < 3) {
+      // Verify the signature cryptographically (real mode) or via the
+      // permissive mock check when OOK_WALLET_SIGNATURES=mock. The challenge
+      // is the message that was issued during connectWallet — the holder
+      // must have signed exactly that string with the claimed wallet.
+      if (!wallet.challenge) {
+        return { persist: false, result: null };
+      }
+
+      const ok = await verifyWalletSignature({
+        chain: wallet.chain,
+        address: wallet.address,
+        message: wallet.challenge,
+        signature
+      });
+      if (!ok) {
         return { persist: false, result: null };
       }
 

@@ -17,10 +17,12 @@ test("proof: wallet connection lifecycle — connect, verify, disconnect, reconn
   const dbPath = createIsolatedDbPath();
   process.env.OOK_BFF_DB_PATH = dbPath;
   process.env.OOK_BFF_PERSISTENCE_BACKEND = "file";
+  process.env.OOK_WALLET_SIGNATURES = "mock";
 
   t.after(async () => {
     delete process.env.OOK_BFF_DB_PATH;
     delete process.env.OOK_BFF_PERSISTENCE_BACKEND;
+    delete process.env.OOK_WALLET_SIGNATURES;
     await fs.rm(dbPath, { force: true });
   });
 
@@ -109,10 +111,12 @@ test("proof: wallet connection API route — auth guard + CRUD", async (t) => {
   const dbPath = createIsolatedDbPath();
   process.env.OOK_BFF_DB_PATH = dbPath;
   process.env.OOK_BFF_PERSISTENCE_BACKEND = "file";
+  process.env.OOK_WALLET_SIGNATURES = "mock";
 
   t.after(async () => {
     delete process.env.OOK_BFF_DB_PATH;
     delete process.env.OOK_BFF_PERSISTENCE_BACKEND;
+    delete process.env.OOK_WALLET_SIGNATURES;
     await fs.rm(dbPath, { force: true });
   });
 
@@ -198,10 +202,12 @@ test("proof: wallet connection validation — bad inputs rejected", async (t) =>
   const dbPath = createIsolatedDbPath();
   process.env.OOK_BFF_DB_PATH = dbPath;
   process.env.OOK_BFF_PERSISTENCE_BACKEND = "file";
+  process.env.OOK_WALLET_SIGNATURES = "mock";
 
   t.after(async () => {
     delete process.env.OOK_BFF_DB_PATH;
     delete process.env.OOK_BFF_PERSISTENCE_BACKEND;
+    delete process.env.OOK_WALLET_SIGNATURES;
     await fs.rm(dbPath, { force: true });
   });
 
@@ -274,10 +280,12 @@ test("proof: wallet connections are isolated between accounts", async (t) => {
   const dbPath = createIsolatedDbPath();
   process.env.OOK_BFF_DB_PATH = dbPath;
   process.env.OOK_BFF_PERSISTENCE_BACKEND = "file";
+  process.env.OOK_WALLET_SIGNATURES = "mock";
 
   t.after(async () => {
     delete process.env.OOK_BFF_DB_PATH;
     delete process.env.OOK_BFF_PERSISTENCE_BACKEND;
+    delete process.env.OOK_WALLET_SIGNATURES;
     await fs.rm(dbPath, { force: true });
   });
 
