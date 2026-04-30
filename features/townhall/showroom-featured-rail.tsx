@@ -86,7 +86,7 @@ export function ShowroomFeaturedRail({ initialEntries }: ShowroomFeaturedRailPro
   return (
     <section
       className="showroom-featured-rail"
-      aria-label="featured campaign drops"
+      aria-label="featured drops"
       data-testid="showroom-featured-rail"
     >
       <div className="showroom-featured-rail-header">

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-30T22:31:30.941Z",
+  "generated_at": "2026-04-30T20:48:40.369Z",
   "source_path": "config/surface-map.source.txt",
   "source_metadata": {
     "format": "lintable_txt_v1",
@@ -28,6 +28,12 @@
       },
       "assets": {
         "replace_with": "drops"
+      },
+      "campaign": {
+        "replace_with": "(prohibited by build contract authority)"
+      },
+      "campaigns": {
+        "replace_with": "(prohibited by build contract authority)"
       },
       "collection_place": {
         "term": "collection",
@@ -71,6 +77,13 @@
           "assets",
           "asset’s",
           "assets’"
+        ]
+      },
+      {
+        "base": "campaign",
+        "variants": [
+          "campaign",
+          "campaigns"
         ]
       },
       {
@@ -1424,7 +1437,8 @@
     {
       "route": "/workshop",
       "legacy_routes": [
-        "/studio"
+        "/studio",
+        "/my-campaigns"
       ],
       "surface_key": "workshop_root",
       "ui_title": "workshop",
@@ -1974,32 +1988,6 @@
       "lint_targets": [
         "h1",
         "metadata_labels"
-      ],
-      "roles": [
-        "creator"
-      ],
-      "public_safe": false,
-      "contract_deps": [
-        "openapi_v1.workshop",
-        "schema_v1.workshop"
-      ],
-      "proof_ids": [
-        "p_session_required"
-      ],
-      "rules": []
-    },
-    {
-      "route": "/my-campaigns",
-      "legacy_routes": [],
-      "surface_key": "my_campaigns",
-      "ui_title": "my campaigns",
-      "ui_nouns": [
-        "workshop"
-      ],
-      "lint_targets": [
-        "h1",
-        "metadata_labels",
-        "empty_state"
       ],
       "roles": [
         "creator"
@@ -2605,6 +2593,7 @@
     "/saved": "/library",
     "/bookmarks": "/library",
     "/studio": "/workshop",
+    "/my-campaigns": "/workshop",
     "/invest": "/collect",
     "/auctions": "/collect",
     "/gallery": "/photos",
@@ -2642,7 +2631,6 @@
     "/create/world",
     "/become-creator",
     "/dashboard",
-    "/my-campaigns",
     "/payouts"
   ],
   "public_safe_route_patterns": [
@@ -2700,9 +2688,9 @@
     "canon_payments_stripe"
   ],
   "stats": {
-    "route_count": 77,
+    "route_count": 76,
     "public_safe_count": 44,
-    "session_required_count": 32,
-    "legacy_redirect_count": 34
+    "session_required_count": 31,
+    "legacy_redirect_count": 35
   }
 }

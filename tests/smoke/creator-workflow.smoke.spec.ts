@@ -53,9 +53,10 @@ test.describe("creator pages render after sign-in", () => {
     await expect(page.locator("body")).not.toBeEmpty();
   });
 
-  test("my-campaigns page loads for creator", async ({ page }) => {
+  test("legacy /my-campaigns redirects to /workshop", async ({ page }) => {
     await signInAsCreator(page, "/my-campaigns");
-    await expect(page.locator("body")).not.toBeEmpty();
+    // Surface-map legacy_routes auto-redirects /my-campaigns -> /workshop
+    await expect(page).toHaveURL(/\/workshop(\?|$)/);
   });
 });
 

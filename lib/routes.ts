@@ -100,7 +100,6 @@ export const routes = {
 
   workshop: (): Route => asRoute("/workshop"),
   dashboard: (): Route => asRoute("/dashboard"),
-  myCampaigns: (): Route => asRoute("/my-campaigns"),
   payouts: (): Route => asRoute("/payouts"),
 
   settingsAccount: (): Route => asRoute("/settings/account"),

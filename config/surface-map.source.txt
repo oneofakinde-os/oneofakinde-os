@@ -35,6 +35,8 @@ locked_glossary:
   banned_ui_nouns:
     asset: { replace_with: "drop" }
     assets: { replace_with: "drops" }
+    campaign: { replace_with: "(prohibited by build contract authority)" }
+    campaigns: { replace_with: "(prohibited by build contract authority)" }
     collection_place: { term: "collection", meaning: "place", replace_with: "world" }
     collections_place: { term: "collections", meaning: "places", replace_with: "worlds" }
     gallery: { replace_with: "photos" }
@@ -54,6 +56,7 @@ linter_matching:
   whole_word: true
   include_variants:
     - { base: "asset", variants: ["asset", "assets", "asset’s", "assets’"] }
+    - { base: "campaign", variants: ["campaign", "campaigns"] }
     - { base: "collection", variants: ["collection", "collections"] }
     - { base: "profile", variants: ["profile", "profiles"] }
     - { base: "gallery", variants: ["gallery", "galleries"] }
@@ -571,7 +574,7 @@ surfaces:
   # 11) workshop (creator back-office)
   # -------------------------------------------------------------------
   - route: "/workshop"
-    legacy_routes: ["/studio"]
+    legacy_routes: ["/studio", "/my-campaigns"]
     surface_key: "workshop_root"
     ui_title: "workshop"
     ui_nouns: ["workshop"]
@@ -808,17 +811,6 @@ surfaces:
     ui_title: "dashboard"
     ui_nouns: ["workshop"]
     lint_targets: ["h1", "metadata_labels"]
-    roles: ["creator"]
-    public_safe: false
-    contract_deps: ["openapi_v1.workshop", "schema_v1.workshop"]
-    proof_ids: ["p_session_required"]
-
-  - route: "/my-campaigns"
-    legacy_routes: []
-    surface_key: "my_campaigns"
-    ui_title: "my campaigns"
-    ui_nouns: ["workshop"]
-    lint_targets: ["h1", "metadata_labels", "empty_state"]
     roles: ["creator"]
     public_safe: false
     contract_deps: ["openapi_v1.workshop", "schema_v1.workshop"]

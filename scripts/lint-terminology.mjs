@@ -62,7 +62,7 @@ function routeFromAppPage(filePath) {
 const routeFiles = walk(path.resolve(process.cwd(), "app")).filter((file) => file.endsWith("page.tsx"));
 const routeToSurface = new Map(surfaceMap.surfaces.map((surface) => [surface.route, surface]));
 
-const variantBases = new Set(["asset", "gallery", "profile"]);
+const variantBases = new Set(["asset", "campaign", "gallery", "profile"]);
 const hardVariantTerms = (surfaceMap.linter_matching?.include_variants || [])
   .filter((item) => variantBases.has(item.base))
   .flatMap((item) => item.variants || []);
