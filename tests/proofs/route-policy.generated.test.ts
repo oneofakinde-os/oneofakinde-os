@@ -120,6 +120,10 @@ const redirectCases = [
     "targetPathname": "/workshop"
   },
   {
+    "sourcePathname": "/my-campaigns",
+    "targetPathname": "/workshop"
+  },
+  {
     "sourcePathname": "/invest",
     "targetPathname": "/collect"
   },
@@ -608,15 +612,6 @@ const metadataCases = [
     ]
   },
   {
-    "pathname": "/my-campaigns",
-    "surfaceKey": "my_campaigns",
-    "publicSafe": "false",
-    "hasSession": true,
-    "sessionRoles": [
-      "creator"
-    ]
-  },
-  {
     "pathname": "/payouts",
     "surfaceKey": "payouts",
     "publicSafe": "false",
@@ -837,9 +832,6 @@ const sessionCases = [
   },
   {
     "pathname": "/dashboard"
-  },
-  {
-    "pathname": "/my-campaigns"
   },
   {
     "pathname": "/payouts"
@@ -1078,13 +1070,6 @@ const roleRequiredCases = [
     "disallowedRole": "collector"
   },
   {
-    "pathname": "/my-campaigns",
-    "allowedRoles": [
-      "creator"
-    ],
-    "disallowedRole": "collector"
-  },
-  {
     "pathname": "/payouts",
     "allowedRoles": [
       "creator"
@@ -1189,9 +1174,6 @@ const proofSessionCases = [
   },
   {
     "pathname": "/dashboard"
-  },
-  {
-    "pathname": "/my-campaigns"
   },
   {
     "pathname": "/payouts"

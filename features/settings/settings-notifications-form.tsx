@@ -11,7 +11,7 @@ type Channel = {
 const CHANNELS: Channel[] = [
   { key: "townhall_replies", label: "townhall replies and mentions", defaultOn: true },
   { key: "drop_purchases", label: "drop purchase and receipt updates", defaultOn: true },
-  { key: "campaign_alerts", label: "campaign performance alerts", defaultOn: true },
+  { key: "featured_lane_alerts", label: "featured lane performance alerts", defaultOn: true },
   { key: "world_updates", label: "world membership and release updates", defaultOn: true },
   { key: "weekly_digest", label: "weekly digest only", defaultOn: false },
 ];

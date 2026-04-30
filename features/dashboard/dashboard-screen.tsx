@@ -203,9 +203,6 @@ export function DashboardScreen({
           <Link href={routes.workshop()} className="slice-button">
             workshop
           </Link>
-          <Link href={routes.myCampaigns()} className="slice-button alt">
-            my campaigns
-          </Link>
           <Link href={routes.payouts()} className="slice-button alt">
             payouts
           </Link>

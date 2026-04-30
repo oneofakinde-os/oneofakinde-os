@@ -24,7 +24,7 @@ const TYPE_ICON: Record<string, string> = {
   membership_change: "membership",
   patron_renewal: "patron",
   live_session_starting: "live",
-  campaign_alert: "campaign",
+  featured_lane_alert: "featured",
   weekly_digest: "digest"
 };
 
