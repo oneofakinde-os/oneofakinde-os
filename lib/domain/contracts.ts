@@ -1350,7 +1350,7 @@ export type NotificationType =
   | "membership_change"
   | "patron_renewal"
   | "live_session_starting"
-  | "campaign_alert"
+  | "featured_lane_alert"
   | "weekly_digest";
 
 export type NotificationEntry = {
