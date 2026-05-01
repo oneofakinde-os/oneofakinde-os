@@ -1516,6 +1516,58 @@ function findAccountByHandle(db: BffDatabase, handle: string): AccountRecord | n
   return db.accounts.find((account) => account.handle === handle) ?? null;
 }
 
+/**
+ * Sprint 0.2 — Block + Mute.
+ *
+ * Returns the set of accountIds whose authored content should be HIDDEN from
+ * `viewerAccountId`'s view. This is the union of:
+ *   - accounts the viewer has BLOCKED (no interaction either direction)
+ *   - accounts the viewer has MUTED (visibility-only)
+ *
+ * Block and mute have identical visibility semantics from the viewer's
+ * perspective — both cause the muted/blocked author's content to disappear
+ * from the viewer's surfaces. The difference is whether the *other* party
+ * can interact (mute: yes, block: no), which is enforced separately in the
+ * action-creation paths.
+ *
+ * Returns an empty set when `viewerAccountId` is null (logged-out viewers
+ * never have a block/mute graph) so the call is cheap to make unconditionally.
+ */
+function collectViewerHiddenAuthorIds(
+  db: BffDatabase,
+  viewerAccountId: string | null
+): Set<string> {
+  const hidden = new Set<string>();
+  if (!viewerAccountId) return hidden;
+  for (const block of db.blocks) {
+    if (block.blockerAccountId === viewerAccountId) {
+      hidden.add(block.blockedAccountId);
+    }
+  }
+  for (const mute of db.mutes) {
+    if (mute.muterAccountId === viewerAccountId) {
+      hidden.add(mute.mutedAccountId);
+    }
+  }
+  return hidden;
+}
+
+/**
+ * Returns true iff the viewer has BLOCKED the target account (mute is excluded
+ * here — mute does not restrict actions). Used by action-create paths to
+ * reject likes/comments/shares from blocked accounts.
+ */
+function isAuthorBlockedByViewer(
+  db: BffDatabase,
+  viewerAccountId: string | null,
+  targetAccountId: string
+): boolean {
+  if (!viewerAccountId) return false;
+  return db.blocks.some(
+    (b) => b.blockerAccountId === viewerAccountId && b.blockedAccountId === targetAccountId
+  );
+}
+
 function findDropById(db: BffDatabase, dropId: string): Drop | null {
   return db.catalog.drops.find((drop) => drop.id === dropId) ?? null;
 }
@@ -2918,6 +2970,10 @@ function buildWorldConversationThread(
   viewerAccount: AccountRecord
 ): WorldConversationThread {
   const accountHandleById = new Map(db.accounts.map((entry) => [entry.id, entry.handle]));
+  // Sprint 0.2 — block/mute filtering on world conversations.
+  // Always exempt the viewer's own messages (they should always see what they
+  // wrote) and exempt moderation-eligible viewers' view of moderated content.
+  const hiddenAuthorIds = collectViewerHiddenAuthorIds(db, viewerAccount.id);
   const visibleMessages = db.worldConversationMessages
     .filter((entry) => entry.worldId === world.id)
     .filter((entry) => {
@@ -2930,6 +2986,11 @@ function buildWorldConversationThread(
       }
 
       return canAccountModerateWorldConversationMessage(viewerAccount, world, entry);
+    })
+    .filter((entry) => {
+      // Viewer's own messages always pass; their block/mute graph hides others.
+      if (entry.accountId === viewerAccount.id) return true;
+      return !hiddenAuthorIds.has(entry.accountId);
     })
     .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt))
     .slice(-WORLD_CONVERSATION_MESSAGES_PREVIEW_LIMIT);
@@ -3541,7 +3602,15 @@ function buildTownhallDropSocialSnapshot(
 
   const likeCount = db.townhallLikes.filter((entry) => entry.dropId === dropId).length;
   const viewerAccount = accountId ? findAccountById(db, accountId) : null;
-  const comments = db.townhallComments.filter((entry) => entry.dropId === dropId);
+  // Sprint 0.2 — block/mute filtering. The viewer must not see comments from
+  // accounts they have blocked or muted. Block and mute have identical visual
+  // semantics here; the difference is that blocked accounts also can't write
+  // (enforced separately in comment-create paths).
+  const hiddenAuthorIds = collectViewerHiddenAuthorIds(db, accountId);
+  const allComments = db.townhallComments.filter((entry) => entry.dropId === dropId);
+  const comments = hiddenAuthorIds.size === 0
+    ? allComments
+    : allComments.filter((entry) => !hiddenAuthorIds.has(entry.accountId));
   const shareCount = db.townhallShares.filter((entry) => entry.dropId === dropId).length;
   const saveCount = db.savedDrops.filter((entry) => entry.dropId === dropId).length;
 
@@ -7307,6 +7376,173 @@ const gatewayMethods = {
       }
       wallet.status = "disconnected";
       return { persist: true, result: true };
+    });
+  },
+
+  /* ───────────── Block + Mute (Sprint 0.2) ───────────── */
+
+  /**
+   * Toggle a block on `targetHandle`. If a block already exists it is removed
+   * (unblock); otherwise a new one is created. Self-block is rejected.
+   * Returns `{ blocked: <new state> }` plus the resolved targetAccountId so
+   * the caller can persist follow/notification side-effects in the future.
+   */
+  async toggleBlock(
+    blockerAccountId: string,
+    targetHandle: string
+  ): Promise<{ blocked: boolean; targetAccountId: string } | null> {
+    return withDatabase<{ blocked: boolean; targetAccountId: string } | null>(async (db) => {
+      const blocker = findAccountById(db, blockerAccountId);
+      if (!blocker) return { persist: false, result: null };
+      const target = db.accounts.find((a) => a.handle === targetHandle);
+      if (!target) return { persist: false, result: null };
+      if (target.id === blockerAccountId) {
+        // Cannot block yourself.
+        return { persist: false, result: null };
+      }
+
+      const idx = db.blocks.findIndex(
+        (b) => b.blockerAccountId === blockerAccountId && b.blockedAccountId === target.id
+      );
+      if (idx >= 0) {
+        db.blocks.splice(idx, 1);
+        return { persist: true, result: { blocked: false, targetAccountId: target.id } };
+      }
+      db.blocks.push({
+        blockerAccountId,
+        blockedAccountId: target.id,
+        createdAt: new Date().toISOString()
+      });
+      return { persist: true, result: { blocked: true, targetAccountId: target.id } };
+    });
+  },
+
+  /**
+   * Toggle a mute on `targetHandle`. Same semantics as `toggleBlock` but for
+   * mutes — visibility-only filtering, no interaction restrictions.
+   */
+  async toggleMute(
+    muterAccountId: string,
+    targetHandle: string
+  ): Promise<{ muted: boolean; targetAccountId: string } | null> {
+    return withDatabase<{ muted: boolean; targetAccountId: string } | null>(async (db) => {
+      const muter = findAccountById(db, muterAccountId);
+      if (!muter) return { persist: false, result: null };
+      const target = db.accounts.find((a) => a.handle === targetHandle);
+      if (!target) return { persist: false, result: null };
+      if (target.id === muterAccountId) {
+        return { persist: false, result: null };
+      }
+
+      const idx = db.mutes.findIndex(
+        (m) => m.muterAccountId === muterAccountId && m.mutedAccountId === target.id
+      );
+      if (idx >= 0) {
+        db.mutes.splice(idx, 1);
+        return { persist: true, result: { muted: false, targetAccountId: target.id } };
+      }
+      db.mutes.push({
+        muterAccountId,
+        mutedAccountId: target.id,
+        createdAt: new Date().toISOString()
+      });
+      return { persist: true, result: { muted: true, targetAccountId: target.id } };
+    });
+  },
+
+  async getBlockedAccountIds(accountId: string): Promise<string[]> {
+    return withDatabase(async (db) => ({
+      persist: false,
+      result: db.blocks
+        .filter((b) => b.blockerAccountId === accountId)
+        .map((b) => b.blockedAccountId)
+    }));
+  },
+
+  async getMutedAccountIds(accountId: string): Promise<string[]> {
+    return withDatabase(async (db) => ({
+      persist: false,
+      result: db.mutes
+        .filter((m) => m.muterAccountId === accountId)
+        .map((m) => m.mutedAccountId)
+    }));
+  },
+
+  async isBlocked(blockerAccountId: string, blockedAccountId: string): Promise<boolean> {
+    return withDatabase(async (db) => ({
+      persist: false,
+      result: db.blocks.some(
+        (b) => b.blockerAccountId === blockerAccountId && b.blockedAccountId === blockedAccountId
+      )
+    }));
+  },
+
+  async getBlockedHandles(accountId: string): Promise<string[]> {
+    return withDatabase(async (db) => {
+      const ids = new Set(
+        db.blocks.filter((b) => b.blockerAccountId === accountId).map((b) => b.blockedAccountId)
+      );
+      const handles = db.accounts.filter((a) => ids.has(a.id)).map((a) => a.handle);
+      return { persist: false, result: handles };
+    });
+  },
+
+  async getMutedHandles(accountId: string): Promise<string[]> {
+    return withDatabase(async (db) => {
+      const ids = new Set(
+        db.mutes.filter((m) => m.muterAccountId === accountId).map((m) => m.mutedAccountId)
+      );
+      const handles = db.accounts.filter((a) => ids.has(a.id)).map((a) => a.handle);
+      return { persist: false, result: handles };
+    });
+  },
+
+  /**
+   * Sprint 0.2 — block enforcement on inbound social actions.
+   *
+   * Returns `true` iff the studio that owns `dropId` has blocked the viewer.
+   * Routes for like/comment/save/share use this as a precheck and return
+   * HTTP 403 ("blocked") when true. Mute does NOT participate here — mute
+   * is visibility-only.
+   *
+   * Returns `false` when the drop or the studio's owning account cannot be
+   * found, so the caller's existing not-found / 404 path stays in charge of
+   * shape-validation. Self-action (creator interacting with their own drop)
+   * is never blocked by this check.
+   */
+  async isViewerBlockedByDropStudio(
+    viewerAccountId: string,
+    dropId: string
+  ): Promise<boolean> {
+    return withDatabase(async (db) => {
+      const drop = findDropById(db, dropId);
+      if (!drop) return { persist: false, result: false };
+      const studioOwner = db.accounts.find((a) => a.handle === drop.studioHandle);
+      if (!studioOwner) return { persist: false, result: false };
+      if (studioOwner.id === viewerAccountId) return { persist: false, result: false };
+      return {
+        persist: false,
+        result: isAuthorBlockedByViewer(db, studioOwner.id, viewerAccountId)
+      };
+    });
+  },
+
+  /**
+   * Sprint 0.2 — Block + Mute.
+   *
+   * Returns the union of handles whose studio surface (drops, comments,
+   * world activity) the viewer has chosen to hide via either block or mute.
+   * Used by feed-query layers to filter discovery without modifying the
+   * shared ranking engine.
+   */
+  async getViewerHiddenStudioHandles(accountId: string): Promise<string[]> {
+    return withDatabase(async (db) => {
+      const hiddenIds = collectViewerHiddenAuthorIds(db, accountId);
+      if (hiddenIds.size === 0) {
+        return { persist: false, result: [] };
+      }
+      const handles = db.accounts.filter((a) => hiddenIds.has(a.id)).map((a) => a.handle);
+      return { persist: false, result: handles };
     });
   },
 

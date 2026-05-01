@@ -1,5 +1,6 @@
 import {
   badRequest,
+  forbidden,
   getOptionalBodyString,
   getRequiredBodyString,
   getRequiredRouteParam,
@@ -40,6 +41,11 @@ export async function POST(request: Request, context: RouteContext<CommentRouteP
     payload as Record<string, unknown> | null,
     "parentCommentId"
   );
+
+  // Sprint 0.2 — block enforcement: blocked viewers cannot post comments.
+  if (await commerceBffService.isViewerBlockedByDropStudio(guard.session.accountId, dropId)) {
+    return forbidden("blocked");
+  }
 
   const social = await commerceBffService.addTownhallComment(
     guard.session.accountId,
