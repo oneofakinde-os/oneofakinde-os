@@ -27,15 +27,19 @@ sprint's authors don't have to re-derive them.
    that sprint lands. The plan's migration index is descriptive, not
    prescriptive; sequential-numbering authority is the codebase.
 
-2. **Postgres adapter is read-only for `bff_blocks` / `bff_mutes`.** The
-   migration creates the tables and the Postgres adapter reads them on
-   `loadPostgresDb`, but `persistPostgresDb` does NOT include them in its
-   TRUNCATE+INSERT loop. This matches the pre-existing pattern for
-   `bff_wallet_connections` and `bff_totp_enrollments` — the file backend
-   is the write authority for these social-safety tables in dev. Production
-   Postgres will need direct INSERT/DELETE wiring when this code runs in
-   that backend, but that's out of scope for Sprint 0.2 since the rest of
-   the wallet/totp surface uses the same pattern.
+2. **Postgres adapter writes `bff_blocks` / `bff_mutes` through the
+   snapshot path.** Initial scope had read-only Postgres for these
+   tables (mirroring the pre-existing `bff_wallet_connections` /
+   `bff_totp_enrollments` pattern), but PR #202 review correctly
+   flagged this as a correctness bug for block/mute specifically:
+   `toggleBlock` / `toggleMute` set `persist: true`, so without
+   snapshot writes the mutation would only land in the per-request
+   in-memory copy and silently disappear on the next reload — feed
+   filtering and 403 enforcement would break after the first call.
+   The fix follows the same TRUNCATE+INSERT pattern as every other
+   mutable table. Both TRUNCATE and the INSERT loops are wrapped in
+   try/catch so the writer remains tolerant on environments where
+   migration 0043 has not yet been applied.
 
 3. **Block enforcement is action-only; mute is visibility-only.** The plan's
    text describes block as both visibility-filtering AND action-restriction;

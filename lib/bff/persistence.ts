@@ -4690,6 +4690,15 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
       bff_meta
   `);
 
+  // Sprint 0.2 — block + mute. TRUNCATEd separately so the writer tolerates
+  // environments where migration 0043 has not yet been applied (the read
+  // side already returns [] when these tables are absent).
+  try {
+    await client.query("TRUNCATE TABLE bff_blocks, bff_mutes");
+  } catch {
+    // pre-0043 environment; safe to skip.
+  }
+
   await client.query("INSERT INTO bff_meta (key, value) VALUES ($1, $2)", ["version", String(db.version)]);
 
   for (const drop of db.catalog.drops) {
@@ -4966,6 +4975,31 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
       "INSERT INTO bff_townhall_likes (account_id, drop_id, liked_at) VALUES ($1, $2, $3)",
       [like.accountId, like.dropId, like.likedAt]
     );
+  }
+
+  // Sprint 0.2 — block + mute. Wrapped in try/catch so the snapshot writer
+  // continues to function on environments where migration 0043 has not yet
+  // run. The TRUNCATE list above will already have included these tables
+  // when they exist; if they don't, this loop is a no-op anyway.
+  try {
+    for (const block of db.blocks) {
+      await client.query(
+        "INSERT INTO bff_blocks (blocker_account_id, blocked_account_id, created_at) VALUES ($1, $2, $3)",
+        [block.blockerAccountId, block.blockedAccountId, block.createdAt]
+      );
+    }
+  } catch {
+    // bff_blocks missing — pre-migration; safe to skip.
+  }
+  try {
+    for (const mute of db.mutes) {
+      await client.query(
+        "INSERT INTO bff_mutes (muter_account_id, muted_account_id, created_at) VALUES ($1, $2, $3)",
+        [mute.muterAccountId, mute.mutedAccountId, mute.createdAt]
+      );
+    }
+  } catch {
+    // bff_mutes missing — pre-migration; safe to skip.
   }
 
   for (const comment of db.townhallComments) {
