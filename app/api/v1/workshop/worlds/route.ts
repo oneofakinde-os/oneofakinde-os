@@ -1,7 +1,7 @@
 import { requireRequestSession } from "@/lib/bff/auth";
 import { badRequest, forbidden, getRequiredBodyString, ok, safeJson } from "@/lib/bff/http";
 import { commerceBffService } from "@/lib/bff/service";
-import type { DropVisibility } from "@/lib/domain/contracts";
+import type { DropVisibility, SensitivityRating } from "@/lib/domain/contracts";
 
 type CreateWorldBody = {
   title?: string;
@@ -14,11 +14,13 @@ type CreateWorldBody = {
   releaseMode?: string;
   currentLabel?: string;
   defaultDropVisibility?: string;
+  defaultSensitivityRating?: string;
 };
 
 const VALID_ENTRY_RULES = new Set(["open", "membership", "patron"]);
 const VALID_RELEASE_MODES = new Set(["continuous", "seasons", "chapters"]);
 const VALID_DROP_VISIBILITIES = new Set<DropVisibility>(["public", "world_members", "collectors_only"]);
+const VALID_SENSITIVITY_RATINGS = new Set<SensitivityRating>(["none", "advisory", "mature"]);
 
 export async function POST(request: Request) {
   const guard = await requireRequestSession(request);
@@ -67,6 +69,13 @@ export async function POST(request: Request) {
     ? (rawDefaultVis as DropVisibility)
     : undefined;
 
+  const rawDefaultSensitivity =
+    typeof body?.defaultSensitivityRating === "string" ? body.defaultSensitivityRating.trim() : undefined;
+  const defaultSensitivityRating =
+    rawDefaultSensitivity && VALID_SENSITIVITY_RATINGS.has(rawDefaultSensitivity as SensitivityRating)
+      ? (rawDefaultSensitivity as SensitivityRating)
+      : undefined;
+
   const world = await commerceBffService.createWorld(guard.session.accountId, {
     title,
     synopsis,
@@ -81,7 +90,8 @@ export async function POST(request: Request) {
       mode: releaseMode,
       currentLabel
     },
-    defaultDropVisibility
+    defaultDropVisibility,
+    defaultSensitivityRating
   });
 
   if (!world) {

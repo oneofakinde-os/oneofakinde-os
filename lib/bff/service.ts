@@ -1576,6 +1576,32 @@ function findWorldById(db: BffDatabase, worldId: string): World | null {
   return db.catalog.worlds.find((world) => world.id === worldId) ?? null;
 }
 
+/**
+ * Sprint 0.3 — resolve a drop's sensitivity rating with world-default
+ * inheritance. Returns a clone of the drop with `sensitivityRating` and
+ * `sensitivitySource` populated. Resolution order:
+ *
+ *   1. drop.sensitivityRating (if explicitly set) → source "drop"
+ *   2. world.defaultSensitivityRating               → source "world_default"
+ *   3. "none"                                       → source "drop"
+ *
+ * Mirrors the existing `DropVisibility`/`DropVisibilitySource` pattern from
+ * Train 4. Pure function: never mutates the underlying record.
+ */
+function hydrateDropSensitivity(db: BffDatabase, drop: Drop): Drop {
+  if (drop.sensitivityRating) {
+    return drop.sensitivitySource
+      ? drop
+      : { ...drop, sensitivitySource: "drop" };
+  }
+  const world = db.catalog.worlds.find((w) => w.id === drop.worldId);
+  const inherited = world?.defaultSensitivityRating;
+  if (inherited) {
+    return { ...drop, sensitivityRating: inherited, sensitivitySource: "world_default" };
+  }
+  return { ...drop, sensitivityRating: "none", sensitivitySource: "drop" };
+}
+
 function resolveDropVisibility(drop: Drop): "public" | "world_members" | "collectors_only" {
   if (drop.visibility === "world_members" || drop.visibility === "collectors_only") {
     return drop.visibility;
@@ -5983,9 +6009,9 @@ const gatewayMethods = {
   async listDrops(viewerAccountId?: string | null): Promise<Drop[]> {
     return withDatabase(async (db) => ({
       persist: false,
-      result: listDiscoverableDrops(db, viewerAccountId).sort(
-        (a, b) => Date.parse(b.releaseDate) - Date.parse(a.releaseDate)
-      )
+      result: listDiscoverableDrops(db, viewerAccountId)
+        .map((drop) => hydrateDropSensitivity(db, drop))
+        .sort((a, b) => Date.parse(b.releaseDate) - Date.parse(a.releaseDate))
     }));
   },
 
@@ -6007,7 +6033,9 @@ const gatewayMethods = {
     return withDatabase(async (db) => ({
       persist: false,
       result: sortDropsForWorldSurface(
-        listDiscoverableDrops(db, viewerAccountId).filter((drop) => drop.worldId === worldId)
+        listDiscoverableDrops(db, viewerAccountId)
+          .filter((drop) => drop.worldId === worldId)
+          .map((drop) => hydrateDropSensitivity(db, drop))
       )
     }));
   },
@@ -6023,7 +6051,9 @@ const gatewayMethods = {
     return withDatabase(async (db) => ({
       persist: false,
       result: sortDropsForStudioSurface(
-        listDiscoverableDrops(db, viewerAccountId).filter((drop) => drop.studioHandle === handle)
+        listDiscoverableDrops(db, viewerAccountId)
+          .filter((drop) => drop.studioHandle === handle)
+          .map((drop) => hydrateDropSensitivity(db, drop))
       )
     }));
   },
@@ -6038,17 +6068,21 @@ const gatewayMethods = {
         };
       }
 
+      // Sprint 0.3 — resolve sensitivity rating with world-default inheritance
+      // before the drop leaves the BFF.
+      const hydrated = hydrateDropSensitivity(db, drop);
+
       if (viewerAccountId === undefined) {
         return {
           persist: false,
-          result: drop
+          result: hydrated
         };
       }
 
       const account = viewerAccountId ? findAccountById(db, viewerAccountId) : null;
       return {
         persist: false,
-        result: canAccountDiscoverDrop(db, account, drop) ? drop : null
+        result: canAccountDiscoverDrop(db, account, drop) ? hydrated : null
       };
     });
   },
@@ -6187,7 +6221,10 @@ const gatewayMethods = {
         priceUsd: input.priceUsd,
         visibility: input.visibility ?? "public",
         previewPolicy: input.previewPolicy ?? "full",
-        ...(input.walletGate ? { walletGate: input.walletGate } : {})
+        ...(input.walletGate ? { walletGate: input.walletGate } : {}),
+        ...(input.sensitivityRating
+          ? { sensitivityRating: input.sensitivityRating, sensitivitySource: "drop" as const }
+          : {})
       };
 
       db.catalog.drops.push(drop);
@@ -6233,7 +6270,10 @@ const gatewayMethods = {
         entryRule: input.entryRule ?? "open",
         lore: input.lore,
         releaseStructure: input.releaseStructure,
-        defaultDropVisibility: input.defaultDropVisibility ?? "public"
+        defaultDropVisibility: input.defaultDropVisibility ?? "public",
+        ...(input.defaultSensitivityRating
+          ? { defaultSensitivityRating: input.defaultSensitivityRating }
+          : {})
       };
 
       db.catalog.worlds.push(world);
