@@ -70,7 +70,19 @@ export async function buildTownhallFeedPayload(request: Request): Promise<BuildT
     commerceBffService.getCollectInventory(null, "all")
   ]);
   const drops = await commerceBffService.listDrops(session?.accountId ?? null);
-  const filteredDrops = filterDropsForShowroomMedia(drops, mediaFilter, {
+
+  // Sprint 0.2 — exclude drops authored by studios the viewer has blocked
+  // or muted. Block/mute apply to feed/discovery surfaces; SEARCH (which
+  // bypasses this entry point) intentionally still surfaces blocked
+  // studios so users can confirm their decision and find moderation paths.
+  const blockedStudioHandles = session
+    ? new Set(await commerceBffService.getViewerHiddenStudioHandles(session.accountId))
+    : new Set<string>();
+  const visibleDrops = blockedStudioHandles.size === 0
+    ? drops
+    : drops.filter((drop) => !blockedStudioHandles.has(drop.studioHandle));
+
+  const filteredDrops = filterDropsForShowroomMedia(visibleDrops, mediaFilter, {
     collectListingsByDropId: buildCollectListingsByDropId(collectInventory.listings)
   });
 

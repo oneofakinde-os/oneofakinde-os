@@ -1,4 +1,4 @@
-import { badRequest, getRequiredBodyString, getRequiredRouteParam, notFound, ok, safeJson, type RouteContext } from "@/lib/bff/http";
+import { badRequest, forbidden, getRequiredBodyString, getRequiredRouteParam, notFound, ok, safeJson, type RouteContext } from "@/lib/bff/http";
 import { requireRequestSession } from "@/lib/bff/auth";
 import { commerceBffService } from "@/lib/bff/service";
 import type { TownhallShareChannel } from "@/lib/domain/contracts";
@@ -31,6 +31,11 @@ export async function POST(request: Request, context: RouteContext<ShareRoutePar
   const channel = requestedChannel ?? "internal_dm";
   if (!isShareChannel(channel)) {
     return badRequest("channel must be sms, internal_dm, whatsapp, or telegram");
+  }
+
+  // Sprint 0.2 — block enforcement: blocked viewers cannot share blocker's drops.
+  if (await commerceBffService.isViewerBlockedByDropStudio(guard.session.accountId, dropId)) {
+    return forbidden("blocked");
   }
 
   const social = await commerceBffService.recordTownhallShare(

@@ -1,5 +1,31 @@
 export type AccountRole = "collector" | "creator";
 
+/**
+ * One-way social safety relationship: the blocker hides the blocked account
+ * from their own surfaces and prevents the blocked account from interacting
+ * with their public objects (drops, comments, world conversations, DMs).
+ *
+ * Block is asymmetric — both directions must be set if both parties want
+ * mutual isolation. The platform never auto-mirrors a block.
+ */
+export type BlockRelationship = {
+  blockerAccountId: string;
+  blockedAccountId: string;
+  createdAt: string;
+};
+
+/**
+ * One-way "I don't want to see this" relationship. Filters the muter's view
+ * of feeds and comments but does NOT restrict what the muted account can do —
+ * the muted account can still comment, like, follow, etc. Their actions are
+ * just invisible to the muter.
+ */
+export type MuteRelationship = {
+  muterAccountId: string;
+  mutedAccountId: string;
+  createdAt: string;
+};
+
 export type Session = {
   accountId: string;
   email: string;

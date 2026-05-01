@@ -490,6 +490,18 @@ export type WalletConnectionRecord = {
   createdAt: string;
 };
 
+export type BlockRecord = {
+  blockerAccountId: string;
+  blockedAccountId: string;
+  createdAt: string;
+};
+
+export type MuteRecord = {
+  muterAccountId: string;
+  mutedAccountId: string;
+  createdAt: string;
+};
+
 export type BffDatabase = {
   version: 1;
   catalog: {
@@ -540,6 +552,8 @@ export type BffDatabase = {
   notificationPreferences: NotificationPreferencesRecord[];
   totpEnrollments: TotpEnrollmentRecord[];
   walletConnections: WalletConnectionRecord[];
+  blocks: BlockRecord[];
+  mutes: MuteRecord[];
 };
 
 type MutationResult<T> = {
@@ -1342,7 +1356,9 @@ function createSeedDatabase(): BffDatabase {
     ],
     notificationPreferences: [],
     totpEnrollments: [],
-    walletConnections: []
+    walletConnections: [],
+    blocks: [],
+    mutes: []
   };
 }
 
@@ -1392,7 +1408,9 @@ function createCatalogSeedDatabase(): BffDatabase {
     notificationEntries: [],
     notificationPreferences: [],
     totpEnrollments: [],
-    walletConnections: []
+    walletConnections: [],
+    blocks: [],
+    mutes: []
   };
 }
 
@@ -1446,7 +1464,9 @@ function createEmptyDatabase(): BffDatabase {
     notificationEntries: [],
     notificationPreferences: [],
     totpEnrollments: [],
-    walletConnections: []
+    walletConnections: [],
+    blocks: [],
+    mutes: []
   };
 }
 
@@ -3235,6 +3255,12 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         : [],
       walletConnections: Array.isArray(input.walletConnections)
         ? (input.walletConnections as WalletConnectionRecord[])
+        : [],
+      blocks: Array.isArray(input.blocks)
+        ? (input.blocks as BlockRecord[])
+        : [],
+      mutes: Array.isArray(input.mutes)
+        ? (input.mutes as MuteRecord[])
         : []
     };
   }
@@ -3386,6 +3412,12 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         : [],
       walletConnections: Array.isArray(candidate.walletConnections)
         ? (candidate.walletConnections as WalletConnectionRecord[])
+        : [],
+      blocks: Array.isArray(candidate.blocks)
+        ? (candidate.blocks as BlockRecord[])
+        : [],
+      mutes: Array.isArray(candidate.mutes)
+        ? (candidate.mutes as MuteRecord[])
         : []
     };
   }
@@ -4579,6 +4611,26 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       try {
         const r = await client.query<WalletConnectionRecord>(
           'SELECT id, account_id AS "accountId", address, chain, label, status, challenge, verified_at AS "verifiedAt", created_at AS "createdAt" FROM bff_wallet_connections ORDER BY created_at DESC'
+        );
+        return r.rows;
+      } catch {
+        return [];
+      }
+    })(),
+    blocks: await (async () => {
+      try {
+        const r = await client.query<BlockRecord>(
+          'SELECT blocker_account_id AS "blockerAccountId", blocked_account_id AS "blockedAccountId", created_at AS "createdAt" FROM bff_blocks'
+        );
+        return r.rows;
+      } catch {
+        return [];
+      }
+    })(),
+    mutes: await (async () => {
+      try {
+        const r = await client.query<MuteRecord>(
+          'SELECT muter_account_id AS "muterAccountId", muted_account_id AS "mutedAccountId", created_at AS "createdAt" FROM bff_mutes'
         );
         return r.rows;
       } catch {
