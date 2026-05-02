@@ -1,4 +1,5 @@
 import { DropDetailScreen } from "@/features/drops/drop-detail-screen";
+import { SensitivityGate } from "@/features/sensitivity/sensitivity-gate";
 import { gateway } from "@/lib/gateway";
 import { routes } from "@/lib/routes";
 import { buildDropMetadata } from "@/lib/seo/metadata";
@@ -74,14 +75,20 @@ export default async function DropDetailPage({ params, searchParams }: DropDetai
   ]);
 
   return (
-    <DropDetailScreen
-      drop={drop}
-      lineage={lineage}
-      liveArtifacts={liveArtifacts}
-      session={session}
-      backHref={toHrefObject(returnTo)}
-      ownershipHistory={ownershipHistory}
-      recentOffers={offersResult?.offers ?? []}
-    />
+    <SensitivityGate
+      dropId={drop.id}
+      rating={drop.sensitivityRating}
+      source={drop.sensitivitySource}
+    >
+      <DropDetailScreen
+        drop={drop}
+        lineage={lineage}
+        liveArtifacts={liveArtifacts}
+        session={session}
+        backHref={toHrefObject(returnTo)}
+        ownershipHistory={ownershipHistory}
+        recentOffers={offersResult?.offers ?? []}
+      />
+    </SensitivityGate>
   );
 }

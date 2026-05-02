@@ -3676,7 +3676,9 @@ function parseDropJson(value: unknown): Drop {
       parsed.previewMedia && Object.keys(parsed.previewMedia).length > 0
         ? parsed.previewMedia
         : seedPreviewMediaForDrop(String(parsed.id ?? "")),
-    walletGate: parseWalletChain(parsed.walletGate)
+    walletGate: parseWalletChain(parsed.walletGate),
+    sensitivityRating: parseSensitivityRating(parsed.sensitivityRating),
+    sensitivitySource: parseSensitivitySource(parsed.sensitivitySource)
   };
 
   return normalizeDropRecord(normalized);
@@ -3699,6 +3701,28 @@ function parseWalletChain(value: unknown): "ethereum" | "tezos" | "polygon" | un
     return undefined;
   }
   return VALID_WALLET_CHAINS.has(value) ? (value as "ethereum" | "tezos" | "polygon") : undefined;
+}
+
+const VALID_SENSITIVITY_RATINGS = new Set<string>(["none", "advisory", "mature"]);
+
+function parseSensitivityRating(value: unknown): "none" | "advisory" | "mature" | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  return VALID_SENSITIVITY_RATINGS.has(value)
+    ? (value as "none" | "advisory" | "mature")
+    : undefined;
+}
+
+const VALID_SENSITIVITY_SOURCES = new Set<string>(["drop", "world_default"]);
+
+function parseSensitivitySource(value: unknown): "drop" | "world_default" | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  return VALID_SENSITIVITY_SOURCES.has(value)
+    ? (value as "drop" | "world_default")
+    : undefined;
 }
 
 function parseWorldJson(value: unknown): World {

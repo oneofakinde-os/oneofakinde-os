@@ -1,7 +1,7 @@
 import { requireRequestSession } from "@/lib/bff/auth";
 import { badRequest, forbidden, getRequiredBodyString, ok, safeJson } from "@/lib/bff/http";
 import { commerceBffService } from "@/lib/bff/service";
-import type { DropVisibility, PreviewPolicy, WalletChain } from "@/lib/domain/contracts";
+import type { DropVisibility, PreviewPolicy, SensitivityRating, WalletChain } from "@/lib/domain/contracts";
 
 type CreateDropBody = {
   title?: string;
@@ -13,11 +13,13 @@ type CreateDropBody = {
   visibility?: string;
   previewPolicy?: string;
   walletGate?: string;
+  sensitivityRating?: string;
 };
 
 const VALID_VISIBILITIES = new Set<DropVisibility>(["public", "world_members", "collectors_only"]);
 const VALID_PREVIEW_POLICIES = new Set<PreviewPolicy>(["full", "limited", "poster"]);
 const VALID_WALLET_CHAINS = new Set<WalletChain>(["ethereum", "tezos", "polygon"]);
+const VALID_SENSITIVITY_RATINGS = new Set<SensitivityRating>(["none", "advisory", "mature"]);
 
 export async function POST(request: Request) {
   const guard = await requireRequestSession(request);
@@ -72,6 +74,13 @@ export async function POST(request: Request) {
     ? (rawWalletGate as WalletChain)
     : undefined;
 
+  const rawSensitivityRating =
+    typeof body?.sensitivityRating === "string" ? body.sensitivityRating.trim() : undefined;
+  const sensitivityRating =
+    rawSensitivityRating && VALID_SENSITIVITY_RATINGS.has(rawSensitivityRating as SensitivityRating)
+      ? (rawSensitivityRating as SensitivityRating)
+      : undefined;
+
   const drop = await commerceBffService.createDrop(guard.session.accountId, {
     title,
     worldId,
@@ -81,7 +90,8 @@ export async function POST(request: Request) {
     episodeLabel,
     visibility,
     previewPolicy,
-    walletGate
+    walletGate,
+    sensitivityRating
   });
 
   if (!drop) {

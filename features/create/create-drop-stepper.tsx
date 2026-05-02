@@ -1,7 +1,7 @@
 "use client";
 
 import type { CreateDropResult } from "@/app/(creator)/create/drop/actions";
-import type { WalletChain, World } from "@/lib/domain/contracts";
+import type { SensitivityRating, WalletChain, World } from "@/lib/domain/contracts";
 import { useState, useTransition } from "react";
 
 type CreateDropStepperProps = {
@@ -9,7 +9,7 @@ type CreateDropStepperProps = {
   createDropAction: (formData: FormData) => Promise<CreateDropResult>;
 };
 
-const STEPS = ["title", "world", "synopsis", "pricing", "gating", "review"] as const;
+const STEPS = ["title", "world", "synopsis", "pricing", "gating", "sensitivity", "review"] as const;
 type Step = (typeof STEPS)[number];
 
 type WalletGateChoice = "none" | WalletChain;
@@ -18,6 +18,14 @@ const WALLET_CHAIN_OPTIONS: ReadonlyArray<{ value: WalletGateChoice; label: stri
   { value: "ethereum", label: "ethereum", description: "requires a verified ethereum wallet." },
   { value: "tezos", label: "tezos", description: "requires a verified tezos wallet." },
   { value: "polygon", label: "polygon", description: "requires a verified polygon wallet." }
+];
+
+type SensitivityChoice = "inherit" | SensitivityRating;
+const SENSITIVITY_OPTIONS: ReadonlyArray<{ value: SensitivityChoice; label: string; description: string }> = [
+  { value: "inherit", label: "inherit from world", description: "use the world's default rating; no override on this drop." },
+  { value: "none", label: "none", description: "no warning shown to viewers." },
+  { value: "advisory", label: "advisory", description: "interstitial: 'may contain mature themes'." },
+  { value: "mature", label: "mature", description: "interstitial: 'explicit content; viewer must confirm'." }
 ];
 
 export function CreateDropStepper({
@@ -32,6 +40,7 @@ export function CreateDropStepper({
   const [seasonLabel, setSeasonLabel] = useState("");
   const [episodeLabel, setEpisodeLabel] = useState("");
   const [walletGate, setWalletGate] = useState<WalletGateChoice>("none");
+  const [sensitivity, setSensitivity] = useState<SensitivityChoice>("inherit");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -75,6 +84,7 @@ export function CreateDropStepper({
     if (seasonLabel.trim()) formData.set("seasonLabel", seasonLabel.trim());
     if (episodeLabel.trim()) formData.set("episodeLabel", episodeLabel.trim());
     if (walletGate !== "none") formData.set("walletGate", walletGate);
+    if (sensitivity !== "inherit") formData.set("sensitivityRating", sensitivity);
 
     startTransition(async () => {
       const result = await createDropAction(formData);
@@ -267,6 +277,46 @@ export function CreateDropStepper({
         </section>
       ) : null}
 
+      {/* step: sensitivity */}
+      {step === "sensitivity" ? (
+        <section className="create-stepper-step" aria-label="content sensitivity">
+          <h2 className="slice-title">content sensitivity</h2>
+          <p className="slice-copy">
+            self-classify the drop's content. viewers see an interstitial
+            confirmation before mature or advisory drops; "none" shows no warning.
+          </p>
+          <fieldset className="create-stepper-world-grid" style={{ border: 0, padding: 0, margin: 0 }}>
+            <legend className="slice-meta" style={{ marginBottom: "0.5rem" }}>
+              sensitivity rating
+            </legend>
+            {SENSITIVITY_OPTIONS.map((option) => (
+              <label
+                key={option.value}
+                className={`create-stepper-world-card${sensitivity === option.value ? " selected" : ""}`}
+                style={{ cursor: "pointer", textAlign: "left" }}
+              >
+                <input
+                  type="radio"
+                  name="sensitivityRating"
+                  value={option.value}
+                  checked={sensitivity === option.value}
+                  onChange={() => setSensitivity(option.value)}
+                  style={{ marginRight: "0.5rem" }}
+                />
+                <span className="create-stepper-world-title">{option.label}</span>
+                <span className="slice-meta">{option.description}</span>
+              </label>
+            ))}
+          </fieldset>
+          {selectedWorld?.defaultSensitivityRating && sensitivity === "inherit" ? (
+            <p className="slice-meta" style={{ marginTop: "0.5rem" }}>
+              this world's default is{" "}
+              <strong>{selectedWorld.defaultSensitivityRating}</strong> — your drop will inherit it.
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
       {/* step: review */}
       {step === "review" ? (
         <section className="create-stepper-step" aria-label="review and publish">
@@ -307,6 +357,16 @@ export function CreateDropStepper({
               <span className="slice-meta">wallet gate</span>
               <span className="slice-copy">
                 {walletGate === "none" ? "none — any collector can collect" : `requires verified ${walletGate} wallet`}
+              </span>
+            </div>
+            <div className="create-stepper-review-row">
+              <span className="slice-meta">sensitivity</span>
+              <span className="slice-copy">
+                {sensitivity === "inherit"
+                  ? selectedWorld?.defaultSensitivityRating
+                    ? `inherits world default (${selectedWorld.defaultSensitivityRating})`
+                    : "inherits world default (none)"
+                  : sensitivity}
               </span>
             </div>
           </div>

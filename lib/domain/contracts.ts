@@ -79,6 +79,26 @@ export type DropVisibilitySource = "drop" | "world_default";
 
 export type PreviewPolicy = "full" | "limited" | "poster";
 
+/**
+ * Sprint 0.3 — Content sensitivity rating.
+ *
+ * Self-classification by the studio that owns the drop (or the world that
+ * sets a default). The platform does NOT independently scan content; this
+ * is metadata used by the consumer-side interstitial to ask viewers to
+ * confirm before they see content marked `advisory` or `mature`.
+ *
+ *   - `none`      — no warning shown
+ *   - `advisory`  — interstitial: "may contain mature themes"
+ *   - `mature`    — interstitial: "explicit content; viewer must confirm"
+ *
+ * Resolution: drop's own rating wins; otherwise inherit from world default;
+ * otherwise default to `none`. The source is reported alongside the
+ * resolved rating so the workshop UI can show "inherited from world" hints.
+ */
+export type SensitivityRating = "none" | "advisory" | "mature";
+
+export type SensitivitySource = "drop" | "world_default";
+
 export type Drop = {
   id: string;
   title: string;
@@ -102,6 +122,10 @@ export type Drop = {
   resaleRoyaltyBps?: number;
   /** When set, only collectors with a verified on-chain wallet on this chain can collect the drop. */
   walletGate?: WalletChain;
+  /** Sprint 0.3 — self-classification by studio. Falls back to world default when undefined. */
+  sensitivityRating?: SensitivityRating;
+  /** Sprint 0.3 — set by the resolver alongside `sensitivityRating` so consumers can show inheritance hints. */
+  sensitivitySource?: SensitivitySource;
 };
 
 export type MembershipEntitlementStatus = "active" | "expired" | "canceled";
@@ -485,6 +509,8 @@ export type CreateDropInput = {
   previewPolicy?: PreviewPolicy;
   /** When set, only collectors with a verified wallet on this chain can collect. */
   walletGate?: WalletChain;
+  /** Sprint 0.3 — studio's self-classification of the drop's content. */
+  sensitivityRating?: SensitivityRating;
 };
 
 export type CreateWorldInput = {
@@ -502,6 +528,8 @@ export type CreateWorldInput = {
     currentLabel?: string;
   };
   defaultDropVisibility?: DropVisibility;
+  /** Sprint 0.3 — default for drops in this world that don't set their own. */
+  defaultSensitivityRating?: SensitivityRating;
 };
 
 export type CreateDropVersionInput = {
@@ -745,6 +773,8 @@ export type World = {
     currentLabel?: string;
   };
   defaultDropVisibility?: DropVisibility;
+  /** Sprint 0.3 — sensitivity rating that drops in this world inherit when they don't set their own. */
+  defaultSensitivityRating?: SensitivityRating;
   collectBundles?: WorldCollectBundle[];
 };
 

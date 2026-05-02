@@ -2,7 +2,7 @@
 
 import { gateway } from "@/lib/gateway";
 import { requireSessionRoles } from "@/lib/server/session";
-import type { WalletChain } from "@/lib/domain/contracts";
+import type { SensitivityRating, WalletChain } from "@/lib/domain/contracts";
 import { redirect } from "next/navigation";
 
 export type CreateDropResult = {
@@ -12,6 +12,11 @@ export type CreateDropResult = {
 };
 
 const VALID_WALLET_CHAINS: ReadonlySet<WalletChain> = new Set(["ethereum", "tezos", "polygon"]);
+const VALID_SENSITIVITY_RATINGS: ReadonlySet<SensitivityRating> = new Set([
+  "none",
+  "advisory",
+  "mature"
+]);
 
 export async function createDropAction(formData: FormData): Promise<CreateDropResult> {
   const session = await requireSessionRoles("/create/drop", ["creator"]);
@@ -26,6 +31,12 @@ export async function createDropAction(formData: FormData): Promise<CreateDropRe
   const walletGate: WalletChain | undefined =
     rawWalletGate && VALID_WALLET_CHAINS.has(rawWalletGate as WalletChain)
       ? (rawWalletGate as WalletChain)
+      : undefined;
+
+  const rawSensitivity = String(formData.get("sensitivityRating") ?? "").trim();
+  const sensitivityRating: SensitivityRating | undefined =
+    rawSensitivity && VALID_SENSITIVITY_RATINGS.has(rawSensitivity as SensitivityRating)
+      ? (rawSensitivity as SensitivityRating)
       : undefined;
 
   if (!title) return { ok: false, error: "title is required" };
@@ -46,7 +57,8 @@ export async function createDropAction(formData: FormData): Promise<CreateDropRe
     priceUsd: Math.round(priceUsd * 100) / 100,
     seasonLabel,
     episodeLabel,
-    walletGate
+    walletGate,
+    sensitivityRating
   });
 
   if (!drop) {

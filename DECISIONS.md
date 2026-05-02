@@ -9,6 +9,54 @@ decision later, not so much that it becomes a maintenance burden.
 
 ---
 
+## 2026-05-01 — Sprint 0.3 (Content Sensitivity Ratings) — read-time inheritance + sourcing
+
+**Context:**
+Sprint 0.3 adds `sensitivityRating` to `Drop` and `defaultSensitivityRating`
+to `World`. The plan calls for read-time inheritance: a drop without its
+own rating inherits the world's default; if neither is set, the resolved
+rating is `"none"`. The plan also says no proof test is needed — the
+interstitial is UI behaviour, not a security boundary. Two small decisions
+came up in implementation that are worth pinning.
+
+**Decisions:**
+
+1. **Resolution happens at the BFF read boundary, not at write time.**
+   The drop record stores only what the studio explicitly sets; the
+   resolver fills in `sensitivitySource` and inherited values when the
+   drop leaves the BFF (`getDropById`, `listDrops`, `listDropsByWorldId`,
+   `listDropsByStudioHandle`). This keeps the world's default as the
+   single source of truth — change the default and every inheriting drop
+   reflects it on next read, no migration needed. Mirrors the existing
+   `DropVisibility` / `DropVisibilitySource` pattern from Train 4 (which
+   stores the source eagerly on write); for sensitivity we chose lazy
+   resolution because the world default is more likely to evolve as a
+   studio's content matures, and we want existing drops to track it
+   without rewrites.
+
+2. **Resolver proof tests added despite the plan saying none required.**
+   The plan's reasoning ("UI behaviour, not security boundary") covers
+   the interstitial, but the resolver itself is non-trivial backend code
+   that future sprints will lean on (workshop UI hints, future analytics
+   cohorts, etc.). Four small proof tests pin: explicit rating wins;
+   inheritance from world default; default-to-none with `source='drop'`;
+   resolver consistency across the four read paths. Adds ~150 lines of
+   test for ~25 lines of resolver logic — cheap insurance.
+
+**Implications:**
+- The interstitial component (`features/sensitivity/sensitivity-gate.tsx`)
+  reads the resolved rating from the drop the BFF returned, so it works
+  uniformly whether the rating was explicit or inherited.
+- The workshop stepper has a sensitivity step with an "inherit from world"
+  default; if the world has a default the review screen shows that value
+  parenthetically so the creator knows what they're inheriting.
+- No data migration. Drops added before this sprint have no rating set
+  and resolve to `"none"` (source `"drop"`).
+
+**Owner:** platform-foundation
+
+---
+
 ## 2026-05-01 — Sprint 0.2 (Block + Mute) — migration numbering, mock-friendly persistence, action-only block enforcement
 
 **Context:**
