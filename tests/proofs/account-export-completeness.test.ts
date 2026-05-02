@@ -107,6 +107,7 @@ test("proof: exportAccountData populates every documented field", async (t) => {
     "certificates",
     "comments",
     "worldConversationMessages",
+    "messageThreads",
     "patronCommitments",
     "ledgerTransactions",
     "follows",

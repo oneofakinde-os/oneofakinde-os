@@ -24,6 +24,7 @@ const QUICK_LINKS: QuickLink[] = [
   { label: "worlds", href: "/worlds", section: "navigate" },
   { label: "my collection", href: "/my-collection", section: "navigate" },
   { label: "library", href: "/library", section: "navigate" },
+  { label: "messages", href: "/messages", section: "navigate" },
   { label: "notifications", href: "/notifications", section: "navigate" },
   { label: "settings", href: "/settings/account", section: "navigate" },
   { label: "workshop", href: "/workshop", section: "creator" },

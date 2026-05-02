@@ -2109,6 +2109,46 @@ a {
   cursor: pointer;
 }
 
+.townhall-share-dm {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.townhall-share-field {
+  display: grid;
+  gap: 5px;
+  color: #9eb6c6;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.townhall-share-field input,
+.townhall-share-field textarea {
+  width: 100%;
+  border: 1px solid #42596a;
+  border-radius: 10px;
+  background: rgba(7, 13, 19, 0.78);
+  color: #dceaf4;
+  font: inherit;
+  letter-spacing: normal;
+  padding: 9px 10px;
+  resize: vertical;
+  text-transform: none;
+}
+
+.townhall-share-dm button {
+  border: 1px solid #79b7d6;
+  border-radius: 10px;
+  background: #dceaf4;
+  color: #071019;
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 9px 10px;
+}
+
 .townhall-share-note {
   margin: 0;
   color: #9eb6c6;

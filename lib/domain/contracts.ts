@@ -39,6 +39,7 @@ export type AccountDataExport = {
   certificates: Certificate[];
   comments: TownhallComment[];
   worldConversationMessages: WorldConversationMessage[];
+  messageThreads: MessageThread[];
   patronCommitments: PatronCommitment[];
   ledgerTransactions: LedgerTransaction[];
   follows: string[];
@@ -312,6 +313,111 @@ export type LiveSessionConversationThread = {
   liveSessionId: string;
   messages: LiveSessionConversationMessage[];
 };
+
+export type MessageThreadKind = "direct" | "group";
+
+export type MessageParticipantRole = "owner" | "member";
+
+export type MessageParticipantStatus = "active" | "requested" | "declined";
+
+export type MessageRequestState = "active" | "requested" | "declined";
+
+export type MessageModerationVisibility = "visible" | "hidden" | "restricted" | "deleted";
+
+export type MessageParticipant = {
+  accountId: string;
+  handle: string;
+  displayName: string;
+  role: MessageParticipantRole;
+  status: MessageParticipantStatus;
+  joinedAt: string;
+  lastReadAt: string | null;
+};
+
+export type MessageThreadMessage = {
+  id: string;
+  threadId: string;
+  authorHandle: string;
+  body: string;
+  createdAt: string;
+  readBy: string[];
+  visibility: MessageModerationVisibility;
+  reportCount: number;
+  canReport: boolean;
+  canModerate: boolean;
+};
+
+export type MessageThreadSummary = {
+  id: string;
+  kind: MessageThreadKind;
+  title: string;
+  participantHandles: string[];
+  lastMessagePreview: string | null;
+  lastMessageAt: string | null;
+  unreadCount: number;
+  requestState: MessageRequestState;
+  updatedAt: string;
+};
+
+export type MessageInbox = {
+  threads: MessageThreadSummary[];
+  unreadCount: number;
+  requestCount: number;
+};
+
+export type MessageThread = {
+  id: string;
+  kind: MessageThreadKind;
+  title: string;
+  participants: MessageParticipant[];
+  messages: MessageThreadMessage[];
+  unreadCount: number;
+  requestState: MessageRequestState;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreateMessageThreadInput = {
+  recipientHandles: string[];
+  body: string;
+  title?: string;
+};
+
+export type MessageThreadMutationResult =
+  | {
+      ok: true;
+      thread: MessageThread;
+    }
+  | {
+      ok: false;
+      reason: "not_found" | "forbidden" | "blocked" | "invalid";
+    };
+
+export type MessageModerationResolution = "hide" | "restrict" | "delete" | "restore" | "dismiss";
+
+export type MessageModerationQueueItem = {
+  threadId: string;
+  threadTitle: string;
+  messageId: string;
+  participantHandles: string[];
+  authorHandle: string;
+  body: string;
+  visibility: MessageModerationVisibility;
+  reportCount: number;
+  reportedAt: string | null;
+  moderatedAt: string | null;
+  createdAt: string;
+};
+
+export type MessageModerationCaseResolveResult =
+  | {
+      ok: true;
+      queue: MessageModerationQueueItem[];
+    }
+  | {
+      ok: false;
+      reason: "forbidden" | "not_found";
+    };
 
 export type WorldConversationModerationResolution =
   | "hide"
@@ -1445,6 +1551,7 @@ export type NotificationChannel = "in_app" | "email" | "push";
 export type NotificationType =
   | "drop_collected"
   | "receipt_confirmed"
+  | "message_received"
   | "resale_completed"
   | "resale_royalty_earned"
   | "comment_reply"

@@ -40,6 +40,10 @@ This package defines the target software architecture for oneofakinde OS using t
   - File-by-file execution backlog to close March 8 spec-to-code gaps.
 - `action-matrix-red-yellow-backlog.md`
   - Red→yellow closure slices with SHA-locked promotion evidence and matrix recertification status.
+- `super-matrix-audit-2026-05-02.md`
+  - Current-state audit comparing the repo to the external super matrix.
+- `SUPER_MATRIX_COMPLETION_PROGRAM.md`
+  - Completion law, dependency-ordered execution program, and definition of done for full super-matrix parity.
 
 ## Source Basis
 

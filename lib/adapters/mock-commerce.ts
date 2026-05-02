@@ -27,6 +27,7 @@ import type {
   LiveSessionArtifact,
   LiveSessionArtifactKind,
   LiveSessionEligibility,
+  MessageModerationQueueItem,
   MembershipEntitlement,
   MyCollectionAnalyticsPanel,
   MyCollectionSnapshot,
@@ -3028,6 +3029,13 @@ export const commerceGateway: CommerceGateway = {
         createdAt: "2026-02-18T14:30:00.000Z"
       }
     ];
+  },
+
+  async listMessageModerationQueue(accountId: string): Promise<MessageModerationQueueItem[]> {
+    const account = store.accounts.get(accountId);
+    if (!account?.roles.includes("creator")) return [];
+
+    return [];
   },
 
   async getCollectorPublic(handle: string) {

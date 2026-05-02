@@ -54,6 +54,18 @@ import type {
   LiveSessionEligibility,
   LiveSessionJoinSnapshot,
   LiveSessionType,
+  CreateMessageThreadInput,
+  MessageInbox,
+  MessageModerationCaseResolveResult,
+  MessageModerationQueueItem,
+  MessageModerationResolution,
+  MessageParticipant,
+  MessageRequestState,
+  MessageThread,
+  MessageThreadKind,
+  MessageThreadMessage,
+  MessageThreadMutationResult,
+  MessageThreadSummary,
   MyCollectionAnalyticsPanel,
   DropOwnershipHistory,
   MyCollectionSnapshot,
@@ -152,6 +164,9 @@ import {
   type LiveSessionRecord,
   type LiveSessionAttendeeRecord,
   type LiveSessionConversationMessageRecord,
+  type MessageEntryRecord,
+  type MessageParticipantRecord,
+  type MessageThreadRecord,
   type LiveSessionArtifactRecord,
   type MembershipEntitlementRecord,
   type PatronCommitmentRecord,
@@ -201,6 +216,10 @@ const WORLD_CONVERSATION_MESSAGE_LOG_LIMIT = 50_000;
 const LIVE_SESSION_CONVERSATION_MESSAGE_MAX_LENGTH = 600;
 const LIVE_SESSION_CONVERSATION_MESSAGES_PREVIEW_LIMIT = 200;
 const LIVE_SESSION_CONVERSATION_MESSAGE_LOG_LIMIT = 50_000;
+const MESSAGE_BODY_MAX_LENGTH = 1200;
+const MESSAGE_THREAD_MESSAGES_PREVIEW_LIMIT = 200;
+const MESSAGE_ENTRY_LOG_LIMIT = 100_000;
+const MESSAGE_MODERATION_QUEUE_LIMIT = 500;
 const WORLD_CONVERSATION_MODERATION_QUEUE_LIMIT = 500;
 const LIVE_SESSION_CONVERSATION_MODERATION_QUEUE_LIMIT = 500;
 const COLLECT_OFFERS_LOG_LIMIT = 50_000;
@@ -373,6 +392,13 @@ const WORLD_CONVERSATION_MODERATION_RESOLUTION_SET = new Set<WorldConversationMo
   "restore",
   "dismiss"
 ]);
+const MESSAGE_MODERATION_RESOLUTION_SET = new Set<MessageModerationResolution>([
+  "hide",
+  "restrict",
+  "delete",
+  "restore",
+  "dismiss"
+]);
 const LIVE_SESSION_CONVERSATION_MODERATION_RESOLUTION_SET =
   new Set<LiveSessionConversationModerationResolution>([
     "hide",
@@ -442,6 +468,22 @@ type StripeWebhookMutationResult = {
 type TownhallSocialMutationResult = {
   persist: boolean;
   result: TownhallDropSocialSnapshot | null;
+};
+
+type TownhallShareMutationPayload =
+  | {
+      ok: true;
+      social: TownhallDropSocialSnapshot;
+      thread?: MessageThread;
+    }
+  | {
+      ok: false;
+      reason: "not_found" | "forbidden" | "blocked" | "invalid";
+    };
+
+type TownhallShareMutationResult = {
+  persist: boolean;
+  result: TownhallShareMutationPayload;
 };
 
 type TownhallTelemetryMutationResult = {
@@ -1568,6 +1610,18 @@ function isAuthorBlockedByViewer(
   if (!viewerAccountId) return false;
   return db.blocks.some(
     (b) => b.blockerAccountId === viewerAccountId && b.blockedAccountId === targetAccountId
+  );
+}
+
+function areAccountsBlockedEitherDirection(
+  db: BffDatabase,
+  firstAccountId: string,
+  secondAccountId: string
+): boolean {
+  return db.blocks.some(
+    (block) =>
+      (block.blockerAccountId === firstAccountId && block.blockedAccountId === secondAccountId) ||
+      (block.blockerAccountId === secondAccountId && block.blockedAccountId === firstAccountId)
   );
 }
 
@@ -3184,6 +3238,506 @@ function buildLiveSessionConversationThread(
     liveSessionId: liveSession.id,
     messages
   };
+}
+
+function normalizeMessageBody(value: string): string {
+  return value.trim().slice(0, MESSAGE_BODY_MAX_LENGTH);
+}
+
+function normalizeMessageTitle(value: string | undefined): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().slice(0, 96);
+  return normalized || null;
+}
+
+function normalizeMessageHandle(value: string): string {
+  return value.trim().replace(/^@+/, "").toLowerCase();
+}
+
+function findAccountByMessageHandle(db: BffDatabase, handle: string): AccountRecord | null {
+  const normalized = normalizeMessageHandle(handle);
+  if (!normalized) return null;
+  return db.accounts.find((account) => account.handle.toLowerCase() === normalized) ?? null;
+}
+
+function getMessageParticipants(db: BffDatabase, threadId: string): MessageParticipantRecord[] {
+  return db.messageParticipants
+    .filter((participant) => participant.threadId === threadId)
+    .sort((a, b) => a.joinedAt.localeCompare(b.joinedAt));
+}
+
+function getMessageEntries(db: BffDatabase, threadId: string): MessageEntryRecord[] {
+  return db.messageEntries
+    .filter((entry) => entry.threadId === threadId)
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+}
+
+function toMessageParticipant(
+  record: MessageParticipantRecord,
+  accountById: Map<string, AccountRecord>
+): MessageParticipant {
+  const account = accountById.get(record.accountId);
+  return {
+    accountId: record.accountId,
+    handle: account?.handle ?? "deleted",
+    displayName: account?.displayName ?? "[deleted]",
+    role: record.role,
+    status: record.status,
+    joinedAt: record.joinedAt,
+    lastReadAt: record.lastReadAt
+  };
+}
+
+function buildMessageParticipantHandles(
+  participants: MessageParticipantRecord[],
+  viewerAccount: AccountRecord,
+  accountById: Map<string, AccountRecord>
+): string[] {
+  const nonDeclined = participants.filter(
+    (participant) => participant.status !== "declined" || participant.accountId === viewerAccount.id
+  );
+  const others = nonDeclined
+    .filter((participant) => participant.accountId !== viewerAccount.id)
+    .map((participant) => accountById.get(participant.accountId)?.handle)
+    .filter((handle): handle is string => Boolean(handle));
+
+  if (others.length > 0) return others;
+
+  return nonDeclined
+    .map((participant) => accountById.get(participant.accountId)?.handle)
+    .filter((handle): handle is string => Boolean(handle));
+}
+
+function buildMessageThreadTitle(
+  thread: MessageThreadRecord,
+  participants: MessageParticipantRecord[],
+  viewerAccount: AccountRecord,
+  accountById: Map<string, AccountRecord>
+): string {
+  if (thread.title) return thread.title;
+
+  const handles = buildMessageParticipantHandles(participants, viewerAccount, accountById);
+  if (handles.length === 0) return "message thread";
+  if (handles.length <= 3) return handles.map((handle) => `@${handle}`).join(", ");
+  return `${handles.slice(0, 3).map((handle) => `@${handle}`).join(", ")} + ${handles.length - 3}`;
+}
+
+function getMessageUnreadCount(
+  entries: MessageEntryRecord[],
+  viewerParticipant: MessageParticipantRecord
+): number {
+  const lastReadAtMs = viewerParticipant.lastReadAt ? Date.parse(viewerParticipant.lastReadAt) : NaN;
+  return entries.filter((entry) => {
+    if (entry.accountId === viewerParticipant.accountId) return false;
+    if (!Number.isFinite(lastReadAtMs)) return true;
+    const createdAtMs = Date.parse(entry.createdAt);
+    return Number.isFinite(createdAtMs) && createdAtMs > lastReadAtMs;
+  }).length;
+}
+
+function canAccountModerateMessage(account: AccountRecord | null, record: MessageEntryRecord): boolean {
+  if (!account) return false;
+  if (account.id === record.accountId) return false;
+  return account.roles.includes("creator");
+}
+
+function canAccountReportMessage(
+  account: AccountRecord | null,
+  record: MessageEntryRecord,
+  participants: MessageParticipantRecord[]
+): boolean {
+  if (!account) return false;
+  if (record.accountId === account.id) return false;
+  if (record.visibility !== "visible") return false;
+  return participants.some(
+    (participant) => participant.accountId === account.id && participant.status !== "declined"
+  );
+}
+
+function toMessageThreadMessage(
+  record: MessageEntryRecord,
+  participants: MessageParticipantRecord[],
+  viewerAccount: AccountRecord,
+  accountById: Map<string, AccountRecord>
+): MessageThreadMessage {
+  const createdAtMs = Date.parse(record.createdAt);
+  const canModerate = canAccountModerateMessage(viewerAccount, record);
+  const isAuthor = viewerAccount.id === record.accountId;
+  const readBy = participants
+    .filter((participant) => {
+      if (!participant.lastReadAt || !Number.isFinite(createdAtMs)) return false;
+      const readAtMs = Date.parse(participant.lastReadAt);
+      return Number.isFinite(readAtMs) && readAtMs >= createdAtMs;
+    })
+    .map((participant) => accountById.get(participant.accountId)?.handle)
+    .filter((handle): handle is string => Boolean(handle))
+    .sort((a, b) => a.localeCompare(b));
+
+  return {
+    id: record.id,
+    threadId: record.threadId,
+    authorHandle: accountById.get(record.accountId)?.handle ?? "deleted",
+    body:
+      !canModerate && !isAuthor && record.visibility === "hidden"
+        ? "message hidden by moderation."
+        : !canModerate && !isAuthor && record.visibility === "restricted"
+          ? "message restricted by moderation."
+          : !canModerate && !isAuthor && record.visibility === "deleted"
+            ? "message deleted by moderation."
+            : record.body,
+    createdAt: record.createdAt,
+    readBy,
+    visibility: record.visibility,
+    reportCount: record.reportCount,
+    canReport: canAccountReportMessage(viewerAccount, record, participants),
+    canModerate
+  };
+}
+
+function buildMessageThread(
+  db: BffDatabase,
+  viewerAccount: AccountRecord,
+  thread: MessageThreadRecord,
+  options?: { includeDeclined?: boolean }
+): MessageThread | null {
+  const participants = getMessageParticipants(db, thread.id);
+  const viewerParticipant = participants.find((participant) => participant.accountId === viewerAccount.id);
+  if (!viewerParticipant) return null;
+  if (viewerParticipant.status === "declined" && !options?.includeDeclined) return null;
+
+  const accountById = new Map(db.accounts.map((account) => [account.id, account]));
+  const entries = getMessageEntries(db, thread.id).slice(-MESSAGE_THREAD_MESSAGES_PREVIEW_LIMIT);
+
+  return {
+    id: thread.id,
+    kind: thread.kind,
+    title: buildMessageThreadTitle(thread, participants, viewerAccount, accountById),
+    participants: participants.map((participant) => toMessageParticipant(participant, accountById)),
+    messages: entries.map((entry) => toMessageThreadMessage(entry, participants, viewerAccount, accountById)),
+    unreadCount: getMessageUnreadCount(entries, viewerParticipant),
+    requestState: viewerParticipant.status as MessageRequestState,
+    createdAt: thread.createdAt,
+    updatedAt: thread.updatedAt
+  };
+}
+
+function buildMessageThreadSummary(
+  db: BffDatabase,
+  viewerAccount: AccountRecord,
+  thread: MessageThreadRecord
+): MessageThreadSummary | null {
+  const participants = getMessageParticipants(db, thread.id);
+  const viewerParticipant = participants.find((participant) => participant.accountId === viewerAccount.id);
+  if (!viewerParticipant || viewerParticipant.status === "declined") return null;
+
+  const accountById = new Map(db.accounts.map((account) => [account.id, account]));
+  const entries = getMessageEntries(db, thread.id);
+  const lastEntry = entries.at(-1) ?? null;
+  const authorHandle = lastEntry ? accountById.get(lastEntry.accountId)?.handle : null;
+  const previewBody = lastEntry ? lastEntry.body.slice(0, 96) : null;
+
+  return {
+    id: thread.id,
+    kind: thread.kind,
+    title: buildMessageThreadTitle(thread, participants, viewerAccount, accountById),
+    participantHandles: buildMessageParticipantHandles(participants, viewerAccount, accountById),
+    lastMessagePreview: previewBody
+      ? `${authorHandle ? `@${authorHandle}: ` : ""}${previewBody}`
+      : null,
+    lastMessageAt: thread.lastMessageAt,
+    unreadCount: getMessageUnreadCount(entries, viewerParticipant),
+    requestState: viewerParticipant.status as MessageRequestState,
+    updatedAt: thread.updatedAt
+  };
+}
+
+function isMessageModerationResolution(value: string): value is MessageModerationResolution {
+  return MESSAGE_MODERATION_RESOLUTION_SET.has(value as MessageModerationResolution);
+}
+
+function applyMessageModerationResolution(
+  message: MessageEntryRecord,
+  actorAccountId: string,
+  resolution: MessageModerationResolution
+): void {
+  if (resolution === "hide") {
+    message.visibility = "hidden";
+  } else if (resolution === "restrict") {
+    message.visibility = "restricted";
+  } else if (resolution === "delete") {
+    message.visibility = "deleted";
+  } else if (resolution === "restore") {
+    message.visibility = "visible";
+  }
+
+  const nowIso = new Date().toISOString();
+  message.moderatedAt = nowIso;
+  message.moderatedByAccountId = actorAccountId;
+  message.reportCount = 0;
+  message.reportedAt = null;
+}
+
+function buildMessageModerationQueue(
+  db: BffDatabase,
+  account: AccountRecord
+): MessageModerationQueueItem[] {
+  if (!account.roles.includes("creator")) {
+    return [];
+  }
+
+  const accountById = new Map(db.accounts.map((entry) => [entry.id, entry]));
+
+  return db.messageEntries
+    .filter((message) => message.reportCount > 0)
+    .map((message) => {
+      const thread = db.messageThreads.find((entry) => entry.id === message.threadId);
+      if (!thread) return null;
+      const participants = getMessageParticipants(db, thread.id);
+      return {
+        threadId: thread.id,
+        threadTitle: buildMessageThreadTitle(thread, participants, account, accountById),
+        messageId: message.id,
+        participantHandles: buildMessageParticipantHandles(participants, account, accountById),
+        authorHandle: accountById.get(message.accountId)?.handle ?? "deleted",
+        body: message.body,
+        visibility: message.visibility,
+        reportCount: message.reportCount,
+        reportedAt: message.reportedAt,
+        moderatedAt: message.moderatedAt,
+        createdAt: message.createdAt
+      } satisfies MessageModerationQueueItem;
+    })
+    .filter((item): item is MessageModerationQueueItem => item !== null)
+    .sort((a, b) => {
+      const aRank = Date.parse(a.reportedAt ?? a.createdAt);
+      const bRank = Date.parse(b.reportedAt ?? b.createdAt);
+      return bRank - aRank;
+    })
+    .slice(0, MESSAGE_MODERATION_QUEUE_LIMIT);
+}
+
+function findExistingDirectMessageThread(
+  db: BffDatabase,
+  accountIds: [string, string]
+): MessageThreadRecord | null {
+  const expected = [...accountIds].sort();
+  for (const thread of db.messageThreads) {
+    if (thread.kind !== "direct") continue;
+    const participantIds = getMessageParticipants(db, thread.id)
+      .map((participant) => participant.accountId)
+      .sort();
+    if (
+      participantIds.length === expected.length &&
+      participantIds.every((accountId, index) => accountId === expected[index])
+    ) {
+      return thread;
+    }
+  }
+  return null;
+}
+
+function hasMessageThreadBlock(db: BffDatabase, accountIds: string[]): boolean {
+  const uniqueAccountIds = Array.from(new Set(accountIds));
+  for (let i = 0; i < uniqueAccountIds.length; i += 1) {
+    for (let j = i + 1; j < uniqueAccountIds.length; j += 1) {
+      if (areAccountsBlockedEitherDirection(db, uniqueAccountIds[i], uniqueAccountIds[j])) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function trimMessageEntries(db: BffDatabase): void {
+  if (db.messageEntries.length <= MESSAGE_ENTRY_LOG_LIMIT) return;
+  const keepIds = new Set(
+    [...db.messageEntries]
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, MESSAGE_ENTRY_LOG_LIMIT)
+      .map((entry) => entry.id)
+  );
+  db.messageEntries = db.messageEntries.filter((entry) => keepIds.has(entry.id));
+}
+
+function appendMessageToThread(
+  db: BffDatabase,
+  thread: MessageThreadRecord,
+  sender: AccountRecord,
+  body: string
+): MessageEntryRecord | null {
+  const senderParticipant = db.messageParticipants.find(
+    (participant) => participant.threadId === thread.id && participant.accountId === sender.id
+  );
+  if (!senderParticipant || senderParticipant.status === "declined") {
+    return null;
+  }
+
+  const nowIso = new Date().toISOString();
+  const entry: MessageEntryRecord = {
+    id: `msg_${randomUUID()}`,
+    threadId: thread.id,
+    accountId: sender.id,
+    body,
+    createdAt: nowIso,
+    visibility: "visible",
+    reportCount: 0,
+    reportedAt: null,
+    moderatedAt: null,
+    moderatedByAccountId: null
+  };
+
+  db.messageEntries.push(entry);
+  thread.updatedAt = nowIso;
+  thread.lastMessageAt = nowIso;
+  senderParticipant.status = "active";
+  senderParticipant.lastReadAt = nowIso;
+  trimMessageEntries(db);
+
+  const bodyPreview = body.length > 140 ? `${body.slice(0, 137)}...` : body;
+  for (const participant of getMessageParticipants(db, thread.id)) {
+    if (participant.accountId === sender.id || participant.status === "declined") continue;
+    emitNotification(
+      db,
+      participant.accountId,
+      "message_received",
+      `@${sender.handle} sent you a message`,
+      bodyPreview,
+      `/messages/${thread.id}`
+    );
+  }
+
+  return entry;
+}
+
+function buildDropShareMessageBody(input: {
+  drop: Drop;
+  note?: string;
+  shareUrl?: string;
+}): string {
+  const normalizedNote = normalizeMessageBody(input.note ?? "");
+  const normalizedUrl =
+    typeof input.shareUrl === "string" && input.shareUrl.trim()
+      ? input.shareUrl.trim().slice(0, 500)
+      : `/drops/${input.drop.id}`;
+  const shareLine = `shared ${input.drop.title} by @${input.drop.studioHandle}: ${normalizedUrl}`;
+  return normalizeMessageBody(normalizedNote ? `${normalizedNote}\n\n${shareLine}` : shareLine);
+}
+
+function deliverDropShareToMessageThread(
+  db: BffDatabase,
+  sender: AccountRecord,
+  drop: Drop,
+  input: {
+    recipientHandles: string[];
+    note?: string;
+    shareUrl?: string;
+  }
+): MessageThreadMutationResult {
+  const recipients: AccountRecord[] = [];
+  const seenHandles = new Set<string>();
+
+  for (const rawHandle of input.recipientHandles) {
+    if (typeof rawHandle !== "string") continue;
+    const normalizedHandle = normalizeMessageHandle(rawHandle);
+    if (!normalizedHandle || normalizedHandle === sender.handle.toLowerCase()) continue;
+    if (seenHandles.has(normalizedHandle)) continue;
+
+    const recipient = findAccountByMessageHandle(db, normalizedHandle);
+    if (!recipient) {
+      return { ok: false, reason: "invalid" };
+    }
+
+    seenHandles.add(normalizedHandle);
+    recipients.push(recipient);
+  }
+
+  if (recipients.length === 0) {
+    return { ok: false, reason: "invalid" };
+  }
+
+  const participantAccountIds = [sender.id, ...recipients.map((recipient) => recipient.id)];
+  if (hasMessageThreadBlock(db, participantAccountIds)) {
+    return { ok: false, reason: "blocked" };
+  }
+
+  const body = buildDropShareMessageBody({
+    drop,
+    note: input.note,
+    shareUrl: input.shareUrl
+  });
+  if (!body) {
+    return { ok: false, reason: "invalid" };
+  }
+
+  if (recipients.length === 1) {
+    const existingThread = findExistingDirectMessageThread(db, [sender.id, recipients[0].id]);
+    if (existingThread) {
+      const participants = getMessageParticipants(db, existingThread.id);
+      const senderParticipant = participants.find(
+        (participant) => participant.accountId === sender.id
+      );
+      const recipientParticipant = participants.find(
+        (participant) => participant.accountId === recipients[0].id
+      );
+
+      if (
+        !senderParticipant ||
+        !recipientParticipant ||
+        senderParticipant.status === "declined" ||
+        recipientParticipant.status === "declined"
+      ) {
+        return { ok: false, reason: "forbidden" };
+      }
+
+      const entry = appendMessageToThread(db, existingThread, sender, body);
+      const thread = buildMessageThread(db, sender, existingThread);
+      if (!entry || !thread) {
+        return { ok: false, reason: "forbidden" };
+      }
+
+      return { ok: true, thread };
+    }
+  }
+
+  const nowIso = new Date().toISOString();
+  const kind: MessageThreadKind = recipients.length === 1 ? "direct" : "group";
+  const thread: MessageThreadRecord = {
+    id: `mthread_${randomUUID()}`,
+    kind,
+    title: kind === "group" ? `drop: ${drop.title}`.slice(0, 96) : null,
+    createdByAccountId: sender.id,
+    createdAt: nowIso,
+    updatedAt: nowIso,
+    lastMessageAt: null
+  };
+
+  db.messageThreads.unshift(thread);
+  db.messageParticipants.push({
+    threadId: thread.id,
+    accountId: sender.id,
+    role: "owner",
+    status: "active",
+    joinedAt: nowIso,
+    lastReadAt: null
+  });
+  for (const recipient of recipients) {
+    db.messageParticipants.push({
+      threadId: thread.id,
+      accountId: recipient.id,
+      role: "member",
+      status: "requested",
+      joinedAt: nowIso,
+      lastReadAt: null
+    });
+  }
+
+  const entry = appendMessageToThread(db, thread, sender, body);
+  const view = buildMessageThread(db, sender, thread);
+  if (!entry || !view) {
+    return { ok: false, reason: "invalid" };
+  }
+
+  return { ok: true, thread: view };
 }
 
 function toTownhallComment(
@@ -7843,6 +8397,9 @@ const gatewayMethods = {
             : null;
         })
         .filter((m): m is WorldConversationMessage => m !== null);
+      const messageThreads: MessageThread[] = db.messageThreads
+        .map((thread) => buildMessageThread(db, account, thread, { includeDeclined: true }))
+        .filter((thread): thread is MessageThread => thread !== null);
       const patronCommitments: PatronCommitment[] = db.patronCommitments
         .filter((c) => {
           const patron = db.patrons.find((p) => p.id === c.patronId);
@@ -7890,6 +8447,7 @@ const gatewayMethods = {
           certificates,
           comments,
           worldConversationMessages,
+          messageThreads,
           patronCommitments,
           ledgerTransactions,
           follows,
@@ -12647,16 +13205,45 @@ export const commerceBffService = {
   async recordTownhallShare(
     accountId: string,
     dropId: string,
-    channel: TownhallShareChannel
-  ): Promise<TownhallDropSocialSnapshot | null> {
-    return withDatabase<TownhallDropSocialSnapshot | null>(async (db): Promise<TownhallSocialMutationResult> => {
+    channel: TownhallShareChannel,
+    options?: {
+      recipientHandles?: string[];
+      message?: string;
+      shareUrl?: string;
+    }
+  ): Promise<TownhallShareMutationPayload> {
+    return withDatabase<TownhallShareMutationPayload>(async (db): Promise<TownhallShareMutationResult> => {
       const account = findAccountById(db, accountId);
       const drop = findDropById(db, dropId);
       if (!account || !drop || !isTownhallShareChannel(channel)) {
         return {
           persist: false,
-          result: null
+          result: { ok: false as const, reason: "not_found" as const }
         };
+      }
+
+      let thread: MessageThread | undefined;
+      if (channel === "internal_dm") {
+        const recipientHandles = options?.recipientHandles ?? [];
+        if (recipientHandles.length === 0) {
+          return {
+            persist: false,
+            result: { ok: false as const, reason: "invalid" as const }
+          };
+        }
+
+        const delivery = deliverDropShareToMessageThread(db, account, drop, {
+          recipientHandles,
+          note: options?.message,
+          shareUrl: options?.shareUrl
+        });
+        if (!delivery.ok) {
+          return {
+            persist: false,
+            result: delivery
+          };
+        }
+        thread = delivery.thread;
       }
 
       db.townhallShares.unshift({
@@ -12667,9 +13254,21 @@ export const commerceBffService = {
         sharedAt: new Date().toISOString()
       });
 
+      const social = buildTownhallDropSocialSnapshot(db, drop.id, account.id);
+      if (!social) {
+        return {
+          persist: false,
+          result: { ok: false as const, reason: "not_found" as const }
+        };
+      }
+
       return {
         persist: true,
-        result: buildTownhallDropSocialSnapshot(db, drop.id, account.id)
+        result: {
+          ok: true as const,
+          social,
+          ...(thread ? { thread } : {})
+        }
       };
     });
   },
@@ -13064,6 +13663,412 @@ export const commerceBffService = {
           badgeCount,
           patronWorlds,
           ownedDrops
+        }
+      };
+    });
+  },
+
+  // -- messages -------------------------------------------------------
+
+  async getMessageInbox(accountId: string): Promise<MessageInbox | null> {
+    return withDatabase<MessageInbox | null>(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account) {
+        return { persist: false, result: null };
+      }
+
+      const threads = db.messageThreads
+        .map((thread) => buildMessageThreadSummary(db, account, thread))
+        .filter((thread): thread is MessageThreadSummary => thread !== null)
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+
+      return {
+        persist: false,
+        result: {
+          threads,
+          unreadCount: threads.reduce((total, thread) => total + thread.unreadCount, 0),
+          requestCount: threads.filter((thread) => thread.requestState === "requested").length
+        }
+      };
+    });
+  },
+
+  async getMessageThread(accountId: string, threadId: string): Promise<MessageThread | null> {
+    return withDatabase<MessageThread | null>(async (db) => {
+      const account = findAccountById(db, accountId);
+      const thread = db.messageThreads.find((entry) => entry.id === threadId) ?? null;
+      if (!account || !thread) {
+        return { persist: false, result: null };
+      }
+
+      return {
+        persist: false,
+        result: buildMessageThread(db, account, thread)
+      };
+    });
+  },
+
+  async createMessageThread(
+    accountId: string,
+    input: CreateMessageThreadInput
+  ): Promise<MessageThreadMutationResult> {
+    return withDatabase<MessageThreadMutationResult>(async (db) => {
+      const account = findAccountById(db, accountId);
+      const body = normalizeMessageBody(input.body);
+      if (!account || !body || !Array.isArray(input.recipientHandles)) {
+        return {
+          persist: false,
+          result: { ok: false as const, reason: "invalid" as const }
+        };
+      }
+
+      const recipients: AccountRecord[] = [];
+      const seenHandles = new Set<string>();
+      for (const rawHandle of input.recipientHandles) {
+        if (typeof rawHandle !== "string") continue;
+        const normalizedHandle = normalizeMessageHandle(rawHandle);
+        if (!normalizedHandle || normalizedHandle === account.handle.toLowerCase()) continue;
+        if (seenHandles.has(normalizedHandle)) continue;
+
+        const recipient = findAccountByMessageHandle(db, normalizedHandle);
+        if (!recipient) {
+          return {
+            persist: false,
+            result: { ok: false as const, reason: "invalid" as const }
+          };
+        }
+
+        seenHandles.add(normalizedHandle);
+        recipients.push(recipient);
+      }
+
+      if (recipients.length === 0) {
+        return {
+          persist: false,
+          result: { ok: false as const, reason: "invalid" as const }
+        };
+      }
+
+      const participantAccountIds = [account.id, ...recipients.map((recipient) => recipient.id)];
+      if (hasMessageThreadBlock(db, participantAccountIds)) {
+        return {
+          persist: false,
+          result: { ok: false as const, reason: "blocked" as const }
+        };
+      }
+
+      if (recipients.length === 1) {
+        const existingThread = findExistingDirectMessageThread(db, [account.id, recipients[0].id]);
+        if (existingThread) {
+          const participants = getMessageParticipants(db, existingThread.id);
+          const senderParticipant = participants.find(
+            (participant) => participant.accountId === account.id
+          );
+          const recipientParticipant = participants.find(
+            (participant) => participant.accountId === recipients[0].id
+          );
+          if (
+            !senderParticipant ||
+            !recipientParticipant ||
+            senderParticipant.status === "declined" ||
+            recipientParticipant.status === "declined"
+          ) {
+            return {
+              persist: false,
+              result: { ok: false as const, reason: "forbidden" as const }
+            };
+          }
+
+          const entry = appendMessageToThread(db, existingThread, account, body);
+          const thread = buildMessageThread(db, account, existingThread);
+          if (!entry || !thread) {
+            return {
+              persist: false,
+              result: { ok: false as const, reason: "forbidden" as const }
+            };
+          }
+
+          return {
+            persist: true,
+            result: { ok: true as const, thread }
+          };
+        }
+      }
+
+      const nowIso = new Date().toISOString();
+      const kind: MessageThreadKind = recipients.length === 1 ? "direct" : "group";
+      const thread: MessageThreadRecord = {
+        id: `mthread_${randomUUID()}`,
+        kind,
+        title: normalizeMessageTitle(input.title),
+        createdByAccountId: account.id,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+        lastMessageAt: null
+      };
+      db.messageThreads.unshift(thread);
+      db.messageParticipants.push({
+        threadId: thread.id,
+        accountId: account.id,
+        role: "owner",
+        status: "active",
+        joinedAt: nowIso,
+        lastReadAt: null
+      });
+      for (const recipient of recipients) {
+        db.messageParticipants.push({
+          threadId: thread.id,
+          accountId: recipient.id,
+          role: "member",
+          status: "requested",
+          joinedAt: nowIso,
+          lastReadAt: null
+        });
+      }
+
+      const entry = appendMessageToThread(db, thread, account, body);
+      const view = buildMessageThread(db, account, thread);
+      if (!entry || !view) {
+        return {
+          persist: false,
+          result: { ok: false as const, reason: "invalid" as const }
+        };
+      }
+
+      return {
+        persist: true,
+        result: { ok: true as const, thread: view }
+      };
+    });
+  },
+
+  async sendMessage(
+    accountId: string,
+    threadId: string,
+    body: string
+  ): Promise<MessageThreadMutationResult> {
+    return withDatabase<MessageThreadMutationResult>(async (db) => {
+      const account = findAccountById(db, accountId);
+      const thread = db.messageThreads.find((entry) => entry.id === threadId) ?? null;
+      const normalizedBody = normalizeMessageBody(body);
+      if (!account || !thread) {
+        return {
+          persist: false,
+          result: { ok: false as const, reason: "not_found" as const }
+        };
+      }
+      if (!normalizedBody) {
+        return {
+          persist: false,
+          result: { ok: false as const, reason: "invalid" as const }
+        };
+      }
+
+      const participants = getMessageParticipants(db, thread.id);
+      const senderParticipant = participants.find(
+        (participant) => participant.accountId === account.id
+      );
+      if (!senderParticipant || senderParticipant.status === "declined") {
+        return {
+          persist: false,
+          result: { ok: false as const, reason: "forbidden" as const }
+        };
+      }
+
+      const reachableParticipants = participants.filter(
+        (participant) => participant.status !== "declined"
+      );
+      const reachableOtherIds = reachableParticipants
+        .filter((participant) => participant.accountId !== account.id)
+        .map((participant) => participant.accountId);
+      if (reachableOtherIds.length === 0) {
+        return {
+          persist: false,
+          result: { ok: false as const, reason: "forbidden" as const }
+        };
+      }
+      if (hasMessageThreadBlock(db, [account.id, ...reachableOtherIds])) {
+        return {
+          persist: false,
+          result: { ok: false as const, reason: "blocked" as const }
+        };
+      }
+
+      const entry = appendMessageToThread(db, thread, account, normalizedBody);
+      const view = buildMessageThread(db, account, thread);
+      if (!entry || !view) {
+        return {
+          persist: false,
+          result: { ok: false as const, reason: "forbidden" as const }
+        };
+      }
+
+      return {
+        persist: true,
+        result: { ok: true as const, thread: view }
+      };
+    });
+  },
+
+  async updateMessageThreadState(
+    accountId: string,
+    threadId: string,
+    action: "accept" | "decline" | "mark_read"
+  ): Promise<MessageThreadMutationResult> {
+    return withDatabase<MessageThreadMutationResult>(async (db) => {
+      const account = findAccountById(db, accountId);
+      const thread = db.messageThreads.find((entry) => entry.id === threadId) ?? null;
+      if (!account || !thread) {
+        return {
+          persist: false,
+          result: { ok: false as const, reason: "not_found" as const }
+        };
+      }
+
+      const participant = db.messageParticipants.find(
+        (entry) => entry.threadId === thread.id && entry.accountId === account.id
+      );
+      if (!participant) {
+        return {
+          persist: false,
+          result: { ok: false as const, reason: "not_found" as const }
+        };
+      }
+
+      const nowIso = new Date().toISOString();
+      if (action === "accept") {
+        participant.status = "active";
+        participant.lastReadAt = nowIso;
+      } else if (action === "decline") {
+        participant.status = "declined";
+        participant.lastReadAt = nowIso;
+      } else if (action === "mark_read") {
+        if (participant.status === "declined") {
+          return {
+            persist: false,
+            result: { ok: false as const, reason: "forbidden" as const }
+          };
+        }
+        participant.lastReadAt = nowIso;
+      } else {
+        return {
+          persist: false,
+          result: { ok: false as const, reason: "invalid" as const }
+        };
+      }
+
+      if (action !== "mark_read") {
+        thread.updatedAt = nowIso;
+      }
+      const view = buildMessageThread(db, account, thread, {
+        includeDeclined: action === "decline"
+      });
+      if (!view) {
+        return {
+          persist: false,
+          result: { ok: false as const, reason: "not_found" as const }
+        };
+      }
+
+      return {
+        persist: true,
+        result: { ok: true as const, thread: view }
+      };
+    });
+  },
+
+  async reportMessage(
+    accountId: string,
+    threadId: string,
+    messageId: string
+  ): Promise<MessageThreadMutationResult> {
+    return withDatabase<MessageThreadMutationResult>(async (db) => {
+      const account = findAccountById(db, accountId);
+      const thread = db.messageThreads.find((entry) => entry.id === threadId) ?? null;
+      const message = db.messageEntries.find(
+        (entry) => entry.threadId === threadId && entry.id === messageId
+      ) ?? null;
+
+      if (!account || !thread || !message) {
+        return {
+          persist: false,
+          result: { ok: false as const, reason: "not_found" as const }
+        };
+      }
+
+      const participants = getMessageParticipants(db, thread.id);
+      if (!canAccountReportMessage(account, message, participants)) {
+        return {
+          persist: false,
+          result: { ok: false as const, reason: "forbidden" as const }
+        };
+      }
+
+      message.reportCount += 1;
+      message.reportedAt = new Date().toISOString();
+
+      const view = buildMessageThread(db, account, thread);
+      if (!view) {
+        return {
+          persist: false,
+          result: { ok: false as const, reason: "not_found" as const }
+        };
+      }
+
+      return {
+        persist: true,
+        result: { ok: true as const, thread: view }
+      };
+    });
+  },
+
+  async listMessageModerationQueue(accountId: string): Promise<MessageModerationQueueItem[]> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account) {
+        return { persist: false, result: [] };
+      }
+
+      return {
+        persist: false,
+        result: buildMessageModerationQueue(db, account)
+      };
+    });
+  },
+
+  async resolveMessageModerationCase(
+    accountId: string,
+    threadId: string,
+    messageId: string,
+    resolution: MessageModerationResolution
+  ): Promise<MessageModerationCaseResolveResult> {
+    return withDatabase<MessageModerationCaseResolveResult>(async (db) => {
+      const account = findAccountById(db, accountId);
+      const message = db.messageEntries.find(
+        (entry) => entry.threadId === threadId && entry.id === messageId
+      ) ?? null;
+
+      if (!account || !message || !isMessageModerationResolution(resolution)) {
+        return {
+          persist: false,
+          result: { ok: false as const, reason: "not_found" as const }
+        };
+      }
+
+      if (!canAccountModerateMessage(account, message)) {
+        return {
+          persist: false,
+          result: { ok: false as const, reason: "forbidden" as const }
+        };
+      }
+
+      applyMessageModerationResolution(message, account.id, resolution);
+
+      return {
+        persist: true,
+        result: {
+          ok: true as const,
+          queue: buildMessageModerationQueue(db, account)
         }
       };
     });

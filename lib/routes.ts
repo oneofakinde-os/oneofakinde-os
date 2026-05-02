@@ -71,6 +71,8 @@ export const routes = {
   collection: (): Route => asRoute("/my-collection"),
   favorites: (): Route => asRoute("/favorites"),
   library: (): Route => asRoute("/library"),
+  messages: (): Route => asRoute("/messages"),
+  messageThread: (threadId: string): Route => asRoute(`/messages/${threadId}`),
 
   profileSetup: (returnTo?: string): Route =>
     returnTo

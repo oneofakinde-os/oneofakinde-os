@@ -411,6 +411,24 @@ const metadataCases = [
     ]
   },
   {
+    "pathname": "/messages",
+    "surfaceKey": "messages_inbox",
+    "publicSafe": "false",
+    "hasSession": true,
+    "sessionRoles": [
+      "collector"
+    ]
+  },
+  {
+    "pathname": "/messages/thread_id-sample",
+    "surfaceKey": "message_thread",
+    "publicSafe": "false",
+    "hasSession": true,
+    "sessionRoles": [
+      "collector"
+    ]
+  },
+  {
     "pathname": "/certificates/cert_id-sample",
     "surfaceKey": "certificate_verify",
     "publicSafe": "true",
@@ -774,6 +792,12 @@ const sessionCases = [
     "pathname": "/library"
   },
   {
+    "pathname": "/messages"
+  },
+  {
+    "pathname": "/messages/thread_id-sample"
+  },
+  {
     "pathname": "/workshop"
   },
   {
@@ -911,6 +935,22 @@ const roleRequiredCases = [
   },
   {
     "pathname": "/library",
+    "allowedRoles": [
+      "collector",
+      "creator"
+    ],
+    "disallowedRole": null
+  },
+  {
+    "pathname": "/messages",
+    "allowedRoles": [
+      "collector",
+      "creator"
+    ],
+    "disallowedRole": null
+  },
+  {
+    "pathname": "/messages/thread_id-sample",
     "allowedRoles": [
       "collector",
       "creator"
@@ -1114,6 +1154,12 @@ const proofSessionCases = [
   },
   {
     "pathname": "/library"
+  },
+  {
+    "pathname": "/messages"
+  },
+  {
+    "pathname": "/messages/thread_id-sample"
   },
   {
     "pathname": "/workshop"

@@ -18,6 +18,7 @@ type NotificationsScreenProps = {
 const TYPE_ICON: Record<string, string> = {
   drop_collected: "collected",
   receipt_confirmed: "receipt",
+  message_received: "message",
   comment_reply: "reply",
   comment_mention: "mention",
   world_update: "world",

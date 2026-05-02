@@ -5,7 +5,14 @@ import type { Session } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
 import Link from "next/link";
 
-type AppShellNavKey = "townhall" | "collect" | "my_collection" | "library" | "worlds" | "workshop";
+type AppShellNavKey =
+  | "townhall"
+  | "collect"
+  | "my_collection"
+  | "library"
+  | "messages"
+  | "worlds"
+  | "workshop";
 
 type AppShellProps = {
   title: string;
@@ -43,6 +50,11 @@ export function AppShell({ title, subtitle, session, activeNav, initialUnreadCou
             <Link href={routes.library()} className={`slice-link ${activeNav === "library" ? "active" : ""}`}>
               library
             </Link>
+            {session ? (
+              <Link href={routes.messages()} className={`slice-link ${activeNav === "messages" ? "active" : ""}`}>
+                messages
+              </Link>
+            ) : null}
             <Link href={routes.worlds()} className={`slice-link ${activeNav === "worlds" ? "active" : ""}`}>
               worlds
             </Link>

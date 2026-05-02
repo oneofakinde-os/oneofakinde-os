@@ -11,10 +11,11 @@ export default async function ModerationDashboardPage() {
     redirect(routes.workshop());
   }
 
-  const [worldConversationQueue, townhallQueue, liveSessionQueue] = await Promise.all([
+  const [worldConversationQueue, townhallQueue, liveSessionQueue, messageQueue] = await Promise.all([
     gateway.listWorldConversationModerationQueue(session.accountId),
     gateway.listTownhallModerationQueue(session.accountId),
-    gateway.listLiveSessionConversationModerationQueue(session.accountId)
+    gateway.listLiveSessionConversationModerationQueue(session.accountId),
+    gateway.listMessageModerationQueue(session.accountId)
   ]);
 
   return (
@@ -23,6 +24,7 @@ export default async function ModerationDashboardPage() {
       initialWorldConversationQueue={worldConversationQueue}
       initialTownhallQueue={townhallQueue}
       initialLiveSessionQueue={liveSessionQueue}
+      initialMessageQueue={messageQueue}
     />
   );
 }
