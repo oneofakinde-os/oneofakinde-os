@@ -7798,8 +7798,13 @@ const gatewayMethods = {
       const account = findAccountById(db, accountId);
       if (!account) return { persist: false, result: null };
 
+      // IMPORTANT: do NOT call other commerceBffService methods from inside
+      // this transaction. `withDatabase` opens a Postgres transaction and
+      // takes an advisory lock; a re-entrant call would block forever
+      // waiting for the outer to release. Build every value from the
+      // snapshot of `db` we already have. (PR #204 P1 review.)
       const owned = getOwnedDrops(db, account.id);
-      const library = (await commerceBffService.getLibrary(account.id))?.savedDrops ?? [];
+      const library = getSavedDrops(db, account.id);
       const receipts = db.receipts
         .filter((r) => r.accountId === account.id)
         .map((r) => buildReceiptWithSettlement(db, r));
@@ -7859,8 +7864,15 @@ const gatewayMethods = {
       const follows = db.studioFollows
         .filter((f) => f.accountId === account.id)
         .map((f) => f.studioHandle);
-      const blocks = await commerceBffService.getBlockedHandles(account.id);
-      const mutes = await commerceBffService.getMutedHandles(account.id);
+      // Inline block/mute → handle resolution to avoid re-entering withDatabase.
+      const blockedIds = new Set(
+        db.blocks.filter((b) => b.blockerAccountId === account.id).map((b) => b.blockedAccountId)
+      );
+      const blocks = db.accounts.filter((a) => blockedIds.has(a.id)).map((a) => a.handle);
+      const mutedIds = new Set(
+        db.mutes.filter((m) => m.muterAccountId === account.id).map((m) => m.mutedAccountId)
+      );
+      const mutes = db.accounts.filter((a) => mutedIds.has(a.id)).map((a) => a.handle);
 
       return {
         persist: false,

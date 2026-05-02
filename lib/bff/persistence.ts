@@ -3867,6 +3867,11 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       displayName: string;
       roles: string[];
       createdAt: string;
+      avatarUrl: string | null;
+      bio: string | null;
+      deletionRequestedAt: string | null;
+      deletedAt: string | null;
+      anonymizedAt: string | null;
     }>(
       'SELECT id, email, handle, display_name AS "displayName", roles, created_at AS "createdAt", avatar_url AS "avatarUrl", bio, deletion_requested_at AS "deletionRequestedAt", deleted_at AS "deletedAt", anonymized_at AS "anonymizedAt" FROM bff_accounts ORDER BY created_at ASC'
     ),
@@ -4259,7 +4264,15 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       handle: row.handle,
       displayName: row.displayName,
       roles: row.roles.filter((role): role is AccountRole => role === "collector" || role === "creator"),
-      createdAt: row.createdAt
+      createdAt: row.createdAt,
+      avatarUrl: row.avatarUrl ?? undefined,
+      bio: row.bio ?? undefined,
+      // Sprint 0.1 — deletion lifecycle. PR #204 P1 fix: the SELECT brings
+      // these back from Postgres but the mapper was dropping them, so the
+      // deletion state was reverting to "active" on every reload.
+      deletionRequestedAt: row.deletionRequestedAt ?? null,
+      deletedAt: row.deletedAt ?? null,
+      anonymizedAt: row.anonymizedAt ?? null
     })),
     sessions: sessionsResult.rows,
     ownerships: ownershipsResult.rows,
