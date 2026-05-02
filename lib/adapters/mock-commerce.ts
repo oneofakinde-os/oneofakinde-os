@@ -3147,5 +3147,23 @@ export const commerceGateway: CommerceGateway = {
 
   async getCertificateWallets(_certificateId: string): Promise<CertificateWallet[]> {
     return [];
+  },
+
+  // Sprint 0.1 — account deletion + data export. The mock adapter is a
+  // stub; live behaviour lives in lib/bff/service.ts.
+  async getAccountDeletionStatus(): Promise<null> {
+    return null;
+  },
+  async requestAccountDeletion(): Promise<null> {
+    return null;
+  },
+  async cancelAccountDeletion(): Promise<null> {
+    return null;
+  },
+  async executeAccountDeletion(): Promise<null> {
+    return null;
+  },
+  async exportAccountData(): Promise<null> {
+    return null;
   }
 };

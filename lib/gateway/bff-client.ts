@@ -1,4 +1,6 @@
 import type {
+  AccountDataExport,
+  AccountDeletionStatus,
   AuthorizedDerivative,
   Certificate,
   CertificateWallet,
@@ -1295,6 +1297,57 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
       );
       if (!response.ok || !response.payload) return false;
       return response.payload.disconnected;
+    },
+
+    // Sprint 0.1 — account deletion + data export. The BFF gateway client
+    // stays thin; the heavy lifting is in lib/bff/service.ts. These methods
+    // are reachable via the `/api/v1/session/account/...` routes that
+    // wrap the service calls.
+    async getAccountDeletionStatus(): Promise<AccountDeletionStatus | null> {
+      const response = await requestJson<{ status: AccountDeletionStatus }>(
+        options,
+        "/api/v1/session/account/deletion-status",
+        { method: "GET" }
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.status;
+    },
+
+    async requestAccountDeletion(): Promise<AccountDeletionStatus | null> {
+      const response = await requestJson<{ status: AccountDeletionStatus }>(
+        options,
+        "/api/v1/session/account/delete",
+        { method: "POST" }
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.status;
+    },
+
+    async cancelAccountDeletion(): Promise<AccountDeletionStatus | null> {
+      const response = await requestJson<{ status: AccountDeletionStatus }>(
+        options,
+        "/api/v1/session/account/delete/cancel",
+        { method: "POST" }
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.status;
+    },
+
+    async executeAccountDeletion(): Promise<AccountDeletionStatus | null> {
+      // Not exposed via API — this is server-side only (scheduled job /
+      // admin tool). The client stub returns null so the type signature
+      // matches the gateway interface.
+      return null;
+    },
+
+    async exportAccountData(): Promise<AccountDataExport | null> {
+      const response = await requestJson<{ export: AccountDataExport }>(
+        options,
+        "/api/v1/session/account/export",
+        { method: "GET" }
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.export;
     }
   };
 }

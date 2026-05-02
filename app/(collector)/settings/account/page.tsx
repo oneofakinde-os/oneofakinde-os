@@ -1,3 +1,4 @@
+import { SettingsAccountDeletion } from "@/features/settings/settings-account-deletion";
 import { SettingsAccountForm } from "@/features/settings/settings-account-form";
 import { SettingsBlockMuteList } from "@/features/settings/settings-block-mute-list";
 import { SettingsNav } from "@/features/settings/settings-nav";
@@ -17,6 +18,7 @@ export default async function SettingsAccountPage() {
       <SettingsNav />
       <SettingsAccountForm session={session} />
       <SettingsBlockMuteList />
+      <SettingsAccountDeletion />
     </AppShell>
   );
 }

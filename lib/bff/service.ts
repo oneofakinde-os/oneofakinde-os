@@ -1,4 +1,6 @@
 import type {
+  AccountDataExport,
+  AccountDeletionStatus,
   AccountRole,
   AuthorizedDerivative,
   AuthorizedDerivativeKind,
@@ -62,6 +64,7 @@ import type {
   OpsAnalyticsPanel,
   OwnedDrop,
   OwnershipHistoryEntry,
+  PatronCommitment,
   PatronCommitmentCadence,
   Patron,
   PatronTierConfig,
@@ -7583,6 +7586,333 @@ const gatewayMethods = {
       }
       const handles = db.accounts.filter((a) => hiddenIds.has(a.id)).map((a) => a.handle);
       return { persist: false, result: handles };
+    });
+  },
+
+  /* ───────────── Account deletion + data export (Sprint 0.1) ───────────── */
+
+  /**
+   * Sprint 0.1 — request soft-delete. Sets `deletionRequestedAt` to now and
+   * starts the 30-day grace clock. The account remains fully functional
+   * during grace; cancellable via `cancelAccountDeletion`.
+   *
+   * Returns `null` when the account does not exist or is already in a
+   * non-active deletion state. Returns the resolved AccountDeletionStatus
+   * on success.
+   */
+  async requestAccountDeletion(accountId: string): Promise<AccountDeletionStatus | null> {
+    return withDatabase<AccountDeletionStatus | null>(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account) return { persist: false, result: null };
+      if (account.anonymizedAt) return { persist: false, result: "anonymized" };
+      if (account.deletionRequestedAt) {
+        // Already pending — idempotent.
+        return { persist: false, result: "deletion_requested" };
+      }
+      account.deletionRequestedAt = new Date().toISOString();
+      return { persist: true, result: "deletion_requested" };
+    });
+  },
+
+  /**
+   * Sprint 0.1 — cancel a pending deletion. Only valid during the grace
+   * window; once the account is anonymized the cancellation is a no-op
+   * because the cascade has already irreversibly destroyed UGC linkage.
+   */
+  async cancelAccountDeletion(accountId: string): Promise<AccountDeletionStatus | null> {
+    return withDatabase<AccountDeletionStatus | null>(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account) return { persist: false, result: null };
+      if (account.anonymizedAt) return { persist: false, result: "anonymized" };
+      if (!account.deletionRequestedAt) {
+        return { persist: false, result: "active" };
+      }
+      account.deletionRequestedAt = null;
+      return { persist: true, result: "active" };
+    });
+  },
+
+  /**
+   * Sprint 0.1 — terminal cascade. Called by a scheduled job after the
+   * 30-day grace expires (or directly by tests / admin tools).
+   *
+   * Cascade order (matches the plan's section 0.1 step list):
+   *   1. revoke entitlements (status = "expired")
+   *   2. void certificates (status = "revoked")
+   *   3. expire active patron records ("lapsed") — completed
+   *      `patronCommitments` are RETAINED so the studio keeps the
+   *      money already paid; honors the "no refund on deletion" policy
+   *   4. issue ledger reversal entries for any *pending* (not completed)
+   *      payouts — completed payouts are part of the immutable audit trail
+   *   5. clear sessions (force logout)
+   *   6. clear notification entries + preferences
+   *   7. clear follows (both directions)
+   *   8. clear blocks + mutes (both directions)
+   *   9. clear library (savedDrops) and library-eligibility states; the
+   *      account's ownerships are RETAINED for provenance — the certificate
+   *      still records who originally collected the drop, that fact never
+   *      changes
+   *  10. disconnect wallet connections; clear TOTP enrollment
+   *  11. anonymize account: scramble email + handle, clear displayName / bio
+   *      / avatar; set `deletedAt` + `anonymizedAt`
+   *
+   * The plan also lists DM threads/messages and the taste graph — both are
+   * out-of-scope today (DMs ship in Sprint 2.1; the `lib/taste/` module
+   * does not yet exist). TODO comments mark the integration points so the
+   * cascade picks them up automatically when those modules land.
+   *
+   * Returns the resolved status (`"anonymized"`) on success, or `null` if
+   * the account did not exist.
+   */
+  async executeAccountDeletion(accountId: string): Promise<AccountDeletionStatus | null> {
+    return withDatabase<AccountDeletionStatus | null>(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account) return { persist: false, result: null };
+      if (account.anonymizedAt) {
+        // Already terminal — idempotent.
+        return { persist: false, result: "anonymized" };
+      }
+
+      const nowIso = new Date().toISOString();
+
+      // (1) Revoke entitlements.
+      for (const entitlement of db.membershipEntitlements) {
+        if (entitlement.accountId === account.id && entitlement.status === "active") {
+          entitlement.status = "expired";
+          entitlement.endsAt = nowIso;
+        }
+      }
+
+      // (2) Void certificates issued to this account.
+      // CertificateRecord = Certificate & { ownerAccountId }. Status is a
+      // simple two-state union "verified" | "revoked"; there is no
+      // `revokedAt` column today, so the revocation timestamp is not stored
+      // separately (use the account's `deletedAt` to date the revocation).
+      for (const cert of db.certificates) {
+        if (cert.ownerAccountId === account.id && cert.status !== "revoked") {
+          cert.status = "revoked";
+        }
+      }
+
+      // (3) Expire patron records — honor completed commitments.
+      for (const patron of db.patrons) {
+        if (patron.accountId === account.id && patron.status === "active") {
+          patron.status = "lapsed";
+          patron.lapsedAt = nowIso;
+        }
+      }
+      // patronCommitments are intentionally NOT reversed — they represent
+      // money already paid; deleting the account doesn't claw that back
+      // (matches Patreon-style policy and avoids creating a refund incentive).
+
+      // (4) Pending payments → refunded. The plan calls for "ledger reversal
+      // entries for PENDING (not completed) payouts" but the LedgerTransaction
+      // model is immutable (no status field, no reversedAt — reversals are
+      // expressed as NEW transactions with `reversalOfTransactionId`). So in
+      // this model the equivalent is to mark any pending PAYMENTS belonging
+      // to the account as `failed` so they cannot settle into ledger entries
+      // post-deletion. Completed transactions remain untouched as the
+      // immutable audit trail.
+      for (const payment of db.payments) {
+        if (payment.accountId === account.id && payment.status === "pending") {
+          payment.status = "failed";
+          payment.updatedAt = nowIso;
+        }
+      }
+
+      // (5) Sessions — force logout everywhere.
+      db.sessions = db.sessions.filter((s) => s.accountId !== account.id);
+
+      // (6) Notifications + preferences.
+      db.notificationEntries = db.notificationEntries.filter(
+        (n) => n.accountId !== account.id
+      );
+      db.notificationPreferences = db.notificationPreferences.filter(
+        (p) => p.accountId !== account.id
+      );
+
+      // (7) Follows — both directions. (Forward: this account → studios.
+      // Reverse: studios followed by anyone where studioHandle === account.handle,
+      // i.e. a creator account being followed by collectors.)
+      db.studioFollows = db.studioFollows.filter(
+        (f) => f.accountId !== account.id && f.studioHandle !== account.handle
+      );
+
+      // (8) Blocks + mutes — both directions.
+      db.blocks = db.blocks.filter(
+        (b) => b.blockerAccountId !== account.id && b.blockedAccountId !== account.id
+      );
+      db.mutes = db.mutes.filter(
+        (m) => m.muterAccountId !== account.id && m.mutedAccountId !== account.id
+      );
+
+      // (9) Library + library eligibility (do NOT touch ownerships).
+      db.savedDrops = db.savedDrops.filter((s) => s.accountId !== account.id);
+      db.libraryEligibilityStates = db.libraryEligibilityStates.filter(
+        (s) => s.accountId !== account.id
+      );
+
+      // (10) Wallet connections + TOTP.
+      for (const wallet of db.walletConnections) {
+        if (wallet.accountId === account.id) {
+          wallet.status = "disconnected";
+        }
+      }
+      db.totpEnrollments = db.totpEnrollments.filter((t) => t.accountId !== account.id);
+
+      // TODO(Sprint 2.1) — purge DM threads + messages here when the DM
+      // tables ship. The plan's section 0.1 lists this step but the data
+      // model does not exist yet.
+      // TODO(Sprint 5.1) — call `tasteGraph.purgeAccount(account.id)` once
+      // the taste graph persistence module lands. Today the in-memory map
+      // resets on server restart, so there is nothing to purge.
+
+      // (11) Anonymize the account itself. Email + handle scrambled to a
+      // unique sentinel so the row stays unique while losing all PII. The
+      // PR-quoted "[deleted]" label is what other users see when they look
+      // up content authored by this account (resolved at output time
+      // through accountHandleById).
+      const anonId = account.id.replace(/^acct_/, "").slice(0, 8);
+      account.email = `deleted_${anonId}@deleted.local`;
+      account.handle = `deleted_${anonId}`;
+      account.displayName = "[deleted]";
+      account.bio = undefined;
+      account.avatarUrl = undefined;
+      account.deletionRequestedAt = null;
+      account.deletedAt = nowIso;
+      account.anonymizedAt = nowIso;
+
+      return { persist: true, result: "anonymized" };
+    });
+  },
+
+  /**
+   * Sprint 0.1 — GDPR Article 15 export. Returns a snapshot of every domain
+   * object the account owns or has authored, suitable for download as JSON.
+   *
+   * The shape is `AccountDataExport` and is intentionally wide — future
+   * audits can grep for missing fields when new domain objects are added.
+   */
+  async exportAccountData(accountId: string): Promise<AccountDataExport | null> {
+    return withDatabase<AccountDataExport | null>(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account) return { persist: false, result: null };
+
+      // IMPORTANT: do NOT call other commerceBffService methods from inside
+      // this transaction. `withDatabase` opens a Postgres transaction and
+      // takes an advisory lock; a re-entrant call would block forever
+      // waiting for the outer to release. Build every value from the
+      // snapshot of `db` we already have. (PR #204 P1 review.)
+      const owned = getOwnedDrops(db, account.id);
+      const library = getSavedDrops(db, account.id);
+      const receipts = db.receipts
+        .filter((r) => r.accountId === account.id)
+        .map((r) => buildReceiptWithSettlement(db, r));
+      // CertificateRecord extends Certificate with a private ownerAccountId
+      // — strip that on export so we hand back the public shape only.
+      const certificates: Certificate[] = db.certificates
+        .filter((c) => c.ownerAccountId === account.id)
+        .map((c) => ({
+          id: c.id,
+          dropId: c.dropId,
+          dropTitle: c.dropTitle,
+          ownerHandle: c.ownerHandle,
+          issuedAt: c.issuedAt,
+          receiptId: c.receiptId,
+          status: c.status
+        }));
+      const accountHandleById = new Map(db.accounts.map((a) => [a.id, a.handle]));
+      const comments: TownhallComment[] = db.townhallComments
+        .filter((c) => c.accountId === account.id)
+        .map((c) => {
+          const drop = findDropById(db, c.dropId);
+          return drop
+            ? toTownhallComment(c, accountHandleById, account, drop, { depth: 0, replyCount: 0 })
+            : null;
+        })
+        .filter((c): c is TownhallComment => c !== null);
+      const worldConversationMessages: WorldConversationMessage[] = db.worldConversationMessages
+        .filter((m) => m.accountId === account.id)
+        .map((m) => {
+          const world = findWorldById(db, m.worldId);
+          return world
+            ? toWorldConversationMessage(m, accountHandleById, account, world, {
+                depth: 0,
+                replyCount: 0
+              })
+            : null;
+        })
+        .filter((m): m is WorldConversationMessage => m !== null);
+      const patronCommitments: PatronCommitment[] = db.patronCommitments
+        .filter((c) => {
+          const patron = db.patrons.find((p) => p.id === c.patronId);
+          return patron?.accountId === account.id;
+        })
+        .map((c) => ({
+          id: c.id,
+          patronId: c.patronId,
+          amountCents: c.amountCents,
+          periodStart: c.periodStart,
+          periodEnd: c.periodEnd,
+          ledgerTransactionId: c.ledgerTransactionId
+        }));
+      // LedgerTransactionRecord = LedgerTransaction (alias). Already the
+      // public shape, just shallow-copy the relevant rows.
+      const ledgerTransactions: LedgerTransaction[] = db.ledgerTransactions
+        .filter((t) => t.accountId === account.id)
+        .map((t) => ({ ...t }));
+      const follows = db.studioFollows
+        .filter((f) => f.accountId === account.id)
+        .map((f) => f.studioHandle);
+      // Inline block/mute → handle resolution to avoid re-entering withDatabase.
+      const blockedIds = new Set(
+        db.blocks.filter((b) => b.blockerAccountId === account.id).map((b) => b.blockedAccountId)
+      );
+      const blocks = db.accounts.filter((a) => blockedIds.has(a.id)).map((a) => a.handle);
+      const mutedIds = new Set(
+        db.mutes.filter((m) => m.muterAccountId === account.id).map((m) => m.mutedAccountId)
+      );
+      const mutes = db.accounts.filter((a) => mutedIds.has(a.id)).map((a) => a.handle);
+
+      return {
+        persist: false,
+        result: {
+          account: {
+            accountId: account.id,
+            email: account.email,
+            handle: account.handle,
+            displayName: account.displayName,
+            roles: [...account.roles]
+          },
+          ownedDrops: owned,
+          library,
+          receipts,
+          certificates,
+          comments,
+          worldConversationMessages,
+          patronCommitments,
+          ledgerTransactions,
+          follows,
+          blocks,
+          mutes,
+          exportedAt: new Date().toISOString()
+        }
+      };
+    });
+  },
+
+  /**
+   * Sprint 0.1 — query helper used by the settings UI to render the
+   * account's current deletion-lifecycle state. Combines the three
+   * timestamp columns into a single discriminated value.
+   */
+  async getAccountDeletionStatus(accountId: string): Promise<AccountDeletionStatus | null> {
+    return withDatabase<AccountDeletionStatus | null>(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account) return { persist: false, result: null };
+      if (account.anonymizedAt) return { persist: false, result: "anonymized" };
+      if (account.deletionRequestedAt) return { persist: false, result: "deletion_requested" };
+      return { persist: false, result: "active" };
     });
   },
 
