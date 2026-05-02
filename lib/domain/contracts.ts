@@ -1,6 +1,53 @@
 export type AccountRole = "collector" | "creator";
 
 /**
+ * Sprint 0.1 — GDPR account-deletion lifecycle.
+ *
+ *   - "active"             — normal account state.
+ *   - "deletion_requested" — soft-delete request received; account is still
+ *                            functional during the 30-day grace period.
+ *                            Cancellable via `cancelAccountDeletion`.
+ *   - "anonymized"         — grace expired and `executeAccountDeletion` ran;
+ *                            email + handle are scrubbed, all UGC is
+ *                            anonymized to `[deleted]`. The row remains so
+ *                            settlement-ledger references stay intact.
+ *   - "purged"             — reserved for environments with hard-delete
+ *                            requirements; not produced by the current
+ *                            cascade since financial-audit references
+ *                            require the row to persist.
+ */
+export type AccountDeletionStatus =
+  | "active"
+  | "deletion_requested"
+  | "anonymized"
+  | "purged";
+
+/**
+ * Snapshot of a user's data at the moment they request export. Used by
+ * `GET /api/v1/session/account/export` to satisfy GDPR Article 15
+ * (right of access). Each field corresponds to a domain object the
+ * account owns or has authored. Empty arrays mean "no data of this kind."
+ *
+ * The shape is deliberately wide so future audits can grep for missing
+ * fields when new domain objects are added.
+ */
+export type AccountDataExport = {
+  account: Pick<Session, "accountId" | "email" | "handle" | "displayName" | "roles">;
+  ownedDrops: OwnedDrop[];
+  library: LibraryDrop[];
+  receipts: PurchaseReceipt[];
+  certificates: Certificate[];
+  comments: TownhallComment[];
+  worldConversationMessages: WorldConversationMessage[];
+  patronCommitments: PatronCommitment[];
+  ledgerTransactions: LedgerTransaction[];
+  follows: string[];
+  blocks: string[];
+  mutes: string[];
+  exportedAt: string;
+};
+
+/**
  * One-way social safety relationship: the blocker hides the blocked account
  * from their own surfaces and prevents the blocked account from interacting
  * with their public objects (drops, comments, world conversations, DMs).

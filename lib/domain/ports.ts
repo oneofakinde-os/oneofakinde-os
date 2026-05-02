@@ -1,4 +1,6 @@
 import type {
+  AccountDataExport,
+  AccountDeletionStatus,
   AuthorizedDerivative,
   CaptureWorkshopLiveSessionArtifactInput,
   Certificate,
@@ -306,4 +308,11 @@ export interface CommerceGateway {
   connectWallet(accountId: string, input: { address: string; chain: WalletChain; label?: string }): Promise<WalletConnection | null>;
   verifyWalletConnection(accountId: string, walletId: string, signature: string): Promise<WalletConnection | null>;
   disconnectWallet(accountId: string, walletId: string): Promise<boolean>;
+
+  // Account deletion + data export (Sprint 0.1)
+  getAccountDeletionStatus(accountId: string): Promise<AccountDeletionStatus | null>;
+  requestAccountDeletion(accountId: string): Promise<AccountDeletionStatus | null>;
+  cancelAccountDeletion(accountId: string): Promise<AccountDeletionStatus | null>;
+  executeAccountDeletion(accountId: string): Promise<AccountDeletionStatus | null>;
+  exportAccountData(accountId: string): Promise<AccountDataExport | null>;
 }

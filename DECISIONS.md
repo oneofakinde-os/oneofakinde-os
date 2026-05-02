@@ -9,6 +9,77 @@ decision later, not so much that it becomes a maintenance burden.
 
 ---
 
+## 2026-05-02 — Sprint 0.1 (Account Deletion + Data Export) — soft-delete cascade with model-driven adjustments
+
+**Context:**
+Sprint 0.1 implements GDPR-grade account deletion + Article 15 data export.
+The plan describes a thorough cascade across many domain objects; some of
+those domain objects have shapes different from the plan's assumed
+snapshot, so the cascade was adjusted in three places.
+
+**Decisions:**
+
+1. **Migration `0044`, not `0022`.** Same drift logged in the Sprint 0.2
+   note: the plan numbered the deletion migration 0022 but the codebase
+   has migrations through 0043 already (block/mute) so this one is 0044.
+
+2. **Pending payouts are not "reversed" — pending PAYMENTS are
+   marked failed.** The plan calls for "ledger reversal entries for any
+   *pending* (not completed) payouts." But `LedgerTransaction` is
+   immutable in this codebase: it has no `status` column, no
+   `reversedAt`, no `pending` state — reversals are expressed as new
+   transactions with `reversalOfTransactionId`. The functional
+   equivalent is to mark any `payments` rows in the `pending` state as
+   `failed`, which prevents them from settling into ledger entries
+   post-deletion. Completed transactions are retained unchanged as the
+   immutable audit trail. This matches the plan's *intent* (no
+   in-flight money survives the cascade) within the existing model.
+
+3. **Anonymization scrambles email + handle, doesn't mutate every
+   comment record.** The plan says "anonymize comments: set authorHandle
+   to '[deleted]' in bff_townhall_comments". But the comment record
+   stores `accountId` (not `authorHandle`); the public `authorHandle`
+   field on `TownhallComment` is resolved at output time via
+   `accountHandleById`. So we anonymize the *account* (handle →
+   `deleted_<uuid_prefix>`, displayName → `[deleted]`) and every
+   comment / world conversation message that references that account
+   automatically renders as authored by the anonymized handle. Same
+   semantic outcome with one mutation instead of N. The proof test
+   asserts the public-facing behaviour: a comment authored by a deleted
+   account renders with a `deleted_` handle to other viewers.
+
+4. **Two plan steps deferred with TODO comments.** The plan lists DM
+   thread/message purging (Sprint 2.1 — DM tables don't exist yet) and
+   taste-graph purging (`lib/taste/index.ts` doesn't exist yet — was
+   referenced by Sprint 5.1). Both are marked with `TODO(Sprint X.Y)`
+   comments inside `executeAccountDeletion` so when those modules land
+   the cascade picks them up automatically.
+
+5. **Ownerships are RETAINED; certificates are revoked.** Provenance
+   matters: the certificate of who first collected a drop is part of
+   the drop's history and must persist even when the original collector
+   anonymizes their account. So we revoke certificates (status →
+   `revoked`) but keep the `ownerships` row pointing at the now-anonymized
+   account. The certificate page will show "[deleted]" as the
+   `ownerHandle` via the same handle-resolution mechanism described in
+   point 3.
+
+**Implications:**
+- Account anonymization is irreversible. The cascade must not leave
+  orphaned references — the proof test's "third party can still see the
+  drop" assertion exists to catch a future regression that breaks this.
+- Deletion does NOT refund completed patron commitments. This is a
+  product decision (matches Patreon-style policy, avoids a refund
+  incentive); the proof test pins the contract explicitly.
+- Any future domain object added to `BffDatabase` that holds an
+  `accountId` should be added to the cascade. The cascade test's broad
+  assertions are the safety net; PR reviewers should grep for
+  `accountId:` in new persistence types and ensure each one is handled.
+
+**Owner:** platform-foundation
+
+---
+
 ## 2026-05-01 — Sprint 0.3 (Content Sensitivity Ratings) — read-time inheritance + sourcing
 
 **Context:**

@@ -61,6 +61,19 @@ export type AccountRecord = {
   createdAt: string;
   avatarUrl?: string;
   bio?: string;
+  /**
+   * Sprint 0.1 — GDPR deletion lifecycle timestamps.
+   *
+   * `deletionRequestedAt` is set by `requestAccountDeletion` and starts the
+   * 30-day grace clock. Cleared by `cancelAccountDeletion`.
+   *
+   * `deletedAt` and `anonymizedAt` are set together by
+   * `executeAccountDeletion` after the grace expires. The pair is what makes
+   * the account "anonymized" in the AccountDeletionStatus enum.
+   */
+  deletionRequestedAt?: string | null;
+  deletedAt?: string | null;
+  anonymizedAt?: string | null;
 };
 
 export type SessionRecord = {
@@ -3855,7 +3868,7 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       roles: string[];
       createdAt: string;
     }>(
-      'SELECT id, email, handle, display_name AS "displayName", roles, created_at AS "createdAt", avatar_url AS "avatarUrl", bio FROM bff_accounts ORDER BY created_at ASC'
+      'SELECT id, email, handle, display_name AS "displayName", roles, created_at AS "createdAt", avatar_url AS "avatarUrl", bio, deletion_requested_at AS "deletionRequestedAt", deleted_at AS "deletedAt", anonymized_at AS "anonymizedAt" FROM bff_accounts ORDER BY created_at ASC'
     ),
     client.query<SessionRecord>(
       'SELECT token, account_id AS "accountId", created_at AS "createdAt", expires_at AS "expiresAt" FROM bff_sessions ORDER BY created_at ASC'
@@ -4747,10 +4760,33 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
   }
 
   for (const account of db.accounts) {
-    await client.query(
-      "INSERT INTO bff_accounts (id, email, handle, display_name, roles, created_at, avatar_url, bio) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
-      [account.id, account.email, account.handle, account.displayName, account.roles, account.createdAt, account.avatarUrl ?? null, account.bio ?? null]
-    );
+    // Sprint 0.1 — write deletion-lifecycle timestamps; columns are added by
+    // migration 0044. Wrapped in try/catch (with a fallback to the legacy
+    // column set) so the writer remains tolerant on environments where the
+    // migration has not yet been applied.
+    try {
+      await client.query(
+        "INSERT INTO bff_accounts (id, email, handle, display_name, roles, created_at, avatar_url, bio, deletion_requested_at, deleted_at, anonymized_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
+        [
+          account.id,
+          account.email,
+          account.handle,
+          account.displayName,
+          account.roles,
+          account.createdAt,
+          account.avatarUrl ?? null,
+          account.bio ?? null,
+          account.deletionRequestedAt ?? null,
+          account.deletedAt ?? null,
+          account.anonymizedAt ?? null
+        ]
+      );
+    } catch {
+      await client.query(
+        "INSERT INTO bff_accounts (id, email, handle, display_name, roles, created_at, avatar_url, bio) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+        [account.id, account.email, account.handle, account.displayName, account.roles, account.createdAt, account.avatarUrl ?? null, account.bio ?? null]
+      );
+    }
   }
 
   for (const session of db.sessions) {
