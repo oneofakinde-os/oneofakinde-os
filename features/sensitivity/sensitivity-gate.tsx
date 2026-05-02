@@ -65,11 +65,16 @@ export function SensitivityGate({ dropId, rating, source, children }: Sensitivit
   const [confirmed, setConfirmed] = useState(false);
 
   // Hydration-safe: don't read sessionStorage during the server render.
+  // Recompute on every dropId / needsGate change — a soft navigation
+  // between two gated drops must not leak the previous drop's confirmation
+  // to the next (sessionStorage is per-drop). Always set the value, even
+  // when the new drop has no stored confirmation, so the gate re-locks.
   useEffect(() => {
-    if (!needsGate) return;
-    if (readConfirmed(dropId)) {
-      setConfirmed(true);
+    if (!needsGate) {
+      setConfirmed(false);
+      return;
     }
+    setConfirmed(readConfirmed(dropId));
   }, [dropId, needsGate]);
 
   if (!needsGate || confirmed) {
