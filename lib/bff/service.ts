@@ -6450,6 +6450,42 @@ function emitNotification(
   db.notificationEntries.unshift(entry);
 }
 
+/**
+ * Sprint 1.1 — emit a studio-side "your drop was collected" notification.
+ *
+ * Called from the three primary purchase issuance sites (manual purchase,
+ * Stripe completion by paymentId, Stripe completion by webhook lookup) so
+ * the creator gets a notification when revenue arrives. The plan's signal
+ * priority calls this out as the most important re-engagement signal —
+ * "That's revenue arriving."
+ *
+ * The resale path already notifies seller + creator-royalty separately
+ * (see L11724-L11761) — that's a different price split, so we keep it
+ * independent. This helper is for the *primary* collect only.
+ *
+ * Idempotent guard: if the buyer IS the studio owner (creator collecting
+ * their own drop, e.g. for testing) we skip the studio notification — the
+ * buyer-side `drop_collected` is enough; a duplicate would be confusing.
+ */
+function emitStudioCollectedNotification(
+  db: BffDatabase,
+  buyerAccount: AccountRecord,
+  drop: Drop,
+  receiptId: string
+): void {
+  const studioOwner = db.accounts.find((a) => a.handle === drop.studioHandle);
+  if (!studioOwner) return; // catalog drop with no creator account in dev seed
+  if (studioOwner.id === buyerAccount.id) return; // creator-as-collector
+  emitNotification(
+    db,
+    studioOwner.id,
+    "drop_collected",
+    `@${buyerAccount.handle} collected ${drop.title}`,
+    `someone just added ${drop.title} to their collection. open workshop to see your latest collects.`,
+    `/dashboard?receipt=${receiptId}`
+  );
+}
+
 function purchaseDropInDatabase(
   db: BffDatabase,
   accountId: string,
@@ -6555,6 +6591,9 @@ function purchaseDropInDatabase(
     `your purchase of ${drop.title} ($${quote.totalUsd.toFixed(2)}) has been confirmed. certificate issued.`,
     `/my-collection?receipt=${receipt.id}`
   );
+
+  // Sprint 1.1 — studio-side collect notification ("revenue arriving").
+  emitStudioCollectedNotification(db, account, drop, receipt.id);
 
   return {
     persist: true,
@@ -8696,6 +8735,9 @@ async function completePendingPaymentById(
     payment.quote = quote;
     payment.updatedAt = new Date().toISOString();
 
+    // Sprint 1.1 — studio-side collect notification on Stripe-by-paymentId completion.
+    emitStudioCollectedNotification(db, account, drop, receipt.id);
+
     return {
       persist: true,
       result: receipt
@@ -8808,6 +8850,9 @@ function completePaymentByLookupInDatabase(
   payment.receiptId = receipt.id;
   payment.amountUsd = quote.totalUsd;
   payment.quote = quote;
+
+  // Sprint 1.1 — studio-side collect notification on Stripe webhook completion.
+  emitStudioCollectedNotification(db, account, drop, receipt.id);
 
   return {
     persist: true,
