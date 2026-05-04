@@ -545,6 +545,28 @@ surfaces:
         terms: ["my collection"]  # my collection is not allowed to mean saved
         replace_with: "library"
 
+  - route: "/messages"
+    legacy_routes: []
+    surface_key: "messages_inbox"
+    ui_title: "messages"
+    ui_nouns: ["message", "thread"]
+    lint_targets: ["nav", "h1", "cta", "empty_state", "metadata_labels"]
+    roles: ["collector", "creator"]
+    public_safe: false
+    contract_deps: ["openapi_v1.messages", "openapi_v1.session", "schema_v1.accounts"]
+    proof_ids: ["p_messages_contract", "p_session_required"]
+
+  - route: "/messages/:thread_id"
+    legacy_routes: []
+    surface_key: "message_thread"
+    ui_title: "messages"
+    ui_nouns: ["message", "thread"]
+    lint_targets: ["h1", "cta", "empty_state", "metadata_labels"]
+    roles: ["collector", "creator"]
+    public_safe: false
+    contract_deps: ["openapi_v1.messages", "openapi_v1.session", "schema_v1.accounts"]
+    proof_ids: ["p_messages_contract", "p_session_required"]
+
   # -------------------------------------------------------------------
   # 10) certificates (public verification)
   # -------------------------------------------------------------------

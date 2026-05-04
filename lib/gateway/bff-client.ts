@@ -32,6 +32,7 @@ import type {
   LiveSessionConversationThread,
   LiveSessionEligibility,
   LiveSessionConversationModerationQueueItem,
+  MessageModerationQueueItem,
   MembershipEntitlement,
   MyCollectionAnalyticsPanel,
   MyCollectionSnapshot,
@@ -1123,6 +1124,18 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
       const response = await requestJson<{ queue: LiveSessionConversationModerationQueueItem[] }>(
         options,
         "/api/v1/workshop/moderation/live-session-conversation",
+        { method: "GET" }
+      );
+      if (!response.ok || !response.payload) return [];
+      return response.payload.queue;
+    },
+
+    async listMessageModerationQueue(
+      _accountId: string
+    ): Promise<MessageModerationQueueItem[]> {
+      const response = await requestJson<{ queue: MessageModerationQueueItem[] }>(
+        options,
+        "/api/v1/workshop/moderation/messages",
         { method: "GET" }
       );
       if (!response.ok || !response.payload) return [];

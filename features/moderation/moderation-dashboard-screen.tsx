@@ -3,6 +3,7 @@
 import { AppShell } from "@/features/shell/app-shell";
 import type {
   LiveSessionConversationModerationQueueItem,
+  MessageModerationQueueItem,
   Session,
   TownhallModerationQueueItem,
   WorldConversationModerationQueueItem
@@ -16,16 +17,18 @@ type ModerationDashboardScreenProps = {
   initialWorldConversationQueue: WorldConversationModerationQueueItem[];
   initialTownhallQueue: TownhallModerationQueueItem[];
   initialLiveSessionQueue: LiveSessionConversationModerationQueueItem[];
+  initialMessageQueue: MessageModerationQueueItem[];
 };
 
-type ModerationLane = "all" | "world_conversation" | "townhall_comments" | "live_session";
+type ModerationLane = "all" | "world_conversation" | "townhall_comments" | "live_session" | "messages";
 type Resolution = "hide" | "restrict" | "delete" | "restore" | "dismiss";
 
 const LANE_LABEL: Record<ModerationLane, string> = {
   all: "all queues",
   world_conversation: "world conversations",
   townhall_comments: "townhall comments",
-  live_session: "live sessions"
+  live_session: "live sessions",
+  messages: "messages"
 };
 
 const RESOLUTION_OPTIONS: Resolution[] = ["hide", "restrict", "delete", "restore", "dismiss"];
@@ -139,18 +142,56 @@ function LiveSessionItem({
   );
 }
 
+function MessageItem({
+  item,
+  onResolve
+}: {
+  item: MessageModerationQueueItem;
+  onResolve: (threadId: string, messageId: string, resolution: Resolution) => void;
+}) {
+  return (
+    <li className="slice-drop-card" data-testid="moderation-queue-item">
+      <p className="slice-label">message thread - {item.threadTitle}</p>
+      <p className="slice-copy">@{item.authorHandle}: {item.body}</p>
+      <p className="slice-meta">
+        participants: {item.participantHandles.map((handle) => `@${handle}`).join(", ")}
+      </p>
+      <p className="slice-meta">
+        visibility: {item.visibility} - reports: {item.reportCount}
+      </p>
+      <p className="slice-meta">
+        reported: {formatDate(item.reportedAt)} - created: {formatDate(item.createdAt)}
+      </p>
+      <div className="slice-button-row">
+        {RESOLUTION_OPTIONS.map((r) => (
+          <button
+            key={r}
+            className="slice-button ghost"
+            onClick={() => onResolve(item.threadId, item.messageId, r)}
+            type="button"
+          >
+            {r}
+          </button>
+        ))}
+      </div>
+    </li>
+  );
+}
+
 export function ModerationDashboardScreen({
   session,
   initialWorldConversationQueue,
   initialTownhallQueue,
-  initialLiveSessionQueue
+  initialLiveSessionQueue,
+  initialMessageQueue
 }: ModerationDashboardScreenProps) {
   const [worldQueue, setWorldQueue] = useState(initialWorldConversationQueue);
   const [townhallQueue, setTownhallQueue] = useState(initialTownhallQueue);
   const [liveQueue, setLiveQueue] = useState(initialLiveSessionQueue);
+  const [messageQueue, setMessageQueue] = useState(initialMessageQueue);
   const [activeLane, setActiveLane] = useState<ModerationLane>("all");
 
-  const totalItems = worldQueue.length + townhallQueue.length + liveQueue.length;
+  const totalItems = worldQueue.length + townhallQueue.length + liveQueue.length + messageQueue.length;
 
   const resolveWorldConversation = useCallback(
     async (worldId: string, messageId: string, resolution: Resolution) => {
@@ -206,9 +247,28 @@ export function ModerationDashboardScreen({
     []
   );
 
+  const resolveMessage = useCallback(
+    async (threadId: string, messageId: string, resolution: Resolution) => {
+      const res = await fetch(
+        `/api/v1/workshop/moderation/messages/${encodeURIComponent(threadId)}/${encodeURIComponent(messageId)}/resolve`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ resolution })
+        }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (data.queue) setMessageQueue(data.queue);
+      }
+    },
+    []
+  );
+
   const showWorld = activeLane === "all" || activeLane === "world_conversation";
   const showTownhall = activeLane === "all" || activeLane === "townhall_comments";
   const showLive = activeLane === "all" || activeLane === "live_session";
+  const showMessages = activeLane === "all" || activeLane === "messages";
 
   return (
     <AppShell
@@ -234,6 +294,7 @@ export function ModerationDashboardScreen({
               {lane === "world_conversation" ? ` (${worldQueue.length})` : ""}
               {lane === "townhall_comments" ? ` (${townhallQueue.length})` : ""}
               {lane === "live_session" ? ` (${liveQueue.length})` : ""}
+              {lane === "messages" ? ` (${messageQueue.length})` : ""}
             </button>
           ))}
         </div>
@@ -294,6 +355,25 @@ export function ModerationDashboardScreen({
                   key={`${item.liveSessionId}-${item.messageId}`}
                   item={item}
                   onResolve={resolveLiveSession}
+                />
+              ))}
+            </ul>
+          )}
+        </section>
+      ) : null}
+
+      {showMessages ? (
+        <section className="slice-panel" data-testid="moderation-message-queue">
+          <p className="slice-label">messages queue ({messageQueue.length})</p>
+          {messageQueue.length === 0 ? (
+            <p className="slice-meta">no message items in queue.</p>
+          ) : (
+            <ul className="slice-grid" aria-label="message moderation queue">
+              {messageQueue.map((item) => (
+                <MessageItem
+                  key={`${item.threadId}-${item.messageId}`}
+                  item={item}
+                  onResolve={resolveMessage}
                 />
               ))}
             </ul>

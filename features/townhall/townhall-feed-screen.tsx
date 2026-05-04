@@ -367,6 +367,8 @@ export function TownhallFeedScreen({
   const [commentDraft, setCommentDraft] = useState("");
   const [replyToCommentId, setReplyToCommentId] = useState<string | null>(null);
   const [shareNotice, setShareNotice] = useState("");
+  const [shareRecipients, setShareRecipients] = useState("");
+  const [shareMessage, setShareMessage] = useState("");
   const [shareOrigin, setShareOrigin] = useState("https://oneofakinde-os.vercel.app");
   const [townhallPosts, setTownhallPosts] = useState<TownhallPost[]>([]);
   const [postsFilter, setPostsFilter] = useState<TownhallPostsFilter>("all");
@@ -721,6 +723,8 @@ export function TownhallFeedScreen({
     setCommentDraft("");
     setReplyToCommentId(null);
     setShareNotice("");
+    setShareRecipients("");
+    setShareMessage("");
     setIsPlaying(true);
   }, [activeIndex]);
 
@@ -756,6 +760,7 @@ export function TownhallFeedScreen({
       setOpenPanel(null);
       setPanelDropId(null);
       setReplyToCommentId(null);
+      setShareNotice("");
       return;
     }
 
@@ -765,6 +770,10 @@ export function TownhallFeedScreen({
     setOpenPanel(panel);
     setPanelDropId(dropId);
     setShareNotice("");
+    if (panel === "share") {
+      setShareRecipients("");
+      setShareMessage("");
+    }
     if (panel !== "comments") {
       setReplyToCommentId(null);
     }
@@ -1339,15 +1348,23 @@ export function TownhallFeedScreen({
     }
   }
 
-  async function recordShare(dropId: string, channel: TownhallShareChannel) {
+  async function recordShare(
+    dropId: string,
+    channel: TownhallShareChannel,
+    options?: {
+      recipientHandles?: string[];
+      message?: string;
+      shareUrl?: string;
+    }
+  ): Promise<boolean> {
     if (!viewer) {
       redirectToSignInForInteraction();
-      return;
+      return false;
     }
 
     const social = await postSocialMutation(
       `/api/v1/townhall/social/shares/${encodeURIComponent(dropId)}`,
-      { channel }
+      { channel, ...options }
     );
 
     if (social) {
@@ -1360,17 +1377,35 @@ export function TownhallFeedScreen({
           position: activeIndex + 1
         })
       });
+      return true;
     }
+
+    return false;
   }
 
-  async function handleCopyForInternalDm(dropId: string) {
-    const url = activeShareUrl(dropId);
-    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(url);
+  async function handleInternalDmShare(dropId: string) {
+    const recipientHandles = shareRecipients
+      .split(/[\s,]+/)
+      .map((handle) => handle.trim())
+      .filter(Boolean);
+    if (recipientHandles.length === 0) {
+      setShareNotice("add at least one handle to send in messages.");
+      return;
     }
 
-    await recordShare(dropId, "internal_dm");
-    setShareNotice("saved for internal dm delivery.");
+    const sent = await recordShare(dropId, "internal_dm", {
+      recipientHandles,
+      message: shareMessage,
+      shareUrl: activeShareUrl(dropId)
+    });
+
+    if (sent) {
+      setShareRecipients("");
+      setShareMessage("");
+      setShareNotice("sent in messages.");
+    } else {
+      setShareNotice("could not send message. check handles and block settings.");
+    }
   }
 
   function markPreviewAssetFailure(assetKey: string) {
@@ -1991,13 +2026,33 @@ export function TownhallFeedScreen({
                         >
                           telegram
                         </a>
+                      </div>
+                      <div className="townhall-share-dm">
+                        <label className="townhall-share-field">
+                          message handles
+                          <input
+                            value={shareRecipients}
+                            onChange={(event) => setShareRecipients(event.target.value)}
+                            placeholder="@handle, @friend"
+                          />
+                        </label>
+                        <label className="townhall-share-field">
+                          note
+                          <textarea
+                            value={shareMessage}
+                            onChange={(event) => setShareMessage(event.target.value)}
+                            placeholder="optional note"
+                            rows={2}
+                            maxLength={500}
+                          />
+                        </label>
                         <button
                           type="button"
                           onClick={() => {
-                            void handleCopyForInternalDm(drop.id);
+                            void handleInternalDmShare(drop.id);
                           }}
                         >
-                          internal dm
+                          send in messages
                         </button>
                       </div>
                       {shareNotice ? <p className="townhall-share-note">{shareNotice}</p> : null}

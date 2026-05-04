@@ -16,6 +16,10 @@ import type {
   LiveSessionArtifactKind,
   LiveSessionEligibilityRule,
   LiveSessionType,
+  MessageParticipantRole,
+  MessageParticipantStatus,
+  MessageModerationVisibility,
+  MessageThreadKind,
   MembershipEntitlementStatus,
   PatronCommitmentCadence,
   PatronStatus,
@@ -371,6 +375,38 @@ export type LiveSessionConversationMessageRecord = {
   appealRequestedByAccountId: string | null;
 };
 
+export type MessageThreadRecord = {
+  id: string;
+  kind: MessageThreadKind;
+  title: string | null;
+  createdByAccountId: string;
+  createdAt: string;
+  updatedAt: string;
+  lastMessageAt: string | null;
+};
+
+export type MessageParticipantRecord = {
+  threadId: string;
+  accountId: string;
+  role: MessageParticipantRole;
+  status: MessageParticipantStatus;
+  joinedAt: string;
+  lastReadAt: string | null;
+};
+
+export type MessageEntryRecord = {
+  id: string;
+  threadId: string;
+  accountId: string;
+  body: string;
+  createdAt: string;
+  visibility: MessageModerationVisibility;
+  reportCount: number;
+  reportedAt: string | null;
+  moderatedAt: string | null;
+  moderatedByAccountId: string | null;
+};
+
 export type CollectOfferRecord = {
   id: string;
   accountId: string;
@@ -552,6 +588,9 @@ export type BffDatabase = {
   townhallTelemetryEvents: TownhallTelemetryEventRecord[];
   worldConversationMessages: WorldConversationMessageRecord[];
   liveSessionConversationMessages: LiveSessionConversationMessageRecord[];
+  messageThreads: MessageThreadRecord[];
+  messageParticipants: MessageParticipantRecord[];
+  messageEntries: MessageEntryRecord[];
   collectOffers: CollectOfferRecord[];
   collectEnforcementSignals: CollectEnforcementSignalRecord[];
   worldCollectOwnerships: WorldCollectOwnershipRecord[];
@@ -1221,6 +1260,9 @@ function createSeedDatabase(): BffDatabase {
     ],
     worldConversationMessages: [],
     liveSessionConversationMessages: [],
+    messageThreads: [],
+    messageParticipants: [],
+    messageEntries: [],
     collectOffers: [
       {
         id: "offer_seed_voidrunner_resale_1",
@@ -1409,6 +1451,9 @@ function createCatalogSeedDatabase(): BffDatabase {
     townhallTelemetryEvents: [],
     worldConversationMessages: [],
     liveSessionConversationMessages: [],
+    messageThreads: [],
+    messageParticipants: [],
+    messageEntries: [],
     collectOffers: [],
     collectEnforcementSignals: [],
     worldCollectOwnerships: [],
@@ -1465,6 +1510,9 @@ function createEmptyDatabase(): BffDatabase {
     townhallTelemetryEvents: [],
     worldConversationMessages: [],
     liveSessionConversationMessages: [],
+    messageThreads: [],
+    messageParticipants: [],
+    messageEntries: [],
     collectOffers: [],
     collectEnforcementSignals: [],
     worldCollectOwnerships: [],
@@ -1524,6 +1572,9 @@ function isValidDb(input: unknown): input is BffDatabase {
     Array.isArray(candidate.townhallTelemetryEvents) &&
     Array.isArray(candidate.worldConversationMessages) &&
     Array.isArray(candidate.liveSessionConversationMessages) &&
+    Array.isArray(candidate.messageThreads) &&
+    Array.isArray(candidate.messageParticipants) &&
+    Array.isArray(candidate.messageEntries) &&
     Array.isArray(candidate.collectOffers) &&
     Array.isArray(candidate.collectEnforcementSignals) &&
     Array.isArray(candidate.worldCollectOwnerships) &&
@@ -1561,6 +1612,9 @@ function hasLegacyBaseDbShape(input: unknown): input is Omit<
   | "townhallTelemetryEvents"
   | "worldConversationMessages"
   | "liveSessionConversationMessages"
+  | "messageThreads"
+  | "messageParticipants"
+  | "messageEntries"
   | "collectOffers"
   | "collectEnforcementSignals"
   | "worldCollectOwnerships"
@@ -3073,6 +3127,141 @@ function normalizeLiveSessionConversationMessageRecords(
   });
 }
 
+function normalizeMessageThreadKind(value: unknown): MessageThreadKind {
+  return value === "group" ? "group" : "direct";
+}
+
+function normalizeMessageParticipantRole(value: unknown): MessageParticipantRole {
+  return value === "owner" ? "owner" : "member";
+}
+
+function normalizeMessageParticipantStatus(value: unknown): MessageParticipantStatus {
+  if (value === "requested" || value === "declined") {
+    return value;
+  }
+  return "active";
+}
+
+function normalizeMessageModerationVisibility(value: unknown): MessageModerationVisibility {
+  if (value === "hidden" || value === "restricted" || value === "deleted") {
+    return value;
+  }
+  return "visible";
+}
+
+function normalizeMessageThreadRecords(records: MessageThreadRecord[]): MessageThreadRecord[] {
+  return records
+    .map((record) => {
+      const candidate = record as Partial<MessageThreadRecord>;
+      const id = typeof candidate.id === "string" && candidate.id.trim() ? candidate.id : "";
+      const createdByAccountId =
+        typeof candidate.createdByAccountId === "string" && candidate.createdByAccountId.trim()
+          ? candidate.createdByAccountId
+          : "";
+      if (!id || !createdByAccountId) {
+        return null;
+      }
+
+      const now = new Date().toISOString();
+      const createdAt =
+        typeof candidate.createdAt === "string" && candidate.createdAt.trim()
+          ? candidate.createdAt
+          : now;
+
+      return {
+        id,
+        kind: normalizeMessageThreadKind(candidate.kind),
+        title:
+          typeof candidate.title === "string" && candidate.title.trim()
+            ? candidate.title.trim()
+            : null,
+        createdByAccountId,
+        createdAt,
+        updatedAt:
+          typeof candidate.updatedAt === "string" && candidate.updatedAt.trim()
+            ? candidate.updatedAt
+            : createdAt,
+        lastMessageAt:
+          typeof candidate.lastMessageAt === "string" && candidate.lastMessageAt.trim()
+            ? candidate.lastMessageAt
+            : null
+      } satisfies MessageThreadRecord;
+    })
+    .filter((record): record is MessageThreadRecord => record !== null);
+}
+
+function normalizeMessageParticipantRecords(records: MessageParticipantRecord[]): MessageParticipantRecord[] {
+  return records
+    .map((record) => {
+      const candidate = record as Partial<MessageParticipantRecord>;
+      const threadId = typeof candidate.threadId === "string" && candidate.threadId.trim() ? candidate.threadId : "";
+      const accountId = typeof candidate.accountId === "string" && candidate.accountId.trim() ? candidate.accountId : "";
+      if (!threadId || !accountId) {
+        return null;
+      }
+
+      return {
+        threadId,
+        accountId,
+        role: normalizeMessageParticipantRole(candidate.role),
+        status: normalizeMessageParticipantStatus(candidate.status),
+        joinedAt:
+          typeof candidate.joinedAt === "string" && candidate.joinedAt.trim()
+            ? candidate.joinedAt
+            : new Date().toISOString(),
+        lastReadAt:
+          typeof candidate.lastReadAt === "string" && candidate.lastReadAt.trim()
+            ? candidate.lastReadAt
+            : null
+      } satisfies MessageParticipantRecord;
+    })
+    .filter((record): record is MessageParticipantRecord => record !== null);
+}
+
+function normalizeMessageEntryRecords(records: MessageEntryRecord[]): MessageEntryRecord[] {
+  return records
+    .map((record) => {
+      const candidate = record as Partial<MessageEntryRecord>;
+      const threadId = typeof candidate.threadId === "string" && candidate.threadId.trim() ? candidate.threadId : "";
+      const accountId = typeof candidate.accountId === "string" && candidate.accountId.trim() ? candidate.accountId : "";
+      if (!threadId || !accountId) {
+        return null;
+      }
+
+      return {
+        id:
+          typeof candidate.id === "string" && candidate.id.trim()
+            ? candidate.id
+            : `msg_${randomUUID()}`,
+        threadId,
+        accountId,
+        body: typeof candidate.body === "string" ? candidate.body : "",
+        createdAt:
+          typeof candidate.createdAt === "string" && candidate.createdAt.trim()
+            ? candidate.createdAt
+            : new Date().toISOString(),
+        visibility: normalizeMessageModerationVisibility(candidate.visibility),
+        reportCount:
+          typeof candidate.reportCount === "number" && Number.isFinite(candidate.reportCount)
+            ? Math.max(0, Math.floor(candidate.reportCount))
+            : 0,
+        reportedAt:
+          typeof candidate.reportedAt === "string" && candidate.reportedAt.trim()
+            ? candidate.reportedAt
+            : null,
+        moderatedAt:
+          typeof candidate.moderatedAt === "string" && candidate.moderatedAt.trim()
+            ? candidate.moderatedAt
+            : null,
+        moderatedByAccountId:
+          typeof candidate.moderatedByAccountId === "string" && candidate.moderatedByAccountId.trim()
+            ? candidate.moderatedByAccountId
+            : null
+      } satisfies MessageEntryRecord;
+    })
+    .filter((record): record is MessageEntryRecord => record !== null);
+}
+
 function normalizeWatchAccessGrantRecords(records: WatchAccessGrantRecord[]): WatchAccessGrantRecord[] {
   return records.map((record) => {
     const candidate = record as Partial<WatchAccessGrantRecord>;
@@ -3245,6 +3434,9 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
       liveSessionConversationMessages: normalizeLiveSessionConversationMessageRecords(
         input.liveSessionConversationMessages
       ),
+      messageThreads: normalizeMessageThreadRecords(input.messageThreads),
+      messageParticipants: normalizeMessageParticipantRecords(input.messageParticipants),
+      messageEntries: normalizeMessageEntryRecords(input.messageEntries),
       payments: normalizePaymentRecords(input.payments),
       collectOffers: normalizeCollectOfferRecords(input.collectOffers),
       collectEnforcementSignals: normalizeCollectEnforcementSignalRecords(
@@ -3377,6 +3569,15 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         ? normalizeLiveSessionConversationMessageRecords(
             candidate.liveSessionConversationMessages as LiveSessionConversationMessageRecord[]
           )
+        : [],
+      messageThreads: Array.isArray(candidate.messageThreads)
+        ? normalizeMessageThreadRecords(candidate.messageThreads as MessageThreadRecord[])
+        : [],
+      messageParticipants: Array.isArray(candidate.messageParticipants)
+        ? normalizeMessageParticipantRecords(candidate.messageParticipants as MessageParticipantRecord[])
+        : [],
+      messageEntries: Array.isArray(candidate.messageEntries)
+        ? normalizeMessageEntryRecords(candidate.messageEntries as MessageEntryRecord[])
         : [],
       payments: Array.isArray(candidate.payments)
         ? normalizePaymentRecords(candidate.payments as PaymentRecord[])
@@ -3849,6 +4050,9 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     liveSessionAttendeesResult,
     liveSessionArtifactsResult,
     liveSessionConversationMessagesResult,
+    messageThreadsResult,
+    messageParticipantsResult,
+    messageEntriesResult,
     townhallPostSavesResult,
     townhallPostFollowsResult,
     townhallPostSharesResult,
@@ -4178,6 +4382,15 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     }>(
       'SELECT id, live_session_id AS "liveSessionId", account_id AS "accountId", parent_message_id AS "parentMessageId", body, created_at AS "createdAt", visibility AS "visibility", report_count AS "reportCount", reported_at AS "reportedAt", moderated_at AS "moderatedAt", moderated_by_account_id AS "moderatedByAccountId", appeal_requested_at AS "appealRequestedAt", appeal_requested_by_account_id AS "appealRequestedByAccountId" FROM bff_live_session_conversation_messages ORDER BY created_at ASC'
     ).catch(() => ({ rows: [] as Array<{ id: string; liveSessionId: string; accountId: string; parentMessageId: string | null; body: string; createdAt: string; visibility: WorldConversationVisibility; reportCount: number | string; reportedAt: string | null; moderatedAt: string | null; moderatedByAccountId: string | null; appealRequestedAt: string | null; appealRequestedByAccountId: string | null }>, rowCount: 0 })),
+    client.query<MessageThreadRecord>(
+      'SELECT id, kind, title, created_by_account_id AS "createdByAccountId", created_at AS "createdAt", updated_at AS "updatedAt", last_message_at AS "lastMessageAt" FROM bff_message_threads ORDER BY updated_at DESC'
+    ).catch(() => ({ rows: [] as MessageThreadRecord[], rowCount: 0 })),
+    client.query<MessageParticipantRecord>(
+      'SELECT thread_id AS "threadId", account_id AS "accountId", role, status, joined_at AS "joinedAt", last_read_at AS "lastReadAt" FROM bff_message_participants ORDER BY joined_at ASC'
+    ).catch(() => ({ rows: [] as MessageParticipantRecord[], rowCount: 0 })),
+    client.query<MessageEntryRecord>(
+      'SELECT id, thread_id AS "threadId", account_id AS "accountId", body, created_at AS "createdAt", visibility, report_count AS "reportCount", reported_at AS "reportedAt", moderated_at AS "moderatedAt", moderated_by_account_id AS "moderatedByAccountId" FROM bff_message_entries ORDER BY created_at ASC'
+    ).catch(() => ({ rows: [] as MessageEntryRecord[], rowCount: 0 })),
     client.query<TownhallPostSaveRecord>(
       'SELECT account_id AS "accountId", post_id AS "postId", saved_at AS "savedAt" FROM bff_townhall_post_saves'
     ).catch(() => ({ rows: [] as TownhallPostSaveRecord[], rowCount: 0 })),
@@ -4504,6 +4717,21 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
           }))
         : parseMetaJsonValue<LiveSessionConversationMessageRecord[]>(meta.get("live_session_conversation_messages_json"), [])
     ),
+    messageThreads: normalizeMessageThreadRecords(
+      messageThreadsResult.rows.length > 0
+        ? messageThreadsResult.rows
+        : parseMetaJsonValue<MessageThreadRecord[]>(meta.get("message_threads_json"), [])
+    ),
+    messageParticipants: normalizeMessageParticipantRecords(
+      messageParticipantsResult.rows.length > 0
+        ? messageParticipantsResult.rows
+        : parseMetaJsonValue<MessageParticipantRecord[]>(meta.get("message_participants_json"), [])
+    ),
+    messageEntries: normalizeMessageEntryRecords(
+      messageEntriesResult.rows.length > 0
+        ? messageEntriesResult.rows
+        : parseMetaJsonValue<MessageEntryRecord[]>(meta.get("message_entries_json"), [])
+    ),
     collectOffers: normalizeCollectOfferRecords(
       collectOffersResult.rows.map((row) => ({
         id: row.id,
@@ -4703,6 +4931,9 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
       bff_live_session_attendees,
       bff_live_session_artifacts,
       bff_live_session_conversation_messages,
+      bff_message_entries,
+      bff_message_participants,
+      bff_message_threads,
       bff_townhall_post_saves,
       bff_townhall_post_follows,
       bff_townhall_post_shares,
@@ -5374,6 +5605,53 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
         message.moderatedByAccountId,
         message.appealRequestedAt,
         message.appealRequestedByAccountId
+      ]
+    );
+  }
+
+  for (const thread of db.messageThreads) {
+    await client.query(
+      "INSERT INTO bff_message_threads (id, kind, title, created_by_account_id, created_at, updated_at, last_message_at) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (id) DO NOTHING",
+      [
+        thread.id,
+        thread.kind,
+        thread.title,
+        thread.createdByAccountId,
+        thread.createdAt,
+        thread.updatedAt,
+        thread.lastMessageAt
+      ]
+    );
+  }
+
+  for (const participant of db.messageParticipants) {
+    await client.query(
+      "INSERT INTO bff_message_participants (thread_id, account_id, role, status, joined_at, last_read_at) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (thread_id, account_id) DO UPDATE SET role = EXCLUDED.role, status = EXCLUDED.status, last_read_at = EXCLUDED.last_read_at",
+      [
+        participant.threadId,
+        participant.accountId,
+        participant.role,
+        participant.status,
+        participant.joinedAt,
+        participant.lastReadAt
+      ]
+    );
+  }
+
+  for (const entry of db.messageEntries) {
+    await client.query(
+      "INSERT INTO bff_message_entries (id, thread_id, account_id, body, created_at, visibility, report_count, reported_at, moderated_at, moderated_by_account_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) ON CONFLICT (id) DO NOTHING",
+      [
+        entry.id,
+        entry.threadId,
+        entry.accountId,
+        entry.body,
+        entry.createdAt,
+        entry.visibility,
+        entry.reportCount,
+        entry.reportedAt,
+        entry.moderatedAt,
+        entry.moderatedByAccountId
       ]
     );
   }

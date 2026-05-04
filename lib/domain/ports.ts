@@ -34,6 +34,7 @@ import type {
   LiveSessionConversationThread,
   LiveSessionEligibility,
   LiveSessionConversationModerationQueueItem,
+  MessageModerationQueueItem,
   MembershipEntitlement,
   MyCollectionAnalyticsPanel,
   MyCollectionSnapshot,
@@ -272,6 +273,7 @@ export interface CommerceGateway {
   listLiveSessionConversationModerationQueue(
     accountId: string
   ): Promise<LiveSessionConversationModerationQueueItem[]>;
+  listMessageModerationQueue(accountId: string): Promise<MessageModerationQueueItem[]>;
 
   /* ── collector public ── */
   getCollectorPublic(handle: string): Promise<CollectorPublicProfile | null>;
