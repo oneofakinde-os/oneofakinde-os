@@ -4835,3 +4835,216 @@ select:focus-visible {
     position: relative;
   }
 }
+
+/* ── transparency pages ── */
+
+.transparency-page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 48px clamp(16px, 4vw, 40px) 80px;
+}
+
+.transparency-header {
+  margin-bottom: 40px;
+}
+
+.transparency-header h1 {
+  font-size: clamp(1.6rem, 4vw, 2.2rem);
+  font-weight: 700;
+  margin: 8px 0 12px;
+}
+
+.transparency-back {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.transparency-back:hover {
+  color: var(--accent);
+}
+
+.transparency-tagline {
+  color: var(--text-muted);
+  font-size: 1rem;
+  line-height: 1.6;
+  margin-top: 8px;
+}
+
+.transparency-version {
+  display: inline-block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  background: var(--panel);
+  padding: 2px 10px;
+  border-radius: 4px;
+}
+
+.transparency-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.transparency-card {
+  display: block;
+  padding: 20px 24px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  transition: border-color 0.15s;
+}
+
+.transparency-card:hover {
+  border-color: var(--accent);
+}
+
+.transparency-card h2 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+
+.transparency-card p {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.formula-section {
+  margin-bottom: 36px;
+}
+
+.formula-section h2 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin: 0 0 10px;
+  color: var(--accent);
+}
+
+.formula-section h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 12px 0 6px;
+}
+
+.formula-section p {
+  font-size: 0.92rem;
+  color: var(--text-muted);
+  line-height: 1.65;
+  margin: 0 0 10px;
+}
+
+.formula-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+}
+
+.formula-table th {
+  text-align: left;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.formula-table td {
+  padding: 8px 12px;
+  font-size: 0.9rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.formula-weight {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--accent-bright);
+}
+
+.formula-anti-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.formula-anti-list li {
+  padding: 6px 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.formula-anti-list li::before {
+  content: "\2717  ";
+  color: var(--danger);
+}
+
+.formula-blend-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.formula-blend-list li {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 0.9rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.formula-factor {
+  color: var(--text-muted);
+}
+
+.formula-blend-weight {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-bright);
+}
+
+.formula-link {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.formula-lane {
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: var(--panel);
+  border-radius: 8px;
+}
+
+.formula-explanation {
+  font-style: italic;
+}
+
+.curation-stages {
+  margin: 0;
+  padding: 0;
+}
+
+.curation-stage {
+  padding: 16px 20px;
+  margin-bottom: 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.curation-stage-current {
+  border-color: var(--accent);
+}
+
+.curation-stage dt {
+  font-weight: 600;
+  font-size: 1rem;
+  margin-bottom: 6px;
+}
+
+.curation-stage dd {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}

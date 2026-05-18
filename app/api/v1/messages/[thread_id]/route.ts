@@ -20,6 +20,7 @@ type MessageThreadRouteParams = {
 type MessageThreadActionBody = {
   action?: string;
   body?: string;
+  targetHandle?: string;
 };
 
 function mutationResponse(result: MessageThreadMutationResult, status = 200) {
@@ -93,6 +94,19 @@ export async function POST(
       guard.session.accountId,
       threadId,
       action
+    );
+    return mutationResponse(result);
+  }
+
+  if (action === "transfer_admin") {
+    const targetHandle = getRequiredBodyString(payloadRecord, "targetHandle");
+    if (!targetHandle) {
+      return badRequest("targetHandle is required for transfer_admin");
+    }
+    const result = await commerceBffService.transferMessageThreadAdmin(
+      guard.session.accountId,
+      threadId,
+      targetHandle
     );
     return mutationResponse(result);
   }

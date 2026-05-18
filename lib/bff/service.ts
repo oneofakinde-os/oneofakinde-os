@@ -14022,6 +14022,75 @@ export const commerceBffService = {
     });
   },
 
+  async transferMessageThreadAdmin(
+    accountId: string,
+    threadId: string,
+    targetHandle: string
+  ): Promise<MessageThreadMutationResult> {
+    return withDatabase<MessageThreadMutationResult>(async (db) => {
+      const account = findAccountById(db, accountId);
+      const thread = db.messageThreads.find((entry) => entry.id === threadId) ?? null;
+      if (!account || !thread) {
+        return {
+          persist: false,
+          result: { ok: false as const, reason: "not_found" as const }
+        };
+      }
+
+      if (thread.kind !== "group") {
+        return {
+          persist: false,
+          result: { ok: false as const, reason: "invalid" as const }
+        };
+      }
+
+      const callerParticipant = db.messageParticipants.find(
+        (entry) => entry.threadId === thread.id && entry.accountId === account.id
+      );
+      if (!callerParticipant || callerParticipant.role !== "owner") {
+        return {
+          persist: false,
+          result: { ok: false as const, reason: "forbidden" as const }
+        };
+      }
+
+      const targetAccount = db.accounts.find((a) => a.handle === targetHandle) ?? null;
+      if (!targetAccount) {
+        return {
+          persist: false,
+          result: { ok: false as const, reason: "not_found" as const }
+        };
+      }
+
+      const targetParticipant = db.messageParticipants.find(
+        (entry) => entry.threadId === thread.id && entry.accountId === targetAccount.id
+      );
+      if (!targetParticipant || targetParticipant.status !== "active") {
+        return {
+          persist: false,
+          result: { ok: false as const, reason: "not_found" as const }
+        };
+      }
+
+      callerParticipant.role = "member";
+      targetParticipant.role = "owner";
+      thread.updatedAt = new Date().toISOString();
+
+      const view = buildMessageThread(db, account, thread, {});
+      if (!view) {
+        return {
+          persist: false,
+          result: { ok: false as const, reason: "not_found" as const }
+        };
+      }
+
+      return {
+        persist: true,
+        result: { ok: true as const, thread: view }
+      };
+    });
+  },
+
   async reportMessage(
     accountId: string,
     threadId: string,
