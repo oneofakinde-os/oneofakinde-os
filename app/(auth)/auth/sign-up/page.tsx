@@ -78,8 +78,16 @@ export default async function SignUpPage({ searchParams }: SignUpPageProps) {
             </label>
           </fieldset>
 
+          <label className="identity-checkbox">
+            <input type="checkbox" name="ageConfirm" value="yes" required />
+            <span>I confirm I am 18 years of age or older</span>
+          </label>
+
           <SocialAuthButtons mode="sign-up" returnTo={returnTo} />
 
+          {errorCode === "age_required" ? (
+            <p className="identity-error">you must confirm you are 18 or older to create an account.</p>
+          ) : null}
           {hasInvalidEmail ? <p className="identity-error">enter a valid email to continue.</p> : null}
           {hasEmailTaken ? (
             <p className="identity-error">this email is already registered. try signing in instead.</p>

@@ -147,6 +147,8 @@ export type SensitivityRating = "none" | "advisory" | "mature";
 
 export type SensitivitySource = "drop" | "world_default";
 
+export type DropPricingType = "free" | "fixed" | "auction" | "bundle_priced";
+
 export type Drop = {
   id: string;
   title: string;
@@ -158,6 +160,7 @@ export type Drop = {
   synopsis: string;
   releaseDate: string;
   priceUsd: number;
+  pricingType?: DropPricingType;
   studioPinRank?: number;
   worldOrderIndex?: number;
   previewMedia?: DropPreviewMap;
@@ -660,6 +663,7 @@ export type CreateDropInput = {
   title: string;
   worldId: string;
   synopsis: string;
+  pricingType?: DropPricingType;
   priceUsd: number;
   seasonLabel?: string;
   episodeLabel?: string;

@@ -1,7 +1,7 @@
 "use client";
 
 import type { CreateDropResult } from "@/app/(creator)/create/drop/actions";
-import type { SensitivityRating, WalletChain, World } from "@/lib/domain/contracts";
+import type { DropPricingType, SensitivityRating, WalletChain, World } from "@/lib/domain/contracts";
 import { useState, useTransition } from "react";
 
 type CreateDropStepperProps = {
@@ -20,6 +20,13 @@ const WALLET_CHAIN_OPTIONS: ReadonlyArray<{ value: WalletGateChoice; label: stri
   { value: "polygon", label: "polygon", description: "requires a verified polygon wallet." }
 ];
 
+const PRICING_TYPE_OPTIONS: ReadonlyArray<{ value: DropPricingType; label: string; description: string }> = [
+  { value: "free", label: "free", description: "anyone can consume and collect at no cost." },
+  { value: "fixed", label: "fixed price", description: "collectors pay a set price to own this drop." },
+  { value: "auction", label: "auction", description: "collectors bid; highest offer wins." },
+  { value: "bundle_priced", label: "bundle priced", description: "priced as part of a world bundle." }
+];
+
 type SensitivityChoice = "inherit" | SensitivityRating;
 const SENSITIVITY_OPTIONS: ReadonlyArray<{ value: SensitivityChoice; label: string; description: string }> = [
   { value: "inherit", label: "inherit from world", description: "use the world's default rating; no override on this drop." },
@@ -36,6 +43,7 @@ export function CreateDropStepper({
   const [title, setTitle] = useState("");
   const [worldId, setWorldId] = useState(worlds[0]?.id ?? "");
   const [synopsis, setSynopsis] = useState("");
+  const [pricingType, setPricingType] = useState<DropPricingType>("fixed");
   const [priceUsd, setPriceUsd] = useState("1.99");
   const [seasonLabel, setSeasonLabel] = useState("");
   const [episodeLabel, setEpisodeLabel] = useState("");
@@ -55,6 +63,7 @@ export function CreateDropStepper({
       case "synopsis":
         return synopsis.trim().length > 0;
       case "pricing":
+        if (pricingType === "free") return true;
         return Number.isFinite(Number.parseFloat(priceUsd)) && Number.parseFloat(priceUsd) >= 0;
       default:
         return true;
@@ -80,7 +89,8 @@ export function CreateDropStepper({
     formData.set("title", title.trim());
     formData.set("worldId", worldId);
     formData.set("synopsis", synopsis.trim());
-    formData.set("priceUsd", priceUsd);
+    formData.set("pricingType", pricingType);
+    formData.set("priceUsd", pricingType === "free" ? "0" : priceUsd);
     if (seasonLabel.trim()) formData.set("seasonLabel", seasonLabel.trim());
     if (episodeLabel.trim()) formData.set("episodeLabel", episodeLabel.trim());
     if (walletGate !== "none") formData.set("walletGate", walletGate);
@@ -218,24 +228,52 @@ export function CreateDropStepper({
       {/* step: pricing */}
       {step === "pricing" ? (
         <section className="create-stepper-step" aria-label="pricing">
-          <h2 className="slice-title">set your price</h2>
+          <h2 className="slice-title">how should this drop be priced?</h2>
           <p className="slice-copy">
-            how much should collectors pay to own this drop? set $0 for a free drop.
+            choose a pricing model. you can always change this before publishing.
           </p>
-          <div className="create-stepper-price-row">
-            <span className="create-stepper-price-currency">$</span>
-            <input
-              className="identity-input"
-              type="number"
-              value={priceUsd}
-              onChange={(e) => setPriceUsd(e.target.value)}
-              min="0"
-              step="0.01"
-              placeholder="1.99"
-              autoFocus
-            />
-            <span className="slice-meta">USD</span>
-          </div>
+          <fieldset className="create-stepper-world-grid" style={{ border: 0, padding: 0, margin: 0 }}>
+            <legend className="slice-meta" style={{ marginBottom: "0.5rem" }}>
+              pricing type
+            </legend>
+            {PRICING_TYPE_OPTIONS.map((option) => (
+              <label
+                key={option.value}
+                className={`create-stepper-world-card${pricingType === option.value ? " selected" : ""}`}
+                style={{ cursor: "pointer", textAlign: "left" }}
+              >
+                <input
+                  type="radio"
+                  name="pricingTypeChoice"
+                  value={option.value}
+                  checked={pricingType === option.value}
+                  onChange={() => {
+                    setPricingType(option.value);
+                    if (option.value === "free") setPriceUsd("0");
+                    else if (priceUsd === "0") setPriceUsd("1.99");
+                  }}
+                  style={{ marginRight: "0.5rem" }}
+                />
+                <span className="create-stepper-world-title">{option.label}</span>
+                <span className="slice-meta">{option.description}</span>
+              </label>
+            ))}
+          </fieldset>
+          {pricingType !== "free" ? (
+            <div className="create-stepper-price-row" style={{ marginTop: "1rem" }}>
+              <span className="create-stepper-price-currency">$</span>
+              <input
+                className="identity-input"
+                type="number"
+                value={priceUsd}
+                onChange={(e) => setPriceUsd(e.target.value)}
+                min="0"
+                step="0.01"
+                placeholder="1.99"
+              />
+              <span className="slice-meta">USD</span>
+            </div>
+          ) : null}
         </section>
       ) : null}
 
@@ -350,8 +388,12 @@ export function CreateDropStepper({
               <span className="slice-copy">{synopsis}</span>
             </div>
             <div className="create-stepper-review-row">
-              <span className="slice-meta">price</span>
-              <span className="slice-copy">${Number.parseFloat(priceUsd).toFixed(2)}</span>
+              <span className="slice-meta">pricing</span>
+              <span className="slice-copy">
+                {pricingType === "free"
+                  ? "free"
+                  : `${pricingType} — $${Number.parseFloat(priceUsd).toFixed(2)}`}
+              </span>
             </div>
             <div className="create-stepper-review-row">
               <span className="slice-meta">wallet gate</span>

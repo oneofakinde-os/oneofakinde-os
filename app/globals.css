@@ -860,6 +860,21 @@ a {
   font-size: 0.78rem;
 }
 
+.identity-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 0.84rem;
+  color: var(--text-muted, #9badb7);
+}
+.identity-checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent, #7eb2ab);
+  flex-shrink: 0;
+}
+
 .identity-cta {
   border: 1px solid #506676;
   background: linear-gradient(180deg, #c6d6e5 0%, #8ca3b6 100%);
@@ -1506,6 +1521,11 @@ a {
   margin: 0;
   color: #b7c8d4;
   font-size: 0.76rem;
+}
+
+.diamond-marker {
+  color: var(--accent-bright, rgb(80, 220, 180));
+  font-size: 0.7em;
 }
 
 .townhall-title {

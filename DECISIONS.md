@@ -9,6 +9,74 @@ decision later, not so much that it becomes a maintenance burden.
 
 ---
 
+## 2026-05-19 — Wave 0-3 Gap Audit — dark-only design, roll-forward migrations, deferred enforcement
+
+**Context:**
+Full gap audit of 384 Wave 0-3 matrix rows against the live codebase. Several
+items flagged as gaps turned out to be false positives on deeper inspection;
+six policy items are intentionally deferred to later waves. This entry documents
+the decisions arising from the audit.
+
+**Decisions:**
+
+1. **PLT-003 — Dark mode is satisfied by dark-only design.** The app ships
+   with a dark-only palette (CSS variables: `--bg: #040507`, `--text: #f6f8fa`).
+   This is a deliberate brand decision, not an omission. A light-mode toggle is
+   not planned for launch. If user demand surfaces post-launch, the CSS variable
+   architecture supports a `[data-theme="light"]` override layer without
+   structural changes.
+
+2. **OPS-023 — Roll-forward migration policy.** The 46 SQL migrations in
+   `config/` are forward-only and use idempotent patterns (`IF NOT EXISTS`,
+   `IF EXISTS`). Rollbacks are handled by writing a new forward migration that
+   reverses the change, not by maintaining parallel down scripts. Rationale:
+   down scripts for our schema complexity are a maintenance burden that rarely
+   gets exercised; a new forward migration is more testable and goes through
+   the same review pipeline as any other change.
+
+3. **CP-010 — Layer 1 hard exclusions: deferred to manual moderation.** Domain
+   types and transparency page exist. Automated publish-time content checks are
+   a Wave 5+ concern; at launch scale, manual moderation by the editorial
+   council covers this.
+
+4. **GRH-010 — Tier D government request refusal: deferred.** Domain
+   classification (A/B/C/D) and transparency page exist. A formal request
+   intake API is a Wave 5+ ops concern, not a launch-blocking gap.
+
+5. **WND-001/002 — Escrow and ledger priority: documented commitments.** The
+   wind-down transparency page publishes the commitments. Runtime enforcement
+   (Stripe escrow accounts, ledger priority queries) is operational setup, not
+   application code, and is handled during Stripe Connect onboarding.
+
+6. **AI-021 — AI disclosure in authoring pipeline: deferred.** The transparency
+   page and domain module (`lib/domain/ai-disclosure.ts`) exist. Integration
+   with the drop creation stepper is a Wave 5 enhancement.
+
+7. **API-001 — Developer portal: deferred.** 120+ API routes function correctly.
+   A formal developer portal with key management, rate limiting docs, and SDKs
+   is a Wave 5+ concern.
+
+8. **STG-009 — Asset cascade on anonymization: URL references cleared, blob
+   purge deferred to production wiring.** The `executeAccountDeletion` cascade
+   nulls `avatarUrl` and clears all domain references (step 11). Actual storage
+   blob deletion (`deleteFiles()` in `lib/supabase/storage.ts`) is not called
+   from the BFF cascade because the BFF layer operates on the in-memory data
+   model, not on live Supabase storage. When the production deployment pipeline
+   wires real Supabase storage, blob cleanup must be added to the cascade —
+   either inline or as a post-cascade cleanup job. The domain-level behavior
+   (references nulled, PII cleared) is correct today.
+
+**Implications:**
+- The gap report (`wave-0-3-gap-analysis.xlsx`) is updated to reflect these
+  classifications. Items marked "deferred" are not gaps — they are intentional
+  scope boundaries with domain types as placeholders.
+- When each deferred item is picked up in its target wave, the domain module
+  already provides the types and invariants.
+
+**Owner:** platform-foundation
+
+---
+
 ## 2026-05-02 — Sprint 0.1 (Account Deletion + Data Export) — soft-delete cascade with model-driven adjustments
 
 **Context:**
