@@ -65,3 +65,104 @@ export type ModerationDisposition =
   | { action: "rate"; layer: 3; sensitivityLevel: "advisory" | "mature" }
   | { action: "allow"; layer: 3 | 4 }
   | { action: "protect"; category: ProtectedSpeechCategory };
+
+// ── CP-001 through CP-005: Adult content gates ────────────────────
+
+export type AdultContentDeclaration = {
+  studioHandle: string;
+  declared: boolean;
+  declaredAt: string | null;
+};
+
+export type AgeVerificationMethod = "document" | "third_party_service";
+
+export type AgeVerificationStatus = "unverified" | "pending" | "verified" | "rejected";
+
+export type AdultContentGeographicRule = {
+  countryCode: string;
+  blocked: boolean;
+  reason: string;
+};
+
+export const ADULT_CONTENT_BLOCKED_JURISDICTIONS: AdultContentGeographicRule[] = [
+  { countryCode: "SA", blocked: true, reason: "legal prohibition" },
+  { countryCode: "IR", blocked: true, reason: "legal prohibition" },
+  { countryCode: "CN", blocked: true, reason: "legal prohibition" },
+  { countryCode: "KR", blocked: true, reason: "legal requirement for age-gated platform registration" },
+];
+
+export type AdultContentClassification = "artistic_adult" | "commercial_pornography";
+
+export function classifyAdultContent(
+  isStudioDeclaredAdult: boolean,
+  hasArtisticStatement: boolean
+): AdultContentClassification {
+  if (isStudioDeclaredAdult && hasArtisticStatement) return "artistic_adult";
+  return "commercial_pornography";
+}
+
+export function isAdultContentDefaultHidden(): boolean {
+  return true;
+}
+
+export function requiresAgeVerification(hasAdultContent: boolean): boolean {
+  return hasAdultContent;
+}
+
+export function isBlockedJurisdiction(countryCode: string): boolean {
+  return ADULT_CONTENT_BLOCKED_JURISDICTIONS.some(
+    (r) => r.countryCode === countryCode && r.blocked
+  );
+}
+
+// ── CP-011 through CP-014: Layer 2 aesthetic exclusions (appealable) ──
+
+export const LAYER_2_EXCLUSION_DEFINITIONS: Record<AestheticExclusionKind, string> = {
+  dehumanization: "content that systematically portrays identifiable groups as subhuman",
+  glorification_real_violence: "content that celebrates or glorifies specific real-world atrocities",
+  coordinated_harassment: "content created as part of a coordinated campaign targeting a specific individual",
+  harm_specific_person: "content designed to cause direct harm to a specific identifiable person",
+  undisclosed_synthetic_media: "synthetic media (deepfakes) presented without disclosure as authentic",
+};
+
+// ── CP-015: Layer 3 sensitivity-rated content ──
+
+export type SensitivityRating = "none" | "advisory" | "mature";
+
+export const SENSITIVITY_RATING_LABELS: Record<SensitivityRating, string> = {
+  none: "no content advisory",
+  advisory: "content advisory — may contain themes some viewers find challenging",
+  mature: "mature content — intended for adult audiences",
+};
+
+// ── CP-016: Layer 4 individual filtering tools ──
+
+export type UserFilterAction = "hide" | "blur" | "show";
+
+export type UserContentFilter = {
+  accountId: string;
+  filterType: "sensitivity_rating" | "studio" | "hashtag" | "ai_level";
+  filterValue: string;
+  action: UserFilterAction;
+};
+
+export function resolveFilterAction(
+  filters: UserContentFilter[],
+  dropAttributes: { sensitivityRating?: string; studioHandle: string; aiLevel?: number; hashtags?: string[] }
+): UserFilterAction {
+  for (const filter of filters) {
+    if (filter.filterType === "sensitivity_rating" && filter.filterValue === dropAttributes.sensitivityRating) {
+      return filter.action;
+    }
+    if (filter.filterType === "studio" && filter.filterValue === dropAttributes.studioHandle) {
+      return filter.action;
+    }
+    if (filter.filterType === "ai_level" && dropAttributes.aiLevel !== undefined && filter.filterValue === String(dropAttributes.aiLevel)) {
+      return filter.action;
+    }
+    if (filter.filterType === "hashtag" && dropAttributes.hashtags?.includes(filter.filterValue)) {
+      return filter.action;
+    }
+  }
+  return "show";
+}
