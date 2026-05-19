@@ -37,3 +37,8 @@ export const ANNUAL_PUBLIC_ATTESTATION =
   "the platform publishes an annual attestation confirming: escrow fund status, " +
   "wind-down readiness, data export capabilities, and continuity commitments. " +
   "this attestation is signed by platform leadership and publicly accessible.";
+
+export const INSTITUTIONAL_MIRROR_ENFORCEMENT =
+  "the platform maintains an institutional mirror of all published creative work. " +
+  "this mirror is held by a designated cultural institution and activates automatically " +
+  "if the platform ceases operations, ensuring permanent access to the creative record.";

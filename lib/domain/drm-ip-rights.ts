@@ -153,3 +153,33 @@ export function advanceTakedownLifecycle(
 export const DRM_OPEN_LICENSE_COMMITMENT =
   "the platform publishes its DRM terms openly. creators and collectors can review exactly " +
   "what protections apply, what usage rights collectors receive, and what restrictions exist.";
+
+export type CopyrightRegistration = {
+  dropId: string;
+  registrationNumber: string | null;
+  registrationDate: string | null;
+  jurisdiction: string;
+  selfDeclared: boolean;
+};
+
+export type LicensingExclusivity = "exclusive" | "non_exclusive";
+
+export type LicensingDeclaration = {
+  dropId: string;
+  exclusivity: LicensingExclusivity;
+  declaredAt: string;
+};
+
+export function isExclusiveLicense(declaration: LicensingDeclaration): boolean {
+  return declaration.exclusivity === "exclusive";
+}
+
+export type ResaleRoyaltyEnforcement = {
+  dropId: string;
+  royaltyRate: number;
+  enforcedOnResale: boolean;
+};
+
+export function computeRoyaltyOnResale(salePriceCents: number, rate: number): number {
+  return Math.round(salePriceCents * rate);
+}

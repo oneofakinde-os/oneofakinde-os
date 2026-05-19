@@ -38,3 +38,16 @@ export const RETIREMENT_COLLECTOR_ACCESS_COMMITMENT =
 export const RETIREMENT_HISTORY_PRESERVATION =
   "retired drops remain in ownership history. a creator can add a retirement statement " +
   "but cannot erase the provenance trail. the work's history is permanent.";
+
+export type RetirementBuyback = {
+  dropId: string;
+  studioHandle: string;
+  buybackPriceCents: number;
+  fundVerified: boolean;
+  offeredAt: string;
+  status: "offered" | "accepted" | "declined" | "expired";
+};
+
+export function canOfferBuyback(retirement: DropRetirement): boolean {
+  return retirement.status === "retired";
+}

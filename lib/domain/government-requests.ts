@@ -159,3 +159,8 @@ export type EmergencyStudioMigration = {
   requestedAt: string;
   status: "requested" | "in_progress" | "completed";
 };
+
+export const PRIVACY_PRESERVING_PAYMENT_ROUTING =
+  "the platform provides privacy-preserving payment routing so that creator " +
+  "identity is not exposed through payment metadata. intermediary accounts " +
+  "and pseudonymous payout identifiers are available for at-risk creators.";
