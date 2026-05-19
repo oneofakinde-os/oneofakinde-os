@@ -75,3 +75,46 @@ export function buildCollectorNotifications(
     accessPreserved: SUSPENSION_ECONOMIC_RULES.existingDropsAccessible,
   }));
 }
+
+export type SuspensionReversal = {
+  suspensionId: string;
+  reversedBy: string;
+  reason: string;
+  reversedAt: string;
+  notifyCollectors: boolean;
+};
+
+export function reverseSuspension(
+  suspension: CreatorSuspension,
+  reversedBy: string,
+  reason: string,
+  nowIso: string
+): CreatorSuspension {
+  return {
+    ...suspension,
+    status: "reinstated",
+    reinstatedAt: nowIso,
+  };
+}
+
+export type RepeatInfringerRecord = {
+  accountId: string;
+  studioHandle: string;
+  documentedViolations: DocumentedViolation[];
+  designated: boolean;
+  designatedAt: string | null;
+};
+
+export type DocumentedViolation = {
+  id: string;
+  description: string;
+  evidence: string;
+  standard: "conviction" | "admission";
+  documentedAt: string;
+};
+
+export const REPEAT_INFRINGER_THRESHOLD = 3;
+
+export function isRepeatInfringer(record: RepeatInfringerRecord): boolean {
+  return record.documentedViolations.length >= REPEAT_INFRINGER_THRESHOLD;
+}

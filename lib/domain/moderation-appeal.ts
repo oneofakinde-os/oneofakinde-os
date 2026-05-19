@@ -72,3 +72,51 @@ export const WRITTEN_REASONING_REQUIREMENT =
 export const APPEAL_PATH_DISCOVERABILITY =
   "the appeal path must be surfaced in every moderation notification, on every content " +
   "removal screen, and in account settings. no user should need to search for how to appeal.";
+
+export type ArbitrationPanelRole = "artist" | "lawyer" | "ethicist";
+
+export type ArbitrationPanelMember = {
+  id: string;
+  name: string;
+  role: ArbitrationPanelRole;
+  active: boolean;
+  appointedAt: string;
+  compensationRate: string;
+};
+
+export const TIER_3_PANEL_COMPOSITION: readonly ArbitrationPanelRole[] = [
+  "artist",
+  "lawyer",
+  "ethicist",
+] as const;
+
+export function isValidPanel(members: ArbitrationPanelMember[]): boolean {
+  const roles = new Set(members.map((m) => m.role));
+  return TIER_3_PANEL_COMPOSITION.every((r) => roles.has(r));
+}
+
+export type RepeatInfringerDesignation = {
+  accountId: string;
+  designatedAt: string;
+  upheldAppeals: string[];
+  tier3DecisionId: string;
+};
+
+export type AppealTransparencyReport = {
+  quarter: string;
+  totalAppeals: number;
+  upheld: number;
+  overturned: number;
+  escalated: number;
+  averageResolutionDays: number;
+  byTier: Record<number, { total: number; upheld: number; overturned: number }>;
+  publishedAt: string;
+};
+
+export const TIER_3_BINDING_VIA_TOS =
+  "tier 3 arbitration decisions are binding on both the platform and the creator, " +
+  "as agreed in the terms of service. this ensures accountability for final decisions.";
+
+export const ARBITRATOR_COMPENSATION =
+  "arbitrators are compensated by the platform at a published rate. " +
+  "no arbitrator compensation comes from the parties involved in the dispute.";

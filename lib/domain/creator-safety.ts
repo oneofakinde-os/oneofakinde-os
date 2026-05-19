@@ -107,3 +107,97 @@ export const PATRONAGE_LANGUAGE_COMMITMENT =
   "patron relationships are financial support relationships only. the platform's language, UI, and " +
   "documentation never imply personal intimacy, parasocial obligation, or access to the creator's " +
   "private life. 'patron' means 'supporter of the work,' nothing more.";
+
+export type PatternBlock = {
+  id: string;
+  accountId: string;
+  pattern: "username_pattern" | "ip_range" | "device_fingerprint" | "email_domain";
+  value: string;
+  createdAt: string;
+};
+
+export type PatternReport = {
+  id: string;
+  reporterAccountId: string;
+  instanceIds: string[];
+  aggregatedPattern: string;
+  description: string;
+  submittedAt: string;
+};
+
+export type DocumentedTimeline = {
+  id: string;
+  accountId: string;
+  entries: TimelineEntry[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TimelineEntry = {
+  timestamp: string;
+  eventType: string;
+  description: string;
+  evidenceUrls: string[];
+};
+
+export type SafetyTriageSla = {
+  level: "initial" | "standard";
+  maxHours: number;
+};
+
+export const SAFETY_TRIAGE_SLAS: readonly SafetyTriageSla[] = [
+  { level: "initial", maxHours: 48 },
+  { level: "standard", maxHours: 168 },
+] as const;
+
+export const RAPID_RESPONSE_WINDOW_HOURS = 24;
+
+export type ReducedSurfaceMode = {
+  accountId: string;
+  enabled: boolean;
+  hiddenSurfaces: ("comments" | "mentions" | "dms" | "presence" | "search")[];
+  activatedAt: string | null;
+};
+
+export const DEFAULT_REDUCED_SURFACE: ReducedSurfaceMode = {
+  accountId: "",
+  enabled: false,
+  hiddenSurfaces: [],
+  activatedAt: null,
+};
+
+export function activateReducedSurface(accountId: string, nowIso: string): ReducedSurfaceMode {
+  return {
+    accountId,
+    enabled: true,
+    hiddenSurfaces: ["comments", "mentions", "dms", "presence", "search"],
+    activatedAt: nowIso,
+  };
+}
+
+export type RapidPrivacyUpgrade = {
+  accountId: string;
+  previousSettings: CreatorSafetySettings;
+  upgradedSettings: CreatorSafetySettings;
+  upgradedAt: string;
+};
+
+export function upgradePrivacyPosture(
+  settings: CreatorSafetySettings,
+  nowIso: string
+): RapidPrivacyUpgrade {
+  const upgraded: CreatorSafetySettings = {
+    ...settings,
+    dmRestriction: "mutual_only",
+    commentRestrictionGlobal: "followers_only",
+    mentionPrivacy: "followers_only",
+    presenceHidden: true,
+    noPublicLocationSignals: true,
+  };
+  return {
+    accountId: settings.accountId,
+    previousSettings: settings,
+    upgradedSettings: upgraded,
+    upgradedAt: nowIso,
+  };
+}

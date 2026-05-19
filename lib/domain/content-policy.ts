@@ -166,3 +166,17 @@ export function resolveFilterAction(
   }
   return "show";
 }
+
+export const CURATION_PIVOT_COMMITMENT =
+  "the platform will not silently change its curation or content-policy stance. " +
+  "any material change to editorial direction, content moderation thresholds, or " +
+  "curation criteria must be announced publicly before taking effect.";
+
+export type Layer2TransparencyAggregate = {
+  quarter: string;
+  totalRemovals: number;
+  byCategory: Record<string, number>;
+  appealed: number;
+  overturned: number;
+  publishedAt: string;
+};

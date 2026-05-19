@@ -41,3 +41,93 @@ export function classifyTierD(): TierDisposition {
 export function isTierAJurisdiction(iso: string): boolean {
   return (TIER_A_JURISDICTIONS as readonly string[]).includes(iso.toUpperCase());
 }
+
+export type PseudonymousAccount = {
+  accountId: string;
+  pseudonymousHandle: string;
+  realIdentityVerified: boolean;
+  identityHeldBy: "platform" | "none";
+};
+
+export type GovernmentRequest = {
+  id: string;
+  jurisdiction: string;
+  tier: GovernmentRequestTier;
+  requestType: "data_disclosure" | "content_removal" | "account_information" | "emergency";
+  targetAccountId: string | null;
+  legalBasis: string;
+  gagOrdered: boolean;
+  status: "received" | "evaluating" | "complied" | "refused" | "appealing";
+  creatorNotified: boolean;
+  creatorNotificationDelayed: boolean;
+  receivedAt: string;
+  resolvedAt: string | null;
+  reviewerHandle: string | null;
+};
+
+export type AtRiskCreatorDeclaration = {
+  accountId: string;
+  declaredAt: string;
+  riskContext: string;
+  digitalRightsOrgReferral: string | null;
+  enhancedProtections: AtRiskProtection[];
+};
+
+export type AtRiskProtection =
+  | "pseudonymous_default"
+  | "enhanced_account_security"
+  | "expedited_safety_response"
+  | "reduced_data_retention"
+  | "legal_referral";
+
+export const TIER_C_JURISDICTIONS: readonly string[] = [
+  "CN", "RU", "SA", "IR", "KP", "SY", "BY", "MM",
+];
+
+export function isTierCJurisdiction(iso: string): boolean {
+  return TIER_C_JURISDICTIONS.includes(iso.toUpperCase());
+}
+
+export function classifyRequestTier(jurisdiction: string): GovernmentRequestTier {
+  if (isTierAJurisdiction(jurisdiction)) return "A";
+  if (isTierCJurisdiction(jurisdiction)) return "C";
+  return "B";
+}
+
+export function shouldNotifyCreator(request: GovernmentRequest): boolean {
+  if (request.gagOrdered) return false;
+  return true;
+}
+
+export function shouldDelayNotification(request: GovernmentRequest): boolean {
+  return request.gagOrdered;
+}
+
+export type GovernmentRequestAuditEntry = {
+  requestId: string;
+  action: string;
+  performedBy: string;
+  performedAt: string;
+  details: string;
+};
+
+export type TransparencyReportAggregate = {
+  period: string;
+  totalRequests: number;
+  complied: number;
+  refused: number;
+  byTier: Record<GovernmentRequestTier, number>;
+  byType: Record<string, number>;
+};
+
+export const EXECUTIVE_REVIEW_THRESHOLD =
+  "requests that are novel, precedent-setting, or involve at-risk creators " +
+  "require executive review before compliance or refusal.";
+
+export const LEGAL_DEFENSE_RESERVE_COMMITMENT =
+  "the platform maintains a legal defense reserve to challenge overbroad or " +
+  "politically motivated government requests on behalf of creators.";
+
+export const REFUSAL_DOCUMENTATION_STANDARD =
+  "every refusal must document: the legal basis for refusal, the policy rationale, " +
+  "and the jurisdiction classification that triggered the refusal.";

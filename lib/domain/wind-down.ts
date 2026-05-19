@@ -32,3 +32,8 @@ export type WindDownCommitmentId = keyof typeof WIND_DOWN_COMMITMENTS;
 export function getWindDownCommitments() {
   return Object.values(WIND_DOWN_COMMITMENTS);
 }
+
+export const ANNUAL_PUBLIC_ATTESTATION =
+  "the platform publishes an annual attestation confirming: escrow fund status, " +
+  "wind-down readiness, data export capabilities, and continuity commitments. " +
+  "this attestation is signed by platform leadership and publicly accessible.";

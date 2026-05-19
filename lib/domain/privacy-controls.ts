@@ -60,3 +60,51 @@ export type ContentTakedownAppeal = {
   status: "pending" | "upheld" | "overturned";
   submittedAt: string;
 };
+
+export type ContentSensitivityPreference = {
+  accountId: string;
+  mode: string;
+  maxSensitivityLevel: number;
+};
+
+export type ReportAssigneeTracking = {
+  reportId: string;
+  assigneeId: string;
+  assignedAt: string;
+  resolvedAt: string | null;
+};
+
+export type ReportSlaEnforcement = {
+  reportId: string;
+  category: string;
+  firstReviewDeadline: string;
+  breached: boolean;
+};
+
+export type SafetyCenter = {
+  resources: SafetyResource[];
+};
+
+export type SafetyResource = {
+  id: string;
+  title: string;
+  category: "crisis" | "harassment" | "privacy" | "legal" | "general";
+  url: string;
+  description: string;
+};
+
+export const SUICIDE_PREVENTION_POLICY =
+  "content that promotes or instructs self-harm is a layer 1 hard exclusion. " +
+  "content that discusses mental health struggles is allowed with sensitivity rating. " +
+  "crisis resources are surfaced when self-harm content is detected.";
+
+export const CSAM_POLICY =
+  "the platform has zero tolerance for child sexual abuse material. " +
+  "detected material is immediately removed, reported to NCMEC, and " +
+  "the account is permanently suspended. this is a non-negotiable legal obligation.";
+
+export type CollectionPrivacyControl = {
+  accountId: string;
+  dropId: string;
+  visibility: "public" | "private" | "followers_only";
+};
