@@ -91,7 +91,7 @@ test("proof: refunding a payment emits a receipt_confirmed refund notification t
   assert.ok(refundNotif, "refund notification should exist");
 });
 
-test("proof: following a studio emits a world_update notification to the creator", async (t) => {
+test("proof: following a studio emits a new_follower notification to the creator", async (t) => {
   const dbPath = createIsolatedDbPath();
   process.env.OOK_BFF_DB_PATH = dbPath;
   process.env.OOK_BFF_PERSISTENCE_BACKEND = "file";
@@ -121,7 +121,7 @@ test("proof: following a studio emits a world_update notification to the creator
   assert.ok(feedAfter.entries.length > countBefore, "creator should have new notification");
 
   const followNotif = feedAfter.entries.find(
-    (e) => e.type === "world_update" && e.title.includes("followed")
+    (e) => e.type === "new_follower" && e.title.includes("followed")
   );
   assert.ok(followNotif, "follow notification should exist for creator");
 });

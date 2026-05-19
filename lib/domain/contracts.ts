@@ -1561,7 +1561,12 @@ export type NotificationType =
   | "patron_renewal"
   | "live_session_starting"
   | "featured_lane_alert"
-  | "weekly_digest";
+  | "weekly_digest"
+  | "daily_digest"
+  | "new_drop_from_followed"
+  | "refund_issued"
+  | "refund_on_your_drop"
+  | "new_follower";
 
 export type NotificationEntry = {
   id: string;

@@ -514,6 +514,15 @@ export type NotificationPreferencesRecord = {
   channels: Record<string, boolean>;
   mutedTypes: string[];
   digestEnabled: boolean;
+  quietHoursEnabled: boolean;
+  quietHoursFromHour: number;
+  quietHoursFromMinute: number;
+  quietHoursToHour: number;
+  quietHoursToMinute: number;
+  quietHoursTimezone: string;
+  digestMode: "none" | "daily" | "weekly";
+  frequencyCap: number;
+  emailCategories: Record<string, boolean>;
 };
 
 export type TotpEnrollmentRecord = {
@@ -4866,8 +4875,17 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
           channels: Record<string, boolean>;
           mutedTypes: string[];
           digestEnabled: boolean;
+          quietHoursEnabled: boolean;
+          quietHoursFromHour: number;
+          quietHoursFromMinute: number;
+          quietHoursToHour: number;
+          quietHoursToMinute: number;
+          quietHoursTimezone: string;
+          digestMode: "none" | "daily" | "weekly";
+          frequencyCap: number;
+          emailCategories: Record<string, boolean>;
         }>(
-          'SELECT account_id AS "accountId", channels, muted_types AS "mutedTypes", digest_enabled AS "digestEnabled" FROM bff_notification_preferences'
+          'SELECT account_id AS "accountId", channels, muted_types AS "mutedTypes", digest_enabled AS "digestEnabled", COALESCE(quiet_hours_enabled, false) AS "quietHoursEnabled", COALESCE(quiet_hours_from_hour, 22) AS "quietHoursFromHour", COALESCE(quiet_hours_from_minute, 0) AS "quietHoursFromMinute", COALESCE(quiet_hours_to_hour, 8) AS "quietHoursToHour", COALESCE(quiet_hours_to_minute, 0) AS "quietHoursToMinute", COALESCE(quiet_hours_timezone, \'UTC\') AS "quietHoursTimezone", COALESCE(digest_mode, \'none\') AS "digestMode", COALESCE(frequency_cap, 20) AS "frequencyCap", COALESCE(email_categories, \'{}\'::jsonb) AS "emailCategories" FROM bff_notification_preferences'
         );
         return r.rows;
       } catch {
