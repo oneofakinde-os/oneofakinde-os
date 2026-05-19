@@ -190,7 +190,7 @@ export type MembershipEntitlement = {
   isActive: boolean;
 };
 
-export type PatronStatus = "active" | "lapsed";
+export type PatronStatus = "active" | "dormant_60" | "dormant_90" | "paused_180" | "lapsed" | "ended";
 
 export type Patron = {
   id: string;
@@ -200,6 +200,11 @@ export type Patron = {
   status: PatronStatus;
   committedAt: string;
   lapsedAt?: string;
+  dormancyDetectedAt?: string;
+  pausedAt?: string;
+  endedAt?: string;
+  voluntaryDormancy?: boolean;
+  lastActivityAt?: string;
 };
 
 export type PatronCommitment = {

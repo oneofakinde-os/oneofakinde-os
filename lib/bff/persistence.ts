@@ -186,6 +186,11 @@ export type PatronRecord = {
   status: PatronStatus;
   committedAt: string;
   lapsedAt: string | null;
+  dormancyDetectedAt: string | null;
+  pausedAt: string | null;
+  endedAt: string | null;
+  voluntaryDormancy: boolean;
+  lastActivityAt: string | null;
 };
 
 export type PatronCommitmentRecord = {
@@ -1825,8 +1830,13 @@ function normalizeMembershipEntitlementRecords(
   });
 }
 
+const VALID_PATRON_STATUSES: PatronStatus[] = ["active", "dormant_60", "dormant_90", "paused_180", "lapsed", "ended"];
+
 function normalizePatronStatus(value: unknown): PatronStatus {
-  return value === "lapsed" ? "lapsed" : "active";
+  if (typeof value === "string" && VALID_PATRON_STATUSES.includes(value as PatronStatus)) {
+    return value as PatronStatus;
+  }
+  return "active";
 }
 
 function normalizePatronRecords(records: PatronRecord[]): PatronRecord[] {
@@ -1849,7 +1859,12 @@ function normalizePatronRecords(records: PatronRecord[]): PatronRecord[] {
       studioHandle: typeof candidate.studioHandle === "string" ? candidate.studioHandle : "",
       status,
       committedAt,
-      lapsedAt: status === "lapsed" ? normalizedLapsedAt ?? committedAt : null
+      lapsedAt: status === "lapsed" ? normalizedLapsedAt ?? committedAt : null,
+      dormancyDetectedAt: typeof candidate.dormancyDetectedAt === "string" ? candidate.dormancyDetectedAt : null,
+      pausedAt: typeof candidate.pausedAt === "string" ? candidate.pausedAt : null,
+      endedAt: typeof candidate.endedAt === "string" ? candidate.endedAt : null,
+      voluntaryDormancy: candidate.voluntaryDormancy === true,
+      lastActivityAt: typeof candidate.lastActivityAt === "string" ? candidate.lastActivityAt : null,
     };
   });
 }

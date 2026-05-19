@@ -82,6 +82,7 @@ import type {
   PatronCommitmentCadence,
   Patron,
   PatronTierConfig,
+  PatronStatus,
   PatronTierStatus,
   PatronRosterEntry,
   WorldPatronRosterSnapshot,
@@ -9699,7 +9700,12 @@ export const commerceBffService = {
         studioHandle: studio.handle,
         status: "active",
         committedAt: nowIso,
-        lapsedAt: null
+        lapsedAt: null,
+        dormancyDetectedAt: null,
+        pausedAt: null,
+        endedAt: null,
+        voluntaryDormancy: false,
+        lastActivityAt: nowIso,
       };
 
       patronRecord.handle = account.handle;
@@ -9707,6 +9713,11 @@ export const commerceBffService = {
       patronRecord.status = "active";
       patronRecord.committedAt = nowIso;
       patronRecord.lapsedAt = null;
+      patronRecord.dormancyDetectedAt = null;
+      patronRecord.pausedAt = null;
+      patronRecord.endedAt = null;
+      patronRecord.voluntaryDormancy = false;
+      patronRecord.lastActivityAt = nowIso;
 
       if (!existingPatron) {
         db.patrons.unshift(patronRecord);
@@ -13657,10 +13668,10 @@ export const commerceBffService = {
   async getViewerPatronIndicator(
     accountId: string,
     studioHandle: string
-  ): Promise<{ recognitionTier: "founding" | "active"; status: "active" | "lapsed"; committedAt: string } | null> {
+  ): Promise<{ recognitionTier: "founding" | "active"; status: PatronStatus; committedAt: string } | null> {
     return withDatabase<{
       recognitionTier: "founding" | "active";
-      status: "active" | "lapsed";
+      status: PatronStatus;
       committedAt: string;
     } | null>(async (db) => {
       const patron = db.patrons.find(

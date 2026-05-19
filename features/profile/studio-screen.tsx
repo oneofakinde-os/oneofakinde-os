@@ -5,7 +5,7 @@ import { formatUsd } from "@/features/shared/format";
 import { resolveDropPoster, resolveWorldCover } from "@/features/shared/resolve-poster";
 import { FollowStudioButton } from "@/features/studio/follow-studio-button";
 import { isStudioPinned, sortDropsForStudioSurface } from "@/lib/catalog/drop-curation";
-import type { Drop, Session, Studio, World } from "@/lib/domain/contracts";
+import type { Drop, PatronStatus, Session, Studio, World } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
 import Link from "next/link";
 import { StudioThreadPanel } from "./studio-thread-panel";
@@ -20,7 +20,7 @@ type StudioViewerMembershipIndicator = {
 
 type StudioViewerPatronIndicator = {
   recognitionTier: "founding" | "active";
-  status: "active" | "lapsed";
+  status: PatronStatus;
   committedAt: string;
 };
 
