@@ -108,3 +108,22 @@ export type CollectionPrivacyControl = {
   dropId: string;
   visibility: "public" | "private" | "followers_only";
 };
+
+export type TrustedHelper = {
+  id: string;
+  accountId: string;
+  helperAccountId: string;
+  permissions: TrustedHelperPermission[];
+  assignedAt: string;
+  revokedAt: string | null;
+};
+
+export type TrustedHelperPermission =
+  | "moderate_comments"
+  | "manage_dms"
+  | "review_reports"
+  | "block_accounts";
+
+export function isTrustedHelper(helpers: TrustedHelper[], helperAccountId: string): boolean {
+  return helpers.some((h) => h.helperAccountId === helperAccountId && h.revokedAt === null);
+}

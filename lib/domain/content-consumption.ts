@@ -91,3 +91,16 @@ export function isBotLikely(confidence: number): boolean {
 export function isWashEngagement(confidence: number): boolean {
   return confidence >= WASH_CONFIDENCE_THRESHOLD;
 }
+
+export type SpoilerTag = {
+  id: string;
+  surfaceType: "post" | "comment";
+  surfaceId: string;
+  reason: string;
+  taggedBy: string;
+  taggedAt: string;
+};
+
+export function isSpoilerTagged(tags: SpoilerTag[], surfaceId: string): boolean {
+  return tags.some((t) => t.surfaceId === surfaceId);
+}

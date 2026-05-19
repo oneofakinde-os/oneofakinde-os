@@ -131,3 +131,31 @@ export const LEGAL_DEFENSE_RESERVE_COMMITMENT =
 export const REFUSAL_DOCUMENTATION_STANDARD =
   "every refusal must document: the legal basis for refusal, the policy rationale, " +
   "and the jurisdiction classification that triggered the refusal.";
+
+export const E2E_ENCRYPTION_COMMITMENT =
+  "the platform implements end-to-end encryption for direct messages where feasible. " +
+  "the platform cannot read encrypted message content.";
+
+export type GeographicConditionalHiding = {
+  accountId: string;
+  hiddenFromJurisdictions: string[];
+  enabled: boolean;
+  optedInAt: string;
+};
+
+export function isHiddenInJurisdiction(
+  hiding: GeographicConditionalHiding | null,
+  jurisdiction: string
+): boolean {
+  if (!hiding || !hiding.enabled) return false;
+  return hiding.hiddenFromJurisdictions.includes(jurisdiction);
+}
+
+export type EmergencyStudioMigration = {
+  accountId: string;
+  studioHandle: string;
+  reason: string;
+  newPseudonymousHandle: string | null;
+  requestedAt: string;
+  status: "requested" | "in_progress" | "completed";
+};

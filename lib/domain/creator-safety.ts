@@ -201,3 +201,24 @@ export function upgradePrivacyPosture(
     upgradedAt: nowIso,
   };
 }
+
+export type BehavioralPatternSignal = {
+  accountId: string;
+  pattern: "escalating_contact" | "sockpuppet_cluster" | "ban_evasion" | "coordinated_harassment";
+  confidence: number;
+  detectedAt: string;
+  relatedAccountIds: string[];
+};
+
+export type CoordinatedAccountAction = {
+  id: string;
+  targetAccountIds: string[];
+  action: "block_all" | "restrict_all" | "flag_for_review";
+  reason: string;
+  performedBy: string;
+  performedAt: string;
+};
+
+export function isCoordinatedAction(relatedAccountIds: string[]): boolean {
+  return relatedAccountIds.length >= 2;
+}

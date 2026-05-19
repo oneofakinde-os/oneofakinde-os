@@ -117,3 +117,19 @@ export function shouldAutoHideReply(
   const ageMs = nowMs - Date.parse(accountCreatedAt);
   return ageMs < config.newAccountThresholdDays * 86_400_000;
 }
+
+export type ShowroomComment = {
+  id: string;
+  collectorAccountId: string;
+  dropId: string;
+  commenterAccountId: string;
+  body: string;
+  createdAt: string;
+};
+
+export function canCommentOnShowroom(
+  collectorSettings: DropCommentConfig,
+  isFollower: boolean
+): boolean {
+  return !collectorSettings.commentsDisabled;
+}
