@@ -4157,6 +4157,32 @@ a {
   50% { opacity: 0.8; }
 }
 
+/* ── diamond badge (collectible indicator) ── */
+.diamond-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+  color: var(--accent);
+}
+
+.diamond-badge-icon {
+  font-size: 0.6rem;
+  line-height: 1;
+}
+
+.diamond-badge-label {
+  letter-spacing: 0.03em;
+}
+
+.diamond-badge-hot-resale {
+  color: var(--warning, #e6a817);
+}
+
+.diamond-badge-capped-supply {
+  color: var(--accent-bright, #a1d2cb);
+}
+
 /* ── skip to content ── */
 .skip-to-content {
   position: absolute;

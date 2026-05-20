@@ -1,3 +1,4 @@
+import { DiamondBadge } from "@/features/collect/diamond-badge";
 import { AppShell } from "@/features/shell/app-shell";
 import { formatUsd } from "@/features/shared/format";
 import type {
@@ -285,7 +286,10 @@ export function CollectMarketplaceScreen({
           <ul className="slice-grid" aria-label={`${section.key} listings`}>
             {section.items.map((listing) => (
               <li key={`${section.key}-${listing.drop.id}`} className="slice-drop-card">
-                <p className="slice-label">{listing.drop.worldLabel}</p>
+                <div className="slice-row">
+                  <p className="slice-label">{listing.drop.worldLabel}</p>
+                  <DiamondBadge />
+                </div>
                 <h2 className="slice-title">{listing.drop.title}</h2>
                 <p className="slice-copy">{LISTING_COPY[listing.type].label}</p>
                 <p className="slice-meta">{sectionPriceLabel(listing.type, listing.priceUsd)}</p>

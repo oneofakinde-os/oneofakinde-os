@@ -1,5 +1,6 @@
 "use client";
 
+import { DiamondBadge } from "@/features/collect/diamond-badge";
 import { formatUsd } from "@/features/shared/format";
 import { WithdrawListingButton } from "@/features/collect/withdraw-listing-button";
 import { previewResalePayout } from "@/lib/collect/resale-economics";
@@ -139,6 +140,7 @@ export function CollectorListingsScreen({
                     <p className="slice-label">
                       {listing.offer.listingType} ·{" "}
                       {OFFER_STATE_LABEL[listing.offer.state] ?? listing.offer.state}
+                      {" "}<DiamondBadge />
                     </p>
                     <h3 className="slice-title" style={{ fontSize: "1rem" }}>
                       {listing.dropTitle}
