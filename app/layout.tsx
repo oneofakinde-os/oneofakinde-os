@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { CommandSearch } from "@/features/shell/command-search";
+import { KeyboardShortcutsOverlay } from "@/features/shell/keyboard-shortcuts-overlay";
 import { ToastProvider } from "@/features/shared/toast-context";
 import { ToastContainer } from "@/features/shared/toast-container";
 import { resolveMetadataBase } from "@/lib/seo/metadata";
@@ -37,6 +38,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
           <ToastContainer />
           <CommandSearch />
+          <KeyboardShortcutsOverlay />
         </ToastProvider>
       </body>
     </html>

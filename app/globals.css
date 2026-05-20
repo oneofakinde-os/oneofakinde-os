@@ -3738,6 +3738,54 @@ a {
   font-family: inherit;
 }
 
+/* ── keyboard shortcuts overlay ── */
+.shortcuts-dialog {
+  max-width: 480px;
+}
+
+.shortcuts-dialog-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.02em;
+}
+
+.shortcuts-body {
+  padding: 8px 0;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.shortcuts-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 16px;
+  font-size: 0.8rem;
+}
+
+.shortcuts-label {
+  color: var(--text-muted);
+}
+
+.shortcuts-keys {
+  display: flex;
+  gap: 4px;
+}
+
+.shortcuts-kbd {
+  display: inline-block;
+  min-width: 22px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  font-size: 0.7rem;
+  font-family: inherit;
+  text-align: center;
+  color: var(--text);
+}
+
 @keyframes command-fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -4044,6 +4092,64 @@ a {
   width: 100%;
   border-radius: 8px;
   margin-top: 8px;
+}
+
+/* skeleton panel layout (stacked panels like workshop / messages) */
+.loading-skeleton-panels {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.skeleton-panel {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+
+.skeleton-row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.skeleton-stat {
+  height: 36px;
+  width: 80px;
+  border-radius: 8px;
+}
+
+.skeleton-label {
+  height: 12px;
+  width: 100px;
+  margin-bottom: 10px;
+}
+
+.skeleton-list-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.skeleton-list-item:last-child {
+  border-bottom: none;
+}
+
+.skeleton-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.skeleton-list-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 @keyframes skeleton-pulse {
