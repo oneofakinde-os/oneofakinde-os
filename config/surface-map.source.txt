@@ -1030,6 +1030,72 @@ surfaces:
   roles: ["collector"]
   public_safe: true
 
+  # -------------------------------------------------------------------
+  # transparency pages
+  # -------------------------------------------------------------------
+  - route: "/transparency"
+    legacy_routes: []
+    surface_key: "transparency_hub"
+    ui_title: "transparency"
+    ui_nouns: ["transparency"]
+    lint_targets: ["nav", "h1", "metadata_labels"]
+    roles: ["public"]
+    public_safe: true
+
+  - route: "/transparency/ai-use"
+    legacy_routes: []
+    surface_key: "transparency_ai_use"
+    ui_title: "ai use"
+    ui_nouns: ["transparency"]
+    lint_targets: ["h1", "metadata_labels"]
+    roles: ["public"]
+    public_safe: true
+
+  - route: "/transparency/content-policy"
+    legacy_routes: []
+    surface_key: "transparency_content_policy"
+    ui_title: "content policy"
+    ui_nouns: ["transparency", "drop"]
+    lint_targets: ["h1", "metadata_labels"]
+    roles: ["public"]
+    public_safe: true
+
+  - route: "/transparency/curation"
+    legacy_routes: []
+    surface_key: "transparency_curation"
+    ui_title: "curation"
+    ui_nouns: ["transparency", "showroom"]
+    lint_targets: ["h1", "metadata_labels"]
+    roles: ["public"]
+    public_safe: true
+
+  - route: "/transparency/government-requests"
+    legacy_routes: []
+    surface_key: "transparency_government_requests"
+    ui_title: "government requests"
+    ui_nouns: ["transparency"]
+    lint_targets: ["h1", "metadata_labels"]
+    roles: ["public"]
+    public_safe: true
+
+  - route: "/transparency/score"
+    legacy_routes: []
+    surface_key: "transparency_score"
+    ui_title: "score"
+    ui_nouns: ["transparency", "drop"]
+    lint_targets: ["h1", "metadata_labels"]
+    roles: ["public"]
+    public_safe: true
+
+  - route: "/transparency/wind-down"
+    legacy_routes: []
+    surface_key: "transparency_wind_down"
+    ui_title: "wind-down"
+    ui_nouns: ["transparency"]
+    lint_targets: ["h1", "metadata_labels"]
+    roles: ["public"]
+    public_safe: true
+
 enforcement_checklist:
   designers:
     - "ui_title must be used exactly as written for the surface key"

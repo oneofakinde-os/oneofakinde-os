@@ -758,6 +758,55 @@ const metadataCases = [
     "sessionRoles": [
       "collector"
     ]
+  },
+  {
+    "pathname": "/transparency",
+    "surfaceKey": "transparency_hub",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
+    "pathname": "/transparency/ai-use",
+    "surfaceKey": "transparency_ai_use",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
+    "pathname": "/transparency/content-policy",
+    "surfaceKey": "transparency_content_policy",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
+    "pathname": "/transparency/curation",
+    "surfaceKey": "transparency_curation",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
+    "pathname": "/transparency/government-requests",
+    "surfaceKey": "transparency_government_requests",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
+    "pathname": "/transparency/score",
+    "surfaceKey": "transparency_score",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
+    "pathname": "/transparency/wind-down",
+    "surfaceKey": "transparency_wind_down",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
   }
 ] as const;
 const sessionCases = [

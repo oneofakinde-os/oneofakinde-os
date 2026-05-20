@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-02T17:54:48.710Z",
+  "generated_at": "2026-05-20T00:49:08.147Z",
   "source_path": "config/surface-map.source.txt",
   "source_metadata": {
     "format": "lintable_txt_v1",
@@ -2609,6 +2609,150 @@
       "contract_deps": [],
       "proof_ids": [],
       "rules": []
+    },
+    {
+      "route": "/transparency",
+      "legacy_routes": [],
+      "surface_key": "transparency_hub",
+      "ui_title": "transparency",
+      "ui_nouns": [
+        "transparency"
+      ],
+      "lint_targets": [
+        "nav",
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public"
+      ],
+      "public_safe": true,
+      "contract_deps": [],
+      "proof_ids": [],
+      "rules": []
+    },
+    {
+      "route": "/transparency/ai-use",
+      "legacy_routes": [],
+      "surface_key": "transparency_ai_use",
+      "ui_title": "ai use",
+      "ui_nouns": [
+        "transparency"
+      ],
+      "lint_targets": [
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public"
+      ],
+      "public_safe": true,
+      "contract_deps": [],
+      "proof_ids": [],
+      "rules": []
+    },
+    {
+      "route": "/transparency/content-policy",
+      "legacy_routes": [],
+      "surface_key": "transparency_content_policy",
+      "ui_title": "content policy",
+      "ui_nouns": [
+        "transparency",
+        "drop"
+      ],
+      "lint_targets": [
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public"
+      ],
+      "public_safe": true,
+      "contract_deps": [],
+      "proof_ids": [],
+      "rules": []
+    },
+    {
+      "route": "/transparency/curation",
+      "legacy_routes": [],
+      "surface_key": "transparency_curation",
+      "ui_title": "curation",
+      "ui_nouns": [
+        "transparency",
+        "showroom"
+      ],
+      "lint_targets": [
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public"
+      ],
+      "public_safe": true,
+      "contract_deps": [],
+      "proof_ids": [],
+      "rules": []
+    },
+    {
+      "route": "/transparency/government-requests",
+      "legacy_routes": [],
+      "surface_key": "transparency_government_requests",
+      "ui_title": "government requests",
+      "ui_nouns": [
+        "transparency"
+      ],
+      "lint_targets": [
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public"
+      ],
+      "public_safe": true,
+      "contract_deps": [],
+      "proof_ids": [],
+      "rules": []
+    },
+    {
+      "route": "/transparency/score",
+      "legacy_routes": [],
+      "surface_key": "transparency_score",
+      "ui_title": "score",
+      "ui_nouns": [
+        "transparency",
+        "drop"
+      ],
+      "lint_targets": [
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public"
+      ],
+      "public_safe": true,
+      "contract_deps": [],
+      "proof_ids": [],
+      "rules": []
+    },
+    {
+      "route": "/transparency/wind-down",
+      "legacy_routes": [],
+      "surface_key": "transparency_wind_down",
+      "ui_title": "wind-down",
+      "ui_nouns": [
+        "transparency"
+      ],
+      "lint_targets": [
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public"
+      ],
+      "public_safe": true,
+      "contract_deps": [],
+      "proof_ids": [],
+      "rules": []
     }
   ],
   "enforcement_checklist": {
@@ -2742,7 +2886,14 @@
     "/showroom/photos",
     "/showroom/live",
     "/showroom/search",
-    "/worlds/:id/upgrade"
+    "/worlds/:id/upgrade",
+    "/transparency",
+    "/transparency/ai-use",
+    "/transparency/content-policy",
+    "/transparency/curation",
+    "/transparency/government-requests",
+    "/transparency/score",
+    "/transparency/wind-down"
   ],
   "canon_dependencies": [
     "canon_badges",
@@ -2753,8 +2904,8 @@
     "canon_payments_stripe"
   ],
   "stats": {
-    "route_count": 78,
-    "public_safe_count": 44,
+    "route_count": 85,
+    "public_safe_count": 51,
     "session_required_count": 33,
     "legacy_redirect_count": 35
   }

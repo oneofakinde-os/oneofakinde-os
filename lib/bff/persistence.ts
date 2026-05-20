@@ -5559,12 +5559,21 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
   // Notification preferences
   for (const pref of db.notificationPreferences) {
     await client.query(
-      "INSERT INTO bff_notification_preferences (account_id, channels, muted_types, digest_enabled) VALUES ($1, $2::jsonb, $3, $4) ON CONFLICT (account_id) DO UPDATE SET channels = EXCLUDED.channels, muted_types = EXCLUDED.muted_types, digest_enabled = EXCLUDED.digest_enabled",
+      "INSERT INTO bff_notification_preferences (account_id, channels, muted_types, digest_enabled, quiet_hours_enabled, quiet_hours_from_hour, quiet_hours_from_minute, quiet_hours_to_hour, quiet_hours_to_minute, quiet_hours_timezone, digest_mode, frequency_cap, email_categories) VALUES ($1, $2::jsonb, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb) ON CONFLICT (account_id) DO UPDATE SET channels = EXCLUDED.channels, muted_types = EXCLUDED.muted_types, digest_enabled = EXCLUDED.digest_enabled, quiet_hours_enabled = EXCLUDED.quiet_hours_enabled, quiet_hours_from_hour = EXCLUDED.quiet_hours_from_hour, quiet_hours_from_minute = EXCLUDED.quiet_hours_from_minute, quiet_hours_to_hour = EXCLUDED.quiet_hours_to_hour, quiet_hours_to_minute = EXCLUDED.quiet_hours_to_minute, quiet_hours_timezone = EXCLUDED.quiet_hours_timezone, digest_mode = EXCLUDED.digest_mode, frequency_cap = EXCLUDED.frequency_cap, email_categories = EXCLUDED.email_categories",
       [
         pref.accountId,
         JSON.stringify(pref.channels),
         pref.mutedTypes,
-        pref.digestEnabled
+        pref.digestEnabled,
+        pref.quietHoursEnabled ?? false,
+        pref.quietHoursFromHour ?? 22,
+        pref.quietHoursFromMinute ?? 0,
+        pref.quietHoursToHour ?? 8,
+        pref.quietHoursToMinute ?? 0,
+        pref.quietHoursTimezone ?? "UTC",
+        pref.digestMode ?? "none",
+        pref.frequencyCap ?? 20,
+        JSON.stringify(pref.emailCategories ?? {})
       ]
     );
   }
