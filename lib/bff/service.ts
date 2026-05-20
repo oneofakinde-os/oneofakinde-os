@@ -26,12 +26,14 @@ import type {
   CreateDropVersionInput,
   CreateSessionInput,
   CreateWorldInput,
+  DmRestriction,
   Drop,
   DropLiveArtifactEntry,
   DropLiveArtifactsSnapshot,
   DropLineageSnapshot,
   DropPreviewMap,
   DropPreviewMode,
+  ExternalLink,
   DropVersion,
   DropVersionLabel,
   LibraryEligibilitySnapshot,
@@ -6854,7 +6856,12 @@ const gatewayMethods = {
         ...(input.walletGate ? { walletGate: input.walletGate } : {}),
         ...(input.sensitivityRating
           ? { sensitivityRating: input.sensitivityRating, sensitivitySource: "drop" as const }
-          : {})
+          : {}),
+        // Sprint 1 — creator safety + accessibility fields
+        ...(input.commentsDisabled ? { commentsDisabled: true } : {}),
+        ...(input.altText ? { altText: input.altText.trim() } : {}),
+        ...(input.captionUrl ? { captionUrl: input.captionUrl.trim() } : {}),
+        ...(input.sponsoredContent ? { sponsoredContent: true } : {})
       };
 
       db.catalog.drops.push(drop);
@@ -8232,6 +8239,225 @@ const gatewayMethods = {
     });
   },
 
+  /* ───────────── Sprint 1 — Creator safety + studio settings ───────────── */
+
+  /**
+   * Sprint 1 — SOC-019: shadow-restrict. The restrictor's content is
+   * deprioritized for the restricted account (comments hidden by default,
+   * DMs suppressed, notifications reduced). The restricted account is NOT
+   * notified.
+   */
+  async toggleRestriction(
+    restrictorAccountId: string,
+    targetHandle: string
+  ): Promise<{ restricted: boolean; targetAccountId: string } | null> {
+    return withDatabase<{ restricted: boolean; targetAccountId: string } | null>(async (db) => {
+      const restrictor = findAccountById(db, restrictorAccountId);
+      if (!restrictor) return { persist: false, result: null };
+      const target = db.accounts.find((a) => a.handle === targetHandle);
+      if (!target) return { persist: false, result: null };
+      if (target.id === restrictorAccountId) return { persist: false, result: null };
+
+      const idx = db.restrictions.findIndex(
+        (r) => r.restrictorAccountId === restrictorAccountId && r.restrictedAccountId === target.id
+      );
+      if (idx >= 0) {
+        db.restrictions.splice(idx, 1);
+        return { persist: true, result: { restricted: false, targetAccountId: target.id } };
+      }
+      db.restrictions.push({
+        restrictorAccountId,
+        restrictedAccountId: target.id,
+        createdAt: new Date().toISOString()
+      });
+      return { persist: true, result: { restricted: true, targetAccountId: target.id } };
+    });
+  },
+
+  /**
+   * Sprint 1 — SOC-010/SOC-011: toggle per-drop comments and hide like counts.
+   * Updates drop-level flags in-place.
+   */
+  async updateDropSocialSettings(
+    accountId: string,
+    dropId: string,
+    settings: { commentsDisabled?: boolean; hideLikeCounts?: boolean; excludedAccountIds?: string[] }
+  ): Promise<Drop | null> {
+    return withDatabase<Drop | null>(async (db) => {
+      const account = findAccountById(db, accountId);
+      const drop = findDropById(db, dropId);
+      if (!account || !drop) return { persist: false, result: null };
+      if (drop.studioHandle !== account.handle) return { persist: false, result: null };
+
+      if (settings.commentsDisabled !== undefined) drop.commentsDisabled = settings.commentsDisabled;
+      if (settings.hideLikeCounts !== undefined) {
+        // hideLikeCounts is per-studio in domain; for per-drop we store on the Drop itself
+        (drop as Record<string, unknown>).hideLikeCounts = settings.hideLikeCounts;
+      }
+      if (settings.excludedAccountIds) drop.excludedAccountIds = settings.excludedAccountIds;
+
+      return { persist: true, result: drop };
+    });
+  },
+
+  /**
+   * Sprint 1 — SOC-024: private studio + follower approval. Flips studio
+   * `isPrivate` and manages the follower request queue.
+   */
+  async updateStudioPrivacy(
+    accountId: string,
+    isPrivate: boolean
+  ): Promise<{ isPrivate: boolean } | null> {
+    return withDatabase<{ isPrivate: boolean } | null>(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account) return { persist: false, result: null };
+      const studio = db.catalog.studios.find((s) => s.handle === account.handle);
+      if (!studio) return { persist: false, result: null };
+      studio.isPrivate = isPrivate;
+      return { persist: true, result: { isPrivate } };
+    });
+  },
+
+  /**
+   * Sprint 1 — SOC-024: request to follow a private studio.
+   */
+  async requestFollowApproval(
+    requesterId: string,
+    targetStudioHandle: string
+  ): Promise<{ status: string } | null> {
+    return withDatabase<{ status: string } | null>(async (db) => {
+      const requester = findAccountById(db, requesterId);
+      if (!requester) return { persist: false, result: null };
+      const studio = db.catalog.studios.find((s) => s.handle === targetStudioHandle);
+      if (!studio) return { persist: false, result: null };
+      if (!studio.isPrivate) return { persist: false, result: null };
+
+      const existing = db.followerRequests.find(
+        (r) => r.requesterId === requesterId && r.targetStudioHandle === targetStudioHandle
+      );
+      if (existing) return { persist: false, result: { status: existing.status } };
+
+      db.followerRequests.push({
+        requesterId,
+        targetStudioHandle,
+        status: "pending",
+        createdAt: new Date().toISOString()
+      });
+      return { persist: true, result: { status: "pending" } };
+    });
+  },
+
+  /**
+   * Sprint 1 — SOC-024: approve or reject a follower request.
+   */
+  async decideFollowerRequest(
+    studioOwnerAccountId: string,
+    requesterId: string,
+    decision: "approved" | "rejected"
+  ): Promise<{ status: string } | null> {
+    return withDatabase<{ status: string } | null>(async (db) => {
+      const owner = findAccountById(db, studioOwnerAccountId);
+      if (!owner) return { persist: false, result: null };
+      const studio = db.catalog.studios.find((s) => s.handle === owner.handle);
+      if (!studio) return { persist: false, result: null };
+
+      const req = db.followerRequests.find(
+        (r) => r.requesterId === requesterId && r.targetStudioHandle === studio.handle && r.status === "pending"
+      );
+      if (!req) return { persist: false, result: null };
+
+      req.status = decision;
+      req.decidedAt = new Date().toISOString();
+
+      if (decision === "approved") {
+        // Auto-follow on approval
+        const alreadyFollowing = db.studioFollows.some(
+          (f) => f.accountId === requesterId && f.studioHandle === studio.handle
+        );
+        if (!alreadyFollowing) {
+          db.studioFollows.push({
+            id: `sf_${randomUUID()}`,
+            accountId: requesterId,
+            studioHandle: studio.handle,
+            createdAt: new Date().toISOString()
+          });
+        }
+      }
+
+      return { persist: true, result: { status: decision } };
+    });
+  },
+
+  /**
+   * Sprint 1 — PRV-005/PRV-006: update studio safety settings (DM restriction,
+   * keyword filters, online status visibility, hide like counts).
+   */
+  async updateStudioSafetySettings(
+    accountId: string,
+    settings: {
+      dmRestriction?: DmRestriction;
+      keywordFilters?: string[];
+      onlineStatusVisible?: boolean;
+      hideLikeCounts?: boolean;
+      bannerUrl?: string;
+      externalLinks?: ExternalLink[];
+    }
+  ): Promise<Studio | null> {
+    return withDatabase<Studio | null>(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account) return { persist: false, result: null };
+      const studio = db.catalog.studios.find((s) => s.handle === account.handle);
+      if (!studio) return { persist: false, result: null };
+
+      if (settings.dmRestriction !== undefined) studio.dmRestriction = settings.dmRestriction;
+      if (settings.keywordFilters !== undefined) studio.keywordFilters = settings.keywordFilters;
+      if (settings.onlineStatusVisible !== undefined) studio.onlineStatusVisible = settings.onlineStatusVisible;
+      if (settings.hideLikeCounts !== undefined) studio.hideLikeCounts = settings.hideLikeCounts;
+      if (settings.bannerUrl !== undefined) studio.bannerUrl = settings.bannerUrl;
+      if (settings.externalLinks !== undefined) studio.externalLinks = settings.externalLinks;
+
+      return { persist: true, result: studio };
+    });
+  },
+
+  /**
+   * Sprint 1 — MKT-009: pin a drop to the top of the studio page.
+   */
+  async pinDropToStudio(
+    accountId: string,
+    dropId: string | null
+  ): Promise<Studio | null> {
+    return withDatabase<Studio | null>(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account) return { persist: false, result: null };
+      const studio = db.catalog.studios.find((s) => s.handle === account.handle);
+      if (!studio) return { persist: false, result: null };
+
+      if (dropId) {
+        const drop = findDropById(db, dropId);
+        if (!drop || drop.studioHandle !== account.handle) return { persist: false, result: null };
+      }
+
+      studio.pinnedDropId = dropId ?? undefined;
+      return { persist: true, result: studio };
+    });
+  },
+
+  /**
+   * Sprint 1 — check if a user is restricted by a studio owner.
+   */
+  async isRestricted(
+    restrictorAccountId: string,
+    restrictedAccountId: string
+  ): Promise<boolean> {
+    return withDatabase(async (db) => ({
+      persist: false,
+      result: db.restrictions.some(
+        (r) => r.restrictorAccountId === restrictorAccountId && r.restrictedAccountId === restrictedAccountId
+      )
+    }));
+  },
+
   /* ───────────── Account deletion + data export (Sprint 0.1) ───────────── */
 
   /**
@@ -8381,12 +8607,18 @@ const gatewayMethods = {
         (f) => f.accountId !== account.id && f.studioHandle !== account.handle
       );
 
-      // (8) Blocks + mutes — both directions.
+      // (8) Blocks + mutes + restrictions — both directions.
       db.blocks = db.blocks.filter(
         (b) => b.blockerAccountId !== account.id && b.blockedAccountId !== account.id
       );
       db.mutes = db.mutes.filter(
         (m) => m.muterAccountId !== account.id && m.mutedAccountId !== account.id
+      );
+      db.restrictions = db.restrictions.filter(
+        (r) => r.restrictorAccountId !== account.id && r.restrictedAccountId !== account.id
+      );
+      db.followerRequests = db.followerRequests.filter(
+        (r) => r.requesterId !== account.id
       );
 
       // (9) Library + library eligibility (do NOT touch ownerships).
@@ -12991,6 +13223,22 @@ export const commerceBffService = {
         };
       }
 
+      // Sprint 1 — SOC-010: reject comment if comments are disabled on this drop
+      if (drop.commentsDisabled && drop.studioHandle !== account.handle) {
+        return {
+          persist: false,
+          result: buildTownhallDropSocialSnapshot(db, drop.id, account.id)
+        };
+      }
+
+      // Sprint 1 — PRV-005: reject comment if viewer is excluded from this drop
+      if (drop.excludedAccountIds?.includes(account.id)) {
+        return {
+          persist: false,
+          result: buildTownhallDropSocialSnapshot(db, drop.id, account.id)
+        };
+      }
+
       const normalizedBody = normalizeTownhallCommentBody(body);
       if (!normalizedBody) {
         return {
@@ -12998,6 +13246,13 @@ export const commerceBffService = {
           result: buildTownhallDropSocialSnapshot(db, drop.id, account.id)
         };
       }
+
+      // Sprint 1 — SOC-012: auto-hide comment if it matches studio keyword filters
+      const studio = db.catalog.studios.find((s) => s.handle === drop.studioHandle);
+      const keywordFilters = studio?.keywordFilters ?? [];
+      const matchesKeywordFilter = keywordFilters.length > 0 && keywordFilters.some(
+        (kw) => normalizedBody.toLowerCase().includes(kw.toLowerCase())
+      );
 
       let normalizedParentCommentId: string | null = null;
       if (typeof parentCommentId === "string" && parentCommentId.trim()) {
@@ -13018,7 +13273,8 @@ export const commerceBffService = {
         parentCommentId: normalizedParentCommentId,
         body: normalizedBody,
         createdAt: new Date().toISOString(),
-        visibility: "visible",
+        // Sprint 1 — keyword-filtered comments get auto-hidden
+        visibility: matchesKeywordFilter ? "hidden" : "visible",
         reportCount: 0,
         reportedAt: null,
         moderatedAt: null,
@@ -13860,6 +14116,35 @@ export const commerceBffService = {
           persist: false,
           result: { ok: false as const, reason: "blocked" as const }
         };
+      }
+
+      // Sprint 1 — PRV-006: DM restriction enforcement.
+      // Check each recipient's studio DM restriction setting.
+      for (const recipient of recipients) {
+        const recipientStudio = db.catalog.studios.find((s) => s.handle === recipient.handle);
+        const dmRestriction = recipientStudio?.dmRestriction ?? "anyone";
+        if (dmRestriction === "no_one") {
+          return { persist: false, result: { ok: false as const, reason: "forbidden" as const } };
+        }
+        if (dmRestriction === "followers_only") {
+          const isFollower = db.studioFollows.some(
+            (f) => f.accountId === account.id && f.studioHandle.toLowerCase() === recipient.handle.toLowerCase()
+          );
+          if (!isFollower) {
+            return { persist: false, result: { ok: false as const, reason: "forbidden" as const } };
+          }
+        }
+        if (dmRestriction === "mutual_only") {
+          const senderFollowsRecipient = db.studioFollows.some(
+            (f) => f.accountId === account.id && f.studioHandle.toLowerCase() === recipient.handle.toLowerCase()
+          );
+          const recipientFollowsSender = db.studioFollows.some(
+            (f) => f.accountId === recipient.id && f.studioHandle.toLowerCase() === account.handle.toLowerCase()
+          );
+          if (!senderFollowsRecipient || !recipientFollowsSender) {
+            return { persist: false, result: { ok: false as const, reason: "forbidden" as const } };
+          }
+        }
       }
 
       if (recipients.length === 1) {

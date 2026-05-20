@@ -46,7 +46,10 @@ export function StudioScreen({
   viewerPatronIndicator
 }: StudioScreenProps) {
   const orderedDrops = sortDropsForStudioSurface(drops);
-  const pinnedDrops = orderedDrops.filter((drop) => isStudioPinned(drop));
+  // Sprint 1 — studio.pinnedDropId surfaces a single featured drop at the top
+  const pinnedDrops = studio.pinnedDropId
+    ? orderedDrops.filter((drop) => drop.id === studio.pinnedDropId || isStudioPinned(drop))
+    : orderedDrops.filter((drop) => isStudioPinned(drop));
   const memberWorldIds = new Set(viewerMembershipIndicator?.memberWorldIds ?? []);
   const studioPatronWorldId = worlds[0]?.id ?? null;
   const studioConversationHref = `/api/v1/studios/${encodeURIComponent(studio.handle)}/conversation`;
@@ -61,6 +64,25 @@ export function StudioScreen({
       session={session}
       activeNav="collect"
     >
+      {/* ── studio banner ── */}
+      {studio.bannerUrl ? (
+        <div className="studio-banner" style={{
+          width: "100%",
+          height: 180,
+          borderRadius: "var(--radius, 8px)",
+          overflow: "hidden",
+          marginBottom: "1rem"
+        }}>
+          <OptimizedImage
+            src={studio.bannerUrl}
+            alt={`${studio.title} banner`}
+            width={1200}
+            height={180}
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          />
+        </div>
+      ) : null}
+
       {/* ── studio header ── */}
       <section className="slice-panel">
         <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "0.75rem" }}>
@@ -94,6 +116,23 @@ export function StudioScreen({
           <span className="slice-meta">{worlds.length} world{worlds.length !== 1 ? "s" : ""}</span>
           <span className="slice-meta">{drops.length} drop{drops.length !== 1 ? "s" : ""}</span>
         </div>
+
+        {/* Sprint 1 — external links */}
+        {studio.externalLinks && studio.externalLinks.length > 0 ? (
+          <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.5rem", flexWrap: "wrap" }}>
+            {studio.externalLinks.map((link) => (
+              <a
+                key={link.url}
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="slice-link slice-meta"
+              >
+                {link.label}
+              </a>
+            ))}
+          </div>
+        ) : null}
 
         <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginTop: "0.75rem", flexWrap: "wrap" }}>
           {session ? (

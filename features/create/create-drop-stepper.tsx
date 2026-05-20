@@ -9,7 +9,7 @@ type CreateDropStepperProps = {
   createDropAction: (formData: FormData) => Promise<CreateDropResult>;
 };
 
-const STEPS = ["title", "world", "synopsis", "pricing", "gating", "sensitivity", "review"] as const;
+const STEPS = ["title", "world", "synopsis", "pricing", "gating", "sensitivity", "options", "review"] as const;
 type Step = (typeof STEPS)[number];
 
 type WalletGateChoice = "none" | WalletChain;
@@ -49,6 +49,10 @@ export function CreateDropStepper({
   const [episodeLabel, setEpisodeLabel] = useState("");
   const [walletGate, setWalletGate] = useState<WalletGateChoice>("none");
   const [sensitivity, setSensitivity] = useState<SensitivityChoice>("inherit");
+  const [altText, setAltText] = useState("");
+  const [captionUrl, setCaptionUrl] = useState("");
+  const [commentsDisabled, setCommentsDisabled] = useState(false);
+  const [sponsoredContent, setSponsoredContent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -95,6 +99,10 @@ export function CreateDropStepper({
     if (episodeLabel.trim()) formData.set("episodeLabel", episodeLabel.trim());
     if (walletGate !== "none") formData.set("walletGate", walletGate);
     if (sensitivity !== "inherit") formData.set("sensitivityRating", sensitivity);
+    if (altText.trim()) formData.set("altText", altText.trim());
+    if (captionUrl.trim()) formData.set("captionUrl", captionUrl.trim());
+    if (commentsDisabled) formData.set("commentsDisabled", "true");
+    if (sponsoredContent) formData.set("sponsoredContent", "true");
 
     startTransition(async () => {
       const result = await createDropAction(formData);
@@ -355,6 +363,69 @@ export function CreateDropStepper({
         </section>
       ) : null}
 
+      {/* step: options — accessibility + social controls */}
+      {step === "options" ? (
+        <section className="create-stepper-step" aria-label="drop options">
+          <h2 className="slice-title">drop options</h2>
+          <p className="slice-copy">
+            accessibility, social controls, and disclosure settings.
+            all fields are optional.
+          </p>
+          <div className="create-stepper-optional">
+            <label className="identity-field">
+              <span className="slice-meta">alt text (accessibility)</span>
+              <textarea
+                className="identity-input identity-textarea"
+                value={altText}
+                onChange={(e) => setAltText(e.target.value)}
+                placeholder="describe the visual content of this drop for screen readers..."
+                maxLength={500}
+                rows={3}
+              />
+              <span className="slice-meta" style={{ textAlign: "right" }}>
+                {altText.length}/500
+              </span>
+            </label>
+            <label className="identity-field">
+              <span className="slice-meta">caption / transcript URL</span>
+              <input
+                className="identity-input"
+                type="url"
+                value={captionUrl}
+                onChange={(e) => setCaptionUrl(e.target.value)}
+                placeholder="https://example.com/captions.vtt"
+              />
+            </label>
+            <label className="identity-discovery-card" style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.75rem 1rem" }}>
+              <input
+                type="checkbox"
+                checked={commentsDisabled}
+                onChange={(e) => setCommentsDisabled(e.target.checked)}
+              />
+              <div>
+                <span className="slice-copy">disable comments</span>
+                <span className="slice-meta" style={{ display: "block" }}>
+                  no one can comment on this drop
+                </span>
+              </div>
+            </label>
+            <label className="identity-discovery-card" style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.75rem 1rem" }}>
+              <input
+                type="checkbox"
+                checked={sponsoredContent}
+                onChange={(e) => setSponsoredContent(e.target.checked)}
+              />
+              <div>
+                <span className="slice-copy">contains paid partnership</span>
+                <span className="slice-meta" style={{ display: "block" }}>
+                  a disclosure badge will appear on the drop
+                </span>
+              </div>
+            </label>
+          </div>
+        </section>
+      ) : null}
+
       {/* step: review */}
       {step === "review" ? (
         <section className="create-stepper-step" aria-label="review and publish">
@@ -411,6 +482,30 @@ export function CreateDropStepper({
                   : sensitivity}
               </span>
             </div>
+            {altText ? (
+              <div className="create-stepper-review-row">
+                <span className="slice-meta">alt text</span>
+                <span className="slice-copy">{altText}</span>
+              </div>
+            ) : null}
+            {captionUrl ? (
+              <div className="create-stepper-review-row">
+                <span className="slice-meta">captions</span>
+                <span className="slice-copy">{captionUrl}</span>
+              </div>
+            ) : null}
+            {commentsDisabled ? (
+              <div className="create-stepper-review-row">
+                <span className="slice-meta">comments</span>
+                <span className="slice-copy">disabled</span>
+              </div>
+            ) : null}
+            {sponsoredContent ? (
+              <div className="create-stepper-review-row">
+                <span className="slice-meta">disclosure</span>
+                <span className="slice-copy">paid partnership</span>
+              </div>
+            ) : null}
           </div>
         </section>
       ) : null}

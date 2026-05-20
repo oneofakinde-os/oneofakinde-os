@@ -565,6 +565,20 @@ export type MuteRecord = {
   createdAt: string;
 };
 
+export type RestrictionRecord = {
+  restrictorAccountId: string;
+  restrictedAccountId: string;
+  createdAt: string;
+};
+
+export type FollowerRequestRecord = {
+  requesterId: string;
+  targetStudioHandle: string;
+  status: "pending" | "approved" | "rejected";
+  createdAt: string;
+  decidedAt?: string;
+};
+
 export type BffDatabase = {
   version: 1;
   catalog: {
@@ -620,6 +634,8 @@ export type BffDatabase = {
   walletConnections: WalletConnectionRecord[];
   blocks: BlockRecord[];
   mutes: MuteRecord[];
+  restrictions: RestrictionRecord[];
+  followerRequests: FollowerRequestRecord[];
 };
 
 type MutationResult<T> = {
@@ -1427,7 +1443,9 @@ function createSeedDatabase(): BffDatabase {
     totpEnrollments: [],
     walletConnections: [],
     blocks: [],
-    mutes: []
+    mutes: [],
+    restrictions: [],
+    followerRequests: []
   };
 }
 
@@ -1482,7 +1500,9 @@ function createCatalogSeedDatabase(): BffDatabase {
     totpEnrollments: [],
     walletConnections: [],
     blocks: [],
-    mutes: []
+    mutes: [],
+    restrictions: [],
+    followerRequests: []
   };
 }
 
@@ -1541,7 +1561,9 @@ function createEmptyDatabase(): BffDatabase {
     totpEnrollments: [],
     walletConnections: [],
     blocks: [],
-    mutes: []
+    mutes: [],
+    restrictions: [],
+    followerRequests: []
   };
 }
 
@@ -3490,6 +3512,12 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         : [],
       mutes: Array.isArray(input.mutes)
         ? (input.mutes as MuteRecord[])
+        : [],
+      restrictions: Array.isArray(input.restrictions)
+        ? (input.restrictions as RestrictionRecord[])
+        : [],
+      followerRequests: Array.isArray(input.followerRequests)
+        ? (input.followerRequests as FollowerRequestRecord[])
         : []
     };
   }
@@ -3656,6 +3684,12 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         : [],
       mutes: Array.isArray(candidate.mutes)
         ? (candidate.mutes as MuteRecord[])
+        : [],
+      restrictions: Array.isArray(candidate.restrictions)
+        ? (candidate.restrictions as RestrictionRecord[])
+        : [],
+      followerRequests: Array.isArray(candidate.followerRequests)
+        ? (candidate.followerRequests as FollowerRequestRecord[])
         : []
     };
   }
@@ -4947,6 +4981,26 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       } catch {
         return [];
       }
+    })(),
+    restrictions: await (async () => {
+      try {
+        const r = await client.query<RestrictionRecord>(
+          'SELECT restrictor_account_id AS "restrictorAccountId", restricted_account_id AS "restrictedAccountId", created_at AS "createdAt" FROM bff_restrictions'
+        );
+        return r.rows;
+      } catch {
+        return [];
+      }
+    })(),
+    followerRequests: await (async () => {
+      try {
+        const r = await client.query<FollowerRequestRecord>(
+          'SELECT requester_id AS "requesterId", target_studio_handle AS "targetStudioHandle", status, created_at AS "createdAt", decided_at AS "decidedAt" FROM bff_follower_requests ORDER BY created_at DESC'
+        );
+        return r.rows;
+      } catch {
+        return [];
+      }
     })()
   };
 }
@@ -5011,6 +5065,12 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
     await client.query("TRUNCATE TABLE bff_blocks, bff_mutes");
   } catch {
     // pre-0043 environment; safe to skip.
+  }
+  // Sprint 1 — restrictions + follower requests
+  try {
+    await client.query("TRUNCATE TABLE bff_restrictions, bff_follower_requests");
+  } catch {
+    // pre-0048 environment; safe to skip.
   }
 
   await client.query("INSERT INTO bff_meta (key, value) VALUES ($1, $2)", ["version", String(db.version)]);
@@ -5337,6 +5397,28 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
     }
   } catch {
     // bff_mutes missing — pre-migration; safe to skip.
+  }
+  // Sprint 1 — restrictions
+  try {
+    for (const restriction of db.restrictions) {
+      await client.query(
+        "INSERT INTO bff_restrictions (restrictor_account_id, restricted_account_id, created_at) VALUES ($1, $2, $3)",
+        [restriction.restrictorAccountId, restriction.restrictedAccountId, restriction.createdAt]
+      );
+    }
+  } catch {
+    // bff_restrictions missing — pre-migration; safe to skip.
+  }
+  // Sprint 1 — follower requests
+  try {
+    for (const req of db.followerRequests) {
+      await client.query(
+        "INSERT INTO bff_follower_requests (requester_id, target_studio_handle, status, created_at, decided_at) VALUES ($1, $2, $3, $4, $5)",
+        [req.requesterId, req.targetStudioHandle, req.status, req.createdAt, req.decidedAt ?? null]
+      );
+    }
+  } catch {
+    // bff_follower_requests missing — pre-migration; safe to skip.
   }
 
   for (const comment of db.townhallComments) {

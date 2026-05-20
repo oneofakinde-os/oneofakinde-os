@@ -74,6 +74,17 @@ export type MuteRelationship = {
   createdAt: string;
 };
 
+/**
+ * Sprint 1 — shadow-restriction: the restrictor's content is deprioritized
+ * for the restricted account (comments hidden by default, DMs suppressed,
+ * notifications reduced). The restricted account is NOT notified.
+ */
+export type UserRestriction = {
+  restrictorAccountId: string;
+  restrictedAccountId: string;
+  createdAt: string;
+};
+
 export type Session = {
   accountId: string;
   email: string;
@@ -177,6 +188,16 @@ export type Drop = {
   sensitivityRating?: SensitivityRating;
   /** Sprint 0.3 — set by the resolver alongside `sensitivityRating` so consumers can show inheritance hints. */
   sensitivitySource?: SensitivitySource;
+  /** Sprint 1 — creator can disable comments on a per-drop basis. */
+  commentsDisabled?: boolean;
+  /** Sprint 1 — alt text for the primary preview asset (accessibility requirement). */
+  altText?: string;
+  /** Sprint 1 — URL of caption/subtitle file for video/audio drops. */
+  captionUrl?: string;
+  /** Sprint 1 — creator declares this drop contains brand/sponsored content. */
+  sponsoredContent?: boolean;
+  /** Sprint 1 — per-drop audience exclusion list (account IDs hidden from). */
+  excludedAccountIds?: string[];
 };
 
 export type MembershipEntitlementStatus = "active" | "expired" | "canceled";
@@ -673,6 +694,14 @@ export type CreateDropInput = {
   walletGate?: WalletChain;
   /** Sprint 0.3 — studio's self-classification of the drop's content. */
   sensitivityRating?: SensitivityRating;
+  /** Sprint 1 — disable comments on this drop. */
+  commentsDisabled?: boolean;
+  /** Sprint 1 — alt text for the primary preview asset. */
+  altText?: string;
+  /** Sprint 1 — caption/subtitle file URL for video/audio drops. */
+  captionUrl?: string;
+  /** Sprint 1 — brand/sponsored content disclosure. */
+  sponsoredContent?: boolean;
 };
 
 export type CreateWorldInput = {
@@ -940,11 +969,34 @@ export type World = {
   collectBundles?: WorldCollectBundle[];
 };
 
+export type DmRestriction = "anyone" | "followers_only" | "mutual_only" | "no_one";
+
+export type ExternalLink = {
+  label: string;
+  url: string;
+};
+
 export type Studio = {
   handle: string;
   title: string;
   synopsis: string;
   worldIds: string[];
+  /** Sprint 1 — banner image URL displayed at top of studio page. */
+  bannerUrl?: string;
+  /** Sprint 1 — external links (website, social, etc.) shown on studio page. */
+  externalLinks?: ExternalLink[];
+  /** Sprint 1 — drop ID pinned to studio top. */
+  pinnedDropId?: string;
+  /** Sprint 1 — creator keyword filters applied to incoming comments. */
+  keywordFilters?: string[];
+  /** Sprint 1 — hide like counts on this studio's drops. */
+  hideLikeCounts?: boolean;
+  /** Sprint 1 — DM restriction setting for this account. */
+  dmRestriction?: DmRestriction;
+  /** Sprint 1 — whether this account's online status is visible to others. */
+  onlineStatusVisible?: boolean;
+  /** Sprint 1 — locked account requiring follower approval. */
+  isPrivate?: boolean;
 };
 
 export type SettlementScope = "public" | "participant_private" | "internal";

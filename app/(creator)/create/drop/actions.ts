@@ -44,6 +44,12 @@ export async function createDropAction(formData: FormData): Promise<CreateDropRe
       ? (rawSensitivity as SensitivityRating)
       : undefined;
 
+  // Sprint 1 — optional drop-level controls
+  const altText = String(formData.get("altText") ?? "").trim() || undefined;
+  const captionUrl = String(formData.get("captionUrl") ?? "").trim() || undefined;
+  const commentsDisabled = formData.get("commentsDisabled") === "true" ? true : undefined;
+  const sponsoredContent = formData.get("sponsoredContent") === "true" ? true : undefined;
+
   if (!title) return { ok: false, error: "title is required" };
   if (title.length > 200) return { ok: false, error: "title must be under 200 characters" };
   if (!worldId) return { ok: false, error: "please select a world" };
@@ -64,7 +70,11 @@ export async function createDropAction(formData: FormData): Promise<CreateDropRe
     seasonLabel,
     episodeLabel,
     walletGate,
-    sensitivityRating
+    sensitivityRating,
+    altText,
+    captionUrl,
+    commentsDisabled,
+    sponsoredContent
   });
 
   if (!drop) {

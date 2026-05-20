@@ -1669,6 +1669,11 @@ export function TownhallFeedScreen({
                       {drop.priceUsd > 0 ? <span className="diamond-marker" aria-label="collectible" title="collectible">{" "}◆</span> : null}
                     </p>
                     <h1 className="townhall-title">{drop.title}</h1>
+                    {drop.sponsoredContent ? (
+                      <span className="townhall-badge-sponsored" aria-label="paid partnership" title="paid partnership">
+                        paid partnership
+                      </span>
+                    ) : null}
                     {dropHeading ? <p className="townhall-subtitle">{dropHeading}</p> : null}
                     {dropSubtitle ? <p className="townhall-subtitle secondary">{dropSubtitle}</p> : null}
                     {drop.synopsis.trim() ? <p className="townhall-synopsis">{drop.synopsis}</p> : null}
@@ -1690,12 +1695,14 @@ export function TownhallFeedScreen({
 
                     <button
                       type="button"
-                      className={`townhall-social-action ${openCurrentPanel === "comments" ? "active" : ""}`}
-                      onClick={() => togglePanel("comments", drop.id)}
+                      className={`townhall-social-action ${openCurrentPanel === "comments" ? "active" : ""}${drop.commentsDisabled ? " disabled" : ""}`}
+                      onClick={() => !drop.commentsDisabled && togglePanel("comments", drop.id)}
                       aria-label="open comments"
+                      title={drop.commentsDisabled ? "comments are disabled on this drop" : undefined}
+                      aria-disabled={drop.commentsDisabled || undefined}
                     >
                       <CommentIcon className="townhall-social-icon" filled={openCurrentPanel === "comments"} />
-                      <small>{commentCount}</small>
+                      <small>{drop.commentsDisabled ? "off" : commentCount}</small>
                     </button>
 
                     <button
