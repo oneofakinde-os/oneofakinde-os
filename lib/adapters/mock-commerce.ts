@@ -16,6 +16,7 @@ import type {
   CreateWorldInput,
   CreateSessionInput,
   Drop,
+  DropDraft,
   DropLiveArtifactsSnapshot,
   DropLineageSnapshot,
   DropPreviewMap,
@@ -3172,6 +3173,26 @@ export const commerceGateway: CommerceGateway = {
     return null;
   },
   async exportAccountData(): Promise<null> {
+    return null;
+  },
+
+  // Sprint 2A — authoring lifecycle stubs
+  async listDrafts(): Promise<DropDraft[]> {
+    return [];
+  },
+  async saveDraft(): Promise<null> {
+    return null;
+  },
+  async deleteDraft(): Promise<boolean> {
+    return false;
+  },
+  async editDrop(): Promise<null> {
+    return null;
+  },
+  async deleteDrop(): Promise<null> {
+    return null;
+  },
+  async toggleActiveRole(): Promise<null> {
     return null;
   }
 };

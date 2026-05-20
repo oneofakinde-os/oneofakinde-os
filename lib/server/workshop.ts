@@ -1,5 +1,6 @@
 import type {
   Drop,
+  DropDraft,
   DropVisibility,
   DropLineageSnapshot,
   LiveSession,
@@ -84,6 +85,7 @@ export type WorkshopContext = {
   patronTierConfigs: PatronTierConfig[];
   worldReleaseQueue: WorldReleaseQueueItem[];
   moderationQueue: TownhallModerationQueueItem[];
+  drafts: DropDraft[];
   dropLineageByDropId: Record<string, DropLineageSnapshot>;
   analyticsPanel: WorkshopAnalyticsPanel | null;
   composeTarget: WorkshopComposeTarget;
@@ -202,6 +204,7 @@ export async function loadWorkshopContext(
   const [
     creatorSpace,
     drops,
+    drafts,
     liveSessions,
     liveSessionArtifacts,
     workshopProProfile,
@@ -213,6 +216,7 @@ export async function loadWorkshopContext(
     await Promise.all([
       gateway.getStudioByHandle(session.handle),
       gateway.listDropsByStudioHandle(session.handle),
+      gateway.listDrafts(session.accountId),
       gateway.listWorkshopLiveSessions(session.accountId),
       gateway.listWorkshopLiveSessionArtifacts(session.accountId),
       gateway.getWorkshopProProfile(session.accountId),
@@ -236,6 +240,7 @@ export async function loadWorkshopContext(
       channelSynopsis: "creator control surface for planning, publishing, and managing drops.",
       worlds: [],
       drops,
+      drafts,
       liveSessions,
       liveSessionArtifacts,
       workshopProProfile,
@@ -260,6 +265,7 @@ export async function loadWorkshopContext(
     channelSynopsis: creatorSpace.synopsis,
     worlds,
     drops,
+    drafts,
     liveSessions,
     liveSessionArtifacts,
     workshopProProfile,

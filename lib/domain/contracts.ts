@@ -94,6 +94,8 @@ export type Session = {
   sessionToken: string;
   avatarUrl?: string;
   bio?: string;
+  /** Sprint 2A — active role for UI switching. Defaults to first role in roles[]. */
+  activeRole?: AccountRole;
 };
 
 export type TotpEnrollmentStatus = "pending" | "verified" | "disabled";
@@ -132,7 +134,7 @@ export type CollaboratorSplit = {
   splitPercent: number;
 };
 
-export type DropVisibility = "public" | "world_members" | "collectors_only";
+export type DropVisibility = "public" | "world_members" | "collectors_only" | "unlisted";
 
 export type DropVisibilitySource = "drop" | "world_default";
 
@@ -198,6 +200,10 @@ export type Drop = {
   sponsoredContent?: boolean;
   /** Sprint 1 — per-drop audience exclusion list (account IDs hidden from). */
   excludedAccountIds?: string[];
+  /** Sprint 2A — scheduled release: drop is hidden until this ISO timestamp. */
+  scheduledAt?: string;
+  /** Sprint 2A — deleted drops are soft-removed with this timestamp. */
+  deletedAt?: string;
 };
 
 export type MembershipEntitlementStatus = "active" | "expired" | "canceled";
@@ -702,6 +708,53 @@ export type CreateDropInput = {
   captionUrl?: string;
   /** Sprint 1 — brand/sponsored content disclosure. */
   sponsoredContent?: boolean;
+  /** Sprint 2A — schedule release for a future time. Drop stays hidden until then. */
+  scheduledAt?: string;
+};
+
+/** Sprint 2A — input for editing an existing drop after publish. */
+export type EditDropInput = {
+  title?: string;
+  synopsis?: string;
+  priceUsd?: number;
+  pricingType?: DropPricingType;
+  seasonLabel?: string;
+  episodeLabel?: string;
+  visibility?: DropVisibility;
+  sensitivityRating?: SensitivityRating;
+  commentsDisabled?: boolean;
+  altText?: string;
+  captionUrl?: string;
+  sponsoredContent?: boolean;
+  changeSummary?: string;
+};
+
+export type DropDraft = {
+  id: string;
+  accountId: string;
+  studioHandle: string;
+  title: string | null;
+  synopsis: string | null;
+  worldId: string | null;
+  pricingType: string | null;
+  priceUsd: number | null;
+  altText: string | null;
+  captionUrl: string | null;
+  scheduledAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SaveDraftInput = {
+  id?: string;
+  title?: string;
+  synopsis?: string;
+  worldId?: string;
+  pricingType?: string;
+  priceUsd?: number;
+  altText?: string;
+  captionUrl?: string;
+  scheduledAt?: string;
 };
 
 export type CreateWorldInput = {

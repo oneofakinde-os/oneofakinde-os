@@ -1,6 +1,7 @@
 "use server";
 
 import type {
+  AccountRole,
   AuthorizedDerivativeKind,
   CaptureWorkshopLiveSessionArtifactInput,
   CreateAuthorizedDerivativeInput,
@@ -751,4 +752,91 @@ export async function resolveWorkshopModerationCaseAction(formData: FormData): P
   redirect(
     `/workshop?moderation_status=resolved&moderation_comment_id=${encodeURIComponent(commentId)}`
   );
+}
+
+// Sprint 2A — authoring lifecycle actions
+
+export async function deleteWorkshopDraftAction(formData: FormData) {
+  const session = await requireSessionRoles("/workshop", ["creator"]);
+  const draftId = getRequiredFormString(formData, "draft_id");
+
+  if (!draftId) {
+    redirect("/workshop?draft_status=invalid_input");
+  }
+
+  const deleted = await gateway.deleteDraft(session.accountId, draftId);
+  if (!deleted) {
+    redirect("/workshop?draft_status=not_found");
+  }
+
+  redirect("/workshop?draft_status=deleted");
+}
+
+export async function deleteWorkshopDropAction(formData: FormData) {
+  const session = await requireSessionRoles("/workshop", ["creator"]);
+  const dropId = getRequiredFormString(formData, "drop_id");
+
+  if (!dropId) {
+    redirect("/workshop?drop_action_status=invalid_input");
+  }
+
+  const result = await gateway.deleteDrop(session.accountId, dropId);
+  if (!result) {
+    redirect("/workshop?drop_action_status=not_found");
+  }
+
+  redirect(
+    `/workshop?drop_action_status=deleted&drop_action_id=${encodeURIComponent(dropId)}`
+  );
+}
+
+export async function editWorkshopDropAction(formData: FormData) {
+  const session = await requireSessionRoles("/workshop", ["creator"]);
+  const dropId = getRequiredFormString(formData, "drop_id");
+
+  if (!dropId) {
+    redirect("/workshop?drop_action_status=invalid_input");
+  }
+
+  const title = getOptionalFormString(formData, "edit_title") ?? undefined;
+  const synopsis = getOptionalFormString(formData, "edit_synopsis") ?? undefined;
+  const changeSummary = getOptionalFormString(formData, "edit_change_summary") ?? undefined;
+
+  if (!title && !synopsis && !changeSummary) {
+    redirect("/workshop?drop_action_status=invalid_input");
+  }
+
+  const result = await gateway.editDrop(session.accountId, dropId, {
+    title,
+    synopsis,
+    changeSummary
+  });
+
+  if (!result) {
+    redirect("/workshop?drop_action_status=edit_failed");
+  }
+
+  redirect(
+    `/workshop?drop_action_status=edited&drop_action_id=${encodeURIComponent(dropId)}`
+  );
+}
+
+export async function toggleWorkshopActiveRoleAction(formData: FormData) {
+  const session = await requireSessionRoles("/workshop", ["creator"]);
+  const role = getRequiredFormString(formData, "role");
+
+  if (role !== "collector" && role !== "creator") {
+    redirect("/workshop?role_status=invalid_input");
+  }
+
+  const result = await gateway.toggleActiveRole(
+    session.accountId,
+    role as AccountRole
+  );
+
+  if (!result) {
+    redirect("/workshop?role_status=failed");
+  }
+
+  redirect(`/workshop?role_status=toggled&active_role=${encodeURIComponent(role)}`);
 }

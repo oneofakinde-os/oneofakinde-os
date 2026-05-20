@@ -20,7 +20,10 @@ import type {
   CreateWorkshopLiveSessionInput,
   CreateWorldInput,
   CreateSessionInput,
+  AccountRole,
   Drop,
+  DropDraft,
+  EditDropInput,
   DropLiveArtifactsSnapshot,
   DropLineageSnapshot,
   DropOwnershipHistory,
@@ -66,6 +69,7 @@ import type {
   WorldReleaseQueueStatus,
   SetupCreatorStudioInput,
   SetupCreatorStudioResult,
+  SaveDraftInput,
   Session,
   Studio,
   World
@@ -1361,6 +1365,73 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
       );
       if (!response.ok || !response.payload) return null;
       return response.payload.export;
+    },
+
+    // Sprint 2A — authoring lifecycle
+    async listDrafts(accountId: string): Promise<DropDraft[]> {
+      void accountId;
+      const response = await requestJson<DropDraft[]>(
+        options,
+        "/api/v1/workshop/drafts",
+        { method: "GET" }
+      );
+      if (!response.ok || !response.payload) return [];
+      return response.payload;
+    },
+
+    async saveDraft(_accountId: string, input: SaveDraftInput): Promise<DropDraft | null> {
+      const response = await requestJson<DropDraft>(
+        options,
+        "/api/v1/workshop/drafts",
+        { method: "POST", body: JSON.stringify(input) }
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload;
+    },
+
+    async deleteDraft(_accountId: string, draftId: string): Promise<boolean> {
+      const response = await requestJson<{ deleted: boolean }>(
+        options,
+        `/api/v1/workshop/drafts/${encodeURIComponent(draftId)}`,
+        { method: "DELETE" }
+      );
+      return response.ok && !!response.payload?.deleted;
+    },
+
+    async editDrop(_accountId: string, dropId: string, input: EditDropInput): Promise<Drop | null> {
+      const response = await requestJson<Drop>(
+        options,
+        `/api/v1/workshop/drops/${encodeURIComponent(dropId)}/edit`,
+        { method: "PUT", body: JSON.stringify(input) }
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload;
+    },
+
+    async deleteDrop(
+      _accountId: string,
+      dropId: string
+    ): Promise<{ dropId: string; deletedAt: string } | null> {
+      const response = await requestJson<{ dropId: string; deletedAt: string }>(
+        options,
+        `/api/v1/workshop/drops/${encodeURIComponent(dropId)}/delete`,
+        { method: "POST" }
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload;
+    },
+
+    async toggleActiveRole(
+      _accountId: string,
+      role: AccountRole
+    ): Promise<{ activeRole: AccountRole } | null> {
+      const response = await requestJson<{ activeRole: AccountRole }>(
+        options,
+        "/api/v1/session/active-role",
+        { method: "PUT", body: JSON.stringify({ role }) }
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload;
     }
   };
 }

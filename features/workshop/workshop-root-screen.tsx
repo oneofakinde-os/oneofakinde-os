@@ -3,6 +3,7 @@ import { formatUsd } from "@/features/shared/format";
 import { MediaUploadZone } from "@/features/workshop/media-upload-zone";
 import type {
   Drop,
+  DropDraft,
   DropLineageSnapshot,
   LiveSession,
   LiveSessionArtifact,
@@ -33,6 +34,7 @@ type WorkshopRootScreenProps = {
   worldBuilder: WorkshopWorldBuilderState;
   worlds: World[];
   drops: Drop[];
+  drafts: DropDraft[];
   liveSessions: LiveSession[];
   liveSessionArtifacts: LiveSessionArtifact[];
   workshopProProfile: WorkshopProProfile | null;
@@ -48,6 +50,9 @@ type WorkshopRootScreenProps = {
   versionNotice: string | null;
   derivativeNotice: string | null;
   moderationNotice: string | null;
+  draftNotice: string | null;
+  dropActionNotice: string | null;
+  roleNotice: string | null;
   analyticsPanel: WorkshopAnalyticsPanel | null;
   validatePublishGateAction: (formData: FormData) => Promise<void>;
   createLiveSessionAction: (formData: FormData) => Promise<void>;
@@ -60,6 +65,10 @@ type WorkshopRootScreenProps = {
   createDropVersionAction: (formData: FormData) => Promise<void>;
   createAuthorizedDerivativeAction: (formData: FormData) => Promise<void>;
   resolveModerationAction: (formData: FormData) => Promise<void>;
+  deleteDraftAction: (formData: FormData) => Promise<void>;
+  deleteDropAction: (formData: FormData) => Promise<void>;
+  editDropAction: (formData: FormData) => Promise<void>;
+  toggleActiveRoleAction: (formData: FormData) => Promise<void>;
   dropLineageByDropId: Record<string, DropLineageSnapshot>;
 };
 
@@ -87,6 +96,7 @@ export function WorkshopRootScreen({
   worldBuilder,
   worlds,
   drops,
+  drafts,
   liveSessions,
   liveSessionArtifacts,
   workshopProProfile,
@@ -102,6 +112,9 @@ export function WorkshopRootScreen({
   versionNotice,
   derivativeNotice,
   moderationNotice,
+  draftNotice,
+  dropActionNotice,
+  roleNotice,
   analyticsPanel,
   validatePublishGateAction,
   createLiveSessionAction,
@@ -114,7 +127,11 @@ export function WorkshopRootScreen({
   createDropVersionAction,
   createAuthorizedDerivativeAction,
   dropLineageByDropId,
-  resolveModerationAction
+  resolveModerationAction,
+  deleteDraftAction,
+  deleteDropAction,
+  editDropAction,
+  toggleActiveRoleAction
 }: WorkshopRootScreenProps) {
   const worldTitleById = new Map(worlds.map((world) => [world.id, world.title]));
   const dropTitleById = new Map(drops.map((drop) => [drop.id, drop.title]));
@@ -132,6 +149,12 @@ export function WorkshopRootScreen({
         <h2 className="slice-title">{channelTitle}</h2>
         <p className="slice-copy">{channelSynopsis}</p>
 
+        {roleNotice ? (
+          <p className="slice-banner" role="status" aria-live="polite">
+            {roleNotice}
+          </p>
+        ) : null}
+
         <dl className="slice-list">
           <div>
             <dt>linked worlds</dt>
@@ -140,6 +163,14 @@ export function WorkshopRootScreen({
           <div>
             <dt>published drops</dt>
             <dd>{drops.length}</dd>
+          </div>
+          <div>
+            <dt>saved drafts</dt>
+            <dd>{drafts.length}</dd>
+          </div>
+          <div>
+            <dt>active role</dt>
+            <dd>{session.activeRole ?? "creator"}</dd>
           </div>
         </dl>
 
@@ -154,6 +185,18 @@ export function WorkshopRootScreen({
             manage offers
           </Link>
         </div>
+
+        <form action={toggleActiveRoleAction} className="slice-button-row" style={{ marginTop: "0.5rem" }}>
+          {(session.activeRole ?? "creator") === "creator" ? (
+            <button type="submit" name="role" value="collector" className="slice-button ghost">
+              switch to collector
+            </button>
+          ) : (
+            <button type="submit" name="role" value="creator" className="slice-button ghost">
+              switch to creator
+            </button>
+          )}
+        </form>
       </section>
 
       <section className="slice-panel" data-testid="workshop-publish-stepper">
@@ -1203,7 +1246,62 @@ export function WorkshopRootScreen({
       </section>
 
       <section className="slice-panel">
+        <p className="slice-label">drafts</p>
+        <p className="slice-copy">
+          saved drafts for drops in progress. resume editing or discard drafts you no longer need.
+        </p>
+        {draftNotice ? (
+          <p className="slice-banner" role="status" aria-live="polite">
+            {draftNotice}
+          </p>
+        ) : null}
+        {drafts.length === 0 ? (
+          <p className="slice-meta">no drafts saved yet. start creating a drop to auto-save a draft.</p>
+        ) : (
+          <ul className="slice-grid" aria-label="workshop draft list">
+            {drafts.map((draft) => (
+              <li key={draft.id} className="slice-drop-card">
+                <p className="slice-label">{draft.studioHandle}</p>
+                <h2 className="slice-title">{draft.title || "untitled draft"}</h2>
+                <p className="slice-copy">{draft.synopsis || "no synopsis yet."}</p>
+                {draft.pricingType ? (
+                  <p className="slice-meta">
+                    pricing: {draft.pricingType}
+                    {draft.priceUsd != null ? ` — ${formatUsd(draft.priceUsd)}` : ""}
+                  </p>
+                ) : null}
+                {draft.scheduledAt ? (
+                  <p className="slice-meta">
+                    scheduled: {new Date(draft.scheduledAt).toLocaleString()}
+                  </p>
+                ) : null}
+                <p className="slice-meta">
+                  updated {new Date(draft.updatedAt).toLocaleString()}
+                </p>
+                <div className="slice-button-row">
+                  <Link href={routes.create()} className="slice-button alt">
+                    resume editing
+                  </Link>
+                  <form action={deleteDraftAction} style={{ display: "inline" }}>
+                    <input type="hidden" name="draft_id" value={draft.id} />
+                    <button type="submit" className="slice-button ghost">
+                      discard
+                    </button>
+                  </form>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="slice-panel">
         <p className="slice-label">drops</p>
+        {dropActionNotice ? (
+          <p className="slice-banner" role="status" aria-live="polite">
+            {dropActionNotice}
+          </p>
+        ) : null}
         {versionNotice ? (
           <p className="slice-banner" role="status" aria-live="polite">
             {versionNotice}
@@ -1239,6 +1337,16 @@ export function WorkshopRootScreen({
                       <p className="slice-meta">
                         versions {lineage.versions.length} · derivatives {lineage.derivatives.length}
                       </p>
+                      {drop.scheduledAt && !drop.deletedAt ? (
+                        <p className="slice-meta">
+                          scheduled: {new Date(drop.scheduledAt).toLocaleString()}
+                        </p>
+                      ) : null}
+                      {drop.deletedAt ? (
+                        <p className="slice-meta">
+                          deleted: {new Date(drop.deletedAt).toLocaleString()}
+                        </p>
+                      ) : null}
                       <div className="slice-button-row">
                         <Link href={routes.drop(drop.id)} className="slice-button ghost">
                           open drop
@@ -1250,6 +1358,54 @@ export function WorkshopRootScreen({
                           activity
                         </Link>
                       </div>
+
+                      {!drop.deletedAt ? (
+                        <div className="slice-button-row" style={{ marginTop: "0.25rem" }}>
+                          <form action={deleteDropAction} style={{ display: "inline" }}>
+                            <input type="hidden" name="drop_id" value={drop.id} />
+                            <button type="submit" className="slice-button ghost">
+                              delete drop
+                            </button>
+                          </form>
+                        </div>
+                      ) : null}
+
+                      <details>
+                        <summary className="slice-meta">edit drop</summary>
+                        <form action={editDropAction} className="slice-form">
+                          <input type="hidden" name="drop_id" value={drop.id} />
+                          <label className="slice-field">
+                            title
+                            <input
+                              name="edit_title"
+                              className="slice-input"
+                              placeholder={drop.title}
+                            />
+                          </label>
+                          <label className="slice-field">
+                            synopsis
+                            <input
+                              name="edit_synopsis"
+                              className="slice-input"
+                              placeholder="updated synopsis"
+                            />
+                          </label>
+                          <label className="slice-field">
+                            change summary
+                            <input
+                              name="edit_change_summary"
+                              className="slice-input"
+                              placeholder="what changed in this edit"
+                              required
+                            />
+                          </label>
+                          <div className="slice-button-row">
+                            <button type="submit" className="slice-button">
+                              save edit
+                            </button>
+                          </div>
+                        </form>
+                      </details>
 
                       <details>
                         <summary className="slice-meta">create version</summary>

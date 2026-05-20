@@ -33,6 +33,7 @@ import type {
   DropLineageSnapshot,
   DropPreviewMap,
   DropPreviewMode,
+  EditDropInput,
   ExternalLink,
   DropVersion,
   DropVersionLabel,
@@ -155,11 +156,13 @@ import {
   getActiveWorldCollectOwnership
 } from "@/lib/collect/world-bundles";
 import { sortDropsForStudioSurface, sortDropsForWorldSurface } from "@/lib/catalog/drop-curation";
+import { computeVersionDiff } from "@/lib/domain/authoring-pipeline";
 import { applyCollectOfferAction, canApplyCollectOfferAction } from "@/lib/collect/offer-state-machine";
 import { createCheckoutSession, parseStripeWebhook, type ParsedStripeWebhookEvent } from "@/lib/bff/payments";
 import { buildCollectSettlementQuote, buildPatronSettlementQuote, buildResaleSettlementQuote } from "@/lib/domain/quote-engine";
 import {
   type AuthorizedDerivativeRecord,
+  type DropDraftRecord,
   type DropVersionRecord,
   type CollectEnforcementSignalRecord,
   type CollectOfferRecord,
@@ -1724,12 +1727,15 @@ function listDiscoverableDrops(
   db: BffDatabase,
   viewerAccountId: string | null | undefined
 ): Drop[] {
+  // Sprint 2A — exclude soft-deleted drops from all discovery paths
+  const activeDrops = db.catalog.drops.filter((drop) => !drop.deletedAt);
+
   if (viewerAccountId === undefined) {
-    return [...db.catalog.drops];
+    return [...activeDrops];
   }
 
   const account = viewerAccountId ? findAccountById(db, viewerAccountId) : null;
-  return db.catalog.drops.filter((drop) => canAccountDiscoverDrop(db, account, drop));
+  return activeDrops.filter((drop) => canAccountDiscoverDrop(db, account, drop));
 }
 
 function toWorldCollectOwnership(record: WorldCollectOwnershipRecord): WorldCollectOwnership {
@@ -6693,7 +6699,7 @@ const gatewayMethods = {
   async getDropById(dropId: string, viewerAccountId?: string | null): Promise<Drop | null> {
     return withDatabase(async (db) => {
       const drop = findDropById(db, dropId);
-      if (!drop) {
+      if (!drop || drop.deletedAt) {
         return {
           persist: false,
           result: null
@@ -6861,12 +6867,14 @@ const gatewayMethods = {
         ...(input.commentsDisabled ? { commentsDisabled: true } : {}),
         ...(input.altText ? { altText: input.altText.trim() } : {}),
         ...(input.captionUrl ? { captionUrl: input.captionUrl.trim() } : {}),
-        ...(input.sponsoredContent ? { sponsoredContent: true } : {})
+        ...(input.sponsoredContent ? { sponsoredContent: true } : {}),
+        // Sprint 2A — scheduled release
+        ...(input.scheduledAt ? { scheduledAt: input.scheduledAt, visibility: "unlisted" as const } : {})
       };
 
       db.catalog.drops.push(drop);
 
-      if (drop.visibility === "public") {
+      if (drop.visibility === "public" && !drop.scheduledAt) {
         const followers = db.studioFollows.filter(
           (f) => f.studioHandle.toLowerCase() === account.handle.toLowerCase()
         );
@@ -8236,6 +8244,290 @@ const gatewayMethods = {
       }
       const handles = db.accounts.filter((a) => hiddenIds.has(a.id)).map((a) => a.handle);
       return { persist: false, result: handles };
+    });
+  },
+
+  /* ───────────── Sprint 2A — Authoring lifecycle ───────────── */
+
+  /**
+   * Sprint 2A — AUTH-001: save or update a durable drop draft.
+   * Upserts by draft ID; creates a new draft if id is absent.
+   */
+  async saveDraft(
+    accountId: string,
+    draft: Partial<DropDraftRecord> & { id?: string }
+  ): Promise<DropDraftRecord | null> {
+    return withDatabase<DropDraftRecord | null>(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account || !account.roles.includes("creator")) {
+        return { persist: false, result: null };
+      }
+
+      const now = new Date().toISOString();
+
+      if (draft.id) {
+        const existing = db.drafts.find((d) => d.id === draft.id && d.accountId === accountId);
+        if (existing) {
+          if (draft.title !== undefined) existing.title = draft.title;
+          if (draft.synopsis !== undefined) existing.synopsis = draft.synopsis;
+          if (draft.worldId !== undefined) existing.worldId = draft.worldId;
+          if (draft.pricingType !== undefined) existing.pricingType = draft.pricingType;
+          if (draft.priceUsd !== undefined) existing.priceUsd = draft.priceUsd;
+          if (draft.altText !== undefined) existing.altText = draft.altText;
+          if (draft.captionUrl !== undefined) existing.captionUrl = draft.captionUrl;
+          if (draft.scheduledAt !== undefined) existing.scheduledAt = draft.scheduledAt;
+          existing.updatedAt = now;
+          return { persist: true, result: existing };
+        }
+      }
+
+      const newDraft: DropDraftRecord = {
+        id: draft.id || `draft_${randomUUID()}`,
+        accountId,
+        studioHandle: account.handle,
+        title: draft.title ?? null,
+        synopsis: draft.synopsis ?? null,
+        worldId: draft.worldId ?? null,
+        pricingType: draft.pricingType ?? null,
+        priceUsd: draft.priceUsd ?? null,
+        altText: draft.altText ?? null,
+        captionUrl: draft.captionUrl ?? null,
+        scheduledAt: draft.scheduledAt ?? null,
+        createdAt: now,
+        updatedAt: now
+      };
+
+      db.drafts.push(newDraft);
+      return { persist: true, result: newDraft };
+    });
+  },
+
+  /**
+   * Sprint 2A — AUTH-001: list all drafts for a creator.
+   */
+  async listDrafts(accountId: string): Promise<DropDraftRecord[]> {
+    return withDatabase(async (db) => ({
+      persist: false,
+      result: db.drafts
+        .filter((d) => d.accountId === accountId)
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    }));
+  },
+
+  /**
+   * Sprint 2A — AUTH-001: delete a draft.
+   */
+  async deleteDraft(accountId: string, draftId: string): Promise<boolean> {
+    return withDatabase(async (db) => {
+      const idx = db.drafts.findIndex((d) => d.id === draftId && d.accountId === accountId);
+      if (idx < 0) return { persist: false, result: false };
+      db.drafts.splice(idx, 1);
+      return { persist: true, result: true };
+    });
+  },
+
+  /**
+   * Sprint 2A — AUTH-003: edit a drop after publish. Creates a version
+   * snapshot of the old state, then mutates the drop in place.
+   */
+  async editDrop(
+    accountId: string,
+    dropId: string,
+    input: EditDropInput
+  ): Promise<Drop | null> {
+    return withDatabase<Drop | null>(async (db) => {
+      const account = findAccountById(db, accountId);
+      const drop = findDropById(db, dropId);
+      if (!account || !drop) return { persist: false, result: null };
+      if (drop.studioHandle !== account.handle) return { persist: false, result: null };
+      if (drop.deletedAt) return { persist: false, result: null };
+
+      // Snapshot old state for version history
+      const oldFields: Record<string, unknown> = {
+        title: drop.title,
+        synopsis: drop.synopsis,
+        priceUsd: drop.priceUsd,
+        pricingType: drop.pricingType,
+        seasonLabel: drop.seasonLabel,
+        episodeLabel: drop.episodeLabel,
+        visibility: drop.visibility,
+        sensitivityRating: drop.sensitivityRating,
+        commentsDisabled: drop.commentsDisabled,
+        altText: drop.altText,
+        captionUrl: drop.captionUrl,
+        sponsoredContent: drop.sponsoredContent
+      };
+
+      // Apply edits
+      if (input.title !== undefined && input.title.trim()) drop.title = input.title.trim();
+      if (input.synopsis !== undefined) drop.synopsis = input.synopsis.trim();
+      if (input.priceUsd !== undefined) drop.priceUsd = input.priceUsd;
+      if (input.pricingType !== undefined) drop.pricingType = input.pricingType;
+      if (input.seasonLabel !== undefined) drop.seasonLabel = input.seasonLabel;
+      if (input.episodeLabel !== undefined) drop.episodeLabel = input.episodeLabel;
+      if (input.visibility !== undefined) drop.visibility = input.visibility;
+      if (input.sensitivityRating !== undefined) {
+        drop.sensitivityRating = input.sensitivityRating;
+        drop.sensitivitySource = "drop";
+      }
+      if (input.commentsDisabled !== undefined) drop.commentsDisabled = input.commentsDisabled;
+      if (input.altText !== undefined) drop.altText = input.altText;
+      if (input.captionUrl !== undefined) drop.captionUrl = input.captionUrl;
+      if (input.sponsoredContent !== undefined) drop.sponsoredContent = input.sponsoredContent;
+
+      const newFields: Record<string, unknown> = {
+        title: drop.title,
+        synopsis: drop.synopsis,
+        priceUsd: drop.priceUsd,
+        pricingType: drop.pricingType,
+        seasonLabel: drop.seasonLabel,
+        episodeLabel: drop.episodeLabel,
+        visibility: drop.visibility,
+        sensitivityRating: drop.sensitivityRating,
+        commentsDisabled: drop.commentsDisabled,
+        altText: drop.altText,
+        captionUrl: drop.captionUrl,
+        sponsoredContent: drop.sponsoredContent
+      };
+
+      const changedFields = computeVersionDiff(oldFields, newFields);
+      if (changedFields.length === 0) {
+        return { persist: false, result: drop };
+      }
+
+      // Create version snapshot
+      db.dropVersions.push({
+        id: `dv_${randomUUID()}`,
+        dropId,
+        label: "edit" as DropVersionLabel,
+        notes: input.changeSummary || `edited ${changedFields.join(", ")}`,
+        createdByHandle: account.handle,
+        createdAt: new Date().toISOString(),
+        releasedAt: null
+      });
+
+      return { persist: true, result: drop };
+    });
+  },
+
+  /**
+   * Sprint 2A — AUTH-004: soft-delete a drop with full cascade.
+   * Sets deletedAt on the drop. Does NOT remove from DB — provenance must persist.
+   */
+  async deleteDrop(
+    accountId: string,
+    dropId: string
+  ): Promise<{ deleted: boolean } | null> {
+    return withDatabase<{ deleted: boolean } | null>(async (db) => {
+      const account = findAccountById(db, accountId);
+      const drop = findDropById(db, dropId);
+      if (!account || !drop) return { persist: false, result: null };
+      if (drop.studioHandle !== account.handle) return { persist: false, result: null };
+      if (drop.deletedAt) return { persist: false, result: { deleted: false } };
+
+      // Soft-delete the drop
+      drop.deletedAt = new Date().toISOString();
+      drop.visibility = "unlisted";
+
+      // Cascade: revoke verified certificates for this drop
+      for (const cert of db.certificates) {
+        if (cert.dropId === dropId && cert.status === "verified") {
+          cert.status = "revoked";
+        }
+      }
+
+      // Cascade: remove from saved drops
+      db.savedDrops = db.savedDrops.filter((s) => s.dropId !== dropId);
+
+      // Cascade: hide comments (keep for audit, just mark hidden)
+      for (const comment of db.townhallComments) {
+        if (comment.dropId === dropId && comment.visibility === "visible") {
+          comment.visibility = "hidden";
+        }
+      }
+
+      // Cascade: remove likes
+      db.townhallLikes = db.townhallLikes.filter((l) => l.dropId !== dropId);
+
+      return { persist: true, result: { deleted: true } };
+    });
+  },
+
+  /**
+   * Sprint 2A — AUTH-005: publish a scheduled drop. Called by a cron-compatible
+   * check. Finds all drops with scheduledAt <= now and visibility != "public",
+   * flips them to public, and emits notifications.
+   */
+  async publishScheduledDrops(): Promise<string[]> {
+    return withDatabase<string[]>(async (db) => {
+      const now = new Date();
+      const published: string[] = [];
+
+      for (const drop of db.catalog.drops) {
+        if (!drop.scheduledAt || drop.deletedAt) continue;
+        if (new Date(drop.scheduledAt) > now) continue;
+        if (drop.visibility === "public") continue;
+
+        drop.visibility = "public";
+        delete drop.scheduledAt;
+        published.push(drop.id);
+
+        // Fan out notifications to followers
+        const studio = db.catalog.studios.find((s) => s.handle === drop.studioHandle);
+        if (studio) {
+          const followers = db.studioFollows.filter(
+            (f) => f.studioHandle.toLowerCase() === studio.handle.toLowerCase()
+          );
+          for (const follower of followers) {
+            emitNotification(
+              db,
+              follower.accountId,
+              "new_drop_from_followed",
+              `new drop from @${studio.handle}`,
+              `"${drop.title}" is now available.`,
+              `/showroom/${drop.id}`
+            );
+          }
+        }
+      }
+
+      return { persist: published.length > 0, result: published };
+    });
+  },
+
+  /**
+   * Sprint 2A — AID-012: toggle active role between collector and creator.
+   */
+  async toggleActiveRole(
+    accountId: string,
+    role: AccountRole
+  ): Promise<Session | null> {
+    return withDatabase<Session | null>(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account) return { persist: false, result: null };
+      if (!account.roles.includes(role)) return { persist: false, result: null };
+
+      // Find the session and update its active role
+      const sessionRecord = db.sessions.find((s) => s.accountId === accountId);
+      if (!sessionRecord) return { persist: false, result: null };
+
+      // Store active role on the session record (we add it dynamically)
+      (sessionRecord as Record<string, unknown>).activeRole = role;
+
+      return {
+        persist: true,
+        result: {
+          accountId: account.id,
+          email: account.email,
+          handle: account.handle,
+          displayName: account.displayName,
+          roles: account.roles,
+          sessionToken: sessionRecord.token,
+          avatarUrl: account.avatarUrl,
+          bio: account.bio,
+          activeRole: role
+        }
+      };
     });
   },
 

@@ -38,7 +38,8 @@ const ENTRY_RULE_COPY: Record<NonNullable<World["entryRule"]>, string> = {
 const DEFAULT_DROP_VISIBILITY_COPY: Record<NonNullable<World["defaultDropVisibility"]>, string> = {
   public: "public",
   world_members: "world members",
-  collectors_only: "collectors only"
+  collectors_only: "collectors only",
+  unlisted: "unlisted"
 };
 
 const PATRON_STATUS_COPY: Record<PatronStatus, string> = {

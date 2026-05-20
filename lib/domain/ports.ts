@@ -15,6 +15,7 @@ import type {
   CheckoutSession,
   CheckoutPreview,
   CreateAuthorizedDerivativeInput,
+  AccountRole,
   CreateDropInput,
   CreateDropVersionInput,
   CreateWorkshopWorldReleaseInput,
@@ -22,6 +23,8 @@ import type {
   CreateWorldInput,
   CreateSessionInput,
   Drop,
+  DropDraft,
+  EditDropInput,
   DropLiveArtifactsSnapshot,
   DropLineageSnapshot,
   DropOwnershipHistory,
@@ -67,6 +70,7 @@ import type {
   WorldReleaseQueueStatus,
   SetupCreatorStudioInput,
   SetupCreatorStudioResult,
+  SaveDraftInput,
   Session,
   Studio,
   World
@@ -317,4 +321,12 @@ export interface CommerceGateway {
   cancelAccountDeletion(accountId: string): Promise<AccountDeletionStatus | null>;
   executeAccountDeletion(accountId: string): Promise<AccountDeletionStatus | null>;
   exportAccountData(accountId: string): Promise<AccountDataExport | null>;
+
+  // Sprint 2A — authoring lifecycle
+  listDrafts(accountId: string): Promise<DropDraft[]>;
+  saveDraft(accountId: string, input: SaveDraftInput): Promise<DropDraft | null>;
+  deleteDraft(accountId: string, draftId: string): Promise<boolean>;
+  editDrop(accountId: string, dropId: string, input: EditDropInput): Promise<Drop | null>;
+  deleteDrop(accountId: string, dropId: string): Promise<{ dropId: string; deletedAt: string } | null>;
+  toggleActiveRole(accountId: string, role: AccountRole): Promise<{ activeRole: AccountRole } | null>;
 }

@@ -53,6 +53,7 @@ export function CreateDropStepper({
   const [captionUrl, setCaptionUrl] = useState("");
   const [commentsDisabled, setCommentsDisabled] = useState(false);
   const [sponsoredContent, setSponsoredContent] = useState(false);
+  const [scheduledAt, setScheduledAt] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -103,6 +104,7 @@ export function CreateDropStepper({
     if (captionUrl.trim()) formData.set("captionUrl", captionUrl.trim());
     if (commentsDisabled) formData.set("commentsDisabled", "true");
     if (sponsoredContent) formData.set("sponsoredContent", "true");
+    if (scheduledAt.trim()) formData.set("scheduledAt", new Date(scheduledAt).toISOString());
 
     startTransition(async () => {
       const result = await createDropAction(formData);
@@ -422,6 +424,18 @@ export function CreateDropStepper({
                 </span>
               </div>
             </label>
+            <label className="identity-field">
+              <span className="slice-meta">scheduled release (optional)</span>
+              <input
+                className="identity-input"
+                type="datetime-local"
+                value={scheduledAt}
+                onChange={(e) => setScheduledAt(e.target.value)}
+              />
+              <span className="slice-meta">
+                leave empty to publish immediately. set a future date to schedule release.
+              </span>
+            </label>
           </div>
         </section>
       ) : null}
@@ -506,6 +520,12 @@ export function CreateDropStepper({
                 <span className="slice-copy">paid partnership</span>
               </div>
             ) : null}
+            {scheduledAt ? (
+              <div className="create-stepper-review-row">
+                <span className="slice-meta">scheduled release</span>
+                <span className="slice-copy">{new Date(scheduledAt).toLocaleString()}</span>
+              </div>
+            ) : null}
           </div>
         </section>
       ) : null}
@@ -532,7 +552,11 @@ export function CreateDropStepper({
             onClick={handleSubmit}
             disabled={pending}
           >
-            {pending ? "publishing..." : "publish drop"}
+            {pending
+              ? "publishing..."
+              : scheduledAt
+                ? "schedule drop"
+                : "publish drop"}
           </button>
         ) : (
           <button

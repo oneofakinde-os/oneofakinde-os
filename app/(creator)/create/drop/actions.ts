@@ -49,6 +49,10 @@ export async function createDropAction(formData: FormData): Promise<CreateDropRe
   const captionUrl = String(formData.get("captionUrl") ?? "").trim() || undefined;
   const commentsDisabled = formData.get("commentsDisabled") === "true" ? true : undefined;
   const sponsoredContent = formData.get("sponsoredContent") === "true" ? true : undefined;
+  const rawScheduledAt = String(formData.get("scheduledAt") ?? "").trim();
+  const scheduledAt = rawScheduledAt && !Number.isNaN(Date.parse(rawScheduledAt))
+    ? rawScheduledAt
+    : undefined;
 
   if (!title) return { ok: false, error: "title is required" };
   if (title.length > 200) return { ok: false, error: "title must be under 200 characters" };
@@ -74,7 +78,8 @@ export async function createDropAction(formData: FormData): Promise<CreateDropRe
     altText,
     captionUrl,
     commentsDisabled,
-    sponsoredContent
+    sponsoredContent,
+    scheduledAt
   });
 
   if (!drop) {

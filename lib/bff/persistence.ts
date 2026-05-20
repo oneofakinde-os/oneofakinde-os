@@ -579,6 +579,22 @@ export type FollowerRequestRecord = {
   decidedAt?: string;
 };
 
+export type DropDraftRecord = {
+  id: string;
+  accountId: string;
+  studioHandle: string;
+  title: string | null;
+  synopsis: string | null;
+  worldId: string | null;
+  pricingType: string | null;
+  priceUsd: number | null;
+  altText: string | null;
+  captionUrl: string | null;
+  scheduledAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type BffDatabase = {
   version: 1;
   catalog: {
@@ -636,6 +652,7 @@ export type BffDatabase = {
   mutes: MuteRecord[];
   restrictions: RestrictionRecord[];
   followerRequests: FollowerRequestRecord[];
+  drafts: DropDraftRecord[];
 };
 
 type MutationResult<T> = {
@@ -1445,7 +1462,8 @@ function createSeedDatabase(): BffDatabase {
     blocks: [],
     mutes: [],
     restrictions: [],
-    followerRequests: []
+    followerRequests: [],
+    drafts: []
   };
 }
 
@@ -1502,7 +1520,8 @@ function createCatalogSeedDatabase(): BffDatabase {
     blocks: [],
     mutes: [],
     restrictions: [],
-    followerRequests: []
+    followerRequests: [],
+    drafts: []
   };
 }
 
@@ -1563,7 +1582,8 @@ function createEmptyDatabase(): BffDatabase {
     blocks: [],
     mutes: [],
     restrictions: [],
-    followerRequests: []
+    followerRequests: [],
+    drafts: []
   };
 }
 
@@ -3518,6 +3538,9 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         : [],
       followerRequests: Array.isArray(input.followerRequests)
         ? (input.followerRequests as FollowerRequestRecord[])
+        : [],
+      drafts: Array.isArray(input.drafts)
+        ? (input.drafts as DropDraftRecord[])
         : []
     };
   }
@@ -3690,6 +3713,9 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         : [],
       followerRequests: Array.isArray(candidate.followerRequests)
         ? (candidate.followerRequests as FollowerRequestRecord[])
+        : [],
+      drafts: Array.isArray(candidate.drafts)
+        ? (candidate.drafts as DropDraftRecord[])
         : []
     };
   }
@@ -5001,6 +5027,16 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       } catch {
         return [];
       }
+    })(),
+    drafts: await (async () => {
+      try {
+        const r = await client.query<DropDraftRecord>(
+          'SELECT id, account_id AS "accountId", studio_handle AS "studioHandle", title, synopsis, world_id AS "worldId", pricing_type AS "pricingType", price_usd AS "priceUsd", alt_text AS "altText", caption_url AS "captionUrl", scheduled_at AS "scheduledAt", created_at AS "createdAt", updated_at AS "updatedAt" FROM bff_drafts ORDER BY updated_at DESC'
+        );
+        return r.rows;
+      } catch {
+        return [];
+      }
     })()
   };
 }
@@ -5071,6 +5107,12 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
     await client.query("TRUNCATE TABLE bff_restrictions, bff_follower_requests");
   } catch {
     // pre-0048 environment; safe to skip.
+  }
+  // Sprint 2A — drafts
+  try {
+    await client.query("TRUNCATE TABLE bff_drafts");
+  } catch {
+    // pre-0049 environment; safe to skip.
   }
 
   await client.query("INSERT INTO bff_meta (key, value) VALUES ($1, $2)", ["version", String(db.version)]);
@@ -5419,6 +5461,17 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
     }
   } catch {
     // bff_follower_requests missing — pre-migration; safe to skip.
+  }
+  // Sprint 2A — drafts
+  try {
+    for (const draft of db.drafts) {
+      await client.query(
+        "INSERT INTO bff_drafts (id, account_id, studio_handle, title, synopsis, world_id, pricing_type, price_usd, alt_text, caption_url, scheduled_at, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)",
+        [draft.id, draft.accountId, draft.studioHandle, draft.title, draft.synopsis, draft.worldId, draft.pricingType, draft.priceUsd, draft.altText, draft.captionUrl, draft.scheduledAt, draft.createdAt, draft.updatedAt]
+      );
+    }
+  } catch {
+    // bff_drafts missing — pre-migration; safe to skip.
   }
 
   for (const comment of db.townhallComments) {

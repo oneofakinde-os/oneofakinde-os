@@ -12,7 +12,11 @@ import {
   createWorkshopLiveSessionAction,
   transitionWorkshopProStateAction,
   updateWorkshopWorldReleaseStatusAction,
-  resolveWorkshopModerationCaseAction
+  resolveWorkshopModerationCaseAction,
+  deleteWorkshopDraftAction,
+  deleteWorkshopDropAction,
+  editWorkshopDropAction,
+  toggleWorkshopActiveRoleAction
 } from "./actions";
 
 type WorkshopPageProps = {
@@ -34,6 +38,11 @@ type WorkshopPageProps = {
     pro_state?: string | string[];
     moderation_status?: string | string[];
     moderation_comment_id?: string | string[];
+    draft_status?: string | string[];
+    drop_action_status?: string | string[];
+    drop_action_id?: string | string[];
+    role_status?: string | string[];
+    active_role?: string | string[];
     compose?: string | string[];
     culture_complete?: string | string[];
     access_complete?: string | string[];
@@ -326,6 +335,46 @@ function toPublishNotice(
   return "workshop publish stepper updated.";
 }
 
+function toDraftNotice(draftStatus: string | null): string | null {
+  if (!draftStatus) return null;
+  if (draftStatus === "deleted") return "draft deleted.";
+  if (draftStatus === "not_found") return "draft not found.";
+  if (draftStatus === "invalid_input") return "draft action failed: missing draft identifier.";
+  return null;
+}
+
+function toDropActionNotice(
+  dropActionStatus: string | null,
+  dropActionId: string | null
+): string | null {
+  if (!dropActionStatus) return null;
+  if (dropActionStatus === "deleted") {
+    return dropActionId ? `drop soft-deleted: ${dropActionId}.` : "drop soft-deleted.";
+  }
+  if (dropActionStatus === "edited") {
+    return dropActionId ? `drop updated: ${dropActionId}.` : "drop updated.";
+  }
+  if (dropActionStatus === "edit_failed") return "drop edit failed: check ownership and fields.";
+  if (dropActionStatus === "not_found") return "drop not found or not owned by you.";
+  if (dropActionStatus === "invalid_input") return "drop action failed: missing or invalid input.";
+  return null;
+}
+
+function toRoleNotice(
+  roleStatus: string | null,
+  activeRole: string | null
+): string | null {
+  if (!roleStatus) return null;
+  if (roleStatus === "toggled") {
+    return activeRole
+      ? `active role switched to ${activeRole}.`
+      : "active role updated.";
+  }
+  if (roleStatus === "failed") return "role toggle failed: you may not have that role.";
+  if (roleStatus === "invalid_input") return "role toggle failed: invalid role.";
+  return null;
+}
+
 export default async function WorkshopPage({ searchParams }: WorkshopPageProps) {
   const session = await requireSessionRoles("/workshop", ["creator"]);
   const resolvedSearchParams = await searchParams;
@@ -346,6 +395,11 @@ export default async function WorkshopPage({ searchParams }: WorkshopPageProps) 
   const proState = firstParam(resolvedSearchParams.pro_state);
   const moderationStatus = firstParam(resolvedSearchParams.moderation_status);
   const moderationCommentId = firstParam(resolvedSearchParams.moderation_comment_id);
+  const draftStatus = firstParam(resolvedSearchParams.draft_status);
+  const dropActionStatus = firstParam(resolvedSearchParams.drop_action_status);
+  const dropActionId = firstParam(resolvedSearchParams.drop_action_id);
+  const roleStatus = firstParam(resolvedSearchParams.role_status);
+  const activeRoleParam = firstParam(resolvedSearchParams.active_role);
   const compose = firstParam(resolvedSearchParams.compose);
   const cultureComplete = parseFlag(firstParam(resolvedSearchParams.culture_complete));
   const accessComplete = parseFlag(firstParam(resolvedSearchParams.access_complete));
@@ -395,6 +449,9 @@ export default async function WorkshopPage({ searchParams }: WorkshopPageProps) 
       artifactNotice={toArtifactNotice(artifactStatus, artifactId)}
       proNotice={toProNotice(proStatus, proState)}
       moderationNotice={toModerationNotice(moderationStatus, moderationCommentId)}
+      draftNotice={toDraftNotice(draftStatus)}
+      dropActionNotice={toDropActionNotice(dropActionStatus, dropActionId)}
+      roleNotice={toRoleNotice(roleStatus, activeRoleParam)}
       validatePublishGateAction={validateWorkshopPublishGateAction}
       createLiveSessionAction={createWorkshopLiveSessionAction}
       captureLiveSessionArtifactAction={captureWorkshopLiveSessionArtifactAction}
@@ -406,6 +463,10 @@ export default async function WorkshopPage({ searchParams }: WorkshopPageProps) 
       createDropVersionAction={createDropVersionAction}
       createAuthorizedDerivativeAction={createAuthorizedDerivativeAction}
       resolveModerationAction={resolveWorkshopModerationCaseAction}
+      deleteDraftAction={deleteWorkshopDraftAction}
+      deleteDropAction={deleteWorkshopDropAction}
+      editDropAction={editWorkshopDropAction}
+      toggleActiveRoleAction={toggleWorkshopActiveRoleAction}
       {...context}
     />
   );
