@@ -147,6 +147,8 @@ export type SensitivityRating = "none" | "advisory" | "mature";
 
 export type SensitivitySource = "drop" | "world_default";
 
+export type DropPricingType = "free" | "fixed" | "auction" | "bundle_priced";
+
 export type Drop = {
   id: string;
   title: string;
@@ -158,6 +160,7 @@ export type Drop = {
   synopsis: string;
   releaseDate: string;
   priceUsd: number;
+  pricingType?: DropPricingType;
   studioPinRank?: number;
   worldOrderIndex?: number;
   previewMedia?: DropPreviewMap;
@@ -190,7 +193,7 @@ export type MembershipEntitlement = {
   isActive: boolean;
 };
 
-export type PatronStatus = "active" | "lapsed";
+export type PatronStatus = "active" | "dormant_60" | "dormant_90" | "paused_180" | "lapsed" | "ended";
 
 export type Patron = {
   id: string;
@@ -200,6 +203,11 @@ export type Patron = {
   status: PatronStatus;
   committedAt: string;
   lapsedAt?: string;
+  dormancyDetectedAt?: string;
+  pausedAt?: string;
+  endedAt?: string;
+  voluntaryDormancy?: boolean;
+  lastActivityAt?: string;
 };
 
 export type PatronCommitment = {
@@ -655,6 +663,7 @@ export type CreateDropInput = {
   title: string;
   worldId: string;
   synopsis: string;
+  pricingType?: DropPricingType;
   priceUsd: number;
   seasonLabel?: string;
   episodeLabel?: string;
@@ -1561,7 +1570,12 @@ export type NotificationType =
   | "patron_renewal"
   | "live_session_starting"
   | "featured_lane_alert"
-  | "weekly_digest";
+  | "weekly_digest"
+  | "daily_digest"
+  | "new_drop_from_followed"
+  | "refund_issued"
+  | "refund_on_your_drop"
+  | "new_follower";
 
 export type NotificationEntry = {
   id: string;

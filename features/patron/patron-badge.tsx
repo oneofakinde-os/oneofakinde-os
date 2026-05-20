@@ -15,7 +15,11 @@ const TIER_LABEL: Record<"founding" | "active", string> = {
 
 const STATUS_LABEL: Record<PatronStatus, string> = {
   active: "active",
-  lapsed: "lapsed"
+  dormant_60: "dormant",
+  dormant_90: "dormant",
+  paused_180: "paused",
+  lapsed: "lapsed",
+  ended: "ended",
 };
 
 function formatCommittedDate(value: string): string {

@@ -186,6 +186,11 @@ export type PatronRecord = {
   status: PatronStatus;
   committedAt: string;
   lapsedAt: string | null;
+  dormancyDetectedAt: string | null;
+  pausedAt: string | null;
+  endedAt: string | null;
+  voluntaryDormancy: boolean;
+  lastActivityAt: string | null;
 };
 
 export type PatronCommitmentRecord = {
@@ -514,6 +519,15 @@ export type NotificationPreferencesRecord = {
   channels: Record<string, boolean>;
   mutedTypes: string[];
   digestEnabled: boolean;
+  quietHoursEnabled: boolean;
+  quietHoursFromHour: number;
+  quietHoursFromMinute: number;
+  quietHoursToHour: number;
+  quietHoursToMinute: number;
+  quietHoursTimezone: string;
+  digestMode: "none" | "daily" | "weekly";
+  frequencyCap: number;
+  emailCategories: Record<string, boolean>;
 };
 
 export type TotpEnrollmentRecord = {
@@ -1816,8 +1830,13 @@ function normalizeMembershipEntitlementRecords(
   });
 }
 
+const VALID_PATRON_STATUSES: PatronStatus[] = ["active", "dormant_60", "dormant_90", "paused_180", "lapsed", "ended"];
+
 function normalizePatronStatus(value: unknown): PatronStatus {
-  return value === "lapsed" ? "lapsed" : "active";
+  if (typeof value === "string" && VALID_PATRON_STATUSES.includes(value as PatronStatus)) {
+    return value as PatronStatus;
+  }
+  return "active";
 }
 
 function normalizePatronRecords(records: PatronRecord[]): PatronRecord[] {
@@ -1840,7 +1859,12 @@ function normalizePatronRecords(records: PatronRecord[]): PatronRecord[] {
       studioHandle: typeof candidate.studioHandle === "string" ? candidate.studioHandle : "",
       status,
       committedAt,
-      lapsedAt: status === "lapsed" ? normalizedLapsedAt ?? committedAt : null
+      lapsedAt: status === "lapsed" ? normalizedLapsedAt ?? committedAt : null,
+      dormancyDetectedAt: typeof candidate.dormancyDetectedAt === "string" ? candidate.dormancyDetectedAt : null,
+      pausedAt: typeof candidate.pausedAt === "string" ? candidate.pausedAt : null,
+      endedAt: typeof candidate.endedAt === "string" ? candidate.endedAt : null,
+      voluntaryDormancy: candidate.voluntaryDormancy === true,
+      lastActivityAt: typeof candidate.lastActivityAt === "string" ? candidate.lastActivityAt : null,
     };
   });
 }
@@ -4866,8 +4890,17 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
           channels: Record<string, boolean>;
           mutedTypes: string[];
           digestEnabled: boolean;
+          quietHoursEnabled: boolean;
+          quietHoursFromHour: number;
+          quietHoursFromMinute: number;
+          quietHoursToHour: number;
+          quietHoursToMinute: number;
+          quietHoursTimezone: string;
+          digestMode: "none" | "daily" | "weekly";
+          frequencyCap: number;
+          emailCategories: Record<string, boolean>;
         }>(
-          'SELECT account_id AS "accountId", channels, muted_types AS "mutedTypes", digest_enabled AS "digestEnabled" FROM bff_notification_preferences'
+          'SELECT account_id AS "accountId", channels, muted_types AS "mutedTypes", digest_enabled AS "digestEnabled", COALESCE(quiet_hours_enabled, false) AS "quietHoursEnabled", COALESCE(quiet_hours_from_hour, 22) AS "quietHoursFromHour", COALESCE(quiet_hours_from_minute, 0) AS "quietHoursFromMinute", COALESCE(quiet_hours_to_hour, 8) AS "quietHoursToHour", COALESCE(quiet_hours_to_minute, 0) AS "quietHoursToMinute", COALESCE(quiet_hours_timezone, \'UTC\') AS "quietHoursTimezone", COALESCE(digest_mode, \'none\') AS "digestMode", COALESCE(frequency_cap, 20) AS "frequencyCap", COALESCE(email_categories, \'{}\'::jsonb) AS "emailCategories" FROM bff_notification_preferences'
         );
         return r.rows;
       } catch {
@@ -5526,12 +5559,21 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
   // Notification preferences
   for (const pref of db.notificationPreferences) {
     await client.query(
-      "INSERT INTO bff_notification_preferences (account_id, channels, muted_types, digest_enabled) VALUES ($1, $2::jsonb, $3, $4) ON CONFLICT (account_id) DO UPDATE SET channels = EXCLUDED.channels, muted_types = EXCLUDED.muted_types, digest_enabled = EXCLUDED.digest_enabled",
+      "INSERT INTO bff_notification_preferences (account_id, channels, muted_types, digest_enabled, quiet_hours_enabled, quiet_hours_from_hour, quiet_hours_from_minute, quiet_hours_to_hour, quiet_hours_to_minute, quiet_hours_timezone, digest_mode, frequency_cap, email_categories) VALUES ($1, $2::jsonb, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb) ON CONFLICT (account_id) DO UPDATE SET channels = EXCLUDED.channels, muted_types = EXCLUDED.muted_types, digest_enabled = EXCLUDED.digest_enabled, quiet_hours_enabled = EXCLUDED.quiet_hours_enabled, quiet_hours_from_hour = EXCLUDED.quiet_hours_from_hour, quiet_hours_from_minute = EXCLUDED.quiet_hours_from_minute, quiet_hours_to_hour = EXCLUDED.quiet_hours_to_hour, quiet_hours_to_minute = EXCLUDED.quiet_hours_to_minute, quiet_hours_timezone = EXCLUDED.quiet_hours_timezone, digest_mode = EXCLUDED.digest_mode, frequency_cap = EXCLUDED.frequency_cap, email_categories = EXCLUDED.email_categories",
       [
         pref.accountId,
         JSON.stringify(pref.channels),
         pref.mutedTypes,
-        pref.digestEnabled
+        pref.digestEnabled,
+        pref.quietHoursEnabled ?? false,
+        pref.quietHoursFromHour ?? 22,
+        pref.quietHoursFromMinute ?? 0,
+        pref.quietHoursToHour ?? 8,
+        pref.quietHoursToMinute ?? 0,
+        pref.quietHoursTimezone ?? "UTC",
+        pref.digestMode ?? "none",
+        pref.frequencyCap ?? 20,
+        JSON.stringify(pref.emailCategories ?? {})
       ]
     );
   }

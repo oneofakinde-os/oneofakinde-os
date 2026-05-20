@@ -1666,6 +1666,7 @@ export function TownhallFeedScreen({
                     <p className="townhall-kicker">{dropCopy.kicker}</p>
                     <p className="townhall-meta">
                       @{drop.studioHandle} · {formatUsd(drop.priceUsd)}
+                      {drop.priceUsd > 0 ? <span className="diamond-marker" aria-label="collectible" title="collectible">{" "}◆</span> : null}
                     </p>
                     <h1 className="townhall-title">{drop.title}</h1>
                     {dropHeading ? <p className="townhall-subtitle">{dropHeading}</p> : null}
@@ -1947,7 +1948,7 @@ export function TownhallFeedScreen({
                       </div>
                       <dl className="townhall-collect-stats">
                         <div>
-                          <dt>price</dt>
+                          <dt>price{drop.priceUsd > 0 ? <span className="diamond-marker"> ◆</span> : null}</dt>
                           <dd>{formatUsd(drop.priceUsd)}</dd>
                         </div>
                         <div>

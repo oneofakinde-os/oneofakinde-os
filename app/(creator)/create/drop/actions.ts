@@ -2,7 +2,7 @@
 
 import { gateway } from "@/lib/gateway";
 import { requireSessionRoles } from "@/lib/server/session";
-import type { SensitivityRating, WalletChain } from "@/lib/domain/contracts";
+import type { DropPricingType, SensitivityRating, WalletChain } from "@/lib/domain/contracts";
 import { redirect } from "next/navigation";
 
 export type CreateDropResult = {
@@ -11,6 +11,7 @@ export type CreateDropResult = {
   error?: string;
 };
 
+const VALID_PRICING_TYPES: ReadonlySet<DropPricingType> = new Set(["free", "fixed", "auction", "bundle_priced"]);
 const VALID_WALLET_CHAINS: ReadonlySet<WalletChain> = new Set(["ethereum", "tezos", "polygon"]);
 const VALID_SENSITIVITY_RATINGS: ReadonlySet<SensitivityRating> = new Set([
   "none",
@@ -24,6 +25,10 @@ export async function createDropAction(formData: FormData): Promise<CreateDropRe
   const title = String(formData.get("title") ?? "").trim();
   const worldId = String(formData.get("worldId") ?? "").trim();
   const synopsis = String(formData.get("synopsis") ?? "").trim();
+  const rawPricingType = String(formData.get("pricingType") ?? "fixed").trim();
+  const pricingType: DropPricingType = VALID_PRICING_TYPES.has(rawPricingType as DropPricingType)
+    ? (rawPricingType as DropPricingType)
+    : "fixed";
   const priceStr = String(formData.get("priceUsd") ?? "0").trim();
   const seasonLabel = String(formData.get("seasonLabel") ?? "").trim() || undefined;
   const episodeLabel = String(formData.get("episodeLabel") ?? "").trim() || undefined;
@@ -54,7 +59,8 @@ export async function createDropAction(formData: FormData): Promise<CreateDropRe
     title,
     worldId,
     synopsis,
-    priceUsd: Math.round(priceUsd * 100) / 100,
+    pricingType,
+    priceUsd: pricingType === "free" ? 0 : Math.round(priceUsd * 100) / 100,
     seasonLabel,
     episodeLabel,
     walletGate,

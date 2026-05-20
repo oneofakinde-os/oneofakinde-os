@@ -10,6 +10,12 @@
 
 import type { Drop, TownhallTelemetrySignals } from "@/lib/domain/contracts";
 import { studioPinBoostForTownhall } from "@/lib/catalog/drop-curation";
+import {
+  ENGAGEMENT_WEIGHTS,
+  TELEMETRY_WEIGHTS,
+  LANE_BLEND,
+  RECENCY_HALF_LIFE_DAYS,
+} from "@/lib/ranking/score-formula";
 
 // ── public types ──────────────────────────────────────────────────────
 
@@ -159,12 +165,12 @@ function mergeSignals(
 
 function engagementRawScore(signals: EngagementSignals): number {
   return (
-    signals.collected * 4 +
-    signals.watched * 1 +
-    signals.liked * 0.25 +
-    signals.shared * 0.55 +
-    signals.commented * 0.65 +
-    signals.saved * 0.3
+    signals.collected * ENGAGEMENT_WEIGHTS.collects +
+    signals.watched * ENGAGEMENT_WEIGHTS.completions +
+    signals.liked * ENGAGEMENT_WEIGHTS.likes +
+    signals.shared * ENGAGEMENT_WEIGHTS.shares +
+    signals.commented * ENGAGEMENT_WEIGHTS.comments +
+    signals.saved * ENGAGEMENT_WEIGHTS.saves
   );
 }
 
@@ -189,7 +195,11 @@ function mergeTelemetrySignals(
 }
 
 function telemetryRawScore(signals: TelemetrySignals): number {
-  return signals.watchTimeSeconds * 0.75 + signals.completions * 600 + signals.collectIntents * 800;
+  return (
+    signals.watchTimeSeconds * TELEMETRY_WEIGHTS.watchTimeSeconds +
+    signals.completions * TELEMETRY_WEIGHTS.completions +
+    signals.collectIntents * TELEMETRY_WEIGHTS.collectIntents
+  );
 }
 
 function collectSignalScore(entry: RankedEntry): number {
@@ -209,24 +219,27 @@ function normalize(value: number, max: number): number {
 function risingScore(entry: RankedEntry, maxima: RankingMaxima): number {
   const engagement = normalize(entry.engagementRaw, maxima.engagement);
   const telemetry = normalize(entry.telemetryRaw, maxima.telemetry);
-  return entry.recency * 0.58 + engagement * 0.24 + telemetry * 0.18 + entry.studioPinBoost;
+  const blend = LANE_BLEND.rising;
+  return entry.recency * blend.recency + engagement * blend.engagement + telemetry * blend.telemetry + entry.studioPinBoost;
 }
 
 function sustainedCraftScore(entry: RankedEntry, maxima: RankingMaxima): number {
   const engagement = normalize(entry.engagementRaw, maxima.engagement);
   const telemetry = normalize(entry.telemetryRaw, maxima.telemetry);
-  return entry.sustainedRecency * 0.2 + engagement * 0.5 + telemetry * 0.3 + entry.studioPinBoost;
+  const blend = LANE_BLEND.sustained_craft;
+  return entry.sustainedRecency * blend.recency + engagement * blend.engagement + telemetry * blend.telemetry + entry.studioPinBoost;
 }
 
 function featuredScore(entry: RankedEntry, maxima: RankingMaxima): number {
   const engagement = normalize(entry.engagementRaw, maxima.engagement);
   const telemetry = normalize(entry.telemetryRaw, maxima.telemetry);
   const collected = normalize(entry.mostCollectedRaw, maxima.mostCollected);
+  const blend = LANE_BLEND.featured;
   return (
-    entry.recency * 0.2 +
-    engagement * 0.22 +
-    telemetry * 0.24 +
-    collected * 0.24 +
+    entry.recency * blend.recency +
+    engagement * blend.engagement +
+    telemetry * blend.telemetry +
+    collected * blend.collected +
     entry.studioPinBoost * 1.3
   );
 }
@@ -301,10 +314,11 @@ function applyNewVoicesLane(
 }
 
 function applyMostCollectedLane(entries: RankedEntry[], maxima: RankingMaxima): RankedEntry[] {
+  const blend = LANE_BLEND.most_collected;
   return sortByScoreThenDate(entries, (entry) => {
     const collected = normalize(entry.mostCollectedRaw, maxima.mostCollected);
     const engagement = normalize(entry.engagementRaw, maxima.engagement);
-    return collected * 0.8 + engagement * 0.2 + entry.studioPinBoost;
+    return collected * blend.collected + engagement * blend.engagement + entry.studioPinBoost;
   });
 }
 
@@ -334,8 +348,8 @@ export function rankDrops(drops: Drop[], options: RankingOptions = {}): Drop[] {
     return {
       drop,
       releaseMs,
-      recency: recencyScore(nowMs, releaseMs, 18),
-      sustainedRecency: recencyScore(nowMs, releaseMs, 60),
+      recency: recencyScore(nowMs, releaseMs, RECENCY_HALF_LIFE_DAYS.rising),
+      sustainedRecency: recencyScore(nowMs, releaseMs, RECENCY_HALF_LIFE_DAYS.sustained_craft),
       studioPinBoost: studioPinBoostForTownhall(drop),
       engagementSignals,
       telemetrySignals,

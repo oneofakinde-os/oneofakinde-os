@@ -123,7 +123,15 @@ export const routes = {
   worldMembership: (worldId: string): Route => asRoute(`/worlds/${worldId}/membership`),
   worldUpgrade: (worldId: string): Route => asRoute(`/worlds/${worldId}/upgrade`),
   workshopWorldSchedule: (worldId: string): Route => asRoute(`/workshop/worlds/${worldId}/schedule`),
-  notifications: (): Route => asRoute("/notifications")
+  notifications: (): Route => asRoute("/notifications"),
+
+  transparency: (): Route => asRoute("/transparency"),
+  transparencyScore: (): Route => asRoute("/transparency/score"),
+  transparencyCuration: (): Route => asRoute("/transparency/curation"),
+  transparencyWindDown: (): Route => asRoute("/transparency/wind-down"),
+  transparencyContentPolicy: (): Route => asRoute("/transparency/content-policy"),
+  transparencyAiUse: (): Route => asRoute("/transparency/ai-use"),
+  transparencyGovernmentRequests: (): Route => asRoute("/transparency/government-requests"),
 };
 
 export type AppRouteHelpers = typeof routes;

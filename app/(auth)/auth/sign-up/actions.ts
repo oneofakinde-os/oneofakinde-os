@@ -18,6 +18,11 @@ export async function signUpAction(formData: FormData): Promise<void> {
   const password = String(formData.get("password") ?? "");
   const role = normalizeRole(formData.get("role"));
   const returnTo = String(formData.get("returnTo") ?? "");
+  const ageConfirm = formData.get("ageConfirm");
+
+  if (ageConfirm !== "yes") {
+    redirect(`/auth/sign-up?error=age_required&returnTo=${encodeURIComponent(returnTo)}` as Route);
+  }
 
   if (!email || !email.includes("@")) {
     redirect(`/auth/sign-up?error=invalid_email&returnTo=${encodeURIComponent(returnTo)}` as Route);

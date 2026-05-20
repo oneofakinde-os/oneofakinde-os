@@ -70,8 +70,10 @@ import type {
   DropOwnershipHistory,
   MyCollectionSnapshot,
   MembershipEntitlement,
+  NotificationChannel,
   NotificationEntry,
   NotificationFeed,
+  NotificationPreferences,
   NotificationType,
   OpsAnalyticsPanel,
   OwnedDrop,
@@ -80,6 +82,7 @@ import type {
   PatronCommitmentCadence,
   Patron,
   PatronTierConfig,
+  PatronStatus,
   PatronTierStatus,
   PatronRosterEntry,
   WorldPatronRosterSnapshot,
@@ -193,6 +196,7 @@ import {
   type TownhallPostSaveRecord,
   type TownhallPostShareRecord,
   type NotificationEntryRecord,
+  type NotificationPreferencesRecord,
   type TotpEnrollmentRecord,
   type TownhallTelemetryEventRecord,
   type WalletConnectionRecord
@@ -2238,6 +2242,36 @@ function markRefundByReceipt(db: BffDatabase, accountId: string, receiptId: stri
       reversalOfTransactionId: originalTransaction.id,
       lineItems: reversedLineItems
     });
+  }
+
+  const drop = originalTransaction?.dropId
+    ? findDropById(db, originalTransaction.dropId)
+    : null;
+  const dropTitle = drop?.title ?? "a drop";
+
+  emitNotification(
+    db,
+    accountId,
+    "refund_issued",
+    "refund processed",
+    `your refund for "${dropTitle}" has been processed.`,
+    `/my-collection`
+  );
+
+  if (drop) {
+    const creatorAccount = db.accounts.find(
+      (a) => a.handle === drop.studioHandle
+    );
+    if (creatorAccount && creatorAccount.id !== accountId) {
+      emitNotification(
+        db,
+        creatorAccount.id,
+        "refund_on_your_drop",
+        "a collect was refunded",
+        `a collector refunded "${drop.title}".`,
+        `/workshop/drops/${drop.id}`
+      );
+    }
   }
 
   return true;
@@ -6825,6 +6859,22 @@ const gatewayMethods = {
 
       db.catalog.drops.push(drop);
 
+      if (drop.visibility === "public") {
+        const followers = db.studioFollows.filter(
+          (f) => f.studioHandle.toLowerCase() === account.handle.toLowerCase()
+        );
+        for (const follower of followers) {
+          emitNotification(
+            db,
+            follower.accountId,
+            "new_drop_from_followed",
+            `new drop from @${account.handle}`,
+            `"${drop.title}" is now available.`,
+            `/showroom/${drop.id}`
+          );
+        }
+      }
+
       return { persist: true, result: drop };
     });
   },
@@ -9650,7 +9700,12 @@ export const commerceBffService = {
         studioHandle: studio.handle,
         status: "active",
         committedAt: nowIso,
-        lapsedAt: null
+        lapsedAt: null,
+        dormancyDetectedAt: null,
+        pausedAt: null,
+        endedAt: null,
+        voluntaryDormancy: false,
+        lastActivityAt: nowIso,
       };
 
       patronRecord.handle = account.handle;
@@ -9658,6 +9713,11 @@ export const commerceBffService = {
       patronRecord.status = "active";
       patronRecord.committedAt = nowIso;
       patronRecord.lapsedAt = null;
+      patronRecord.dormancyDetectedAt = null;
+      patronRecord.pausedAt = null;
+      patronRecord.endedAt = null;
+      patronRecord.voluntaryDormancy = false;
+      patronRecord.lastActivityAt = nowIso;
 
       if (!existingPatron) {
         db.patrons.unshift(patronRecord);
@@ -13531,7 +13591,7 @@ export const commerceBffService = {
         emitNotification(
           db,
           creatorAccount.id,
-          "world_update",
+          "new_follower",
           `@${account.handle} followed your studio`,
           `you now have ${followerCount} follower${followerCount === 1 ? "" : "s"}.`,
           `/studio/${studio.handle}`
@@ -13608,10 +13668,10 @@ export const commerceBffService = {
   async getViewerPatronIndicator(
     accountId: string,
     studioHandle: string
-  ): Promise<{ recognitionTier: "founding" | "active"; status: "active" | "lapsed"; committedAt: string } | null> {
+  ): Promise<{ recognitionTier: "founding" | "active"; status: PatronStatus; committedAt: string } | null> {
     return withDatabase<{
       recognitionTier: "founding" | "active";
-      status: "active" | "lapsed";
+      status: PatronStatus;
       committedAt: string;
     } | null>(async (db) => {
       const patron = db.patrons.find(
@@ -14022,6 +14082,75 @@ export const commerceBffService = {
     });
   },
 
+  async transferMessageThreadAdmin(
+    accountId: string,
+    threadId: string,
+    targetHandle: string
+  ): Promise<MessageThreadMutationResult> {
+    return withDatabase<MessageThreadMutationResult>(async (db) => {
+      const account = findAccountById(db, accountId);
+      const thread = db.messageThreads.find((entry) => entry.id === threadId) ?? null;
+      if (!account || !thread) {
+        return {
+          persist: false,
+          result: { ok: false as const, reason: "not_found" as const }
+        };
+      }
+
+      if (thread.kind !== "group") {
+        return {
+          persist: false,
+          result: { ok: false as const, reason: "invalid" as const }
+        };
+      }
+
+      const callerParticipant = db.messageParticipants.find(
+        (entry) => entry.threadId === thread.id && entry.accountId === account.id
+      );
+      if (!callerParticipant || callerParticipant.role !== "owner") {
+        return {
+          persist: false,
+          result: { ok: false as const, reason: "forbidden" as const }
+        };
+      }
+
+      const targetAccount = db.accounts.find((a) => a.handle === targetHandle) ?? null;
+      if (!targetAccount) {
+        return {
+          persist: false,
+          result: { ok: false as const, reason: "not_found" as const }
+        };
+      }
+
+      const targetParticipant = db.messageParticipants.find(
+        (entry) => entry.threadId === thread.id && entry.accountId === targetAccount.id
+      );
+      if (!targetParticipant || targetParticipant.status !== "active") {
+        return {
+          persist: false,
+          result: { ok: false as const, reason: "not_found" as const }
+        };
+      }
+
+      callerParticipant.role = "member";
+      targetParticipant.role = "owner";
+      thread.updatedAt = new Date().toISOString();
+
+      const view = buildMessageThread(db, account, thread, {});
+      if (!view) {
+        return {
+          persist: false,
+          result: { ok: false as const, reason: "not_found" as const }
+        };
+      }
+
+      return {
+        persist: true,
+        result: { ok: true as const, thread: view }
+      };
+    });
+  },
+
   async reportMessage(
     accountId: string,
     threadId: string,
@@ -14174,6 +14303,148 @@ export const commerceBffService = {
         }
       }
       return { persist: true, result: undefined };
+    });
+  },
+
+  // ── notification preferences ─────────────────────────────────────
+
+  async getNotificationPreferences(accountId: string): Promise<NotificationPreferences> {
+    return withDatabase(async (db) => {
+      const record = db.notificationPreferences.find((p) => p.accountId === accountId);
+      if (!record) {
+        return {
+          persist: false,
+          result: {
+            accountId,
+            channels: { in_app: true, email: true, push: false } as Record<NotificationChannel, boolean>,
+            mutedTypes: [],
+            digestEnabled: false
+          }
+        };
+      }
+      return {
+        persist: false,
+        result: {
+          accountId: record.accountId,
+          channels: record.channels as Record<NotificationChannel, boolean>,
+          mutedTypes: record.mutedTypes as NotificationType[],
+          digestEnabled: record.digestEnabled
+        }
+      };
+    });
+  },
+
+  async getFullNotificationPreferences(accountId: string): Promise<{
+    accountId: string;
+    channels: Record<string, boolean>;
+    mutedTypes: string[];
+    digestEnabled: boolean;
+    quietHoursEnabled: boolean;
+    quietHoursFromHour: number;
+    quietHoursFromMinute: number;
+    quietHoursToHour: number;
+    quietHoursToMinute: number;
+    quietHoursTimezone: string;
+    digestMode: "none" | "daily" | "weekly";
+    frequencyCap: number;
+    emailCategories: Record<string, boolean>;
+  }> {
+    return withDatabase(async (db) => {
+      const record = db.notificationPreferences.find((p) => p.accountId === accountId);
+      if (!record) {
+        return {
+          persist: false,
+          result: {
+            accountId,
+            channels: { in_app: true, email: true, push: false },
+            mutedTypes: [],
+            digestEnabled: false,
+            quietHoursEnabled: false,
+            quietHoursFromHour: 22,
+            quietHoursFromMinute: 0,
+            quietHoursToHour: 8,
+            quietHoursToMinute: 0,
+            quietHoursTimezone: "UTC",
+            digestMode: "none" as const,
+            frequencyCap: 20,
+            emailCategories: {
+              transactional: true,
+              social: true,
+              creator_updates: true,
+              marketing: false
+            }
+          }
+        };
+      }
+      return { persist: false, result: { ...record } };
+    });
+  },
+
+  async updateNotificationPreferences(
+    accountId: string,
+    patch: {
+      channels?: Record<string, boolean>;
+      mutedTypes?: string[];
+      digestEnabled?: boolean;
+      quietHoursEnabled?: boolean;
+      quietHoursFromHour?: number;
+      quietHoursFromMinute?: number;
+      quietHoursToHour?: number;
+      quietHoursToMinute?: number;
+      quietHoursTimezone?: string;
+      digestMode?: "none" | "daily" | "weekly";
+      frequencyCap?: number;
+      emailCategories?: Record<string, boolean>;
+    }
+  ): Promise<NotificationPreferences> {
+    return withDatabase(async (db) => {
+      let record = db.notificationPreferences.find((p) => p.accountId === accountId);
+      if (!record) {
+        record = {
+          accountId,
+          channels: { in_app: true, email: true, push: false },
+          mutedTypes: [],
+          digestEnabled: false,
+          quietHoursEnabled: false,
+          quietHoursFromHour: 22,
+          quietHoursFromMinute: 0,
+          quietHoursToHour: 8,
+          quietHoursToMinute: 0,
+          quietHoursTimezone: "UTC",
+          digestMode: "none",
+          frequencyCap: 20,
+          emailCategories: {
+            transactional: true,
+            social: true,
+            creator_updates: true,
+            marketing: false
+          }
+        };
+        db.notificationPreferences.push(record);
+      }
+
+      if (patch.channels !== undefined) record.channels = patch.channels;
+      if (patch.mutedTypes !== undefined) record.mutedTypes = patch.mutedTypes;
+      if (patch.digestEnabled !== undefined) record.digestEnabled = patch.digestEnabled;
+      if (patch.quietHoursEnabled !== undefined) record.quietHoursEnabled = patch.quietHoursEnabled;
+      if (patch.quietHoursFromHour !== undefined) record.quietHoursFromHour = patch.quietHoursFromHour;
+      if (patch.quietHoursFromMinute !== undefined) record.quietHoursFromMinute = patch.quietHoursFromMinute;
+      if (patch.quietHoursToHour !== undefined) record.quietHoursToHour = patch.quietHoursToHour;
+      if (patch.quietHoursToMinute !== undefined) record.quietHoursToMinute = patch.quietHoursToMinute;
+      if (patch.quietHoursTimezone !== undefined) record.quietHoursTimezone = patch.quietHoursTimezone;
+      if (patch.digestMode !== undefined) record.digestMode = patch.digestMode;
+      if (patch.frequencyCap !== undefined) record.frequencyCap = patch.frequencyCap;
+      if (patch.emailCategories !== undefined) record.emailCategories = patch.emailCategories;
+
+      return {
+        persist: true,
+        result: {
+          accountId: record.accountId,
+          channels: record.channels as Record<NotificationChannel, boolean>,
+          mutedTypes: record.mutedTypes as NotificationType[],
+          digestEnabled: record.digestEnabled
+        }
+      };
     });
   }
 };

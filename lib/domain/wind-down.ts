@@ -1,0 +1,44 @@
+/**
+ * Wind-down protocol commitments.
+ *
+ * Implements WND-001 (segregated escrow), WND-002 (ledger debt priority),
+ * WND-010 (acquisition-survival commitment).
+ *
+ * These are architectural constraints — the actual escrow segregation is a
+ * Stripe configuration concern, and ledger debt priority is a legal/ToS
+ * commitment. This module codifies the invariants so they can be tested.
+ */
+
+export const WIND_DOWN_COMMITMENTS = {
+  escrowSegregated: {
+    id: "WND-001",
+    commitment: "Collector payments held in segregated escrow accounts, never commingled with operating funds.",
+    enforcementLevel: "architectural",
+  },
+  ledgerDebtPriority: {
+    id: "WND-002",
+    commitment: "Creator earnings owed are ledger debt with priority over equity-holder claims in insolvency.",
+    enforcementLevel: "legal_tos",
+  },
+  acquisitionSurvival: {
+    id: "WND-010",
+    commitment: "Acquirer must honor commission structures, patron commitments, certificate validity, and constitutional commitments for 12-24 months. Material changes require 90-day advance notice.",
+    enforcementLevel: "legal_tos",
+  },
+} as const;
+
+export type WindDownCommitmentId = keyof typeof WIND_DOWN_COMMITMENTS;
+
+export function getWindDownCommitments() {
+  return Object.values(WIND_DOWN_COMMITMENTS);
+}
+
+export const ANNUAL_PUBLIC_ATTESTATION =
+  "the platform publishes an annual attestation confirming: escrow fund status, " +
+  "wind-down readiness, data export capabilities, and continuity commitments. " +
+  "this attestation is signed by platform leadership and publicly accessible.";
+
+export const INSTITUTIONAL_MIRROR_ENFORCEMENT =
+  "the platform maintains an institutional mirror of all published creative work. " +
+  "this mirror is held by a designated cultural institution and activates automatically " +
+  "if the platform ceases operations, ensuring permanent access to the creative record.";
