@@ -157,6 +157,7 @@ import {
 } from "@/lib/collect/world-bundles";
 import { sortDropsForStudioSurface, sortDropsForWorldSurface } from "@/lib/catalog/drop-curation";
 import { computeVersionDiff } from "@/lib/domain/authoring-pipeline";
+import type { ActiveSession } from "@/lib/domain/account-security";
 import { applyCollectOfferAction, canApplyCollectOfferAction } from "@/lib/collect/offer-state-machine";
 import { createCheckoutSession, parseStripeWebhook, type ParsedStripeWebhookEvent } from "@/lib/bff/payments";
 import { buildCollectSettlementQuote, buildPatronSettlementQuote, buildResaleSettlementQuote } from "@/lib/domain/quote-engine";
@@ -7840,6 +7841,59 @@ const gatewayMethods = {
         persist: db.sessions.length !== originalLength,
         result: undefined
       };
+    });
+  },
+
+  /**
+   * AID-015 — List all active sessions for an account.
+   * Returns sessions sorted by most recently active. The `isCurrent` flag
+   * is set on the session matching `currentToken`.
+   */
+  async listActiveSessions(accountId: string, currentToken: string): Promise<ActiveSession[]> {
+    return withDatabase(async (db) => {
+      const now = Date.now();
+      const active = db.sessions.filter((s) => {
+        if (s.accountId !== accountId) return false;
+        if (new Date(s.expiresAt).getTime() < now) return false;
+        const lastActivity = s.lastActivityAt
+          ? new Date(s.lastActivityAt).getTime()
+          : new Date(s.createdAt).getTime();
+        if (now - lastActivity > SESSION_INACTIVITY_MS) return false;
+        return true;
+      });
+
+      const result: ActiveSession[] = active
+        .sort((a, b) => {
+          const aTime = a.lastActivityAt ? new Date(a.lastActivityAt).getTime() : 0;
+          const bTime = b.lastActivityAt ? new Date(b.lastActivityAt).getTime() : 0;
+          return bTime - aTime;
+        })
+        .map((s) => ({
+          id: s.token.slice(0, 8),
+          accountId: s.accountId,
+          deviceLabel: "web browser",
+          ipAddress: "127.0.0.1",
+          lastActiveAt: s.lastActivityAt ?? s.createdAt,
+          createdAt: s.createdAt,
+          isCurrent: s.token === currentToken
+        }));
+
+      return { persist: false, result };
+    });
+  },
+
+  /**
+   * AID-016 — Revoke a session by its short ID (first 8 chars of token).
+   * Returns true if found and removed, false if not found or is the current session.
+   */
+  async revokeSession(accountId: string, sessionId: string, currentToken: string): Promise<boolean> {
+    return withDatabase(async (db) => {
+      const idx = db.sessions.findIndex(
+        (s) => s.accountId === accountId && s.token.slice(0, 8) === sessionId && s.token !== currentToken
+      );
+      if (idx < 0) return { persist: false, result: false };
+      db.sessions.splice(idx, 1);
+      return { persist: true, result: true };
     });
   },
 

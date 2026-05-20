@@ -1,3 +1,4 @@
+import { ActiveSessionsPanel } from "@/features/settings/active-sessions-panel";
 import { SettingsNav } from "@/features/settings/settings-nav";
 import { TotpEnrollmentForm } from "@/features/settings/totp-enrollment-form";
 import { AppShell } from "@/features/shell/app-shell";
@@ -21,7 +22,10 @@ export default async function SettingsSecurityPage({ searchParams }: SecurityPag
   const session = await requireSession("/settings/security");
   const params = await searchParams;
 
-  const enrollment = await gateway.getTotpEnrollment(session.accountId);
+  const [enrollment, activeSessions] = await Promise.all([
+    gateway.getTotpEnrollment(session.accountId),
+    gateway.listActiveSessions(session.accountId)
+  ]);
   const statusMessage = params.totp_status ? (TOTP_STATUS_MESSAGES[params.totp_status] ?? null) : null;
 
   return (
@@ -44,7 +48,7 @@ export default async function SettingsSecurityPage({ searchParams }: SecurityPag
           </div>
           <div>
             <dt>active sessions</dt>
-            <dd>1 device (current)</dd>
+            <dd>{activeSessions.length} device{activeSessions.length === 1 ? "" : "s"}</dd>
           </div>
           <div>
             <dt>2fa status</dt>
@@ -68,15 +72,7 @@ export default async function SettingsSecurityPage({ searchParams }: SecurityPag
 
       <TotpEnrollmentForm enrollment={enrollment} statusMessage={statusMessage} />
 
-      <section className="slice-panel">
-        <p className="slice-label">active sessions</p>
-        <div className="ops-settings-grid">
-          <p className="slice-copy">
-            you are currently signed in on this device. session management
-            across multiple devices will be available in a future update.
-          </p>
-        </div>
-      </section>
+      <ActiveSessionsPanel sessions={activeSessions} />
     </AppShell>
   );
 }

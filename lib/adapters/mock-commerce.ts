@@ -61,6 +61,7 @@ import type {
   SetupCreatorStudioResult,
   World
 } from "@/lib/domain/contracts";
+import type { ActiveSession } from "@/lib/domain/account-security";
 import type { CommerceGateway } from "@/lib/domain/ports";
 import { sortDropsForStudioSurface, sortDropsForWorldSurface } from "@/lib/catalog/drop-curation";
 import { buildCollectSettlementQuote } from "@/lib/domain/quote-engine";
@@ -3120,6 +3121,14 @@ export const commerceGateway: CommerceGateway = {
   async recordTownhallTelemetryEvent(): Promise<boolean> {
     // Always succeed in mock — telemetry is fire-and-forget
     return true;
+  },
+
+  async listActiveSessions(): Promise<ActiveSession[]> {
+    return [];
+  },
+
+  async revokeSession(): Promise<boolean> {
+    return false;
   },
 
   async getTotpEnrollment(): Promise<TotpEnrollment | null> {

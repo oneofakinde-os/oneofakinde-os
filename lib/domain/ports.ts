@@ -75,6 +75,7 @@ import type {
   Studio,
   World
 } from "@/lib/domain/contracts";
+import type { ActiveSession } from "@/lib/domain/account-security";
 
 export interface CommerceGateway {
   listDrops(viewerAccountId?: string | null): Promise<Drop[]>;
@@ -308,6 +309,10 @@ export interface CommerceGateway {
   createTotpEnrollment(accountId: string): Promise<TotpEnrollment | null>;
   verifyTotpEnrollment(accountId: string, code: string): Promise<TotpEnrollment | null>;
   disableTotpEnrollment(accountId: string): Promise<boolean>;
+
+  // Session management (AID-015 / AID-016)
+  listActiveSessions(accountId: string): Promise<ActiveSession[]>;
+  revokeSession(accountId: string, sessionId: string): Promise<boolean>;
 
   // Wallet connections
   listWalletConnections(accountId: string): Promise<WalletConnection[]>;

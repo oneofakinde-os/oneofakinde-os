@@ -74,6 +74,7 @@ import type {
   Studio,
   World
 } from "@/lib/domain/contracts";
+import type { ActiveSession } from "@/lib/domain/account-security";
 import type {
   CatalogDropResponse,
   CatalogDropsResponse,
@@ -1227,6 +1228,26 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
       );
       if (!response.ok || !response.payload) return false;
       return response.payload.accepted;
+    },
+
+    async listActiveSessions(_accountId: string): Promise<ActiveSession[]> {
+      const response = await requestJson<{ sessions: ActiveSession[] }>(
+        options,
+        "/api/v1/session/active",
+        { method: "GET" }
+      );
+      if (!response.ok || !response.payload) return [];
+      return response.payload.sessions;
+    },
+
+    async revokeSession(_accountId: string, sessionId: string): Promise<boolean> {
+      const response = await requestJson<{ revoked: boolean }>(
+        options,
+        "/api/v1/session/active",
+        { method: "POST", body: JSON.stringify({ sessionId }) }
+      );
+      if (!response.ok || !response.payload) return false;
+      return response.payload.revoked;
     },
 
     async getTotpEnrollment(accountId: string): Promise<TotpEnrollment | null> {
