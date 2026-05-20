@@ -145,7 +145,18 @@ export function WorkshopRootScreen({
       activeNav="townhall"
     >
       <section className="slice-panel">
-        <p className="slice-label">creator @{session.handle}</p>
+        <div className="slice-row">
+          <p className="slice-label">creator @{session.handle}</p>
+          {session.identityVerified ? (
+            <span className="verification-badge" title="identity verified" aria-label="identity verified">
+              ✓ verified
+            </span>
+          ) : (
+            <span className="verification-badge unverified" title="identity not yet verified">
+              unverified
+            </span>
+          )}
+        </div>
         <h2 className="slice-title">{channelTitle}</h2>
         <p className="slice-copy">{channelSynopsis}</p>
 

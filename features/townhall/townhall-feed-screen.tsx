@@ -2209,6 +2209,19 @@ export function TownhallFeedScreen({
                           ? "post deleted by moderation."
                           : post.body}
                   </p>
+                  {post.mediaUrls && post.mediaUrls.length > 0 ? (
+                    <div className="townhall-post-media-grid" aria-label="post media">
+                      {post.mediaUrls.map((url, idx) => (
+                        <img
+                          key={idx}
+                          src={url}
+                          alt={`media ${idx + 1} of ${post.mediaUrls!.length}`}
+                          className="townhall-post-media-image"
+                          loading="lazy"
+                        />
+                      ))}
+                    </div>
+                  ) : null}
                   {post.linkedObject ? (
                     <a href={post.linkedObject.href} className="townhall-post-linked-object">
                       linked {post.linkedObject.kind}: {post.linkedObject.label}

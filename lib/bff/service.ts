@@ -994,7 +994,8 @@ function toSession(
     sessionToken,
     avatarUrl: account.avatarUrl,
     bio: account.bio,
-    authProvider: authProvider ?? "email"
+    authProvider: authProvider ?? "email",
+    identityVerified: account.identityVerified ?? false
   };
 }
 
@@ -3927,6 +3928,7 @@ function toTownhallPost(
     savedByViewer: engagement.savedByViewer,
     followedByViewer: engagement.followedByViewer,
     linkedObject: toTownhallPostLinkedObject(record),
+    mediaUrls: record.mediaUrls && record.mediaUrls.length > 0 ? record.mediaUrls : undefined,
     canModerate,
     canReport: canAccountReportTownhallPost(viewerAccount, record),
     canAppeal: canAccountAppealTownhallPost(viewerAccount, record),
@@ -4142,6 +4144,7 @@ function toStudioConversationPost(
     savedByViewer: engagement.savedByViewer,
     followedByViewer: engagement.followedByViewer,
     linkedObject: toTownhallPostLinkedObject(record),
+    mediaUrls: record.mediaUrls && record.mediaUrls.length > 0 ? record.mediaUrls : undefined,
     canModerate,
     canReport: canAccountReportTownhallPost(viewerAccount, record),
     canAppeal: canAccountAppealTownhallPost(viewerAccount, record),
@@ -13081,6 +13084,7 @@ export const commerceBffService = {
     input: {
       body: string;
       linkedObject?: TownhallPostLinkedObjectInput | null;
+      mediaUrls?: string[];
     }
   ): Promise<TownhallPost | null> {
     return withDatabase<TownhallPost | null>(async (db): Promise<TownhallPostMutationResult> => {
@@ -13108,6 +13112,11 @@ export const commerceBffService = {
         };
       }
 
+      const sanitizedMediaUrls =
+        Array.isArray(input.mediaUrls) && input.mediaUrls.length > 0
+          ? input.mediaUrls.filter((u) => typeof u === "string" && u.length > 0).slice(0, 10)
+          : undefined;
+
       const record: TownhallPostRecord = {
         id: `post_${randomUUID()}`,
         accountId: account.id,
@@ -13123,7 +13132,8 @@ export const commerceBffService = {
         linkedObjectKind: linkedObject?.kind ?? null,
         linkedObjectId: linkedObject?.id ?? null,
         linkedObjectLabel: linkedObject?.label ?? null,
-        linkedObjectHref: linkedObject?.href ?? null
+        linkedObjectHref: linkedObject?.href ?? null,
+        mediaUrls: sanitizedMediaUrls
       };
 
       db.townhallPosts.unshift(record);

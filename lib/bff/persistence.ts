@@ -78,6 +78,8 @@ export type AccountRecord = {
   deletionRequestedAt?: string | null;
   deletedAt?: string | null;
   anonymizedAt?: string | null;
+  /** Sprint 2D — AID-038: true when identity verification (KYC) is complete. */
+  identityVerified?: boolean;
 };
 
 export type SessionRecord = {
@@ -309,6 +311,8 @@ export type TownhallPostRecord = {
   linkedObjectId: string | null;
   linkedObjectLabel: string | null;
   linkedObjectHref: string | null;
+  /** Sprint 2D — AUTH-022: multi-image post media URLs. */
+  mediaUrls?: string[];
 };
 
 export type TownhallPostSaveRecord = {

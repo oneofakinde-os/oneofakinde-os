@@ -11,6 +11,7 @@ type CreatePostBody = {
     label?: string;
     href?: string;
   } | null;
+  mediaUrls?: string[];
 };
 
 function parseLimit(raw: string | null): number {
@@ -88,9 +89,12 @@ export async function POST(request: Request) {
     };
   }
 
+  const mediaUrls = Array.isArray(payload?.mediaUrls) ? payload.mediaUrls : undefined;
+
   const post = await commerceBffService.createTownhallPost(guard.session.accountId, {
     body,
-    linkedObject
+    linkedObject,
+    mediaUrls
   });
 
   if (!post) {

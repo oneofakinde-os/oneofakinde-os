@@ -98,6 +98,8 @@ export type Session = {
   activeRole?: AccountRole;
   /** Sprint 2B — AID-011: the OAuth provider used to sign in (email, google, github, discord). */
   authProvider?: string;
+  /** Sprint 2D — AID-038: true when identity verification (KYC) is complete. Read-only until AID-037 ships. */
+  identityVerified?: boolean;
 };
 
 export type TotpEnrollmentStatus = "pending" | "verified" | "disabled";
@@ -1473,6 +1475,8 @@ export type TownhallPost = {
   savedByViewer: boolean;
   followedByViewer: boolean;
   linkedObject: TownhallPostLinkedObject | null;
+  /** Sprint 2D — AUTH-022: multi-image post media (carousel). */
+  mediaUrls?: string[];
   canModerate: boolean;
   canReport: boolean;
   canAppeal: boolean;
