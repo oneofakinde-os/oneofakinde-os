@@ -39,6 +39,10 @@ export default async function SettingsSecurityPage({ searchParams }: SecurityPag
             <dd>{session.roles.join(", ")}</dd>
           </div>
           <div>
+            <dt>sign-in method</dt>
+            <dd>{session.authProvider ?? "email"}</dd>
+          </div>
+          <div>
             <dt>active sessions</dt>
             <dd>1 device (current)</dd>
           </div>

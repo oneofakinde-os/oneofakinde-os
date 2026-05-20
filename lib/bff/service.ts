@@ -208,8 +208,16 @@ import {
 } from "@/lib/bff/persistence";
 import { createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 
+/** Sprint 2B — MSG-014: ephemeral typing indicator store (not persisted). */
+const typingIndicatorStore = new Map<string, { handle: string; expiresAt: number }[]>();
+
 const PROCESSING_FEE_USD = 1.99;
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
+/** Sprint 2B — AID-009: inactivity timeout. Session is pruned if no
+ *  API call occurs within this window, even when the absolute TTL
+ *  has not yet elapsed. */
+const SESSION_INACTIVITY_MS = 1000 * 60 * 60 * 2; // 2 hours
+const TYPING_INDICATOR_TTL_MS = 5_000;
 const STRIPE_WEBHOOK_EVENT_LOG_LIMIT = 1000;
 const TOWNHALL_COMMENT_MAX_LENGTH = 600;
 const TOWNHALL_COMMENTS_PREVIEW_LIMIT = 24;
@@ -972,7 +980,11 @@ function toWatchSessionSnapshot(record: WatchSessionRecord): WatchSessionSnapsho
   };
 }
 
-function toSession(account: AccountRecord, sessionToken: string): Session {
+function toSession(
+  account: AccountRecord,
+  sessionToken: string,
+  authProvider?: string
+): Session {
   return {
     accountId: account.id,
     email: account.email,
@@ -981,7 +993,8 @@ function toSession(account: AccountRecord, sessionToken: string): Session {
     roles: account.roles,
     sessionToken,
     avatarUrl: account.avatarUrl,
-    bio: account.bio
+    bio: account.bio,
+    authProvider: authProvider ?? "email"
   };
 }
 
@@ -2542,6 +2555,18 @@ function normalizeTownhallCommentBody(value: string): string {
   return value.trim().slice(0, TOWNHALL_COMMENT_MAX_LENGTH);
 }
 
+/** Sprint 2B — MSG-021: extract unique @handles from comment/post body. */
+const MENTION_REGEX = /@([a-zA-Z0-9_]+)/g;
+
+function extractMentionedHandles(body: string): string[] {
+  const matches = body.matchAll(MENTION_REGEX);
+  const handles = new Set<string>();
+  for (const match of matches) {
+    if (match[1]) handles.add(match[1].toLowerCase());
+  }
+  return [...handles];
+}
+
 function normalizeTownhallPostBody(value: string): string {
   return value.trim().slice(0, TOWNHALL_POST_MAX_LENGTH);
 }
@@ -3450,6 +3475,15 @@ function buildMessageThread(
   const accountById = new Map(db.accounts.map((account) => [account.id, account]));
   const entries = getMessageEntries(db, thread.id).slice(-MESSAGE_THREAD_MESSAGES_PREVIEW_LIMIT);
 
+  // Sprint 2B — MSG-014: gather active typing indicators for this thread
+  const nowMs = Date.now();
+  const threadTyping = (typingIndicatorStore.get(thread.id) ?? [])
+    .filter((ti) => ti.expiresAt > nowMs && ti.handle !== viewerAccount.handle);
+  const typingIndicators = threadTyping.map((ti) => ({
+    handle: ti.handle,
+    expiresAt: new Date(ti.expiresAt).toISOString()
+  }));
+
   return {
     id: thread.id,
     kind: thread.kind,
@@ -3458,6 +3492,7 @@ function buildMessageThread(
     messages: entries.map((entry) => toMessageThreadMessage(entry, participants, viewerAccount, accountById)),
     unreadCount: getMessageUnreadCount(entries, viewerParticipant),
     requestState: viewerParticipant.status as MessageRequestState,
+    typingIndicators,
     createdAt: thread.createdAt,
     updatedAt: thread.updatedAt
   };
@@ -7721,6 +7756,21 @@ const gatewayMethods = {
         };
       }
 
+      // Sprint 2B — AID-009: enforce inactivity timeout
+      const lastActivity = session.lastActivityAt
+        ? Date.parse(session.lastActivityAt)
+        : Date.parse(session.createdAt);
+      if (Number.isFinite(lastActivity) && now - lastActivity > SESSION_INACTIVITY_MS) {
+        db.sessions.splice(index, 1);
+        return {
+          persist: true,
+          result: null
+        };
+      }
+
+      // Slide last activity timestamp
+      session.lastActivityAt = new Date(now).toISOString();
+
       const account = findAccountById(db, session.accountId);
       if (!account) {
         db.sessions.splice(index, 1);
@@ -7768,7 +7818,8 @@ const gatewayMethods = {
         token: sessionToken,
         accountId: account.id,
         createdAt,
-        expiresAt: new Date(Date.now() + SESSION_TTL_MS).toISOString()
+        expiresAt: new Date(Date.now() + SESSION_TTL_MS).toISOString(),
+        lastActivityAt: createdAt
       });
 
       return {
@@ -7817,9 +7868,26 @@ const gatewayMethods = {
         db.accounts.push(account);
       }
 
+      // Sprint 2B — AID-011: extract OAuth provider from Supabase user metadata
+      const rawProvider =
+        typeof supabaseUser.user_metadata?.provider === "string"
+          ? supabaseUser.user_metadata.provider
+          : typeof supabaseUser.user_metadata?.iss === "string"
+            ? supabaseUser.user_metadata.iss
+            : "email";
+      const authProvider = rawProvider.includes("google")
+        ? "google"
+        : rawProvider.includes("github")
+          ? "github"
+          : rawProvider.includes("discord")
+            ? "discord"
+            : rawProvider.includes("apple")
+              ? "apple"
+              : "email";
+
       return {
         persist: !db.accounts.some((a) => a.email === email && a.id !== account!.id),
-        result: toSession(account, `supa_${supabaseUser.id}`)
+        result: toSession(account, `supa_${supabaseUser.id}`, authProvider)
       };
     });
   },
@@ -13558,8 +13626,9 @@ export const commerceBffService = {
         normalizedParentCommentId = parent.id;
       }
 
+      const commentId = `cmt_${randomUUID()}`;
       db.townhallComments.unshift({
-        id: `cmt_${randomUUID()}`,
+        id: commentId,
         accountId: account.id,
         dropId: drop.id,
         parentCommentId: normalizedParentCommentId,
@@ -13574,6 +13643,26 @@ export const commerceBffService = {
         appealRequestedAt: null,
         appealRequestedByAccountId: null
       });
+
+      // Sprint 2B — MSG-021: parse @mentions and emit notifications
+      if (!matchesKeywordFilter) {
+        const mentionedHandles = extractMentionedHandles(normalizedBody);
+        for (const handle of mentionedHandles) {
+          if (handle === account.handle.toLowerCase()) continue;
+          const mentionedAccount = db.accounts.find(
+            (a) => a.handle.toLowerCase() === handle
+          );
+          if (!mentionedAccount) continue;
+          emitNotification(
+            db,
+            mentionedAccount.id,
+            "comment_mention",
+            `@${account.handle} mentioned you`,
+            `in a comment on "${drop.title}"`,
+            `/drops/${encodeURIComponent(drop.id)}`
+          );
+        }
+      }
 
       return {
         persist: true,
@@ -14725,6 +14814,38 @@ export const commerceBffService = {
         persist: true,
         result: { ok: true as const, thread: view }
       };
+    });
+  },
+
+  /** Sprint 2B — MSG-014: record a typing indicator for a thread. */
+  async sendTypingIndicator(
+    accountId: string,
+    threadId: string
+  ): Promise<boolean> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      const thread = db.messageThreads.find((t) => t.id === threadId);
+      if (!account || !thread) {
+        return { persist: false, result: false };
+      }
+      const participant = db.messageParticipants.find(
+        (p) => p.threadId === threadId && p.accountId === accountId && p.status !== "declined"
+      );
+      if (!participant) {
+        return { persist: false, result: false };
+      }
+      const nowMs = Date.now();
+      const expiresAt = nowMs + TYPING_INDICATOR_TTL_MS;
+      let indicators = typingIndicatorStore.get(threadId);
+      if (!indicators) {
+        indicators = [];
+        typingIndicatorStore.set(threadId, indicators);
+      }
+      // Remove expired + update or add for this handle
+      const filtered = indicators.filter((ti) => ti.expiresAt > nowMs && ti.handle !== account.handle);
+      filtered.push({ handle: account.handle, expiresAt });
+      typingIndicatorStore.set(threadId, filtered);
+      return { persist: false, result: true };
     });
   },
 

@@ -136,6 +136,15 @@ export function MessageThreadScreen({
         )}
       </section>
 
+      {thread.typingIndicators.length > 0 ? (
+        <section className="slice-panel">
+          <p className="slice-meta" aria-live="polite">
+            {thread.typingIndicators.map((ti) => `@${ti.handle}`).join(", ")}{" "}
+            {thread.typingIndicators.length === 1 ? "is" : "are"} typing...
+          </p>
+        </section>
+      ) : null}
+
       {thread.requestState !== "declined" ? (
         <section className="slice-panel">
           <p className="slice-label">reply</p>

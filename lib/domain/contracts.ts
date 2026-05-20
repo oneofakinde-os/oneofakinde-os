@@ -96,6 +96,8 @@ export type Session = {
   bio?: string;
   /** Sprint 2A — active role for UI switching. Defaults to first role in roles[]. */
   activeRole?: AccountRole;
+  /** Sprint 2B — AID-011: the OAuth provider used to sign in (email, google, github, discord). */
+  authProvider?: string;
 };
 
 export type TotpEnrollmentStatus = "pending" | "verified" | "disabled";
@@ -400,6 +402,11 @@ export type MessageInbox = {
   requestCount: number;
 };
 
+export type MessageThreadTypingIndicator = {
+  handle: string;
+  expiresAt: string;
+};
+
 export type MessageThread = {
   id: string;
   kind: MessageThreadKind;
@@ -408,6 +415,8 @@ export type MessageThread = {
   messages: MessageThreadMessage[];
   unreadCount: number;
   requestState: MessageRequestState;
+  /** Sprint 2B — MSG-014: active typing indicators for this thread. */
+  typingIndicators: MessageThreadTypingIndicator[];
   createdAt: string;
   updatedAt: string;
 };

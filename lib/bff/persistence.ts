@@ -85,6 +85,8 @@ export type SessionRecord = {
   accountId: string;
   createdAt: string;
   expiresAt: string;
+  /** Sprint 2B — AID-009: updated on each API call to detect inactivity. */
+  lastActivityAt: string;
 };
 
 export type OwnedDropRecord = {
@@ -4164,7 +4166,7 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       'SELECT id, email, handle, display_name AS "displayName", roles, created_at AS "createdAt", avatar_url AS "avatarUrl", bio, deletion_requested_at AS "deletionRequestedAt", deleted_at AS "deletedAt", anonymized_at AS "anonymizedAt" FROM bff_accounts ORDER BY created_at ASC'
     ),
     client.query<SessionRecord>(
-      'SELECT token, account_id AS "accountId", created_at AS "createdAt", expires_at AS "expiresAt" FROM bff_sessions ORDER BY created_at ASC'
+      'SELECT token, account_id AS "accountId", created_at AS "createdAt", expires_at AS "expiresAt", COALESCE(last_activity_at, created_at) AS "lastActivityAt" FROM bff_sessions ORDER BY created_at ASC'
     ),
     client.query<OwnedDropRecord>(
       'SELECT account_id AS "accountId", drop_id AS "dropId", certificate_id AS "certificateId", receipt_id AS "receiptId", acquired_at AS "acquiredAt" FROM bff_ownerships ORDER BY acquired_at DESC'
@@ -5170,8 +5172,8 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
 
   for (const session of db.sessions) {
     await client.query(
-      "INSERT INTO bff_sessions (token, account_id, created_at, expires_at) VALUES ($1, $2, $3, $4)",
-      [session.token, session.accountId, session.createdAt, session.expiresAt]
+      "INSERT INTO bff_sessions (token, account_id, created_at, expires_at, last_activity_at) VALUES ($1, $2, $3, $4, $5)",
+      [session.token, session.accountId, session.createdAt, session.expiresAt, session.lastActivityAt]
     );
   }
 
