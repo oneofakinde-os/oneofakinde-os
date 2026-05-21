@@ -75,7 +75,7 @@ import type {
   Studio,
   World
 } from "@/lib/domain/contracts";
-import type { ActiveSession } from "@/lib/domain/account-security";
+import type { ActiveSession, LoginActivityEntry } from "@/lib/domain/account-security";
 
 export interface CommerceGateway {
   listDrops(viewerAccountId?: string | null): Promise<Drop[]>;
@@ -313,6 +313,7 @@ export interface CommerceGateway {
   // Session management (AID-015 / AID-016)
   listActiveSessions(accountId: string): Promise<ActiveSession[]>;
   revokeSession(accountId: string, sessionId: string): Promise<boolean>;
+  getLoginActivity(accountId: string): Promise<LoginActivityEntry[]>;
 
   // Wallet connections
   listWalletConnections(accountId: string): Promise<WalletConnection[]>;

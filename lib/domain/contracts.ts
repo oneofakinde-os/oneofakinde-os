@@ -1477,6 +1477,8 @@ export type TownhallPost = {
   linkedObject: TownhallPostLinkedObject | null;
   /** Sprint 2D — AUTH-022: multi-image post media (carousel). */
   mediaUrls?: string[];
+  /** Sprint 3 — SOC-012: ID of the original post when this is a repost/quote-post. */
+  repostOfPostId?: string;
   canModerate: boolean;
   canReport: boolean;
   canAppeal: boolean;

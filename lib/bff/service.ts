@@ -157,7 +157,7 @@ import {
 } from "@/lib/collect/world-bundles";
 import { sortDropsForStudioSurface, sortDropsForWorldSurface } from "@/lib/catalog/drop-curation";
 import { computeVersionDiff } from "@/lib/domain/authoring-pipeline";
-import type { ActiveSession } from "@/lib/domain/account-security";
+import type { ActiveSession, LoginActivityEntry } from "@/lib/domain/account-security";
 import { applyCollectOfferAction, canApplyCollectOfferAction } from "@/lib/collect/offer-state-machine";
 import { createCheckoutSession, parseStripeWebhook, type ParsedStripeWebhookEvent } from "@/lib/bff/payments";
 import { buildCollectSettlementQuote, buildPatronSettlementQuote, buildResaleSettlementQuote } from "@/lib/domain/quote-engine";
@@ -3930,6 +3930,7 @@ function toTownhallPost(
     followedByViewer: engagement.followedByViewer,
     linkedObject: toTownhallPostLinkedObject(record),
     mediaUrls: record.mediaUrls && record.mediaUrls.length > 0 ? record.mediaUrls : undefined,
+    repostOfPostId: record.repostOfPostId ?? undefined,
     canModerate,
     canReport: canAccountReportTownhallPost(viewerAccount, record),
     canAppeal: canAccountAppealTownhallPost(viewerAccount, record),
@@ -4146,6 +4147,7 @@ function toStudioConversationPost(
     followedByViewer: engagement.followedByViewer,
     linkedObject: toTownhallPostLinkedObject(record),
     mediaUrls: record.mediaUrls && record.mediaUrls.length > 0 ? record.mediaUrls : undefined,
+    repostOfPostId: record.repostOfPostId ?? undefined,
     canModerate,
     canReport: canAccountReportTownhallPost(viewerAccount, record),
     canAppeal: canAccountAppealTownhallPost(viewerAccount, record),
@@ -13453,6 +13455,100 @@ export const commerceBffService = {
         persist: true,
         result: toTownhallPost(db, post, accountHandleLookup(db), account)
       };
+    });
+  },
+
+  /**
+   * AUTH-023 — Edit a townhall post body (author-only).
+   */
+  async editTownhallPost(
+    accountId: string,
+    postId: string,
+    newBody: string
+  ): Promise<TownhallPost | null> {
+    return withDatabase<TownhallPost | null>(async (db): Promise<TownhallPostMutationResult> => {
+      const account = findAccountById(db, accountId);
+      const post = findTownhallPostById(db, postId);
+      if (!account || !post) return { persist: false, result: null };
+      if (post.accountId !== account.id) return { persist: false, result: null };
+
+      const normalized = normalizeTownhallPostBody(newBody);
+      if (!normalized) return { persist: false, result: null };
+
+      post.body = normalized;
+      return {
+        persist: true,
+        result: toTownhallPost(db, post, accountHandleLookup(db), account)
+      };
+    });
+  },
+
+  /**
+   * SOC-012 — Repost a townhall post (with optional quote text).
+   * Creates a new post that links back to the original.
+   */
+  async repostTownhallPost(
+    accountId: string,
+    originalPostId: string,
+    quoteText?: string
+  ): Promise<TownhallPost | null> {
+    return withDatabase<TownhallPost | null>(async (db): Promise<TownhallPostMutationResult> => {
+      const account = findAccountById(db, accountId);
+      const original = findTownhallPostById(db, originalPostId);
+      if (!account || !original) return { persist: false, result: null };
+      if (original.visibility !== "visible") return { persist: false, result: null };
+
+      const originalHandle = accountHandleLookup(db).get(original.accountId) ?? "community";
+      const body = quoteText?.trim()
+        ? quoteText.trim()
+        : `repost from @${originalHandle}`;
+
+      const record: TownhallPostRecord = {
+        id: `post_${randomUUID()}`,
+        accountId: account.id,
+        body,
+        createdAt: new Date().toISOString(),
+        visibility: "visible",
+        reportCount: 0,
+        reportedAt: null,
+        moderatedAt: null,
+        moderatedByAccountId: null,
+        appealRequestedAt: null,
+        appealRequestedByAccountId: null,
+        linkedObjectKind: null,
+        linkedObjectId: null,
+        linkedObjectLabel: `repost of post by @${originalHandle}`,
+        linkedObjectHref: null,
+        repostOfPostId: originalPostId
+      };
+
+      db.townhallPosts.push(record);
+      return {
+        persist: true,
+        result: toTownhallPost(db, record, accountHandleLookup(db), account)
+      };
+    });
+  },
+
+  /**
+   * PRV-011 — Return login activity log for an account.
+   * For now returns the session creation timestamps as activity entries.
+   */
+  async getLoginActivity(accountId: string): Promise<LoginActivityEntry[]> {
+    return withDatabase(async (db) => {
+      const sessions = db.sessions.filter((s) => s.accountId === accountId);
+      const entries: LoginActivityEntry[] = sessions
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .map((s) => ({
+          id: s.token.slice(0, 8),
+          accountId: s.accountId,
+          ipAddress: "127.0.0.1",
+          deviceLabel: "web browser",
+          success: true,
+          suspicious: false,
+          timestamp: s.createdAt
+        }));
+      return { persist: false, result: entries };
     });
   },
 

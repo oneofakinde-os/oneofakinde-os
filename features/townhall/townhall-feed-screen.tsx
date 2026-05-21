@@ -135,6 +135,8 @@ type TownhallPostAction =
   | "follow"
   | "unfollow"
   | "share"
+  | "edit"
+  | "repost"
   | "hide"
   | "restrict"
   | "delete"
@@ -385,6 +387,10 @@ export function TownhallFeedScreen({
   const [isPublishingPost, setIsPublishingPost] = useState(false);
   const [failedPreviewAssetKeys, setFailedPreviewAssetKeys] = useState<string[]>([]);
   const [revealedVideoDropIds, setRevealedVideoDropIds] = useState<string[]>([]);
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState("");
+  const [repostingPostId, setRepostingPostId] = useState<string | null>(null);
+  const [repostQuoteDraft, setRepostQuoteDraft] = useState("");
 
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const commentInputRef = useRef<HTMLInputElement | null>(null);
@@ -1114,6 +1120,8 @@ export function TownhallFeedScreen({
     input: {
       action: TownhallPostAction;
       channel?: TownhallShareChannel;
+      body?: string;
+      quoteText?: string;
     }
   ): Promise<TownhallPost | null> {
     const response = await fetch(`/api/v1/townhall/posts/${encodeURIComponent(postId)}`, {
@@ -1134,14 +1142,16 @@ export function TownhallFeedScreen({
   async function handleTownhallPostAction(
     postId: string,
     action: TownhallPostAction,
-    channel?: TownhallShareChannel
+    channel?: TownhallShareChannel,
+    body?: string,
+    quoteText?: string
   ) {
     if (!viewer) {
       redirectToSignInForInteraction();
       return;
     }
 
-    const post = await postTownhallPostAction(postId, { action, channel });
+    const post = await postTownhallPostAction(postId, { action, channel, body, quoteText });
     if (post) {
       applyTownhallPost(post);
     }
@@ -2222,10 +2232,90 @@ export function TownhallFeedScreen({
                       ))}
                     </div>
                   ) : null}
-                  {post.linkedObject ? (
+                  {post.repostOfPostId ? (
+                    <p className="townhall-post-repost-indicator">
+                      ↻ {post.linkedObject?.label ?? "repost"}
+                    </p>
+                  ) : null}
+                  {post.linkedObject && !post.repostOfPostId ? (
                     <a href={post.linkedObject.href} className="townhall-post-linked-object">
                       linked {post.linkedObject.kind}: {post.linkedObject.label}
                     </a>
+                  ) : null}
+                  {editingPostId === post.id ? (
+                    <div className="townhall-post-edit-form">
+                      <input
+                        type="text"
+                        className="slice-input"
+                        value={editDraft}
+                        onChange={(e) => setEditDraft(e.target.value)}
+                        placeholder="edit post body"
+                      />
+                      <div className="townhall-post-edit-actions">
+                        <button
+                          type="button"
+                          className="slice-button ghost"
+                          onClick={() => {
+                            setEditingPostId(null);
+                            setEditDraft("");
+                          }}
+                        >
+                          cancel
+                        </button>
+                        <button
+                          type="button"
+                          className="slice-button"
+                          disabled={!editDraft.trim()}
+                          onClick={() => {
+                            void handleTownhallPostAction(post.id, "edit", undefined, editDraft);
+                            setEditingPostId(null);
+                            setEditDraft("");
+                          }}
+                        >
+                          save edit
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                  {repostingPostId === post.id ? (
+                    <div className="townhall-post-edit-form">
+                      <input
+                        type="text"
+                        className="slice-input"
+                        value={repostQuoteDraft}
+                        onChange={(e) => setRepostQuoteDraft(e.target.value)}
+                        placeholder="add a quote (optional)"
+                      />
+                      <div className="townhall-post-edit-actions">
+                        <button
+                          type="button"
+                          className="slice-button ghost"
+                          onClick={() => {
+                            setRepostingPostId(null);
+                            setRepostQuoteDraft("");
+                          }}
+                        >
+                          cancel
+                        </button>
+                        <button
+                          type="button"
+                          className="slice-button"
+                          onClick={() => {
+                            void handleTownhallPostAction(
+                              post.id,
+                              "repost",
+                              undefined,
+                              undefined,
+                              repostQuoteDraft || undefined
+                            );
+                            setRepostingPostId(null);
+                            setRepostQuoteDraft("");
+                          }}
+                        >
+                          repost
+                        </button>
+                      </div>
+                    </div>
                   ) : null}
                   <p className="townhall-post-engagement" data-testid="townhall-post-engagement">
                     {post.saveCount} saves · {post.followCount} follows · {post.shareCount} shares
@@ -2263,6 +2353,26 @@ export function TownhallFeedScreen({
                         >
                           share thread
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRepostingPostId(post.id);
+                            setRepostQuoteDraft("");
+                          }}
+                        >
+                          repost
+                        </button>
+                        {viewer.handle === post.authorHandle ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingPostId(post.id);
+                              setEditDraft(post.body);
+                            }}
+                          >
+                            edit
+                          </button>
+                        ) : null}
                       </>
                     ) : null}
                     {post.canReport ? (

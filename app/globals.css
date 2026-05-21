@@ -2332,6 +2332,26 @@ a {
   background: rgba(8, 16, 23, 0.72);
 }
 
+.townhall-post-repost-indicator {
+  color: var(--accent, #7eb2ab);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  margin: 0;
+}
+
+.townhall-post-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 4px 0;
+}
+
+.townhall-post-edit-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
 .townhall-post-actions {
   display: inline-flex;
   align-items: center;
@@ -4213,6 +4233,12 @@ a {
 .verification-badge.unverified {
   color: var(--text-muted);
   font-weight: 400;
+}
+
+.login-activity-suspicious {
+  color: #e57373;
+  font-weight: 600;
+  margin-left: 4px;
 }
 
 /* ── skip to content ── */

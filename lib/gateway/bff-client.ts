@@ -74,7 +74,7 @@ import type {
   Studio,
   World
 } from "@/lib/domain/contracts";
-import type { ActiveSession } from "@/lib/domain/account-security";
+import type { ActiveSession, LoginActivityEntry } from "@/lib/domain/account-security";
 import type {
   CatalogDropResponse,
   CatalogDropsResponse,
@@ -1248,6 +1248,16 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
       );
       if (!response.ok || !response.payload) return false;
       return response.payload.revoked;
+    },
+
+    async getLoginActivity(_accountId: string): Promise<LoginActivityEntry[]> {
+      const response = await requestJson<{ entries: LoginActivityEntry[] }>(
+        options,
+        "/api/v1/session/login-activity",
+        { method: "GET" }
+      );
+      if (!response.ok || !response.payload) return [];
+      return response.payload.entries;
     },
 
     async getTotpEnrollment(accountId: string): Promise<TotpEnrollment | null> {

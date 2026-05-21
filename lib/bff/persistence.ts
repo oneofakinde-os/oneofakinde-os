@@ -313,6 +313,8 @@ export type TownhallPostRecord = {
   linkedObjectHref: string | null;
   /** Sprint 2D — AUTH-022: multi-image post media URLs. */
   mediaUrls?: string[];
+  /** Sprint 3 — SOC-012: ID of the original post if this is a repost. */
+  repostOfPostId?: string;
 };
 
 export type TownhallPostSaveRecord = {

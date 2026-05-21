@@ -1,4 +1,5 @@
 import { ActiveSessionsPanel } from "@/features/settings/active-sessions-panel";
+import { LoginActivityPanel } from "@/features/settings/login-activity-panel";
 import { SettingsNav } from "@/features/settings/settings-nav";
 import { TotpEnrollmentForm } from "@/features/settings/totp-enrollment-form";
 import { AppShell } from "@/features/shell/app-shell";
@@ -22,9 +23,10 @@ export default async function SettingsSecurityPage({ searchParams }: SecurityPag
   const session = await requireSession("/settings/security");
   const params = await searchParams;
 
-  const [enrollment, activeSessions] = await Promise.all([
+  const [enrollment, activeSessions, loginActivity] = await Promise.all([
     gateway.getTotpEnrollment(session.accountId),
-    gateway.listActiveSessions(session.accountId)
+    gateway.listActiveSessions(session.accountId),
+    gateway.getLoginActivity(session.accountId)
   ]);
   const statusMessage = params.totp_status ? (TOTP_STATUS_MESSAGES[params.totp_status] ?? null) : null;
 
@@ -73,6 +75,8 @@ export default async function SettingsSecurityPage({ searchParams }: SecurityPag
       <TotpEnrollmentForm enrollment={enrollment} statusMessage={statusMessage} />
 
       <ActiveSessionsPanel sessions={activeSessions} />
+
+      <LoginActivityPanel entries={loginActivity} />
     </AppShell>
   );
 }

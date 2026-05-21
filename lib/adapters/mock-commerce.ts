@@ -61,7 +61,7 @@ import type {
   SetupCreatorStudioResult,
   World
 } from "@/lib/domain/contracts";
-import type { ActiveSession } from "@/lib/domain/account-security";
+import type { ActiveSession, LoginActivityEntry } from "@/lib/domain/account-security";
 import type { CommerceGateway } from "@/lib/domain/ports";
 import { sortDropsForStudioSurface, sortDropsForWorldSurface } from "@/lib/catalog/drop-curation";
 import { buildCollectSettlementQuote } from "@/lib/domain/quote-engine";
@@ -3129,6 +3129,10 @@ export const commerceGateway: CommerceGateway = {
 
   async revokeSession(): Promise<boolean> {
     return false;
+  },
+
+  async getLoginActivity(): Promise<LoginActivityEntry[]> {
+    return [];
   },
 
   async getTotpEnrollment(): Promise<TotpEnrollment | null> {

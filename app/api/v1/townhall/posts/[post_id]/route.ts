@@ -18,6 +18,8 @@ type PostRouteParams = {
 type PostActionBody = {
   action?: string;
   channel?: string;
+  body?: string;
+  quoteText?: string;
 };
 
 function parseShareChannel(value: string | undefined): TownhallShareChannel | null {
@@ -108,6 +110,30 @@ export async function POST(request: Request, context: RouteContext<PostRoutePara
     return ok({ post });
   }
 
+  if (action === "edit") {
+    const body = payload?.body?.trim();
+    if (!body) {
+      return badRequest("body is required for edit");
+    }
+    const post = await commerceBffService.editTownhallPost(guard.session.accountId, postId, body);
+    if (!post) {
+      return notFound("post not found or not editable");
+    }
+    return ok({ post });
+  }
+
+  if (action === "repost") {
+    const post = await commerceBffService.repostTownhallPost(
+      guard.session.accountId,
+      postId,
+      payload?.quoteText
+    );
+    if (!post) {
+      return notFound("post not found");
+    }
+    return ok({ post }, 201);
+  }
+
   if (action === "share") {
     const channel = parseShareChannel(payload?.channel);
     if (!channel) {
@@ -144,6 +170,6 @@ export async function POST(request: Request, context: RouteContext<PostRoutePara
   }
 
   return badRequest(
-    "action must be report, appeal, save, unsave, follow, unfollow, share, hide, restrict, delete, restore, or dismiss"
+    "action must be report, appeal, save, unsave, follow, unfollow, share, edit, repost, hide, restrict, delete, restore, or dismiss"
   );
 }
