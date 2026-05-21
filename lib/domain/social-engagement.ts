@@ -58,6 +58,10 @@ export type ContentReport = {
   resolution: string | null;
 };
 
+export function isReportCategory(value: unknown): value is ReportCategory {
+  return typeof value === "string" && (REPORT_CATEGORIES as readonly string[]).includes(value);
+}
+
 export type ReportSla = {
   category: ReportCategory;
   firstReviewHours: number;

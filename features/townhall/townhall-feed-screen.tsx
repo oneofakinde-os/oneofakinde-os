@@ -12,6 +12,7 @@ import type {
   TownhallTelemetryMetadata,
   TownhallTelemetryEventType
 } from "@/lib/domain/contracts";
+import { REPORT_CATEGORIES, type ReportCategory } from "@/lib/domain/social-engagement";
 import { routes } from "@/lib/routes";
 import { DEFAULT_TOWNHALL_FEED_PAGE_SIZE } from "@/lib/townhall/feed-pagination";
 import { resolveDropModeForTownhallSurface, type TownhallSurfaceMode } from "@/lib/townhall/feed-mode";
@@ -391,6 +392,8 @@ export function TownhallFeedScreen({
   const [editDraft, setEditDraft] = useState("");
   const [repostingPostId, setRepostingPostId] = useState<string | null>(null);
   const [repostQuoteDraft, setRepostQuoteDraft] = useState("");
+  const [reportingPostId, setReportingPostId] = useState<string | null>(null);
+  const [reportingCommentId, setReportingCommentId] = useState<string | null>(null);
 
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const commentInputRef = useRef<HTMLInputElement | null>(null);
@@ -1122,6 +1125,7 @@ export function TownhallFeedScreen({
       channel?: TownhallShareChannel;
       body?: string;
       quoteText?: string;
+      category?: ReportCategory;
     }
   ): Promise<TownhallPost | null> {
     const response = await fetch(`/api/v1/townhall/posts/${encodeURIComponent(postId)}`, {
@@ -1144,14 +1148,15 @@ export function TownhallFeedScreen({
     action: TownhallPostAction,
     channel?: TownhallShareChannel,
     body?: string,
-    quoteText?: string
+    quoteText?: string,
+    category?: ReportCategory
   ) {
     if (!viewer) {
       redirectToSignInForInteraction();
       return;
     }
 
-    const post = await postTownhallPostAction(postId, { action, channel, body, quoteText });
+    const post = await postTownhallPostAction(postId, { action, channel, body, quoteText, category });
     if (post) {
       applyTownhallPost(post);
     }
@@ -1312,14 +1317,19 @@ export function TownhallFeedScreen({
     });
   }
 
-  async function handleCommentReport(dropId: string, commentId: string) {
+  async function handleCommentReport(
+    dropId: string,
+    commentId: string,
+    category?: ReportCategory
+  ) {
     if (!viewer) {
       redirectToSignInForInteraction();
       return;
     }
 
     const social = await postSocialMutation(
-      `/api/v1/townhall/social/comments/${encodeURIComponent(dropId)}/${encodeURIComponent(commentId)}/report`
+      `/api/v1/townhall/social/comments/${encodeURIComponent(dropId)}/${encodeURIComponent(commentId)}/report`,
+      category ? { category } : undefined
     );
     if (social) {
       applySocialSnapshot(social);
@@ -1842,7 +1852,9 @@ export function TownhallFeedScreen({
                                   <button
                                     type="button"
                                     onClick={() => {
-                                      void handleCommentReport(drop.id, comment.id);
+                                      setReportingCommentId((current) =>
+                                        current === comment.id ? null : comment.id
+                                      );
                                     }}
                                   >
                                     report
@@ -1903,6 +1915,36 @@ export function TownhallFeedScreen({
                                   </>
                                 ) : null}
                               </div>
+                              {reportingCommentId === comment.id ? (
+                                <div
+                                  className="report-category-form"
+                                  data-testid="comment-report-category-form"
+                                >
+                                  <p className="slice-meta">why are you reporting this comment?</p>
+                                  <div className="report-category-options">
+                                    {REPORT_CATEGORIES.map((category) => (
+                                      <button
+                                        key={category}
+                                        type="button"
+                                        className="slice-button ghost"
+                                        onClick={() => {
+                                          void handleCommentReport(drop.id, comment.id, category);
+                                          setReportingCommentId(null);
+                                        }}
+                                      >
+                                        {category.replace(/_/g, " ")}
+                                      </button>
+                                    ))}
+                                    <button
+                                      type="button"
+                                      className="slice-button ghost"
+                                      onClick={() => setReportingCommentId(null)}
+                                    >
+                                      cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : null}
                             </div>
                             {comment.replyCount > 0 ? (
                               <p className="townhall-comment-replies">{comment.replyCount} repl{comment.replyCount === 1 ? "y" : "ies"}</p>
@@ -2379,7 +2421,7 @@ export function TownhallFeedScreen({
                       <button
                         type="button"
                         onClick={() => {
-                          void handleTownhallPostAction(post.id, "report");
+                          setReportingPostId((current) => (current === post.id ? null : post.id));
                         }}
                       >
                         report
@@ -2450,6 +2492,40 @@ export function TownhallFeedScreen({
                       </>
                     ) : null}
                   </div>
+                  {reportingPostId === post.id ? (
+                    <div className="report-category-form" data-testid="report-category-form">
+                      <p className="slice-meta">why are you reporting this post?</p>
+                      <div className="report-category-options">
+                        {REPORT_CATEGORIES.map((category) => (
+                          <button
+                            key={category}
+                            type="button"
+                            className="slice-button ghost"
+                            onClick={() => {
+                              void handleTownhallPostAction(
+                                post.id,
+                                "report",
+                                undefined,
+                                undefined,
+                                undefined,
+                                category
+                              );
+                              setReportingPostId(null);
+                            }}
+                          >
+                            {category.replace(/_/g, " ")}
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          className="slice-button ghost"
+                          onClick={() => setReportingPostId(null)}
+                        >
+                          cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
                   <p
                     className="townhall-comment-appeal-state"
                     data-testid="townhall-post-moderation-state"

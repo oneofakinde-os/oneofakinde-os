@@ -1,5 +1,6 @@
 import { AppShell } from "@/features/shell/app-shell";
 import type { MessageThread, Session } from "@/lib/domain/contracts";
+import { REPORT_CATEGORIES } from "@/lib/domain/social-engagement";
 import { routes } from "@/lib/routes";
 import Link from "next/link";
 
@@ -122,9 +123,17 @@ export function MessageThreadScreen({
                   <p className="slice-meta">reported {message.reportCount} time{message.reportCount === 1 ? "" : "s"}</p>
                 ) : null}
                 {message.canReport ? (
-                  <form action={reportAction} className="slice-button-row">
+                  <form action={reportAction} className="slice-button-row message-report-form">
                     <input type="hidden" name="threadId" value={thread.id} />
                     <input type="hidden" name="messageId" value={message.id} />
+                    <select className="slice-input sm" name="category" defaultValue="" aria-label="report reason">
+                      <option value="">reason (optional)</option>
+                      {REPORT_CATEGORIES.map((category) => (
+                        <option key={category} value={category}>
+                          {category.replace(/_/g, " ")}
+                        </option>
+                      ))}
+                    </select>
                     <button className="slice-button ghost sm" type="submit">
                       report message
                     </button>

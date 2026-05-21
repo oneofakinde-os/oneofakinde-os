@@ -1,3 +1,5 @@
+import type { ReportCategory } from "@/lib/domain/social-engagement";
+
 export type AccountRole = "collector" | "creator";
 
 /**
@@ -470,6 +472,9 @@ export type MessageModerationQueueItem = {
   reportedAt: string | null;
   moderatedAt: string | null;
   createdAt: string;
+  /** Sprint 6 — trust & safety: report category + SLA review deadline. */
+  reportCategory: ReportCategory | null;
+  slaDeadline: string | null;
 };
 
 export type MessageModerationCaseResolveResult =
@@ -1538,6 +1543,9 @@ export type TownhallModerationQueueItem = {
   appealRequested: boolean;
   appealRequestedAt: string | null;
   createdAt: string;
+  /** Sprint 6 — trust & safety: report category + SLA review deadline. */
+  reportCategory: ReportCategory | null;
+  slaDeadline: string | null;
 };
 
 export type TownhallModerationCaseResolution = "hide" | "restrict" | "delete" | "restore" | "dismiss";

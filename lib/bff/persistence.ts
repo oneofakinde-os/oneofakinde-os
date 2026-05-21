@@ -48,6 +48,7 @@ import type {
   Studio,
   World
 } from "@/lib/domain/contracts";
+import type { ReportCategory } from "@/lib/domain/social-engagement";
 import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
@@ -293,6 +294,8 @@ export type TownhallCommentRecord = {
   visibility: TownhallCommentVisibility;
   reportCount: number;
   reportedAt: string | null;
+  /** Sprint 6 — most recent report category (trust & safety). */
+  reportCategory?: ReportCategory | null;
   moderatedAt: string | null;
   moderatedByAccountId: string | null;
   appealRequestedAt: string | null;
@@ -307,6 +310,8 @@ export type TownhallPostRecord = {
   visibility: TownhallCommentVisibility;
   reportCount: number;
   reportedAt: string | null;
+  /** Sprint 6 — most recent report category (trust & safety). */
+  reportCategory?: ReportCategory | null;
   moderatedAt: string | null;
   moderatedByAccountId: string | null;
   appealRequestedAt: string | null;
@@ -420,6 +425,8 @@ export type MessageEntryRecord = {
   visibility: MessageModerationVisibility;
   reportCount: number;
   reportedAt: string | null;
+  /** Sprint 6 — most recent report category (trust & safety). */
+  reportCategory?: ReportCategory | null;
   moderatedAt: string | null;
   moderatedByAccountId: string | null;
 };

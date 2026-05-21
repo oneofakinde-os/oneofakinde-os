@@ -1,10 +1,15 @@
 import { requireRequestSession } from "@/lib/bff/auth";
-import { forbidden, getRequiredRouteParam, notFound, ok, type RouteContext } from "@/lib/bff/http";
+import { forbidden, getRequiredRouteParam, notFound, ok, safeJson, type RouteContext } from "@/lib/bff/http";
 import { commerceBffService } from "@/lib/bff/service";
+import { isReportCategory } from "@/lib/domain/social-engagement";
 
 type MessageReportRouteParams = {
   thread_id: string;
   message_id: string;
+};
+
+type MessageReportBody = {
+  category?: string;
 };
 
 export async function POST(
@@ -22,10 +27,14 @@ export async function POST(
     return guard.response;
   }
 
+  const payload = await safeJson<MessageReportBody>(request);
+  const category = isReportCategory(payload?.category) ? payload.category : undefined;
+
   const result = await commerceBffService.reportMessage(
     guard.session.accountId,
     threadId,
-    messageId
+    messageId,
+    category
   );
   if (!result.ok) {
     return result.reason === "not_found"

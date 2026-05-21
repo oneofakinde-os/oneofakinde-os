@@ -160,6 +160,7 @@ import {
 import { sortDropsForStudioSurface, sortDropsForWorldSurface } from "@/lib/catalog/drop-curation";
 import { computeVersionDiff } from "@/lib/domain/authoring-pipeline";
 import type { ActiveSession, LoginActivityEntry } from "@/lib/domain/account-security";
+import { getReportSla, isReportCategory, type ReportCategory } from "@/lib/domain/social-engagement";
 import { applyCollectOfferAction, canApplyCollectOfferAction } from "@/lib/collect/offer-state-machine";
 import { createCheckoutSession, parseStripeWebhook, type ParsedStripeWebhookEvent } from "@/lib/bff/payments";
 import { buildCollectSettlementQuote, buildPatronSettlementQuote, buildResaleSettlementQuote } from "@/lib/domain/quote-engine";
@@ -3558,6 +3559,22 @@ function applyMessageModerationResolution(
   message.reportedAt = null;
 }
 
+/**
+ * Sprint 6 — trust & safety: compute the first-review SLA deadline for a
+ * reported item from its report category and the time it was reported.
+ * Returns null when there is no category or no report timestamp.
+ */
+function computeReportSlaDeadline(
+  category: ReportCategory | null | undefined,
+  reportedAt: string | null
+): string | null {
+  if (!isReportCategory(category) || !reportedAt) return null;
+  const reportedMs = Date.parse(reportedAt);
+  if (!Number.isFinite(reportedMs)) return null;
+  const hours = getReportSla(category);
+  return new Date(reportedMs + hours * 3_600_000).toISOString();
+}
+
 function buildMessageModerationQueue(
   db: BffDatabase,
   account: AccountRecord
@@ -3585,7 +3602,9 @@ function buildMessageModerationQueue(
         reportCount: message.reportCount,
         reportedAt: message.reportedAt,
         moderatedAt: message.moderatedAt,
-        createdAt: message.createdAt
+        createdAt: message.createdAt,
+        reportCategory: message.reportCategory ?? null,
+        slaDeadline: computeReportSlaDeadline(message.reportCategory, message.reportedAt)
       } satisfies MessageModerationQueueItem;
     })
     .filter((item): item is MessageModerationQueueItem => item !== null)
@@ -4377,7 +4396,9 @@ function buildTownhallModerationQueue(
         moderatedAt: comment.moderatedAt,
         appealRequested: Boolean(comment.appealRequestedAt),
         appealRequestedAt: comment.appealRequestedAt,
-        createdAt: comment.createdAt
+        createdAt: comment.createdAt,
+        reportCategory: comment.reportCategory ?? null,
+        slaDeadline: computeReportSlaDeadline(comment.reportCategory, comment.reportedAt)
       } satisfies TownhallModerationQueueItem;
     })
     .sort((a, b) => {
@@ -13357,7 +13378,11 @@ export const commerceBffService = {
     });
   },
 
-  async reportTownhallPost(accountId: string, postId: string): Promise<TownhallPost | null> {
+  async reportTownhallPost(
+    accountId: string,
+    postId: string,
+    category?: ReportCategory
+  ): Promise<TownhallPost | null> {
     return withDatabase<TownhallPost | null>(async (db): Promise<TownhallPostMutationResult> => {
       const account = findAccountById(db, accountId);
       const post = findTownhallPostById(db, postId);
@@ -13377,6 +13402,7 @@ export const commerceBffService = {
 
       post.reportCount += 1;
       post.reportedAt = new Date().toISOString();
+      if (category) post.reportCategory = category;
 
       return {
         persist: true,
@@ -13977,7 +14003,8 @@ export const commerceBffService = {
   async reportTownhallComment(
     accountId: string,
     dropId: string,
-    commentId: string
+    commentId: string,
+    category?: ReportCategory
   ): Promise<TownhallDropSocialSnapshot | null> {
     return withDatabase<TownhallDropSocialSnapshot | null>(async (db): Promise<TownhallSocialMutationResult> => {
       const account = findAccountById(db, accountId);
@@ -13999,6 +14026,7 @@ export const commerceBffService = {
 
       comment.reportCount += 1;
       comment.reportedAt = new Date().toISOString();
+      if (category) comment.reportCategory = category;
 
       return {
         persist: true,
@@ -15155,7 +15183,8 @@ export const commerceBffService = {
   async reportMessage(
     accountId: string,
     threadId: string,
-    messageId: string
+    messageId: string,
+    category?: ReportCategory
   ): Promise<MessageThreadMutationResult> {
     return withDatabase<MessageThreadMutationResult>(async (db) => {
       const account = findAccountById(db, accountId);
@@ -15181,6 +15210,7 @@ export const commerceBffService = {
 
       message.reportCount += 1;
       message.reportedAt = new Date().toISOString();
+      if (category) message.reportCategory = category;
 
       const view = buildMessageThread(db, account, thread);
       if (!view) {

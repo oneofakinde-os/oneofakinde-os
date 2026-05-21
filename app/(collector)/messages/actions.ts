@@ -1,6 +1,7 @@
 "use server";
 
 import { commerceBffService } from "@/lib/bff/service";
+import { isReportCategory } from "@/lib/domain/social-engagement";
 import { routes } from "@/lib/routes";
 import { requireSession } from "@/lib/server/session";
 import type { Route } from "next";
@@ -90,8 +91,16 @@ export async function reportMessageAction(formData: FormData): Promise<void> {
     redirect(messageStatusHref("invalid"));
   }
 
+  const categoryRaw = formString(formData, "category");
+  const category = isReportCategory(categoryRaw) ? categoryRaw : undefined;
+
   const session = await requireSession(routes.messageThread(threadId));
-  const result = await commerceBffService.reportMessage(session.accountId, threadId, messageId);
+  const result = await commerceBffService.reportMessage(
+    session.accountId,
+    threadId,
+    messageId,
+    category
+  );
 
   if (result.ok) {
     redirect(`${routes.messageThread(result.thread.id)}?message_status=reported` as Route);

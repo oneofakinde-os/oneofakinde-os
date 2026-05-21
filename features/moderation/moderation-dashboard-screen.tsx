@@ -40,6 +40,27 @@ function formatDate(value: string | null): string {
   return new Date(parsed).toISOString().slice(0, 10);
 }
 
+function ReportTriageLine({
+  category,
+  slaDeadline
+}: {
+  category: string | null;
+  slaDeadline: string | null;
+}) {
+  if (!category && !slaDeadline) return null;
+  const overdue = slaDeadline ? Date.parse(slaDeadline) < Date.now() : false;
+  return (
+    <p
+      className="slice-meta moderation-triage-line"
+      data-overdue={overdue ? "true" : undefined}
+      data-testid="moderation-triage-line"
+    >
+      {category ? `category: ${category.replace(/_/g, " ")}` : "category: uncategorized"}
+      {slaDeadline ? ` · review by ${formatDate(slaDeadline)}${overdue ? " (overdue)" : ""}` : ""}
+    </p>
+  );
+}
+
 function WorldConversationItem({
   item,
   onResolve
@@ -89,6 +110,7 @@ function TownhallItem({
         visibility: {item.visibility} · reports: {item.reportCount}
         {item.appealRequested ? " · appeal requested" : ""}
       </p>
+      <ReportTriageLine category={item.reportCategory} slaDeadline={item.slaDeadline} />
       <p className="slice-meta">
         reported: {formatDate(item.reportedAt)} · created: {formatDate(item.createdAt)}
       </p>
@@ -159,6 +181,7 @@ function MessageItem({
       <p className="slice-meta">
         visibility: {item.visibility} - reports: {item.reportCount}
       </p>
+      <ReportTriageLine category={item.reportCategory} slaDeadline={item.slaDeadline} />
       <p className="slice-meta">
         reported: {formatDate(item.reportedAt)} - created: {formatDate(item.createdAt)}
       </p>

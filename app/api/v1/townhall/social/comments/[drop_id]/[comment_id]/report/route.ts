@@ -1,10 +1,15 @@
-import { getRequiredRouteParam, notFound, ok, type RouteContext } from "@/lib/bff/http";
+import { getRequiredRouteParam, notFound, ok, safeJson, type RouteContext } from "@/lib/bff/http";
 import { requireRequestSession } from "@/lib/bff/auth";
 import { commerceBffService } from "@/lib/bff/service";
+import { isReportCategory } from "@/lib/domain/social-engagement";
 
 type CommentReportRouteParams = {
   drop_id: string;
   comment_id: string;
+};
+
+type CommentReportBody = {
+  category?: string;
 };
 
 export async function POST(
@@ -22,10 +27,14 @@ export async function POST(
     return notFound("comment not found");
   }
 
+  const payload = await safeJson<CommentReportBody>(request);
+  const category = isReportCategory(payload?.category) ? payload.category : undefined;
+
   const social = await commerceBffService.reportTownhallComment(
     guard.session.accountId,
     dropId,
-    commentId
+    commentId,
+    category
   );
   if (!social) {
     return notFound("comment not found");

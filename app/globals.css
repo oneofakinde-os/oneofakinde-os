@@ -4241,6 +4241,33 @@ a {
   margin-left: 4px;
 }
 
+.moderation-triage-line {
+  color: var(--accent, #7eb2ab);
+}
+
+.moderation-triage-line[data-overdue="true"] {
+  color: #e57373;
+  font-weight: 600;
+}
+
+.report-category-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 4px 0;
+}
+
+.report-category-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.report-category-options button {
+  font-size: 0.62rem;
+  text-transform: capitalize;
+}
+
 /* ── skip to content ── */
 .skip-to-content {
   position: absolute;

@@ -10,6 +10,7 @@ import {
 } from "@/lib/bff/http";
 import { commerceBffService } from "@/lib/bff/service";
 import type { TownhallShareChannel } from "@/lib/domain/contracts";
+import { isReportCategory } from "@/lib/domain/social-engagement";
 
 type PostRouteParams = {
   post_id: string;
@@ -20,6 +21,7 @@ type PostActionBody = {
   channel?: string;
   body?: string;
   quoteText?: string;
+  category?: string;
 };
 
 function parseShareChannel(value: string | undefined): TownhallShareChannel | null {
@@ -63,7 +65,12 @@ export async function POST(request: Request, context: RouteContext<PostRoutePara
   }
 
   if (action === "report") {
-    const post = await commerceBffService.reportTownhallPost(guard.session.accountId, postId);
+    const category = isReportCategory(payload?.category) ? payload.category : undefined;
+    const post = await commerceBffService.reportTownhallPost(
+      guard.session.accountId,
+      postId,
+      category
+    );
     if (!post) {
       return notFound("post not found");
     }
