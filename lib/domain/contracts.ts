@@ -22,6 +22,23 @@ export type AccountDeletionStatus =
   | "anonymized"
   | "purged";
 
+/** Sprint 4 — PRV-003: privacy settings read model for the UI. */
+export type PrivacySettingsSnapshot = {
+  accountLocked: boolean;
+  onlineStatusVisible: boolean;
+  dmRestriction: DmRestriction;
+};
+
+/** Sprint 4 — AID-012: handle change request (visible on settings/account). */
+export type HandleChangeRequestStatus = "pending" | "completed" | "rejected";
+
+export type HandleChangeRequestSnapshot = {
+  oldHandle: string;
+  newHandle: string;
+  status: HandleChangeRequestStatus;
+  requestedAt: string;
+};
+
 /**
  * Snapshot of a user's data at the moment they request export. Used by
  * `GET /api/v1/session/account/export` to satisfy GDPR Article 15

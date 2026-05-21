@@ -105,6 +105,7 @@ export const routes = {
   payouts: (): Route => asRoute("/payouts"),
 
   settingsAccount: (): Route => asRoute("/settings/account"),
+  settingsPrivacy: (): Route => asRoute("/settings/privacy"),
   settingsSecurity: (): Route => asRoute("/settings/security"),
   settingsApps: (): Route => asRoute("/settings/apps"),
   settingsNotifications: (): Route => asRoute("/settings/notifications"),

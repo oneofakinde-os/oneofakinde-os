@@ -62,6 +62,7 @@ import type {
   World
 } from "@/lib/domain/contracts";
 import type { ActiveSession, LoginActivityEntry } from "@/lib/domain/account-security";
+import type { HandleChangeRequestSnapshot, PrivacySettingsSnapshot } from "@/lib/domain/contracts";
 import type { CommerceGateway } from "@/lib/domain/ports";
 import { sortDropsForStudioSurface, sortDropsForWorldSurface } from "@/lib/catalog/drop-curation";
 import { buildCollectSettlementQuote } from "@/lib/domain/quote-engine";
@@ -3133,6 +3134,26 @@ export const commerceGateway: CommerceGateway = {
 
   async getLoginActivity(): Promise<LoginActivityEntry[]> {
     return [];
+  },
+
+  async getPrivacySettings(): Promise<PrivacySettingsSnapshot | null> {
+    return { accountLocked: false, onlineStatusVisible: true, dmRestriction: "anyone" };
+  },
+
+  async updatePrivacySettings(): Promise<PrivacySettingsSnapshot | null> {
+    return null;
+  },
+
+  async requestHandleChange(): Promise<HandleChangeRequestSnapshot | null> {
+    return null;
+  },
+
+  async requestEmailChange(): Promise<{ status: "pending_verification" } | null> {
+    return null;
+  },
+
+  async confirmEmailChange(): Promise<boolean> {
+    return false;
   },
 
   async getTotpEnrollment(): Promise<TotpEnrollment | null> {

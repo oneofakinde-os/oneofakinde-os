@@ -75,6 +75,7 @@ import type {
   World
 } from "@/lib/domain/contracts";
 import type { ActiveSession, LoginActivityEntry } from "@/lib/domain/account-security";
+import type { HandleChangeRequestSnapshot, PrivacySettingsSnapshot } from "@/lib/domain/contracts";
 import type {
   CatalogDropResponse,
   CatalogDropsResponse,
@@ -1258,6 +1259,56 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
       );
       if (!response.ok || !response.payload) return [];
       return response.payload.entries;
+    },
+
+    async getPrivacySettings(_accountId: string): Promise<PrivacySettingsSnapshot | null> {
+      const response = await requestJson<{ settings: PrivacySettingsSnapshot }>(
+        options,
+        "/api/v1/session/privacy",
+        { method: "GET" }
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.settings;
+    },
+
+    async updatePrivacySettings(_accountId: string, updates: Partial<PrivacySettingsSnapshot>): Promise<PrivacySettingsSnapshot | null> {
+      const response = await requestJson<{ settings: PrivacySettingsSnapshot }>(
+        options,
+        "/api/v1/session/privacy",
+        { method: "PATCH", body: JSON.stringify(updates) }
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.settings;
+    },
+
+    async requestHandleChange(_accountId: string, newHandle: string): Promise<HandleChangeRequestSnapshot | null> {
+      const response = await requestJson<{ request: HandleChangeRequestSnapshot }>(
+        options,
+        "/api/v1/session/account/handle",
+        { method: "POST", body: JSON.stringify({ newHandle }) }
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.request;
+    },
+
+    async requestEmailChange(_accountId: string, newEmail: string): Promise<{ status: "pending_verification" } | null> {
+      const response = await requestJson<{ status: "pending_verification" }>(
+        options,
+        "/api/v1/session/account/email",
+        { method: "POST", body: JSON.stringify({ newEmail }) }
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload;
+    },
+
+    async confirmEmailChange(_accountId: string, token: string): Promise<boolean> {
+      const response = await requestJson<{ confirmed: boolean }>(
+        options,
+        "/api/v1/session/account/email/confirm",
+        { method: "POST", body: JSON.stringify({ token }) }
+      );
+      if (!response.ok || !response.payload) return false;
+      return response.payload.confirmed;
     },
 
     async getTotpEnrollment(accountId: string): Promise<TotpEnrollment | null> {

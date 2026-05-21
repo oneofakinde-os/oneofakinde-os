@@ -80,6 +80,10 @@ export type AccountRecord = {
   anonymizedAt?: string | null;
   /** Sprint 2D — AID-038: true when identity verification (KYC) is complete. */
   identityVerified?: boolean;
+  /** Sprint 4 — PRV-003: privacy controls. */
+  dmRestriction?: "anyone" | "followers_only" | "mutual_only" | "no_one";
+  onlineStatusVisible?: boolean;
+  accountLocked?: boolean;
 };
 
 export type SessionRecord = {
@@ -661,6 +665,26 @@ export type BffDatabase = {
   restrictions: RestrictionRecord[];
   followerRequests: FollowerRequestRecord[];
   drafts: DropDraftRecord[];
+  handleChangeRequests: HandleChangeRequestRecord[];
+  emailChangeRequests: EmailChangeRequestRecord[];
+};
+
+export type HandleChangeRequestRecord = {
+  accountId: string;
+  oldHandle: string;
+  newHandle: string;
+  redirectExpiresAt: string;
+  requestedAt: string;
+  status: "pending" | "completed" | "rejected";
+};
+
+export type EmailChangeRequestRecord = {
+  accountId: string;
+  currentEmail: string;
+  newEmail: string;
+  verificationToken: string;
+  status: "pending_verification" | "verified" | "expired";
+  requestedAt: string;
 };
 
 type MutationResult<T> = {
@@ -1471,7 +1495,9 @@ function createSeedDatabase(): BffDatabase {
     mutes: [],
     restrictions: [],
     followerRequests: [],
-    drafts: []
+    drafts: [],
+    handleChangeRequests: [],
+    emailChangeRequests: []
   };
 }
 
@@ -1529,7 +1555,9 @@ function createCatalogSeedDatabase(): BffDatabase {
     mutes: [],
     restrictions: [],
     followerRequests: [],
-    drafts: []
+    drafts: [],
+    handleChangeRequests: [],
+    emailChangeRequests: []
   };
 }
 
@@ -1591,7 +1619,9 @@ function createEmptyDatabase(): BffDatabase {
     mutes: [],
     restrictions: [],
     followerRequests: [],
-    drafts: []
+    drafts: [],
+    handleChangeRequests: [],
+    emailChangeRequests: []
   };
 }
 
@@ -3549,6 +3579,12 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         : [],
       drafts: Array.isArray(input.drafts)
         ? (input.drafts as DropDraftRecord[])
+        : [],
+      handleChangeRequests: Array.isArray(input.handleChangeRequests)
+        ? (input.handleChangeRequests as HandleChangeRequestRecord[])
+        : [],
+      emailChangeRequests: Array.isArray(input.emailChangeRequests)
+        ? (input.emailChangeRequests as EmailChangeRequestRecord[])
         : []
     };
   }
@@ -3724,6 +3760,12 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         : [],
       drafts: Array.isArray(candidate.drafts)
         ? (candidate.drafts as DropDraftRecord[])
+        : [],
+      handleChangeRequests: Array.isArray(candidate.handleChangeRequests)
+        ? (candidate.handleChangeRequests as HandleChangeRequestRecord[])
+        : [],
+      emailChangeRequests: Array.isArray(candidate.emailChangeRequests)
+        ? (candidate.emailChangeRequests as EmailChangeRequestRecord[])
         : []
     };
   }
@@ -5045,7 +5087,9 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       } catch {
         return [];
       }
-    })()
+    })(),
+    handleChangeRequests: [],
+    emailChangeRequests: []
   };
 }
 

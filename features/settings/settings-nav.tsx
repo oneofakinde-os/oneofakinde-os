@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { routes } from "@/lib/routes";
 
 const SETTINGS_LINKS = [
-  { href: "/settings/account", label: "account" },
-  { href: "/settings/security", label: "security" },
-  { href: "/settings/notifications", label: "notifications" },
-  { href: "/settings/apps", label: "connected apps" },
-] as const;
+  { href: routes.settingsAccount(), label: "account" },
+  { href: routes.settingsPrivacy(), label: "privacy" },
+  { href: routes.settingsSecurity(), label: "security" },
+  { href: routes.settingsNotifications(), label: "notifications" },
+  { href: routes.settingsApps(), label: "connected apps" },
+];
 
 export function SettingsNav() {
   const pathname = usePathname();

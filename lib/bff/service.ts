@@ -142,7 +142,9 @@ import type {
   SetupCreatorStudioResult,
   UpdateDropPreviewMediaInput,
   UpsertWorkshopPatronTierConfigInput,
-  World
+  World,
+  PrivacySettingsSnapshot,
+  HandleChangeRequestSnapshot
 } from "@/lib/domain/contracts";
 import type { CheckoutSessionResult, CreateCheckoutSessionInput, StripeWebhookApplyResult } from "@/lib/bff/contracts";
 import {
@@ -13549,6 +13551,147 @@ export const commerceBffService = {
           timestamp: s.createdAt
         }));
       return { persist: false, result: entries };
+    });
+  },
+
+  /**
+   * Sprint 4 — PRV-003: get privacy settings for the current account.
+   */
+  async getPrivacySettings(accountId: string): Promise<PrivacySettingsSnapshot | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account) return { persist: false, result: null };
+
+      const snapshot: PrivacySettingsSnapshot = {
+        accountLocked: account.accountLocked ?? false,
+        onlineStatusVisible: account.onlineStatusVisible ?? true,
+        dmRestriction: account.dmRestriction ?? "anyone"
+      };
+      return { persist: false, result: snapshot };
+    });
+  },
+
+  /**
+   * Sprint 4 — PRV-003: update privacy settings.
+   */
+  async updatePrivacySettings(
+    accountId: string,
+    updates: Partial<PrivacySettingsSnapshot>
+  ): Promise<PrivacySettingsSnapshot | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account) return { persist: false, result: null };
+
+      if (updates.accountLocked !== undefined) account.accountLocked = updates.accountLocked;
+      if (updates.onlineStatusVisible !== undefined) account.onlineStatusVisible = updates.onlineStatusVisible;
+      if (updates.dmRestriction !== undefined) account.dmRestriction = updates.dmRestriction;
+
+      const snapshot: PrivacySettingsSnapshot = {
+        accountLocked: account.accountLocked ?? false,
+        onlineStatusVisible: account.onlineStatusVisible ?? true,
+        dmRestriction: account.dmRestriction ?? "anyone"
+      };
+      return { persist: true, result: snapshot };
+    });
+  },
+
+  /**
+   * Sprint 4 — AID-012: request a handle change.
+   */
+  async requestHandleChange(
+    accountId: string,
+    newHandle: string
+  ): Promise<HandleChangeRequestSnapshot | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account) return { persist: false, result: null };
+
+      const trimmed = newHandle.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
+      if (!trimmed || trimmed.length < 3 || trimmed.length > 30) {
+        return { persist: false, result: null };
+      }
+
+      // Check if handle is taken by another account.
+      const taken = db.accounts.some((a) => a.handle === trimmed && a.id !== accountId);
+      if (taken) return { persist: false, result: null };
+
+      const oldHandle = account.handle;
+      account.handle = trimmed;
+
+      const request: import("./persistence").HandleChangeRequestRecord = {
+        accountId: account.id,
+        oldHandle,
+        newHandle: trimmed,
+        redirectExpiresAt: new Date(Date.now() + 180 * 86_400_000).toISOString(),
+        requestedAt: new Date().toISOString(),
+        status: "completed"
+      };
+      db.handleChangeRequests.push(request);
+
+      const snapshot: HandleChangeRequestSnapshot = {
+        oldHandle: request.oldHandle,
+        newHandle: request.newHandle,
+        status: request.status,
+        requestedAt: request.requestedAt
+      };
+      return { persist: true, result: snapshot };
+    });
+  },
+
+  /**
+   * Sprint 4 — AID-013: request an email change (initiates verification).
+   */
+  async requestEmailChange(
+    accountId: string,
+    newEmail: string
+  ): Promise<{ status: "pending_verification" } | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account) return { persist: false, result: null };
+
+      const normalized = newEmail.trim().toLowerCase();
+      if (!normalized || !normalized.includes("@")) {
+        return { persist: false, result: null };
+      }
+
+      // Check if email is taken.
+      const taken = db.accounts.some((a) => a.email === normalized && a.id !== accountId);
+      if (taken) return { persist: false, result: null };
+
+      const token = randomUUID();
+      const request: import("./persistence").EmailChangeRequestRecord = {
+        accountId: account.id,
+        currentEmail: account.email,
+        newEmail: normalized,
+        verificationToken: token,
+        status: "pending_verification",
+        requestedAt: new Date().toISOString()
+      };
+      db.emailChangeRequests.push(request);
+
+      return { persist: true, result: { status: "pending_verification" as const } };
+    });
+  },
+
+  /**
+   * Sprint 4 — AID-013: confirm email change via token.
+   */
+  async confirmEmailChange(
+    accountId: string,
+    token: string
+  ): Promise<boolean> {
+    return withDatabase(async (db) => {
+      const request = db.emailChangeRequests.find(
+        (r) => r.accountId === accountId && r.verificationToken === token && r.status === "pending_verification"
+      );
+      if (!request) return { persist: false, result: false };
+
+      const account = findAccountById(db, accountId);
+      if (!account) return { persist: false, result: false };
+
+      account.email = request.newEmail;
+      request.status = "verified";
+      return { persist: true, result: true };
     });
   },
 

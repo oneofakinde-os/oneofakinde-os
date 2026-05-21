@@ -76,6 +76,7 @@ import type {
   World
 } from "@/lib/domain/contracts";
 import type { ActiveSession, LoginActivityEntry } from "@/lib/domain/account-security";
+import type { HandleChangeRequestSnapshot, PrivacySettingsSnapshot } from "@/lib/domain/contracts";
 
 export interface CommerceGateway {
   listDrops(viewerAccountId?: string | null): Promise<Drop[]>;
@@ -314,6 +315,13 @@ export interface CommerceGateway {
   listActiveSessions(accountId: string): Promise<ActiveSession[]>;
   revokeSession(accountId: string, sessionId: string): Promise<boolean>;
   getLoginActivity(accountId: string): Promise<LoginActivityEntry[]>;
+
+  // Sprint 4 — privacy + account management
+  getPrivacySettings(accountId: string): Promise<PrivacySettingsSnapshot | null>;
+  updatePrivacySettings(accountId: string, updates: Partial<PrivacySettingsSnapshot>): Promise<PrivacySettingsSnapshot | null>;
+  requestHandleChange(accountId: string, newHandle: string): Promise<HandleChangeRequestSnapshot | null>;
+  requestEmailChange(accountId: string, newEmail: string): Promise<{ status: "pending_verification" } | null>;
+  confirmEmailChange(accountId: string, token: string): Promise<boolean>;
 
   // Wallet connections
   listWalletConnections(accountId: string): Promise<WalletConnection[]>;

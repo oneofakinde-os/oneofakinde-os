@@ -1,4 +1,6 @@
 import { updateStudioSafetyAction } from "@/app/(collector)/settings/account/actions";
+import { EmailChangeForm } from "@/features/settings/email-change-form";
+import { HandleChangeForm } from "@/features/settings/handle-change-form";
 import { SettingsAccountDeletion } from "@/features/settings/settings-account-deletion";
 import { SettingsAccountForm } from "@/features/settings/settings-account-form";
 import { SettingsBlockMuteList } from "@/features/settings/settings-block-mute-list";
@@ -23,6 +25,8 @@ export default async function SettingsAccountPage() {
     <AppShell title="settings" subtitle="account" session={session}>
       <SettingsNav />
       <SettingsAccountForm session={session} />
+      <HandleChangeForm currentHandle={session.handle} />
+      <EmailChangeForm currentEmail={session.email} />
       <SettingsStudioSafety studio={studio} updateAction={updateStudioSafetyAction} />
       <SettingsBlockMuteList />
       <SettingsAccountDeletion />
