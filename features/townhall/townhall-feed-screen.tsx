@@ -385,6 +385,8 @@ export function TownhallFeedScreen({
   const [postLinkedObjectId, setPostLinkedObjectId] = useState("");
   const [postLinkedObjectLabel, setPostLinkedObjectLabel] = useState("");
   const [postLinkedObjectHref, setPostLinkedObjectHref] = useState("");
+  const [postMediaUrls, setPostMediaUrls] = useState<string[]>([]);
+  const [postMediaDraft, setPostMediaDraft] = useState("");
   const [isPublishingPost, setIsPublishingPost] = useState(false);
   const [failedPreviewAssetKeys, setFailedPreviewAssetKeys] = useState<string[]>([]);
   const [revealedVideoDropIds, setRevealedVideoDropIds] = useState<string[]>([]);
@@ -1194,7 +1196,8 @@ export function TownhallFeedScreen({
         },
         body: JSON.stringify({
           body,
-          ...(linkedObject ? { linkedObject } : {})
+          ...(linkedObject ? { linkedObject } : {}),
+          ...(postMediaUrls.length > 0 ? { mediaUrls: postMediaUrls } : {})
         })
       });
 
@@ -1211,6 +1214,8 @@ export function TownhallFeedScreen({
       setPostLinkedObjectId("");
       setPostLinkedObjectLabel("");
       setPostLinkedObjectHref("");
+      setPostMediaUrls([]);
+      setPostMediaDraft("");
     } catch {
       setPostsError("post could not be published.");
     } finally {
@@ -2211,6 +2216,60 @@ export function TownhallFeedScreen({
                       />
                     </>
                   ) : null}
+                </div>
+                <div className="townhall-composer-media" data-testid="townhall-composer-media">
+                  {postMediaUrls.length > 0 ? (
+                    <ul className="townhall-composer-media-list" aria-label="attached images">
+                      {postMediaUrls.map((url) => (
+                        <li key={url} className="townhall-composer-media-item">
+                          <span className="townhall-composer-media-url">{url}</span>
+                          <button
+                            type="button"
+                            className="slice-button ghost sm"
+                            aria-label={`remove image ${url}`}
+                            onClick={() =>
+                              setPostMediaUrls((current) => current.filter((entry) => entry !== url))
+                            }
+                          >
+                            remove
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  {postMediaUrls.length < 10 ? (
+                    <div className="townhall-composer-media-add">
+                      <input
+                        type="url"
+                        value={postMediaDraft}
+                        onChange={(event) => setPostMediaDraft(event.target.value)}
+                        placeholder="image url (https://...)"
+                        aria-label="add image url"
+                      />
+                      <button
+                        type="button"
+                        className="slice-button ghost sm"
+                        disabled={!postMediaDraft.trim()}
+                        onClick={() => {
+                          const candidate = postMediaDraft.trim();
+                          const isValid = /^(https?:\/\/|\/)/.test(candidate);
+                          if (!isValid) {
+                            setPostsError("image url must start with https:// or /");
+                            return;
+                          }
+                          setPostMediaUrls((current) =>
+                            current.includes(candidate) ? current : [...current, candidate].slice(0, 10)
+                          );
+                          setPostMediaDraft("");
+                          setPostsError("");
+                        }}
+                      >
+                        add image
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="slice-meta">maximum of 10 images per note.</p>
+                  )}
                 </div>
                 <button
                   type="button"

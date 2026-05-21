@@ -2319,6 +2319,46 @@ a {
   background: var(--panel-2);
 }
 
+.townhall-composer-media {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 6px 0;
+}
+
+.townhall-composer-media-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.townhall-composer-media-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.7rem;
+}
+
+.townhall-composer-media-url {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #bed1de;
+}
+
+.townhall-composer-media-add {
+  display: flex;
+  gap: 6px;
+}
+
+.townhall-composer-media-add input {
+  flex: 1;
+}
+
 .townhall-post-linked-object {
   border: 1px solid #435b6b;
   border-radius: 999px;
