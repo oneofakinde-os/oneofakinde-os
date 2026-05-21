@@ -195,6 +195,9 @@ export function WorkshopRootScreen({
           <Link href={routes.workshopOffers()} className="slice-button alt">
             manage offers
           </Link>
+          <Link href={routes.workshopBroadcasts()} className="slice-button alt">
+            broadcasts
+          </Link>
         </div>
 
         <form action={toggleActiveRoleAction} className="slice-button-row" style={{ marginTop: "0.5rem" }}>

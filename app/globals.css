@@ -2359,6 +2359,17 @@ a {
   flex: 1;
 }
 
+.broadcast-compose-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.broadcast-compose-row .slice-field {
+  flex: 1;
+  min-width: 160px;
+}
+
 .townhall-post-linked-object {
   border: 1px solid #435b6b;
   border-radius: 999px;

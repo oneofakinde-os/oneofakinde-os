@@ -49,6 +49,7 @@ import type {
   World
 } from "@/lib/domain/contracts";
 import type { ReportCategory } from "@/lib/domain/social-engagement";
+import type { AudienceScope, BroadcastStatus, BroadcastType } from "@/lib/domain/creator-broadcast";
 import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
@@ -674,6 +675,29 @@ export type BffDatabase = {
   drafts: DropDraftRecord[];
   handleChangeRequests: HandleChangeRequestRecord[];
   emailChangeRequests: EmailChangeRequestRecord[];
+  broadcasts: BroadcastRecord[];
+  broadcastUnsubscribes: BroadcastUnsubscribeRecord[];
+};
+
+export type BroadcastRecord = {
+  id: string;
+  studioHandle: string;
+  type: BroadcastType;
+  subject: string;
+  body: string;
+  audienceScope: AudienceScope;
+  scheduledAt: string | null;
+  sentAt: string | null;
+  status: BroadcastStatus;
+  recipientCount: number | null;
+  createdAt: string;
+};
+
+export type BroadcastUnsubscribeRecord = {
+  accountId: string;
+  scope: "per_creator" | "global";
+  studioHandle: string | null;
+  unsubscribedAt: string;
 };
 
 export type HandleChangeRequestRecord = {
@@ -1504,7 +1528,9 @@ function createSeedDatabase(): BffDatabase {
     followerRequests: [],
     drafts: [],
     handleChangeRequests: [],
-    emailChangeRequests: []
+    emailChangeRequests: [],
+    broadcasts: [],
+    broadcastUnsubscribes: []
   };
 }
 
@@ -1564,7 +1590,9 @@ function createCatalogSeedDatabase(): BffDatabase {
     followerRequests: [],
     drafts: [],
     handleChangeRequests: [],
-    emailChangeRequests: []
+    emailChangeRequests: [],
+    broadcasts: [],
+    broadcastUnsubscribes: []
   };
 }
 
@@ -1628,7 +1656,9 @@ function createEmptyDatabase(): BffDatabase {
     followerRequests: [],
     drafts: [],
     handleChangeRequests: [],
-    emailChangeRequests: []
+    emailChangeRequests: [],
+    broadcasts: [],
+    broadcastUnsubscribes: []
   };
 }
 
@@ -3592,6 +3622,12 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         : [],
       emailChangeRequests: Array.isArray(input.emailChangeRequests)
         ? (input.emailChangeRequests as EmailChangeRequestRecord[])
+        : [],
+      broadcasts: Array.isArray(input.broadcasts)
+        ? (input.broadcasts as BroadcastRecord[])
+        : [],
+      broadcastUnsubscribes: Array.isArray(input.broadcastUnsubscribes)
+        ? (input.broadcastUnsubscribes as BroadcastUnsubscribeRecord[])
         : []
     };
   }
@@ -3773,6 +3809,12 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         : [],
       emailChangeRequests: Array.isArray(candidate.emailChangeRequests)
         ? (candidate.emailChangeRequests as EmailChangeRequestRecord[])
+        : [],
+      broadcasts: Array.isArray(candidate.broadcasts)
+        ? (candidate.broadcasts as BroadcastRecord[])
+        : [],
+      broadcastUnsubscribes: Array.isArray(candidate.broadcastUnsubscribes)
+        ? (candidate.broadcastUnsubscribes as BroadcastUnsubscribeRecord[])
         : []
     };
   }
@@ -5096,7 +5138,9 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       }
     })(),
     handleChangeRequests: [],
-    emailChangeRequests: []
+    emailChangeRequests: [],
+    broadcasts: [],
+    broadcastUnsubscribes: []
   };
 }
 

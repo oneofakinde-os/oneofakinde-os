@@ -77,6 +77,7 @@ import type {
 } from "@/lib/domain/contracts";
 import type { ActiveSession, LoginActivityEntry } from "@/lib/domain/account-security";
 import type { HandleChangeRequestSnapshot, PrivacySettingsSnapshot } from "@/lib/domain/contracts";
+import type { Broadcast } from "@/lib/domain/creator-broadcast";
 
 export interface CommerceGateway {
   listDrops(viewerAccountId?: string | null): Promise<Drop[]>;
@@ -322,6 +323,9 @@ export interface CommerceGateway {
   requestHandleChange(accountId: string, newHandle: string): Promise<HandleChangeRequestSnapshot | null>;
   requestEmailChange(accountId: string, newEmail: string): Promise<{ status: "pending_verification" } | null>;
   confirmEmailChange(accountId: string, token: string): Promise<boolean>;
+
+  // Sprint 6 — creator broadcast
+  listBroadcasts(accountId: string): Promise<Broadcast[]>;
 
   // Wallet connections
   listWalletConnections(accountId: string): Promise<WalletConnection[]>;

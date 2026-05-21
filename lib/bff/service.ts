@@ -161,6 +161,15 @@ import { sortDropsForStudioSurface, sortDropsForWorldSurface } from "@/lib/catal
 import { computeVersionDiff } from "@/lib/domain/authoring-pipeline";
 import type { ActiveSession, LoginActivityEntry } from "@/lib/domain/account-security";
 import { getReportSla, isReportCategory, type ReportCategory } from "@/lib/domain/social-engagement";
+import {
+  DEFAULT_BROADCAST_RATE_LIMIT,
+  isBroadcastRateLimited,
+  isUnsubscribedFromBroadcast,
+  type AudiencePreview,
+  type AudienceScope,
+  type Broadcast,
+  type BroadcastType
+} from "@/lib/domain/creator-broadcast";
 import { applyCollectOfferAction, canApplyCollectOfferAction } from "@/lib/collect/offer-state-machine";
 import { createCheckoutSession, parseStripeWebhook, type ParsedStripeWebhookEvent } from "@/lib/bff/payments";
 import { buildCollectSettlementQuote, buildPatronSettlementQuote, buildResaleSettlementQuote } from "@/lib/domain/quote-engine";
@@ -208,7 +217,8 @@ import {
   type NotificationPreferencesRecord,
   type TotpEnrollmentRecord,
   type TownhallTelemetryEventRecord,
-  type WalletConnectionRecord
+  type WalletConnectionRecord,
+  type BroadcastRecord
 } from "@/lib/bff/persistence";
 import { createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 
@@ -6554,6 +6564,79 @@ function emitNotification(
     createdAt: new Date().toISOString()
   };
   db.notificationEntries.unshift(entry);
+}
+
+/** Sprint 6 — map a broadcast record to the domain read model. */
+function toBroadcast(record: BroadcastRecord): Broadcast {
+  return {
+    id: record.id,
+    studioHandle: record.studioHandle,
+    type: record.type,
+    subject: record.subject,
+    body: record.body,
+    audienceScope: record.audienceScope,
+    scheduledAt: record.scheduledAt,
+    sentAt: record.sentAt,
+    status: record.status,
+    recipientCount: record.recipientCount,
+    createdAt: record.createdAt
+  };
+}
+
+/** Sprint 6 — has this account opted out of broadcasts from this studio? */
+function isBroadcastUnsubscribed(
+  db: BffDatabase,
+  accountId: string,
+  studioHandle: string
+): boolean {
+  const records = db.broadcastUnsubscribes
+    .filter((r) => r.accountId === accountId)
+    .map((r) => ({
+      accountId: r.accountId,
+      scope: r.scope,
+      studioHandle: r.studioHandle,
+      unsubscribedAt: r.unsubscribedAt
+    }));
+  return isUnsubscribedFromBroadcast(records, studioHandle);
+}
+
+/**
+ * Sprint 6 — resolve a broadcast audience scope to a unique set of recipient
+ * account IDs.
+ *   - all_followers : everyone who follows the studio
+ *   - patrons_only  : the studio's patrons who have not ended/lapsed
+ *   - world_members : owners of any drop in the studio's named world
+ *   - tier_targeted : deferred — falls back to patrons_only for v1
+ */
+function resolveBroadcastAudience(
+  db: BffDatabase,
+  studioHandle: string,
+  scope: AudienceScope
+): string[] {
+  const ids = new Set<string>();
+
+  if (scope.kind === "all_followers") {
+    for (const f of db.studioFollows) {
+      if (f.studioHandle === studioHandle) ids.add(f.accountId);
+    }
+  } else if (scope.kind === "patrons_only" || scope.kind === "tier_targeted") {
+    for (const p of db.patrons) {
+      if (p.studioHandle === studioHandle && p.status !== "ended" && p.status !== "lapsed") {
+        ids.add(p.accountId);
+      }
+    }
+  } else if (scope.kind === "world_members") {
+    const worldDropIds = new Set(
+      db.catalog.drops
+        .filter((d) => d.worldId === scope.worldId && d.studioHandle === studioHandle)
+        .map((d) => d.id)
+    );
+    for (const ownership of db.ownerships) {
+      if (worldDropIds.has(ownership.dropId)) ids.add(ownership.accountId);
+    }
+  }
+
+  return Array.from(ids);
 }
 
 /**
@@ -13717,6 +13800,188 @@ export const commerceBffService = {
 
       account.email = request.newEmail;
       request.status = "verified";
+      return { persist: true, result: true };
+    });
+  },
+
+  // ──────────────────────────────────────────────────────────────────────
+  // Sprint 6 — creator broadcast (newsletters / announcements to audience)
+  // ──────────────────────────────────────────────────────────────────────
+
+  /**
+   * Create a broadcast as a draft (or scheduled if scheduledAt is given).
+   * Creator-only. Subject + body required.
+   */
+  async createBroadcast(
+    accountId: string,
+    input: {
+      type: BroadcastType;
+      subject: string;
+      body: string;
+      audienceScope: AudienceScope;
+      scheduledAt?: string | null;
+    }
+  ): Promise<Broadcast | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account || !account.roles.includes("creator")) {
+        return { persist: false, result: null };
+      }
+      const studio = db.catalog.studios.find((s) => s.handle === account.handle);
+      if (!studio) return { persist: false, result: null };
+
+      const subject = input.subject.trim();
+      const body = input.body.trim();
+      if (!subject || !body) return { persist: false, result: null };
+
+      const scheduledAt = input.scheduledAt?.trim() ? input.scheduledAt.trim() : null;
+      const record: BroadcastRecord = {
+        id: `broadcast_${randomUUID()}`,
+        studioHandle: studio.handle,
+        type: input.type,
+        subject,
+        body,
+        audienceScope: input.audienceScope,
+        scheduledAt,
+        sentAt: null,
+        status: scheduledAt ? "scheduled" : "draft",
+        recipientCount: null,
+        createdAt: new Date().toISOString()
+      };
+      db.broadcasts.push(record);
+
+      return { persist: true, result: toBroadcast(record) };
+    });
+  },
+
+  /** List the calling creator's own broadcasts (newest first). */
+  async listBroadcasts(accountId: string): Promise<Broadcast[]> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account || !account.roles.includes("creator")) {
+        return { persist: false, result: [] };
+      }
+      const records = db.broadcasts
+        .filter((b) => b.studioHandle === account.handle)
+        .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+        .map(toBroadcast);
+      return { persist: false, result: records };
+    });
+  },
+
+  /** Preview the recipient audience for a scope without sending. */
+  async getBroadcastAudiencePreview(
+    accountId: string,
+    scope: AudienceScope
+  ): Promise<AudiencePreview | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account || !account.roles.includes("creator")) {
+        return { persist: false, result: null };
+      }
+      const recipients = resolveBroadcastAudience(db, account.handle, scope);
+      // v1 delivers in-app only; email/push are future channels.
+      const preview: AudiencePreview = {
+        broadcastId: "",
+        totalRecipients: recipients.length,
+        byChannel: { email: 0, inApp: recipients.length, push: 0 },
+        previewedAt: new Date().toISOString()
+      };
+      return { persist: false, result: preview };
+    });
+  },
+
+  /**
+   * Send a draft/scheduled broadcast. Resolves the audience, emits an
+   * in-app notification to each recipient (minus unsubscribers + the
+   * creator), and marks the broadcast sent with a recipient count.
+   * Rate-limited per DEFAULT_BROADCAST_RATE_LIMIT.
+   */
+  async sendBroadcast(accountId: string, broadcastId: string): Promise<Broadcast | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account || !account.roles.includes("creator")) {
+        return { persist: false, result: null };
+      }
+      const record = db.broadcasts.find(
+        (b) => b.id === broadcastId && b.studioHandle === account.handle
+      );
+      if (!record) return { persist: false, result: null };
+      if (record.status === "sent" || record.status === "sending") {
+        return { persist: false, result: toBroadcast(record) };
+      }
+
+      // Rate limit: count this studio's sends in the trailing day + week.
+      const nowMs = Date.now();
+      const sentToday = db.broadcasts.filter(
+        (b) =>
+          b.studioHandle === account.handle &&
+          b.sentAt !== null &&
+          nowMs - Date.parse(b.sentAt) < 86_400_000
+      ).length;
+      const sentThisWeek = db.broadcasts.filter(
+        (b) =>
+          b.studioHandle === account.handle &&
+          b.sentAt !== null &&
+          nowMs - Date.parse(b.sentAt) < 7 * 86_400_000
+      ).length;
+      if (isBroadcastRateLimited(sentToday, sentThisWeek, DEFAULT_BROADCAST_RATE_LIMIT)) {
+        record.status = "failed";
+        return { persist: true, result: toBroadcast(record) };
+      }
+
+      const recipients = resolveBroadcastAudience(db, account.handle, record.audienceScope).filter(
+        (recipientId) => recipientId !== account.id && !isBroadcastUnsubscribed(db, recipientId, account.handle)
+      );
+
+      const href = `/studio/${account.handle}`;
+      for (const recipientId of recipients) {
+        emitNotification(
+          db,
+          recipientId,
+          "creator_broadcast",
+          record.subject,
+          record.body,
+          href
+        );
+      }
+
+      record.status = "sent";
+      record.sentAt = new Date().toISOString();
+      record.recipientCount = recipients.length;
+
+      return { persist: true, result: toBroadcast(record) };
+    });
+  },
+
+  /**
+   * Recipient-side opt-out. scope "global" silences all creators;
+   * "per_creator" silences a single studio.
+   */
+  async setBroadcastUnsubscribe(
+    accountId: string,
+    scope: "per_creator" | "global",
+    studioHandle: string | null
+  ): Promise<boolean> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account) return { persist: false, result: false };
+
+      // De-dupe: drop any existing matching record first.
+      db.broadcastUnsubscribes = db.broadcastUnsubscribes.filter(
+        (r) =>
+          !(
+            r.accountId === account.id &&
+            r.scope === scope &&
+            r.studioHandle === (scope === "per_creator" ? studioHandle : null)
+          )
+      );
+      db.broadcastUnsubscribes.push({
+        accountId: account.id,
+        scope,
+        studioHandle: scope === "per_creator" ? studioHandle : null,
+        unsubscribedAt: new Date().toISOString()
+      });
       return { persist: true, result: true };
     });
   },

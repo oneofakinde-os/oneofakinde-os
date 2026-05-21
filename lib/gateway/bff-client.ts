@@ -76,6 +76,7 @@ import type {
 } from "@/lib/domain/contracts";
 import type { ActiveSession, LoginActivityEntry } from "@/lib/domain/account-security";
 import type { HandleChangeRequestSnapshot, PrivacySettingsSnapshot } from "@/lib/domain/contracts";
+import type { Broadcast } from "@/lib/domain/creator-broadcast";
 import type {
   CatalogDropResponse,
   CatalogDropsResponse,
@@ -1309,6 +1310,16 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
       );
       if (!response.ok || !response.payload) return false;
       return response.payload.confirmed;
+    },
+
+    async listBroadcasts(_accountId: string): Promise<Broadcast[]> {
+      const response = await requestJson<{ broadcasts: Broadcast[] }>(
+        options,
+        "/api/v1/workshop/broadcasts",
+        { method: "GET" }
+      );
+      if (!response.ok || !response.payload) return [];
+      return response.payload.broadcasts;
     },
 
     async getTotpEnrollment(accountId: string): Promise<TotpEnrollment | null> {

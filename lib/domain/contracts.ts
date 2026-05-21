@@ -1720,7 +1720,8 @@ export type NotificationType =
   | "new_drop_from_followed"
   | "refund_issued"
   | "refund_on_your_drop"
-  | "new_follower";
+  | "new_follower"
+  | "creator_broadcast";
 
 export type NotificationEntry = {
   id: string;
