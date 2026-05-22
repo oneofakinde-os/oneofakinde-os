@@ -2397,6 +2397,45 @@ a {
   max-width: 130px;
 }
 
+.hashtag-trend-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.hashtag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--border, #243240);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  color: var(--accent, #7eb2ab);
+  text-decoration: none;
+}
+
+.hashtag-chip.sm {
+  font-size: 0.66rem;
+  padding: 2px 8px;
+}
+
+.hashtag-chip:hover {
+  border-color: var(--accent, #7eb2ab);
+}
+
+.hashtag-chip-active {
+  background: var(--accent, #7eb2ab);
+  color: #04201c;
+  font-weight: 600;
+}
+
+.hashtag-chip-count {
+  font-size: 0.62rem;
+  opacity: 0.7;
+}
+
 .townhall-post-linked-object {
   border: 1px solid #435b6b;
   border-radius: 999px;

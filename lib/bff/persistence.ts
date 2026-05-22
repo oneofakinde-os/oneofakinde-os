@@ -325,6 +325,8 @@ export type TownhallPostRecord = {
   mediaUrls?: string[];
   /** Sprint 3 — SOC-012: ID of the original post if this is a repost. */
   repostOfPostId?: string;
+  /** Sprint 7 — DSC-004: normalized hashtags extracted from the body. */
+  hashtags?: string[];
 };
 
 export type TownhallPostSaveRecord = {

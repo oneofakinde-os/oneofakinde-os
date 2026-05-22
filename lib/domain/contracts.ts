@@ -1501,6 +1501,8 @@ export type TownhallPost = {
   mediaUrls?: string[];
   /** Sprint 3 — SOC-012: ID of the original post when this is a repost/quote-post. */
   repostOfPostId?: string;
+  /** Sprint 7 — DSC-004: normalized hashtags extracted from the post body. */
+  hashtags?: string[];
   canModerate: boolean;
   canReport: boolean;
   canAppeal: boolean;

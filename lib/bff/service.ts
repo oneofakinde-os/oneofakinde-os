@@ -161,6 +161,7 @@ import { sortDropsForStudioSurface, sortDropsForWorldSurface } from "@/lib/catal
 import { computeVersionDiff } from "@/lib/domain/authoring-pipeline";
 import type { ActiveSession, LoginActivityEntry } from "@/lib/domain/account-security";
 import { getReportSla, isReportCategory, type ReportCategory } from "@/lib/domain/social-engagement";
+import { computeHashtagTrends, extractHashtags, normalizeHashtag, type HashtagTrend } from "@/lib/social/hashtags";
 import {
   DEFAULT_BROADCAST_RATE_LIMIT,
   isBroadcastRateLimited,
@@ -3962,6 +3963,7 @@ function toTownhallPost(
     linkedObject: toTownhallPostLinkedObject(record),
     mediaUrls: record.mediaUrls && record.mediaUrls.length > 0 ? record.mediaUrls : undefined,
     repostOfPostId: record.repostOfPostId ?? undefined,
+    hashtags: record.hashtags && record.hashtags.length > 0 ? record.hashtags : undefined,
     canModerate,
     canReport: canAccountReportTownhallPost(viewerAccount, record),
     canAppeal: canAccountAppealTownhallPost(viewerAccount, record),
@@ -4179,6 +4181,7 @@ function toStudioConversationPost(
     linkedObject: toTownhallPostLinkedObject(record),
     mediaUrls: record.mediaUrls && record.mediaUrls.length > 0 ? record.mediaUrls : undefined,
     repostOfPostId: record.repostOfPostId ?? undefined,
+    hashtags: record.hashtags && record.hashtags.length > 0 ? record.hashtags : undefined,
     canModerate,
     canReport: canAccountReportTownhallPost(viewerAccount, record),
     canAppeal: canAccountAppealTownhallPost(viewerAccount, record),
@@ -13241,6 +13244,55 @@ export const commerceBffService = {
     });
   },
 
+  /**
+   * Sprint 7 — DSC-004 / CONS-028: list visible posts tagged with a hashtag,
+   * newest first. `tag` is normalized to match stored values.
+   */
+  async listTownhallPostsByHashtag(
+    accountId: string | null,
+    tag: string,
+    limit: number = 50
+  ): Promise<TownhallPost[]> {
+    return withDatabase(async (db) => {
+      const viewerAccount = accountId ? findAccountById(db, accountId) : null;
+      const normalized = normalizeHashtag(tag);
+      if (!normalized) return { persist: false, result: [] };
+
+      const handleLookup = accountHandleLookup(db);
+      const posts = db.townhallPosts
+        .filter((post) => (post.hashtags ?? []).includes(normalized))
+        .filter((post) => canAccountViewTownhallPost(viewerAccount, post))
+        .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+        .slice(0, Math.max(1, Math.min(100, limit)))
+        .map((post) => toTownhallPost(db, post, handleLookup, viewerAccount));
+
+      return { persist: false, result: posts };
+    });
+  },
+
+  /**
+   * Sprint 7 — DSC-013 / CONS-029: trending hashtags computed from post
+   * occurrences within a trailing window (velocity-ranked).
+   */
+  async getTrendingHashtags(
+    windowHours: number = 168,
+    limit: number = 20
+  ): Promise<HashtagTrend[]> {
+    return withDatabase(async (db) => {
+      const occurrences: Array<{ hashtag: string; timestamp: string }> = [];
+      for (const post of db.townhallPosts) {
+        if (post.visibility !== "visible") continue;
+        for (const tag of post.hashtags ?? []) {
+          occurrences.push({ hashtag: tag, timestamp: post.createdAt });
+        }
+      }
+
+      const windowMs = Math.max(1, windowHours) * 3_600_000;
+      const trends = computeHashtagTrends(occurrences, windowMs, Date.now(), limit);
+      return { persist: false, result: trends };
+    });
+  },
+
   async createTownhallPost(
     accountId: string,
     input: {
@@ -13279,6 +13331,8 @@ export const commerceBffService = {
           ? input.mediaUrls.filter((u) => typeof u === "string" && u.length > 0).slice(0, 10)
           : undefined;
 
+      const extractedHashtags = extractHashtags(normalizedBody).map((tag) => tag.normalized);
+
       const record: TownhallPostRecord = {
         id: `post_${randomUUID()}`,
         accountId: account.id,
@@ -13295,7 +13349,8 @@ export const commerceBffService = {
         linkedObjectId: linkedObject?.id ?? null,
         linkedObjectLabel: linkedObject?.label ?? null,
         linkedObjectHref: linkedObject?.href ?? null,
-        mediaUrls: sanitizedMediaUrls
+        mediaUrls: sanitizedMediaUrls,
+        hashtags: extractedHashtags.length > 0 ? extractedHashtags : undefined
       };
 
       db.townhallPosts.unshift(record);
@@ -13587,6 +13642,8 @@ export const commerceBffService = {
       if (!normalized) return { persist: false, result: null };
 
       post.body = normalized;
+      const reExtracted = extractHashtags(normalized).map((tag) => tag.normalized);
+      post.hashtags = reExtracted.length > 0 ? reExtracted : undefined;
       return {
         persist: true,
         result: toTownhallPost(db, post, accountHandleLookup(db), account)

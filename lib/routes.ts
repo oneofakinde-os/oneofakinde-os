@@ -32,6 +32,8 @@ export const routes = {
     query
       ? asRoute(`/townhall/search?q=${encodeURIComponent(query)}`)
       : asRoute("/townhall/search"),
+  townhallHashtag: (tag: string): Route =>
+    asRoute(`/townhall/hashtag/${encodeURIComponent(tag)}`),
   townhallWatch: (): Route => asRoute("/townhall/watch"),
   townhallListen: (): Route => asRoute("/townhall/listen"),
   townhallRead: (): Route => asRoute("/townhall/read"),

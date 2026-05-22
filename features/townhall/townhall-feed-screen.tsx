@@ -2333,6 +2333,19 @@ export function TownhallFeedScreen({
                       ))}
                     </div>
                   ) : null}
+                  {post.hashtags && post.hashtags.length > 0 ? (
+                    <div className="hashtag-trend-list" aria-label="post hashtags">
+                      {post.hashtags.map((tag) => (
+                        <Link
+                          key={tag}
+                          href={routes.townhallHashtag(tag)}
+                          className="hashtag-chip sm"
+                        >
+                          #{tag}
+                        </Link>
+                      ))}
+                    </div>
+                  ) : null}
                   {post.repostOfPostId ? (
                     <p className="townhall-post-repost-indicator">
                       ↻ {post.linkedObject?.label ?? "repost"}
