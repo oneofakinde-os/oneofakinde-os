@@ -1,5 +1,11 @@
 import { parseCollectMarketLane } from "@/lib/collect/market-lanes";
 import { commerceBffService } from "@/lib/bff/service";
+import {
+  filterByCollectibility,
+  filterByPriceRange,
+  type CollectibilityFilter,
+  type PriceRange
+} from "@/lib/discovery/search-enhancements";
 import type {
   CollectInventoryListing,
   CollectMarketLane,
@@ -11,6 +17,8 @@ import type {
 
 const DEFAULT_CATALOG_SEARCH_LIMIT = 8;
 const MAX_CATALOG_SEARCH_LIMIT = 20;
+
+const COLLECTIBILITY_FILTERS: ReadonlyArray<CollectibilityFilter> = ["all", "collectible", "free"];
 
 const COLLECT_OFFER_STATES: ReadonlyArray<CollectOfferState> = [
   "listed",
@@ -60,6 +68,8 @@ export type CatalogSearchResult = {
   lane: CollectMarketLane;
   offerState: CollectOfferState | null;
   limit: number;
+  collectibility: CollectibilityFilter;
+  priceRange: PriceRange;
   users: CatalogSearchUserResult[];
   worlds: CatalogSearchWorldResult[];
   drops: CatalogSearchDropResult[];
@@ -75,6 +85,8 @@ type CatalogSearchData = {
   lane: CollectMarketLane;
   offerState: CollectOfferState | null;
   limit: number;
+  collectibility: CollectibilityFilter;
+  priceRange: PriceRange;
   drops: Drop[];
   worlds: World[];
   studios: Studio[];
@@ -86,6 +98,9 @@ export type ExecuteCatalogSearchInput = {
   lane?: string | null;
   offerState?: string | null;
   limit?: string | number | null;
+  collectibility?: string | null;
+  minPriceUsd?: string | number | null;
+  maxPriceUsd?: string | number | null;
   viewerAccountId?: string | null;
 };
 
@@ -176,6 +191,22 @@ export function parseCatalogSearchOfferState(value: string | null | undefined): 
     : null;
 }
 
+export function parseCatalogSearchCollectibility(
+  value: string | null | undefined
+): CollectibilityFilter {
+  const normalized = value?.trim().toLowerCase() ?? "";
+  return COLLECTIBILITY_FILTERS.includes(normalized as CollectibilityFilter)
+    ? (normalized as CollectibilityFilter)
+    : "all";
+}
+
+export function parseCatalogSearchPrice(value: string | number | null | undefined): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const numeric = typeof value === "number" ? value : Number.parseFloat(String(value));
+  if (!Number.isFinite(numeric) || numeric < 0) return null;
+  return numeric;
+}
+
 function buildCollectListingByDropId(
   listings: CollectInventoryListing[]
 ): Map<string, CollectInventoryListing> {
@@ -190,7 +221,12 @@ export function searchCatalogFromData(input: CatalogSearchData): CatalogSearchRe
   const users = dedupeUsers(input.studios, input.drops, input.worlds);
   const collectListingByDropId = buildCollectListingByDropId(input.collectListings);
 
-  const scopedDrops = input.drops.filter((drop) => {
+  // Apply pre-built discovery filters (DSC-006 price range + collectibility)
+  // before lane/offer scoping so the cheaper checks run first.
+  const priceFilteredDrops = filterByPriceRange(input.drops, input.priceRange);
+  const collectibilityFilteredDrops = filterByCollectibility(priceFilteredDrops, input.collectibility);
+
+  const scopedDrops = collectibilityFilteredDrops.filter((drop) => {
     const listing = collectListingByDropId.get(drop.id);
     if (lane !== "all" && (!listing || listing.lane !== lane)) {
       return false;
@@ -262,6 +298,8 @@ export function searchCatalogFromData(input: CatalogSearchData): CatalogSearchRe
     lane,
     offerState,
     limit,
+    collectibility: input.collectibility,
+    priceRange: input.priceRange,
     users: matchedUsers,
     worlds: matchedWorlds,
     drops: matchedDrops,
@@ -278,6 +316,11 @@ export async function executeCatalogSearch(input: ExecuteCatalogSearchInput = {}
   const lane = parseCollectMarketLane(input.lane);
   const offerState = parseCatalogSearchOfferState(input.offerState);
   const limit = parseCatalogSearchLimit(input.limit);
+  const collectibility = parseCatalogSearchCollectibility(input.collectibility);
+  const priceRange: PriceRange = {
+    minUsd: parseCatalogSearchPrice(input.minPriceUsd),
+    maxUsd: parseCatalogSearchPrice(input.maxPriceUsd)
+  };
   const viewerAccountId = input.viewerAccountId ?? null;
 
   const [drops, worlds, collectInventory] = await Promise.all([
@@ -294,6 +337,8 @@ export async function executeCatalogSearch(input: ExecuteCatalogSearchInput = {}
     lane,
     offerState,
     limit,
+    collectibility,
+    priceRange,
     drops,
     worlds,
     studios,

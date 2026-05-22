@@ -3,6 +3,7 @@ import type { Route } from "next";
 import { OptimizedImage } from "@/features/media/optimized-image";
 import { formatUsd } from "@/features/shared/format";
 import type { Drop, Session, Studio, World } from "@/lib/domain/contracts";
+import type { CatalogSearchUiState } from "@/lib/catalog/search-ui-state";
 import { routes } from "@/lib/routes";
 
 type SearchPayload = {
@@ -20,6 +21,7 @@ type TownhallSearchScreenProps = {
   worlds?: World[];
   studios?: Studio[];
   search?: SearchPayload;
+  searchState?: CatalogSearchUiState;
   basePath?: Route;
 };
 
@@ -37,6 +39,7 @@ export function TownhallSearchScreen({
   worlds,
   studios,
   search,
+  searchState,
   basePath,
 }: TownhallSearchScreenProps) {
   void session;
@@ -45,6 +48,9 @@ export function TownhallSearchScreen({
   const resolvedWorlds = search?.worlds ?? worlds ?? [];
   const resolvedStudios = search?.studios ?? search?.users ?? studios ?? [];
   const resolvedBasePath = basePath ?? routes.townhallSearch();
+  const collectibility = searchState?.collectibility ?? "all";
+  const minPrice = searchState?.minPriceUsd ?? null;
+  const maxPrice = searchState?.maxPriceUsd ?? null;
 
   const totalResults = resolvedDrops.length + resolvedWorlds.length + resolvedStudios.length;
 
@@ -65,6 +71,45 @@ export function TownhallSearchScreen({
             showroom
           </Link>
         </div>
+
+        <form action={resolvedBasePath} method="get" className="search-filter-form" data-testid="search-filter-form">
+          <input type="hidden" name="q" value={resolvedQuery} />
+          <label className="search-filter-field">
+            type
+            <select name="collectibility" defaultValue={collectibility} className="slice-input sm">
+              <option value="all">all</option>
+              <option value="collectible">collectible</option>
+              <option value="free">free</option>
+            </select>
+          </label>
+          <label className="search-filter-field">
+            min $
+            <input
+              type="number"
+              name="min_price"
+              min={0}
+              step="0.01"
+              defaultValue={minPrice ?? ""}
+              placeholder="0"
+              className="slice-input sm"
+            />
+          </label>
+          <label className="search-filter-field">
+            max $
+            <input
+              type="number"
+              name="max_price"
+              min={0}
+              step="0.01"
+              defaultValue={maxPrice ?? ""}
+              placeholder="any"
+              className="slice-input sm"
+            />
+          </label>
+          <button type="submit" className="slice-button ghost sm">
+            apply filters
+          </button>
+        </form>
 
         {/* ── drop results ── */}
         {resolvedDrops.length > 0 ? (

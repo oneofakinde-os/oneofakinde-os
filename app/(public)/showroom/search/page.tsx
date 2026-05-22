@@ -9,6 +9,9 @@ type TownhallSearchPageProps = {
     q?: string | string[];
     lane?: string | string[];
     offer_state?: string | string[];
+    collectibility?: string | string[];
+    min_price?: string | string[];
+    max_price?: string | string[];
   }>;
 };
 
@@ -25,7 +28,10 @@ export default async function TownhallSearchPage({ searchParams }: TownhallSearc
   const searchState = parseCatalogSearchUiState({
     query: firstParam(resolvedSearchParams.q),
     lane: firstParam(resolvedSearchParams.lane),
-    offerState: firstParam(resolvedSearchParams.offer_state)
+    offerState: firstParam(resolvedSearchParams.offer_state),
+    collectibility: firstParam(resolvedSearchParams.collectibility),
+    minPriceUsd: firstParam(resolvedSearchParams.min_price),
+    maxPriceUsd: firstParam(resolvedSearchParams.max_price)
   });
 
   const [session, search] = await Promise.all([
@@ -33,9 +39,19 @@ export default async function TownhallSearchPage({ searchParams }: TownhallSearc
     executeCatalogSearch({
       query: searchState.query,
       lane: searchState.lane,
-      offerState: searchState.offerState
+      offerState: searchState.offerState,
+      collectibility: searchState.collectibility,
+      minPriceUsd: searchState.minPriceUsd,
+      maxPriceUsd: searchState.maxPriceUsd
     })
   ]);
 
-  return <TownhallSearchScreen session={session} search={search} basePath={routes.showroomSearch()} />;
+  return (
+    <TownhallSearchScreen
+      session={session}
+      search={search}
+      searchState={searchState}
+      basePath={routes.showroomSearch()}
+    />
+  );
 }
