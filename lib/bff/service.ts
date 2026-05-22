@@ -162,6 +162,7 @@ import { computeVersionDiff } from "@/lib/domain/authoring-pipeline";
 import type { ActiveSession, LoginActivityEntry } from "@/lib/domain/account-security";
 import { getReportSla, isReportCategory, type ReportCategory } from "@/lib/domain/social-engagement";
 import { computeHashtagTrends, extractHashtags, normalizeHashtag, type HashtagTrend } from "@/lib/social/hashtags";
+import { buildAutocompleteSuggestions, type AutocompleteSuggestion } from "@/lib/discovery/search-enhancements";
 import {
   DEFAULT_BROADCAST_RATE_LIMIT,
   isBroadcastRateLimited,
@@ -13290,6 +13291,39 @@ export const commerceBffService = {
       const windowMs = Math.max(1, windowHours) * 3_600_000;
       const trends = computeHashtagTrends(occurrences, windowMs, Date.now(), limit);
       return { persist: false, result: trends };
+    });
+  },
+
+  /**
+   * Sprint 7 — DSC-008: autocomplete suggestions across drops, studios,
+   * worlds, and hashtags for a partial query.
+   */
+  async getSearchAutocomplete(
+    query: string,
+    limit: number = 8
+  ): Promise<AutocompleteSuggestion[]> {
+    return withDatabase(async (db) => {
+      const trimmed = query.trim();
+      if (!trimmed) return { persist: false, result: [] };
+
+      const dropTitles = db.catalog.drops.map((drop) => drop.title);
+      const worldTitles = db.catalog.worlds.map((world) => world.title);
+      const studioHandles = db.catalog.studios.map((studio) => studio.handle);
+      const hashtagSet = new Set<string>();
+      for (const post of db.townhallPosts) {
+        if (post.visibility !== "visible") continue;
+        for (const tag of post.hashtags ?? []) hashtagSet.add(tag);
+      }
+
+      const suggestions = buildAutocompleteSuggestions(
+        trimmed,
+        dropTitles,
+        studioHandles,
+        worldTitles,
+        Array.from(hashtagSet),
+        limit
+      );
+      return { persist: false, result: suggestions };
     });
   },
 

@@ -12,6 +12,22 @@ type SearchResult = {
   posterSrc?: string;
 };
 
+type AutocompleteSuggestion = {
+  text: string;
+  kind: "drop" | "studio" | "world" | "hashtag";
+  score: number;
+};
+
+function suggestionHref(suggestion: AutocompleteSuggestion): string {
+  if (suggestion.kind === "hashtag") {
+    return `/townhall/hashtag/${encodeURIComponent(suggestion.text.replace(/^#/, ""))}`;
+  }
+  if (suggestion.kind === "studio") {
+    return `/studio/${encodeURIComponent(suggestion.text)}`;
+  }
+  return `/townhall/search?q=${encodeURIComponent(suggestion.text)}`;
+}
+
 type QuickLink = {
   label: string;
   href: string;
@@ -39,6 +55,7 @@ export function CommandSearch() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [suggestions, setSuggestions] = useState<AutocompleteSuggestion[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -71,6 +88,7 @@ export function CommandSearch() {
     } else {
       setQuery("");
       setResults([]);
+      setSuggestions([]);
       setSelectedIndex(0);
     }
   }, [open]);
@@ -79,6 +97,7 @@ export function CommandSearch() {
   useEffect(() => {
     if (!query.trim()) {
       setResults([]);
+      setSuggestions([]);
       return;
     }
 
@@ -89,12 +108,13 @@ export function CommandSearch() {
 
       setLoading(true);
       try {
-        const res = await fetch(
-          `/api/v1/catalog/search?q=${encodeURIComponent(query.trim())}&limit=6`,
-          { signal: controller.signal }
-        );
-        if (res.ok) {
-          const data = await res.json();
+        const q = encodeURIComponent(query.trim());
+        const [searchRes, autoRes] = await Promise.all([
+          fetch(`/api/v1/catalog/search?q=${q}&limit=6`, { signal: controller.signal }),
+          fetch(`/api/v1/catalog/autocomplete?q=${q}&limit=6`, { signal: controller.signal })
+        ]);
+        if (searchRes.ok) {
+          const data = await searchRes.json();
           const mapped: SearchResult[] = (data.results ?? []).map((drop: Record<string, unknown>) => ({
             id: drop.id as string,
             title: drop.title as string,
@@ -109,6 +129,10 @@ export function CommandSearch() {
           }));
           setResults(mapped);
           setSelectedIndex(0);
+        }
+        if (autoRes.ok) {
+          const data = await autoRes.json();
+          setSuggestions((data.suggestions ?? []) as AutocompleteSuggestion[]);
         }
       } catch {
         // Aborted or failed — ignore
@@ -185,6 +209,30 @@ export function CommandSearch() {
         </div>
 
         <div className="command-results">
+          {suggestions.filter((s) => s.kind !== "drop").length > 0 ? (
+            <div className="command-section">
+              <p className="command-section-label">suggestions</p>
+              <div className="command-suggestion-chips">
+                {suggestions
+                  .filter((s) => s.kind !== "drop")
+                  .map((suggestion) => (
+                    <button
+                      key={`${suggestion.kind}-${suggestion.text}`}
+                      type="button"
+                      className="command-suggestion-chip"
+                      onClick={() => {
+                        router.push(suggestionHref(suggestion) as Parameters<typeof router.push>[0]);
+                        setOpen(false);
+                      }}
+                    >
+                      <span className="command-suggestion-kind">{suggestion.kind}</span>
+                      {suggestion.kind === "studio" ? `@${suggestion.text}` : suggestion.text}
+                    </button>
+                  ))}
+              </div>
+            </div>
+          ) : null}
+
           {results.length > 0 ? (
             <div className="command-section">
               <p className="command-section-label">drops {loading ? "…" : ""}</p>
@@ -241,7 +289,11 @@ export function CommandSearch() {
             </div>
           ) : null}
 
-          {!loading && query.trim() && results.length === 0 && filteredLinks.length === 0 ? (
+          {!loading &&
+          query.trim() &&
+          results.length === 0 &&
+          suggestions.length === 0 &&
+          filteredLinks.length === 0 ? (
             <p className="command-empty">no results for "{query}"</p>
           ) : null}
         </div>

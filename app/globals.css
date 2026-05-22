@@ -3812,6 +3812,37 @@ a {
   letter-spacing: 0.05em;
 }
 
+.command-suggestion-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 16px 8px;
+}
+
+.command-suggestion-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--border, #243240);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text, #f6f8fa);
+  font-size: 0.74rem;
+  cursor: pointer;
+}
+
+.command-suggestion-chip:hover {
+  border-color: var(--accent, #7eb2ab);
+}
+
+.command-suggestion-kind {
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent, #7eb2ab);
+}
+
 .command-item {
   display: flex;
   align-items: center;
