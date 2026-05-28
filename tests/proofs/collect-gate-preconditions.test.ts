@@ -30,10 +30,11 @@ test("proof: validateCollectPreconditions blocks when rights metadata is absent"
     role: "collector"
   });
 
-  // voidrunner has no rights metadata in the seeded DB
+  // Use a non-catalog drop ID — validateCollectPreconditions checks the DB for
+  // rights metadata regardless of whether the drop exists in the catalog.
   const result = await commerceBffService.validateCollectPreconditions(
     session.accountId,
-    "voidrunner"
+    "draft-drop-no-rights"
   );
 
   assert.equal(result.valid, false, "preconditions must be invalid without rights metadata");
@@ -59,8 +60,10 @@ test("proof: checkout route returns 422 when rights metadata is absent", async (
     role: "collector"
   });
 
+  // Use a non-catalog drop ID — the preconditions gate fires before the drop
+  // existence check, so a missing-rights-metadata drop returns 422 regardless.
   const response = await postCheckoutRoute(
-    new Request("http://127.0.0.1:3000/api/v1/payments/checkout/voidrunner", {
+    new Request("http://127.0.0.1:3000/api/v1/payments/checkout/draft-drop-no-rights", {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -68,7 +71,7 @@ test("proof: checkout route returns 422 when rights metadata is absent", async (
       },
       body: JSON.stringify({})
     }),
-    withRouteParams({ drop_id: "voidrunner" })
+    withRouteParams({ drop_id: "draft-drop-no-rights" })
   );
 
   assert.equal(
@@ -102,8 +105,9 @@ test("proof: validateCollectPreconditions passes after rights metadata establish
     role: "collector"
   });
 
-  // voidrunner has no prior ownership in a fresh isolated DB (only stardust is seeded)
-  await commerceBffService.upsertRightsMetadataForDrop("voidrunner", {
+  // Use a non-catalog drop ID with no prior ownership. Adding rights metadata
+  // is sufficient to satisfy all gates since no ownership exists for this ID.
+  await commerceBffService.upsertRightsMetadataForDrop("draft-drop-no-rights", {
     licenseType: "personal-use-only",
     commercialUse: false,
     derivativesAllowed: false,
@@ -112,7 +116,7 @@ test("proof: validateCollectPreconditions passes after rights metadata establish
 
   const result = await commerceBffService.validateCollectPreconditions(
     session.accountId,
-    "voidrunner"
+    "draft-drop-no-rights"
   );
 
   assert.equal(result.valid, true, "preconditions must pass after rights metadata established");

@@ -1508,9 +1508,69 @@ function createSeedDatabase(): BffDatabase {
     walletConnections: [],
     blocks: [],
     mutes: [],
-    provenanceEvents: [],
+    provenanceEvents: [
+      {
+        id: "prov_seed_stardust_cert_previewed",
+        dropId: "stardust",
+        kind: "certificate_previewed",
+        actorHandle: "public",
+        certificateId: seededCertificateId,
+        receiptId: null,
+        occurredAt: nowIso,
+        createdAt: nowIso
+      }
+    ],
     savedIntents: [],
-    rightsMetadata: [],
+    rightsMetadata: [
+      {
+        id: "rm_seed_stardust",
+        dropId: "stardust",
+        licenseType: "personal-use-only",
+        commercialUse: false,
+        derivativesAllowed: false,
+        attributionRequired: true,
+        royaltyPct: null,
+        notes: null,
+        createdAt: nowIso,
+        updatedAt: nowIso
+      },
+      {
+        id: "rm_seed_voidrunner",
+        dropId: "voidrunner",
+        licenseType: "personal-use-only",
+        commercialUse: false,
+        derivativesAllowed: false,
+        attributionRequired: true,
+        royaltyPct: null,
+        notes: null,
+        createdAt: nowIso,
+        updatedAt: nowIso
+      },
+      {
+        id: "rm_seed_through_the_lens",
+        dropId: "through-the-lens",
+        licenseType: "personal-use-only",
+        commercialUse: false,
+        derivativesAllowed: false,
+        attributionRequired: true,
+        royaltyPct: null,
+        notes: null,
+        createdAt: nowIso,
+        updatedAt: nowIso
+      },
+      {
+        id: "rm_seed_twilight_whispers",
+        dropId: "twilight-whispers",
+        licenseType: "personal-use-only",
+        commercialUse: false,
+        derivativesAllowed: false,
+        attributionRequired: true,
+        royaltyPct: null,
+        notes: null,
+        createdAt: nowIso,
+        updatedAt: nowIso
+      }
+    ],
     transferRules: [],
     creatorEarnings: []
   };
