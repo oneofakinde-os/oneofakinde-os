@@ -153,6 +153,7 @@ import { sortDropsForStudioSurface, sortDropsForWorldSurface } from "@/lib/catal
 import { applyCollectOfferAction, canApplyCollectOfferAction } from "@/lib/collect/offer-state-machine";
 import { createCheckoutSession, parseStripeWebhook, type ParsedStripeWebhookEvent } from "@/lib/bff/payments";
 import { buildCollectSettlementQuote, buildPatronSettlementQuote, buildResaleSettlementQuote } from "@/lib/domain/quote-engine";
+import { validateDropPublishReadiness } from "@/lib/domain/rights";
 import {
   type AuthorizedDerivativeRecord,
   type DropVersionRecord,
@@ -6791,6 +6792,7 @@ const gatewayMethods = {
       if (!title || title.length > 200) return { persist: false, result: null };
       if (!synopsis || synopsis.length > 2000) return { persist: false, result: null };
       if (input.priceUsd < 0 || input.priceUsd > 99999) return { persist: false, result: null };
+      if (!validateDropPublishReadiness(input).ok) return { persist: false, result: null };
 
       // Generate slug-style ID
       const slug = title
@@ -6817,6 +6819,8 @@ const gatewayMethods = {
         priceUsd: input.priceUsd,
         visibility: input.visibility ?? "public",
         previewPolicy: input.previewPolicy ?? "full",
+        rightsMetadata: input.rightsMetadata,
+        creatorTerms: input.creatorTerms,
         ...(input.walletGate ? { walletGate: input.walletGate } : {}),
         ...(input.sensitivityRating
           ? { sensitivityRating: input.sensitivityRating, sensitivitySource: "drop" as const }

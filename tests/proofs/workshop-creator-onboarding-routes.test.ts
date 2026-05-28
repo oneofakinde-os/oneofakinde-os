@@ -7,6 +7,7 @@ import { POST as postSetupStudioRoute } from "../../app/api/v1/workshop/setup-st
 import { POST as postWorkshopWorldsRoute } from "../../app/api/v1/workshop/worlds/route";
 import { POST as postWorkshopDropsRoute } from "../../app/api/v1/workshop/drops/route";
 import { commerceBffService } from "../../lib/bff/service";
+import { buildCompleteIssuanceTerms } from "./helpers/sprint04r";
 
 function createIsolatedDbPath(): string {
   return path.join("/tmp", `ook-workshop-creator-onboarding-${randomUUID()}.json`);
@@ -86,7 +87,8 @@ test("proof: workshop creator onboarding routes bootstrap studio, world, and dro
         synopsis: "drop synopsis",
         priceUsd: 9.99,
         visibility: "public",
-        previewPolicy: "full"
+        previewPolicy: "full",
+        ...buildCompleteIssuanceTerms(collector.handle)
       })
     })
   );

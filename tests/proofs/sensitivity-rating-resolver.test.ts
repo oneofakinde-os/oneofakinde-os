@@ -22,6 +22,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { commerceBffService } from "../../lib/bff/service";
+import { buildCompleteIssuanceTerms } from "./helpers/sprint04r";
 
 function createIsolatedDbPath(): string {
   return path.join("/tmp", `ook-bff-sens-${randomUUID()}.json`);
@@ -67,7 +68,8 @@ test("proof: drop with explicit sensitivity rating wins (source = 'drop')", asyn
     worldId: world.id,
     synopsis: "drop sets its own mature rating, overriding the world default.",
     priceUsd: 1.99,
-    sensitivityRating: "mature"
+    sensitivityRating: "mature",
+    ...buildCompleteIssuanceTerms(session.handle)
   });
   assert.ok(drop);
 
@@ -95,7 +97,8 @@ test("proof: drop without rating inherits world default (source = 'world_default
     title: `inherit-${randomUUID().slice(0, 6)}`,
     worldId: world.id,
     synopsis: "drop without explicit rating; should inherit world default.",
-    priceUsd: 1.99
+    priceUsd: 1.99,
+    ...buildCompleteIssuanceTerms(session.handle)
   });
   assert.ok(drop);
 
@@ -122,7 +125,8 @@ test("proof: drop without rating + world without default resolves to 'none' (sou
     title: `default-none-${randomUUID().slice(0, 6)}`,
     worldId: world.id,
     synopsis: "drop without explicit rating and no world default.",
-    priceUsd: 1.99
+    priceUsd: 1.99,
+    ...buildCompleteIssuanceTerms(session.handle)
   });
   assert.ok(drop);
 
@@ -153,7 +157,8 @@ test("proof: listDrops applies the same resolver as getDropById", async (t) => {
     title: `list-resolver-${randomUUID().slice(0, 6)}`,
     worldId: world.id,
     synopsis: "drop without explicit rating, in a mature-default world.",
-    priceUsd: 1.99
+    priceUsd: 1.99,
+    ...buildCompleteIssuanceTerms(session.handle)
   });
   assert.ok(drop);
 

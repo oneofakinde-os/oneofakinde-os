@@ -1,5 +1,5 @@
 {
-  "version": "train7-m2",
+  "version": "train7-m3",
   "flags": [
     {
       "key": "surface_live_now",
@@ -36,6 +36,72 @@
       "owner": "platform-creator",
       "rollout": "beta",
       "description": "controls lineage rails presentation in workshop and drop detail surfaces"
+    },
+    {
+      "key": "ff_oauth_signup",
+      "owner": "platform-auth",
+      "rollout": "dark",
+      "description": "controls OAuth sign-up (Google, Apple) availability"
+    },
+    {
+      "key": "ff_account_deletion",
+      "owner": "platform-identity",
+      "rollout": "dark",
+      "description": "controls account deletion and GDPR data export availability"
+    },
+    {
+      "key": "ff_email_notifications",
+      "owner": "platform-notifications",
+      "rollout": "dark",
+      "description": "controls email notification delivery channel"
+    },
+    {
+      "key": "ff_hashtag_search",
+      "owner": "platform-discovery",
+      "rollout": "dark",
+      "description": "controls hashtag browsing and search surface"
+    },
+    {
+      "key": "ff_resale_marketplace",
+      "owner": "platform-commerce",
+      "rollout": "dark",
+      "description": "controls resale listing and purchase flows"
+    },
+    {
+      "key": "ff_sensitivity_ratings",
+      "owner": "platform-safety",
+      "rollout": "dark",
+      "description": "controls content sensitivity rating enforcement"
+    },
+    {
+      "key": "ff_patron_commitments",
+      "owner": "platform-commerce",
+      "rollout": "dark",
+      "description": "controls patron subscription commitment flows"
+    },
+    {
+      "key": "ff_dm_attachments",
+      "owner": "platform-messaging",
+      "rollout": "dark",
+      "description": "controls image/file attachments in direct messages"
+    },
+    {
+      "key": "ff_developer_api",
+      "owner": "platform-engineering",
+      "rollout": "dark",
+      "description": "controls public developer REST API access"
+    },
+    {
+      "key": "ff_audit_log",
+      "owner": "platform-engineering",
+      "rollout": "dark",
+      "description": "controls audit log recording and query surfaces"
+    },
+    {
+      "key": "ff_progressive_media_upload",
+      "owner": "platform-media",
+      "rollout": "dark",
+      "description": "controls preview-first progressive media upload pipeline"
     }
   ],
   "defaults": {
@@ -45,7 +111,18 @@
       "showroom_featured_lane": true,
       "collect_auctions_lane": true,
       "watch_quality_ladder": true,
-      "drop_lineage_surfaces": true
+      "drop_lineage_surfaces": true,
+      "ff_oauth_signup": false,
+      "ff_account_deletion": true,
+      "ff_email_notifications": false,
+      "ff_hashtag_search": false,
+      "ff_resale_marketplace": false,
+      "ff_sensitivity_ratings": false,
+      "ff_patron_commitments": false,
+      "ff_dm_attachments": false,
+      "ff_developer_api": false,
+      "ff_audit_log": true,
+      "ff_progressive_media_upload": true
     },
     "preview": {
       "surface_live_now": true,
@@ -53,7 +130,18 @@
       "showroom_featured_lane": true,
       "collect_auctions_lane": true,
       "watch_quality_ladder": true,
-      "drop_lineage_surfaces": true
+      "drop_lineage_surfaces": true,
+      "ff_oauth_signup": false,
+      "ff_account_deletion": true,
+      "ff_email_notifications": false,
+      "ff_hashtag_search": false,
+      "ff_resale_marketplace": false,
+      "ff_sensitivity_ratings": false,
+      "ff_patron_commitments": false,
+      "ff_dm_attachments": false,
+      "ff_developer_api": false,
+      "ff_audit_log": true,
+      "ff_progressive_media_upload": false
     },
     "production": {
       "surface_live_now": true,
@@ -61,7 +149,18 @@
       "showroom_featured_lane": true,
       "collect_auctions_lane": true,
       "watch_quality_ladder": true,
-      "drop_lineage_surfaces": true
+      "drop_lineage_surfaces": true,
+      "ff_oauth_signup": false,
+      "ff_account_deletion": false,
+      "ff_email_notifications": false,
+      "ff_hashtag_search": false,
+      "ff_resale_marketplace": false,
+      "ff_sensitivity_ratings": false,
+      "ff_patron_commitments": false,
+      "ff_dm_attachments": false,
+      "ff_developer_api": false,
+      "ff_audit_log": false,
+      "ff_progressive_media_upload": false
     }
   }
 }

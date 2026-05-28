@@ -3,6 +3,7 @@
 import { gateway } from "@/lib/gateway";
 import { requireSessionRoles } from "@/lib/server/session";
 import type { SensitivityRating, WalletChain } from "@/lib/domain/contracts";
+import { createCreatorTerms, createRightsMetadata } from "@/lib/domain/rights";
 import { redirect } from "next/navigation";
 
 export type CreateDropResult = {
@@ -38,12 +39,18 @@ export async function createDropAction(formData: FormData): Promise<CreateDropRe
     rawSensitivity && VALID_SENSITIVITY_RATINGS.has(rawSensitivity as SensitivityRating)
       ? (rawSensitivity as SensitivityRating)
       : undefined;
+  const licenseSummary = String(formData.get("licenseSummary") ?? "").trim();
+  const termsSummary = String(formData.get("termsSummary") ?? "").trim();
+  const editionPolicy = String(formData.get("editionPolicy") ?? "").trim();
 
   if (!title) return { ok: false, error: "title is required" };
   if (title.length > 200) return { ok: false, error: "title must be under 200 characters" };
   if (!worldId) return { ok: false, error: "please select a world" };
   if (!synopsis) return { ok: false, error: "synopsis is required" };
   if (synopsis.length > 2000) return { ok: false, error: "synopsis must be under 2000 characters" };
+  if (!licenseSummary) return { ok: false, error: "rights metadata is required" };
+  if (!termsSummary) return { ok: false, error: "creator terms are required" };
+  if (!editionPolicy) return { ok: false, error: "edition policy is required" };
 
   const priceUsd = Number.parseFloat(priceStr);
   if (!Number.isFinite(priceUsd) || priceUsd < 0) {
@@ -58,7 +65,16 @@ export async function createDropAction(formData: FormData): Promise<CreateDropRe
     seasonLabel,
     episodeLabel,
     walletGate,
-    sensitivityRating
+    sensitivityRating,
+    rightsMetadata: createRightsMetadata({
+      rightsHolderHandle: session.handle,
+      licenseSummary
+    }),
+    creatorTerms: createCreatorTerms({
+      creatorHandle: session.handle,
+      termsSummary,
+      editionPolicy
+    })
   });
 
   if (!drop) {

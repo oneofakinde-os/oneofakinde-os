@@ -11,6 +11,7 @@ import {
 } from "@/lib/bff/http";
 import { commerceBffService } from "@/lib/bff/service";
 import type { CollectOfferAction } from "@/lib/domain/contracts";
+import { isFeatureEnabled } from "@/lib/ops/feature-flags";
 
 type CollectDropOffersRouteParams = {
   drop_id: string;
@@ -31,6 +32,9 @@ export async function GET(
     session?.accountId ?? null
   );
   if (!collect) {
+    return notFound("drop not found");
+  }
+  if (collect.listing.listingType === "resale" && !isFeatureEnabled("ff_resale_marketplace")) {
     return notFound("drop not found");
   }
 
@@ -128,6 +132,16 @@ export async function POST(
   }
 
   if (action === "submit_resale_fixed_offer") {
+    if (!isFeatureEnabled("ff_resale_marketplace")) {
+      await commerceBffService.recordCollectEnforcementSignal({
+        signalType: "unauthorized_transition_blocked",
+        dropId,
+        accountId: guard.session.accountId,
+        reason: "resale is policy-gated"
+      });
+      return forbidden("resale is not available");
+    }
+
     const rawAmount = body?.amountUsd;
     if (typeof rawAmount !== "number" || !Number.isFinite(rawAmount) || rawAmount <= 0) {
       await commerceBffService.recordCollectEnforcementSignal({
@@ -192,6 +206,16 @@ export async function POST(
   }
 
   if (action === "accept_latest_resale_offer" || action === "settle_latest_resale_offer") {
+    if (!isFeatureEnabled("ff_resale_marketplace")) {
+      await commerceBffService.recordCollectEnforcementSignal({
+        signalType: "unauthorized_transition_blocked",
+        dropId,
+        accountId: guard.session.accountId,
+        reason: "resale is policy-gated"
+      });
+      return forbidden("resale is not available");
+    }
+
     if (!guard.session.roles.includes("creator")) {
       return forbidden("creator role is required");
     }

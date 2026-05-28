@@ -1,3 +1,5 @@
+import type { CreatorTerms, RightsMetadata } from "./rights";
+
 export type AccountRole = "collector" | "creator";
 
 /**
@@ -174,6 +176,10 @@ export type Drop = {
   sensitivityRating?: SensitivityRating;
   /** Sprint 0.3 — set by the resolver alongside `sensitivityRating` so consumers can show inheritance hints. */
   sensitivitySource?: SensitivitySource;
+  /** Sprint 0.4R — rights metadata must exist before a new drop can be issued. */
+  rightsMetadata?: RightsMetadata;
+  /** Sprint 0.4R — creator terms must travel with the drop. */
+  creatorTerms?: CreatorTerms;
 };
 
 export type MembershipEntitlementStatus = "active" | "expired" | "canceled";
@@ -664,6 +670,10 @@ export type CreateDropInput = {
   walletGate?: WalletChain;
   /** Sprint 0.3 — studio's self-classification of the drop's content. */
   sensitivityRating?: SensitivityRating;
+  /** Sprint 0.4R — required before a new drop can be issued. */
+  rightsMetadata?: RightsMetadata;
+  /** Sprint 0.4R — required before a new drop can be issued. */
+  creatorTerms?: CreatorTerms;
 };
 
 export type CreateWorldInput = {

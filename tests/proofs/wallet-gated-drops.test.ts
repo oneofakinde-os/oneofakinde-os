@@ -16,6 +16,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { commerceBffService } from "../../lib/bff/service";
+import { buildCompleteIssuanceTerms } from "./helpers/sprint04r";
 
 function createIsolatedDbPath(): string {
   return path.join("/tmp", `ook-bff-wallet-gate-${randomUUID()}.json`);
@@ -53,7 +54,8 @@ async function seedGatedDrop(chain: "ethereum" | "tezos" | "polygon" = "ethereum
     worldId: world.id,
     synopsis: "drop that requires a verified wallet to collect.",
     priceUsd: 4.99,
-    walletGate: chain
+    walletGate: chain,
+    ...buildCompleteIssuanceTerms(creatorSession.handle)
   });
   assert.ok(drop, "gated drop created");
   assert.equal(drop.walletGate, chain);

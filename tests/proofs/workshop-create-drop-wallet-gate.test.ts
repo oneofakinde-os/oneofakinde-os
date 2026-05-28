@@ -13,6 +13,7 @@ import path from "node:path";
 import test from "node:test";
 import { commerceBffService } from "../../lib/bff/service";
 import { POST as postWorkshopDropRoute } from "../../app/api/v1/workshop/drops/route";
+import { buildCompleteIssuanceTerms } from "./helpers/sprint04r";
 
 function createIsolatedDbPath(): string {
   return path.join("/tmp", `ook-bff-stepper-${randomUUID()}.json`);
@@ -70,7 +71,8 @@ test("proof: stepper API persists walletGate on the created drop", async (t) => 
     worldId: world.id,
     synopsis: "drop created via the stepper API with a wallet gate.",
     priceUsd: 2.49,
-    walletGate: "ethereum"
+    walletGate: "ethereum",
+    ...buildCompleteIssuanceTerms(session.handle)
   });
 
   assert.equal(res.status, 201, "drop creation succeeded");
@@ -101,7 +103,8 @@ test("proof: stepper API ignores invalid walletGate values", async (t) => {
     worldId: world.id,
     synopsis: "drop with an invalid walletGate value.",
     priceUsd: 0.99,
-    walletGate: "bitcoin" // not a valid WalletChain
+    walletGate: "bitcoin", // not a valid WalletChain
+    ...buildCompleteIssuanceTerms(session.handle)
   });
 
   assert.equal(res.status, 201, "still creates the drop");
@@ -126,7 +129,8 @@ test("proof: stepper API omits walletGate when no chain selected (no gate)", asy
     title: `ungated stepper drop ${randomUUID().slice(0, 6)}`,
     worldId: world.id,
     synopsis: "drop created via the stepper without a wallet gate.",
-    priceUsd: 1.99
+    priceUsd: 1.99,
+    ...buildCompleteIssuanceTerms(session.handle)
   });
 
   assert.equal(res.status, 201);

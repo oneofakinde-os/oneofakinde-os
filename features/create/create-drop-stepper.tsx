@@ -9,7 +9,7 @@ type CreateDropStepperProps = {
   createDropAction: (formData: FormData) => Promise<CreateDropResult>;
 };
 
-const STEPS = ["title", "world", "synopsis", "pricing", "gating", "sensitivity", "review"] as const;
+const STEPS = ["title", "world", "synopsis", "pricing", "rights", "gating", "sensitivity", "review"] as const;
 type Step = (typeof STEPS)[number];
 
 type WalletGateChoice = "none" | WalletChain;
@@ -39,6 +39,9 @@ export function CreateDropStepper({
   const [priceUsd, setPriceUsd] = useState("1.99");
   const [seasonLabel, setSeasonLabel] = useState("");
   const [episodeLabel, setEpisodeLabel] = useState("");
+  const [licenseSummary, setLicenseSummary] = useState("");
+  const [termsSummary, setTermsSummary] = useState("");
+  const [editionPolicy, setEditionPolicy] = useState("");
   const [walletGate, setWalletGate] = useState<WalletGateChoice>("none");
   const [sensitivity, setSensitivity] = useState<SensitivityChoice>("inherit");
   const [error, setError] = useState<string | null>(null);
@@ -56,6 +59,12 @@ export function CreateDropStepper({
         return synopsis.trim().length > 0;
       case "pricing":
         return Number.isFinite(Number.parseFloat(priceUsd)) && Number.parseFloat(priceUsd) >= 0;
+      case "rights":
+        return (
+          licenseSummary.trim().length > 0 &&
+          termsSummary.trim().length > 0 &&
+          editionPolicy.trim().length > 0
+        );
       default:
         return true;
     }
@@ -83,6 +92,9 @@ export function CreateDropStepper({
     formData.set("priceUsd", priceUsd);
     if (seasonLabel.trim()) formData.set("seasonLabel", seasonLabel.trim());
     if (episodeLabel.trim()) formData.set("episodeLabel", episodeLabel.trim());
+    formData.set("licenseSummary", licenseSummary.trim());
+    formData.set("termsSummary", termsSummary.trim());
+    formData.set("editionPolicy", editionPolicy.trim());
     if (walletGate !== "none") formData.set("walletGate", walletGate);
     if (sensitivity !== "inherit") formData.set("sensitivityRating", sensitivity);
 
@@ -239,6 +251,50 @@ export function CreateDropStepper({
         </section>
       ) : null}
 
+      {/* step: rights */}
+      {step === "rights" ? (
+        <section className="create-stepper-step" aria-label="rights metadata and creator terms">
+          <h2 className="slice-title">set rights and creator terms</h2>
+          <p className="slice-copy">
+            define what collectors receive, how the edition works, and the terms that travel with the proof.
+          </p>
+          <label className="identity-field">
+            <span className="slice-meta">rights metadata</span>
+            <textarea
+              className="identity-input identity-textarea"
+              value={licenseSummary}
+              onChange={(e) => setLicenseSummary(e.target.value)}
+              placeholder="personal viewing, collector vault display, and certificate sharing"
+              maxLength={1000}
+              rows={3}
+              autoFocus
+            />
+          </label>
+          <label className="identity-field">
+            <span className="slice-meta">creator terms</span>
+            <textarea
+              className="identity-input identity-textarea"
+              value={termsSummary}
+              onChange={(e) => setTermsSummary(e.target.value)}
+              placeholder="collector receives proof of collection under creator-set terms"
+              maxLength={1000}
+              rows={3}
+            />
+          </label>
+          <label className="identity-field">
+            <span className="slice-meta">edition policy</span>
+            <input
+              className="identity-input"
+              type="text"
+              value={editionPolicy}
+              onChange={(e) => setEditionPolicy(e.target.value)}
+              placeholder="open edition for this drop"
+              maxLength={300}
+            />
+          </label>
+        </section>
+      ) : null}
+
       {/* step: gating */}
       {step === "gating" ? (
         <section className="create-stepper-step" aria-label="wallet gating">
@@ -352,6 +408,18 @@ export function CreateDropStepper({
             <div className="create-stepper-review-row">
               <span className="slice-meta">price</span>
               <span className="slice-copy">${Number.parseFloat(priceUsd).toFixed(2)}</span>
+            </div>
+            <div className="create-stepper-review-row">
+              <span className="slice-meta">rights metadata</span>
+              <span className="slice-copy">{licenseSummary}</span>
+            </div>
+            <div className="create-stepper-review-row">
+              <span className="slice-meta">creator terms</span>
+              <span className="slice-copy">{termsSummary}</span>
+            </div>
+            <div className="create-stepper-review-row">
+              <span className="slice-meta">edition policy</span>
+              <span className="slice-copy">{editionPolicy}</span>
             </div>
             <div className="create-stepper-review-row">
               <span className="slice-meta">wallet gate</span>

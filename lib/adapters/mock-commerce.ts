@@ -60,6 +60,7 @@ import type {
   SetupCreatorStudioResult,
   World
 } from "@/lib/domain/contracts";
+import { validateDropPublishReadiness } from "@/lib/domain/rights";
 import type { CommerceGateway } from "@/lib/domain/ports";
 import { sortDropsForStudioSurface, sortDropsForWorldSurface } from "@/lib/catalog/drop-curation";
 import { buildCollectSettlementQuote } from "@/lib/domain/quote-engine";
@@ -1946,6 +1947,7 @@ export const commerceGateway: CommerceGateway = {
     const synopsis = input.synopsis.trim();
     if (!title || !synopsis) return null;
     if (input.priceUsd < 0) return null;
+    if (!validateDropPublishReadiness(input).ok) return null;
 
     const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
     const id = slug || `drop-${randomUUID().slice(0, 8)}`;
@@ -1963,7 +1965,9 @@ export const commerceGateway: CommerceGateway = {
       releaseDate: new Date().toISOString().slice(0, 10),
       priceUsd: input.priceUsd,
       visibility: input.visibility ?? "public",
-      previewPolicy: input.previewPolicy ?? "full"
+      previewPolicy: input.previewPolicy ?? "full",
+      rightsMetadata: input.rightsMetadata,
+      creatorTerms: input.creatorTerms
     };
 
     store.drops.set(id, drop);
