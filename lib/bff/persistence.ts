@@ -624,6 +624,22 @@ export type TransferRulesRecord = {
   updatedAt: string;
 };
 
+export type CreatorEarningsPayoutStatus = "pending" | "available" | "paid" | "held" | "reversed";
+
+export type CreatorEarningsRecord = {
+  id: string;
+  studioHandle: string;
+  dropId: string;
+  receiptId: string;
+  ledgerTransactionId: string;
+  grossAmountUsd: number;
+  platformFeeUsd: number;
+  netAmountUsd: number;
+  payoutStatus: CreatorEarningsPayoutStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type BffDatabase = {
   version: 1;
   catalog: {
@@ -683,6 +699,7 @@ export type BffDatabase = {
   savedIntents: SavedIntentRecord[];
   rightsMetadata: RightsMetadataRecord[];
   transferRules: TransferRulesRecord[];
+  creatorEarnings: CreatorEarningsRecord[];
 };
 
 type MutationResult<T> = {
@@ -1494,7 +1511,8 @@ function createSeedDatabase(): BffDatabase {
     provenanceEvents: [],
     savedIntents: [],
     rightsMetadata: [],
-    transferRules: []
+    transferRules: [],
+    creatorEarnings: []
   };
 }
 
@@ -1612,7 +1630,8 @@ function createEmptyDatabase(): BffDatabase {
     provenanceEvents: [],
     savedIntents: [],
     rightsMetadata: [],
-    transferRules: []
+    transferRules: [],
+    creatorEarnings: []
   };
 }
 
@@ -3573,6 +3592,9 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         : [],
       transferRules: Array.isArray(input.transferRules)
         ? (input.transferRules as TransferRulesRecord[])
+        : [],
+      creatorEarnings: Array.isArray(input.creatorEarnings)
+        ? (input.creatorEarnings as CreatorEarningsRecord[])
         : []
     };
   }
@@ -3751,6 +3773,9 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         : [],
       transferRules: Array.isArray(candidate.transferRules)
         ? (candidate.transferRules as TransferRulesRecord[])
+        : [],
+      creatorEarnings: Array.isArray(candidate.creatorEarnings)
+        ? (candidate.creatorEarnings as CreatorEarningsRecord[])
         : []
     };
   }
@@ -5136,6 +5161,42 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       } catch {
         return [];
       }
+    })(),
+    creatorEarnings: await (async () => {
+      try {
+        const r = await client.query<{
+          id: string;
+          studioHandle: string;
+          dropId: string;
+          receiptId: string;
+          ledgerTransactionId: string;
+          grossAmountUsd: string | number;
+          platformFeeUsd: string | number;
+          netAmountUsd: string | number;
+          payoutStatus: string;
+          createdAt: string;
+          updatedAt: string;
+        }>(
+          'SELECT id, studio_handle AS "studioHandle", drop_id AS "dropId", receipt_id AS "receiptId", ledger_transaction_id AS "ledgerTransactionId", gross_amount_usd AS "grossAmountUsd", platform_fee_usd AS "platformFeeUsd", net_amount_usd AS "netAmountUsd", payout_status AS "payoutStatus", created_at AS "createdAt", updated_at AS "updatedAt" FROM bff_creator_earnings ORDER BY created_at ASC'
+        );
+        return r.rows.map((row) => ({
+          id: row.id,
+          studioHandle: row.studioHandle,
+          dropId: row.dropId,
+          receiptId: row.receiptId,
+          ledgerTransactionId: row.ledgerTransactionId,
+          grossAmountUsd: Number(row.grossAmountUsd),
+          platformFeeUsd: Number(row.platformFeeUsd),
+          netAmountUsd: Number(row.netAmountUsd),
+          payoutStatus: (["pending", "available", "paid", "held", "reversed"].includes(row.payoutStatus)
+            ? row.payoutStatus
+            : "pending") as import("./persistence").CreatorEarningsPayoutStatus,
+          createdAt: row.createdAt,
+          updatedAt: row.updatedAt
+        }));
+      } catch {
+        return [];
+      }
     })()
   };
 }
@@ -5224,6 +5285,11 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
     await client.query("TRUNCATE TABLE bff_transfer_rules");
   } catch {
     // pre-0051 environment; safe to skip.
+  }
+  try {
+    await client.query("TRUNCATE TABLE bff_creator_earnings");
+  } catch {
+    // pre-0054 environment; safe to skip.
   }
 
   await client.query("INSERT INTO bff_meta (key, value) VALUES ($1, $2)", ["version", String(db.version)]);
@@ -6077,6 +6143,29 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
       );
     } catch {
       // pre-0051 environment; skip.
+    }
+  }
+
+  for (const earn of db.creatorEarnings) {
+    try {
+      await client.query(
+        "INSERT INTO bff_creator_earnings (id, studio_handle, drop_id, receipt_id, ledger_transaction_id, gross_amount_usd, platform_fee_usd, net_amount_usd, payout_status, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) ON CONFLICT (id) DO NOTHING",
+        [
+          earn.id,
+          earn.studioHandle,
+          earn.dropId,
+          earn.receiptId,
+          earn.ledgerTransactionId,
+          earn.grossAmountUsd,
+          earn.platformFeeUsd,
+          earn.netAmountUsd,
+          earn.payoutStatus,
+          earn.createdAt,
+          earn.updatedAt
+        ]
+      );
+    } catch {
+      // pre-0054 environment; skip.
     }
   }
 }

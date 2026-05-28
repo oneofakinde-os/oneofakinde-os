@@ -204,7 +204,9 @@ import {
   type ProvenanceEventRecord,
   type SavedIntentRecord,
   type RightsMetadataRecord,
-  type TransferRulesRecord
+  type TransferRulesRecord,
+  type CreatorEarningsRecord,
+  type CreatorEarningsPayoutStatus
 } from "@/lib/bff/persistence";
 import { PLATFORM_MIN_HOLD_PERIOD_DAYS, PLATFORM_MIN_ROYALTY_PCT } from "@/lib/domain/resale-authority";
 import { createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
@@ -2210,6 +2212,21 @@ function issueOwnershipAndReceipt(
     occurredAt: purchasedAt
   });
 
+  const earningsRecord: CreatorEarningsRecord = {
+    id: `earn_${randomUUID()}`,
+    studioHandle: drop.studioHandle,
+    dropId: drop.id,
+    receiptId,
+    ledgerTransactionId: ledger.transaction.id,
+    grossAmountUsd: options.quote.totalUsd,
+    platformFeeUsd: options.quote.commissionUsd,
+    netAmountUsd: options.quote.payoutUsd,
+    payoutStatus: "pending",
+    createdAt: purchasedAt,
+    updatedAt: purchasedAt
+  };
+  db.creatorEarnings.push(earningsRecord);
+
   return buildReceiptWithSettlement(db, receipt);
 }
 
@@ -2300,6 +2317,13 @@ function markRefundByReceipt(db: BffDatabase, accountId: string, receiptId: stri
     ? findDropById(db, originalTransaction.dropId)
     : null;
   const dropTitle = drop?.title ?? "a drop";
+
+  // Reverse creator earnings for this receipt
+  const earningsRecord = db.creatorEarnings.find((e) => e.receiptId === receiptId);
+  if (earningsRecord) {
+    earningsRecord.payoutStatus = "reversed";
+    earningsRecord.updatedAt = new Date().toISOString();
+  }
 
   emitNotification(
     db,
@@ -7313,6 +7337,99 @@ const gatewayMethods = {
         createdAt: new Date().toISOString()
       });
       return { persist: true, result: undefined };
+    });
+  },
+
+  async hasCertificatePreviewed(dropId: string): Promise<boolean> {
+    return withDatabase(async (db) => {
+      // Gate only applies when prior ownership exists (prior certificates exist).
+      // On first-ever collect of a drop there are no certificates to preview.
+      const hasPriorOwners = db.ownerships.some((o) => o.dropId === dropId);
+      if (!hasPriorOwners) {
+        return { persist: false, result: true };
+      }
+      const previewed = db.provenanceEvents.some(
+        (e) => e.kind === "certificate_previewed" && e.dropId === dropId
+      );
+      return { persist: false, result: previewed };
+    });
+  },
+
+  async validateCollectPreconditions(
+    accountId: string,
+    dropId: string
+  ): Promise<{ valid: boolean; blockingReasons: string[] }> {
+    return withDatabase(async (db) => {
+      const blockingReasons: string[] = [];
+
+      // Rights metadata gate
+      const rightsRecord = db.rightsMetadata.find((r) => r.dropId === dropId) ?? null;
+      if (!rightsRecord || !rightsRecord.licenseType.trim()) {
+        blockingReasons.push("rights metadata must be established for this drop before collect.");
+      }
+
+      // Certificate preview gate: only applies when prior owners exist
+      const hasPriorOwners = db.ownerships.some((o) => o.dropId === dropId);
+      if (hasPriorOwners) {
+        const previewed = db.provenanceEvents.some(
+          (e) => e.kind === "certificate_previewed" && e.dropId === dropId
+        );
+        if (!previewed) {
+          blockingReasons.push(
+            "a certificate for this drop must be previewed before collect can begin."
+          );
+        }
+      }
+
+      void accountId; // reserved for future per-account gate checks
+      return { persist: false, result: { valid: blockingReasons.length === 0, blockingReasons } };
+    });
+  },
+
+  async getCreatorEarnings(
+    studioHandle: string,
+    options: { payoutStatus?: CreatorEarningsPayoutStatus } = {}
+  ): Promise<CreatorEarningsRecord[]> {
+    return withDatabase(async (db) => {
+      let records = db.creatorEarnings.filter((e) => e.studioHandle === studioHandle);
+      if (options.payoutStatus) {
+        records = records.filter((e) => e.payoutStatus === options.payoutStatus);
+      }
+      return { persist: false, result: records };
+    });
+  },
+
+  async getCreatorEarningsSummary(studioHandle: string): Promise<{
+    pendingCount: number;
+    pendingNetUsd: number;
+    availableNetUsd: number;
+    reversedCount: number;
+    totalGrossUsd: number;
+    totalPlatformFeeUsd: number;
+    totalNetUsd: number;
+  }> {
+    return withDatabase(async (db) => {
+      const records = db.creatorEarnings.filter((e) => e.studioHandle === studioHandle);
+      const active = records.filter((e) => e.payoutStatus !== "reversed");
+      const pending = active.filter((e) => e.payoutStatus === "pending");
+      const available = active.filter((e) => e.payoutStatus === "available");
+      const reversed = records.filter((e) => e.payoutStatus === "reversed");
+
+      const sum = (arr: CreatorEarningsRecord[], field: keyof CreatorEarningsRecord) =>
+        arr.reduce((s, r) => s + Number(r[field] ?? 0), 0);
+
+      return {
+        persist: false,
+        result: {
+          pendingCount: pending.length,
+          pendingNetUsd: Number(sum(pending, "netAmountUsd").toFixed(2)),
+          availableNetUsd: Number(sum(available, "netAmountUsd").toFixed(2)),
+          reversedCount: reversed.length,
+          totalGrossUsd: Number(sum(active, "grossAmountUsd").toFixed(2)),
+          totalPlatformFeeUsd: Number(sum(active, "platformFeeUsd").toFixed(2)),
+          totalNetUsd: Number(sum(active, "netAmountUsd").toFixed(2))
+        }
+      };
     });
   },
 

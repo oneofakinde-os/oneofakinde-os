@@ -99,6 +99,20 @@ test("proof: acquisition_type is loaded from postgres (column present in ownersh
   );
 });
 
+test("proof: bff_creator_earnings is loaded from postgres (SELECT present in loader)", () => {
+  assert.ok(
+    persistenceSrc.includes("FROM bff_creator_earnings"),
+    "loadPostgresDb must SELECT from bff_creator_earnings"
+  );
+});
+
+test("proof: bff_creator_earnings is written to postgres (INSERT present in writer)", () => {
+  assert.ok(
+    persistenceSrc.includes("INSERT INTO bff_creator_earnings"),
+    "persistPostgresDb must INSERT into bff_creator_earnings"
+  );
+});
+
 test("proof: migration files exist for all sprint 0.5A tables", () => {
   const migrationNames = [
     "0048_bff_saved_intents.sql",
@@ -113,4 +127,16 @@ test("proof: migration files exist for all sprint 0.5A tables", () => {
     const content = readFileSync(path.join(process.cwd(), "config", name), "utf8");
     assert.ok(content.trim().length > 0, `migration ${name} must not be empty`);
   }
+});
+
+test("proof: migration file exists for sprint 0.5 creator earnings table", () => {
+  const content = readFileSync(
+    path.join(process.cwd(), "config", "0054_bff_creator_earnings.sql"),
+    "utf8"
+  );
+  assert.ok(content.trim().length > 0, "migration 0054_bff_creator_earnings.sql must not be empty");
+  assert.ok(
+    content.includes("bff_creator_earnings"),
+    "migration must reference bff_creator_earnings table"
+  );
 });

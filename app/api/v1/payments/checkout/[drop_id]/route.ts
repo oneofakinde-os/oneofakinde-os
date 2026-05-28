@@ -6,6 +6,7 @@ import {
   notFound,
   ok,
   safeJson,
+  unprocessableEntity,
   type RouteContext
 } from "@/lib/bff/http";
 import { emitOperationalEvent } from "@/lib/ops/observability";
@@ -56,6 +57,19 @@ export async function POST(request: Request, context: RouteContext<Params>) {
   }
 
   const payload = await safeJson<CheckoutSessionBody>(request);
+
+  const preconditions = await commerceBffService.validateCollectPreconditions(
+    guard.session.accountId,
+    dropId
+  );
+  if (!preconditions.valid) {
+    emitOperationalEvent("checkout_preconditions_failed", {
+      dropId,
+      accountId: guard.session.accountId,
+      reasons: preconditions.blockingReasons
+    });
+    return unprocessableEntity("collect preconditions not met", preconditions.blockingReasons);
+  }
 
   const checkoutSession = await commerceBffService.createCheckoutSession({
     accountId: guard.session.accountId,

@@ -24,6 +24,13 @@ export function conflict(message = "conflict"): NextResponse<{ error: string }> 
   return NextResponse.json({ error: message }, { status: 409 });
 }
 
+export function unprocessableEntity(
+  message: string,
+  reasons?: string[]
+): NextResponse<{ error: string; reasons?: string[] }> {
+  return NextResponse.json({ error: message, ...(reasons ? { reasons } : {}) }, { status: 422 });
+}
+
 export function tooManyRequests(
   message = "too many requests",
   headers?: Record<string, string>
