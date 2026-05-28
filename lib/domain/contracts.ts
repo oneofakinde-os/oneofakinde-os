@@ -1,5 +1,44 @@
 export type AccountRole = "collector" | "creator";
 
+export type GovernanceCaseType =
+  | "rights_dispute"
+  | "certificate_review"
+  | "proof_challenge"
+  | "collect_dispute"
+  | "refund_review"
+  | "safety_report"
+  | "policy_review"
+  | "promotion_review"
+  | "privacy_request";
+
+export type GovernanceCaseStatus =
+  | "open"
+  | "under_review"
+  | "action_required"
+  | "resolved"
+  | "rejected"
+  | "escalated"
+  | "closed";
+
+export type GovernanceCase = {
+  id: string;
+  caseType: GovernanceCaseType;
+  status: GovernanceCaseStatus;
+  reporterAccountId: string;
+  subjectType: string;
+  subjectId: string;
+  relatedDropId: string | null;
+  relatedReceiptId: string | null;
+  relatedOwnershipReceiptId: string | null;
+  relatedCertificateId: string | null;
+  relatedProvenanceEventId: string | null;
+  reason: string;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  resolvedAt: string | null;
+};
+
 /**
  * Sprint 0.1 — GDPR account-deletion lifecycle.
  *
@@ -42,6 +81,10 @@ export type AccountDataExport = {
   messageThreads: MessageThread[];
   patronCommitments: PatronCommitment[];
   ledgerTransactions: LedgerTransaction[];
+  savedIntents: SavedIntent[];
+  provenanceEvents: ProvenanceEvent[];
+  creatorEarnings: CreatorEarnings[];
+  governanceCases: GovernanceCase[];
   follows: string[];
   blocks: string[];
   mutes: string[];
@@ -1081,7 +1124,7 @@ export type Certificate = {
   dropTitle: string;
   ownerHandle: string;
   issuedAt: string;
-  status: "verified" | "revoked";
+  status: "verified" | "under_review" | "revoked";
 };
 
 export type SavedIntent = {
@@ -1089,6 +1132,60 @@ export type SavedIntent = {
   accountId: string;
   dropId: string;
   savedAt: string;
+};
+
+export type ProvenanceEventKind =
+  | "drop_published"
+  | "ownership_created"
+  | "ownership_transferred"
+  | "ownership_revoked"
+  | "certificate_issued"
+  | "certificate_revoked"
+  | "certificate_previewed";
+
+export type ProvenanceEvent = {
+  id: string;
+  dropId: string;
+  kind: ProvenanceEventKind;
+  actorHandle: string;
+  certificateId: string | null;
+  receiptId: string | null;
+  occurredAt: string;
+};
+
+export type CreatorEarningsPayoutStatus = "pending" | "available" | "paid" | "held" | "reversed";
+
+export type CreatorEarnings = {
+  id: string;
+  studioHandle: string;
+  dropId: string;
+  receiptId: string;
+  ledgerTransactionId: string;
+  grossAmountUsd: number;
+  platformFeeUsd: number;
+  netAmountUsd: number;
+  payoutStatus: CreatorEarningsPayoutStatus;
+  createdAt: string;
+};
+
+export type AuditEvent = {
+  id: string;
+  action: string;
+  actorAccountId: string | null;
+  subjectType: string | null;
+  subjectId: string | null;
+  meta: Record<string, unknown>;
+  createdAt: string;
+};
+
+export type MarketDriftSnapshot = {
+  totalCollects: number;
+  activeResaleRuleCount: number;
+  openGovernanceCaseCount: number;
+  enforcementSignalCount: number;
+  creatorEarningsTotalUsd: number;
+  ledgerTransactionCount: number;
+  measuredAt: string;
 };
 
 export type ReceiptBadge = {

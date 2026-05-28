@@ -9,6 +9,8 @@ import type {
   DropVisibilitySource,
   DropVersionLabel,
   Drop,
+  GovernanceCaseType,
+  GovernanceCaseStatus,
   LibraryRecallState,
   LedgerTransaction,
   LiveSessionAudienceEligibility,
@@ -640,6 +642,35 @@ export type CreatorEarningsRecord = {
   updatedAt: string;
 };
 
+export type GovernanceCaseRecord = {
+  id: string;
+  caseType: GovernanceCaseType;
+  status: GovernanceCaseStatus;
+  reporterAccountId: string;
+  subjectType: string;
+  subjectId: string;
+  relatedDropId: string | null;
+  relatedReceiptId: string | null;
+  relatedOwnershipReceiptId: string | null;
+  relatedCertificateId: string | null;
+  relatedProvenanceEventId: string | null;
+  reason: string;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  resolvedAt: string | null;
+};
+
+export type AuditEventRecord = {
+  id: string;
+  action: string;
+  actorAccountId: string | null;
+  subjectType: string | null;
+  subjectId: string | null;
+  meta: string;
+  createdAt: string;
+};
+
 export type BffDatabase = {
   version: 1;
   catalog: {
@@ -700,6 +731,8 @@ export type BffDatabase = {
   rightsMetadata: RightsMetadataRecord[];
   transferRules: TransferRulesRecord[];
   creatorEarnings: CreatorEarningsRecord[];
+  governanceCases: GovernanceCaseRecord[];
+  auditEvents: AuditEventRecord[];
 };
 
 type MutationResult<T> = {
@@ -1572,7 +1605,9 @@ function createSeedDatabase(): BffDatabase {
       }
     ],
     transferRules: [],
-    creatorEarnings: []
+    creatorEarnings: [],
+    governanceCases: [],
+    auditEvents: []
   };
 }
 
@@ -1627,7 +1662,9 @@ function createCatalogSeedDatabase(): BffDatabase {
     totpEnrollments: [],
     walletConnections: [],
     blocks: [],
-    mutes: []
+    mutes: [],
+    governanceCases: [],
+    auditEvents: []
   };
 }
 
@@ -1691,7 +1728,9 @@ function createEmptyDatabase(): BffDatabase {
     savedIntents: [],
     rightsMetadata: [],
     transferRules: [],
-    creatorEarnings: []
+    creatorEarnings: [],
+    governanceCases: [],
+    auditEvents: []
   };
 }
 
@@ -3655,6 +3694,12 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         : [],
       creatorEarnings: Array.isArray(input.creatorEarnings)
         ? (input.creatorEarnings as CreatorEarningsRecord[])
+        : [],
+      governanceCases: Array.isArray(input.governanceCases)
+        ? (input.governanceCases as GovernanceCaseRecord[])
+        : [],
+      auditEvents: Array.isArray(input.auditEvents)
+        ? (input.auditEvents as AuditEventRecord[])
         : []
     };
   }
@@ -3836,6 +3881,12 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         : [],
       creatorEarnings: Array.isArray(candidate.creatorEarnings)
         ? (candidate.creatorEarnings as CreatorEarningsRecord[])
+        : [],
+      governanceCases: Array.isArray(candidate.governanceCases)
+        ? (candidate.governanceCases as GovernanceCaseRecord[])
+        : [],
+      auditEvents: Array.isArray(candidate.auditEvents)
+        ? (candidate.auditEvents as AuditEventRecord[])
         : []
     };
   }
@@ -5257,6 +5308,76 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       } catch {
         return [];
       }
+    })(),
+    governanceCases: await (async () => {
+      try {
+        const r = await client.query<{
+          id: string;
+          caseType: string;
+          status: string;
+          reporterAccountId: string;
+          subjectType: string;
+          subjectId: string;
+          relatedDropId: string | null;
+          relatedReceiptId: string | null;
+          relatedOwnershipReceiptId: string | null;
+          relatedCertificateId: string | null;
+          relatedProvenanceEventId: string | null;
+          reason: string;
+          notes: string | null;
+          createdAt: string;
+          updatedAt: string;
+          resolvedAt: string | null;
+        }>(
+          'SELECT id, case_type AS "caseType", status, reporter_account_id AS "reporterAccountId", subject_type AS "subjectType", subject_id AS "subjectId", related_drop_id AS "relatedDropId", related_receipt_id AS "relatedReceiptId", related_ownership_receipt_id AS "relatedOwnershipReceiptId", related_certificate_id AS "relatedCertificateId", related_provenance_event_id AS "relatedProvenanceEventId", reason, notes, created_at AS "createdAt", updated_at AS "updatedAt", resolved_at AS "resolvedAt" FROM bff_governance_cases ORDER BY created_at ASC'
+        );
+        return r.rows.map((row) => ({
+          id: row.id,
+          caseType: row.caseType as GovernanceCaseType,
+          status: row.status as GovernanceCaseStatus,
+          reporterAccountId: row.reporterAccountId,
+          subjectType: row.subjectType,
+          subjectId: row.subjectId,
+          relatedDropId: row.relatedDropId ?? null,
+          relatedReceiptId: row.relatedReceiptId ?? null,
+          relatedOwnershipReceiptId: row.relatedOwnershipReceiptId ?? null,
+          relatedCertificateId: row.relatedCertificateId ?? null,
+          relatedProvenanceEventId: row.relatedProvenanceEventId ?? null,
+          reason: row.reason,
+          notes: row.notes ?? null,
+          createdAt: row.createdAt,
+          updatedAt: row.updatedAt,
+          resolvedAt: row.resolvedAt ?? null
+        }));
+      } catch {
+        return [];
+      }
+    })(),
+    auditEvents: await (async () => {
+      try {
+        const r = await client.query<{
+          id: string;
+          action: string;
+          actorAccountId: string | null;
+          subjectType: string | null;
+          subjectId: string | null;
+          meta: string;
+          createdAt: string;
+        }>(
+          'SELECT id, action, actor_account_id AS "actorAccountId", subject_type AS "subjectType", subject_id AS "subjectId", meta, created_at AS "createdAt" FROM bff_audit_events ORDER BY created_at ASC'
+        );
+        return r.rows.map((row) => ({
+          id: row.id,
+          action: row.action,
+          actorAccountId: row.actorAccountId ?? null,
+          subjectType: row.subjectType ?? null,
+          subjectId: row.subjectId ?? null,
+          meta: typeof row.meta === "string" ? row.meta : JSON.stringify(row.meta ?? {}),
+          createdAt: row.createdAt
+        }));
+      } catch {
+        return [];
+      }
     })()
   };
 }
@@ -5350,6 +5471,18 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
     await client.query("TRUNCATE TABLE bff_creator_earnings");
   } catch {
     // pre-0054 environment; safe to skip.
+  }
+
+  // Sprint 0.6 — governance cases and audit events.
+  try {
+    await client.query("TRUNCATE TABLE bff_governance_cases");
+  } catch {
+    // pre-0055 environment; safe to skip.
+  }
+  try {
+    await client.query("TRUNCATE TABLE bff_audit_events");
+  } catch {
+    // pre-0056 environment; safe to skip.
   }
 
   await client.query("INSERT INTO bff_meta (key, value) VALUES ($1, $2)", ["version", String(db.version)]);
@@ -6226,6 +6359,53 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
       );
     } catch {
       // pre-0054 environment; skip.
+    }
+  }
+
+  for (const gc of db.governanceCases) {
+    try {
+      await client.query(
+        "INSERT INTO bff_governance_cases (id, case_type, status, reporter_account_id, subject_type, subject_id, related_drop_id, related_receipt_id, related_ownership_receipt_id, related_certificate_id, related_provenance_event_id, reason, notes, created_at, updated_at, resolved_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) ON CONFLICT (id) DO NOTHING",
+        [
+          gc.id,
+          gc.caseType,
+          gc.status,
+          gc.reporterAccountId,
+          gc.subjectType,
+          gc.subjectId,
+          gc.relatedDropId ?? null,
+          gc.relatedReceiptId ?? null,
+          gc.relatedOwnershipReceiptId ?? null,
+          gc.relatedCertificateId ?? null,
+          gc.relatedProvenanceEventId ?? null,
+          gc.reason,
+          gc.notes ?? null,
+          gc.createdAt,
+          gc.updatedAt,
+          gc.resolvedAt ?? null
+        ]
+      );
+    } catch {
+      // pre-0055 environment; skip.
+    }
+  }
+
+  for (const ae of db.auditEvents) {
+    try {
+      await client.query(
+        "INSERT INTO bff_audit_events (id, action, actor_account_id, subject_type, subject_id, meta, created_at) VALUES ($1, $2, $3, $4, $5, $6::text, $7) ON CONFLICT (id) DO NOTHING",
+        [
+          ae.id,
+          ae.action,
+          ae.actorAccountId ?? null,
+          ae.subjectType ?? null,
+          ae.subjectId ?? null,
+          typeof ae.meta === "string" ? ae.meta : JSON.stringify(ae.meta),
+          ae.createdAt
+        ]
+      );
+    } catch {
+      // pre-0056 environment; skip.
     }
   }
 }

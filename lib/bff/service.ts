@@ -140,7 +140,13 @@ import type {
   UpdateDropPreviewMediaInput,
   UpsertWorkshopPatronTierConfigInput,
   World,
-  SavedIntent
+  SavedIntent,
+  GovernanceCase,
+  GovernanceCaseStatus,
+  GovernanceCaseType,
+  ProvenanceEvent,
+  CreatorEarnings,
+  MarketDriftSnapshot
 } from "@/lib/domain/contracts";
 import type { CheckoutSessionResult, CreateCheckoutSessionInput, StripeWebhookApplyResult } from "@/lib/bff/contracts";
 import {
@@ -206,9 +212,12 @@ import {
   type RightsMetadataRecord,
   type TransferRulesRecord,
   type CreatorEarningsRecord,
-  type CreatorEarningsPayoutStatus
+  type CreatorEarningsPayoutStatus,
+  type GovernanceCaseRecord,
+  type AuditEventRecord
 } from "@/lib/bff/persistence";
 import { PLATFORM_MIN_HOLD_PERIOD_DAYS, PLATFORM_MIN_ROYALTY_PCT } from "@/lib/domain/resale-authority";
+import { computeMarketDriftSnapshot } from "@/lib/domain/market-drift";
 import { createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 
 const PROCESSING_FEE_USD = 1.99;
@@ -2127,6 +2136,18 @@ function appendProvenanceEvent(
   event: Omit<ProvenanceEventRecord, "id">
 ): void {
   db.provenanceEvents.push({ id: `prov_${randomUUID()}`, ...event });
+}
+
+function appendAuditEvent(
+  db: BffDatabase,
+  event: Omit<AuditEventRecord, "id" | "createdAt">
+): void {
+  db.auditEvents.push({
+    id: `audit_${randomUUID()}`,
+    ...event,
+    meta: typeof event.meta === "string" ? event.meta : JSON.stringify(event.meta ?? {}),
+    createdAt: new Date().toISOString()
+  });
 }
 
 function issueOwnershipAndReceipt(
@@ -7433,6 +7454,277 @@ const gatewayMethods = {
     });
   },
 
+  async createGovernanceCase(input: {
+    reporterAccountId: string;
+    caseType: GovernanceCaseType;
+    subjectType: string;
+    subjectId: string;
+    reason: string;
+    relatedDropId?: string | null;
+    relatedReceiptId?: string | null;
+    relatedOwnershipReceiptId?: string | null;
+    relatedCertificateId?: string | null;
+    relatedProvenanceEventId?: string | null;
+  }): Promise<GovernanceCase | null> {
+    return withDatabase(async (db) => {
+      const reporter = findAccountById(db, input.reporterAccountId);
+      if (!reporter) return { persist: false, result: null };
+
+      const nowIso = new Date().toISOString();
+      const caseId = `gc_${randomUUID()}`;
+      const record: GovernanceCaseRecord = {
+        id: caseId,
+        caseType: input.caseType,
+        status: "open",
+        reporterAccountId: input.reporterAccountId,
+        subjectType: input.subjectType,
+        subjectId: input.subjectId,
+        relatedDropId: input.relatedDropId ?? null,
+        relatedReceiptId: input.relatedReceiptId ?? null,
+        relatedOwnershipReceiptId: input.relatedOwnershipReceiptId ?? null,
+        relatedCertificateId: input.relatedCertificateId ?? null,
+        relatedProvenanceEventId: input.relatedProvenanceEventId ?? null,
+        reason: input.reason,
+        notes: null,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+        resolvedAt: null
+      };
+      db.governanceCases.push(record);
+      appendAuditEvent(db, {
+        action: "governance_case_created",
+        actorAccountId: input.reporterAccountId,
+        subjectType: "governance_case",
+        subjectId: caseId,
+        meta: JSON.stringify({ caseType: input.caseType })
+      });
+      return {
+        persist: true,
+        result: { ...record }
+      };
+    });
+  },
+
+  async updateGovernanceCaseStatus(
+    adminAccountId: string,
+    caseId: string,
+    status: GovernanceCaseStatus,
+    notes?: string
+  ): Promise<GovernanceCase | null> {
+    return withDatabase(async (db) => {
+      const admin = findAccountById(db, adminAccountId);
+      if (!admin) return { persist: false, result: null };
+
+      const record = db.governanceCases.find((gc) => gc.id === caseId);
+      if (!record) return { persist: false, result: null };
+
+      const nowIso = new Date().toISOString();
+      const prevStatus = record.status;
+      record.status = status;
+      record.updatedAt = nowIso;
+      if (notes !== undefined) record.notes = notes;
+      if (status === "resolved" || status === "closed" || status === "rejected") {
+        record.resolvedAt = nowIso;
+      }
+
+      appendAuditEvent(db, {
+        action: "governance_case_status_updated",
+        actorAccountId: adminAccountId,
+        subjectType: "governance_case",
+        subjectId: caseId,
+        meta: JSON.stringify({ prevStatus, newStatus: status })
+      });
+      return { persist: true, result: { ...record } };
+    });
+  },
+
+  async listGovernanceCases(options?: {
+    status?: GovernanceCaseStatus;
+    caseType?: GovernanceCaseType;
+    limit?: number;
+  }): Promise<GovernanceCase[]> {
+    return withDatabase(async (db) => {
+      let cases = [...db.governanceCases];
+      if (options?.status) cases = cases.filter((gc) => gc.status === options.status);
+      if (options?.caseType) cases = cases.filter((gc) => gc.caseType === options.caseType);
+      cases.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      if (options?.limit) cases = cases.slice(0, options.limit);
+      return { persist: false, result: cases.map((gc) => ({ ...gc })) };
+    });
+  },
+
+  async getGovernanceCasesForAccount(accountId: string): Promise<GovernanceCase[]> {
+    return withDatabase(async (db) => {
+      const cases = db.governanceCases
+        .filter((gc) => gc.reporterAccountId === accountId)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .map((gc) => ({ ...gc }));
+      return { persist: false, result: cases };
+    });
+  },
+
+  async addGovernanceCaseNote(
+    adminAccountId: string,
+    caseId: string,
+    note: string
+  ): Promise<GovernanceCase | null> {
+    return withDatabase(async (db) => {
+      const admin = findAccountById(db, adminAccountId);
+      if (!admin) return { persist: false, result: null };
+
+      const record = db.governanceCases.find((gc) => gc.id === caseId);
+      if (!record) return { persist: false, result: null };
+
+      const nowIso = new Date().toISOString();
+      record.notes = record.notes ? `${record.notes}\n${note}` : note;
+      record.updatedAt = nowIso;
+      appendAuditEvent(db, {
+        action: "governance_case_note_added",
+        actorAccountId: adminAccountId,
+        subjectType: "governance_case",
+        subjectId: caseId,
+        meta: JSON.stringify({})
+      });
+      return { persist: true, result: { ...record } };
+    });
+  },
+
+  async openRightsDispute(input: {
+    reporterAccountId: string;
+    dropId: string;
+    reason: string;
+    relatedCertificateId?: string | null;
+    relatedProvenanceEventId?: string | null;
+  }): Promise<GovernanceCase | null> {
+    return withDatabase(async (db) => {
+      const reporter = findAccountById(db, input.reporterAccountId);
+      if (!reporter) return { persist: false, result: null };
+
+      const nowIso = new Date().toISOString();
+      const caseId = `gc_${randomUUID()}`;
+      const record: GovernanceCaseRecord = {
+        id: caseId,
+        caseType: "rights_dispute",
+        status: "open",
+        reporterAccountId: input.reporterAccountId,
+        subjectType: "drop",
+        subjectId: input.dropId,
+        relatedDropId: input.dropId,
+        relatedReceiptId: null,
+        relatedOwnershipReceiptId: null,
+        relatedCertificateId: input.relatedCertificateId ?? null,
+        relatedProvenanceEventId: input.relatedProvenanceEventId ?? null,
+        reason: input.reason,
+        notes: null,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+        resolvedAt: null
+      };
+      db.governanceCases.push(record);
+      appendAuditEvent(db, {
+        action: "rights_dispute_opened",
+        actorAccountId: input.reporterAccountId,
+        subjectType: "drop",
+        subjectId: input.dropId,
+        meta: JSON.stringify({ caseId })
+      });
+      return { persist: true, result: { ...record } };
+    });
+  },
+
+  async flagCertificateForReview(
+    adminAccountId: string,
+    certId: string,
+    reason: string
+  ): Promise<GovernanceCase | null> {
+    return withDatabase(async (db) => {
+      const admin = findAccountById(db, adminAccountId);
+      if (!admin) return { persist: false, result: null };
+
+      const cert = db.certificates.find((c) => c.id === certId);
+      if (!cert) return { persist: false, result: null };
+
+      cert.status = "under_review";
+      const nowIso = new Date().toISOString();
+      const caseId = `gc_${randomUUID()}`;
+      const record: GovernanceCaseRecord = {
+        id: caseId,
+        caseType: "certificate_review",
+        status: "under_review",
+        reporterAccountId: adminAccountId,
+        subjectType: "certificate",
+        subjectId: certId,
+        relatedDropId: cert.dropId,
+        relatedReceiptId: cert.receiptId,
+        relatedOwnershipReceiptId: null,
+        relatedCertificateId: certId,
+        relatedProvenanceEventId: null,
+        reason,
+        notes: null,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+        resolvedAt: null
+      };
+      db.governanceCases.push(record);
+      appendAuditEvent(db, {
+        action: "certificate_flagged_for_review",
+        actorAccountId: adminAccountId,
+        subjectType: "certificate",
+        subjectId: certId,
+        meta: JSON.stringify({ caseId, reason })
+      });
+      return { persist: true, result: { ...record } };
+    });
+  },
+
+  async openCollectDispute(input: {
+    reporterAccountId: string;
+    receiptId: string;
+    reason: string;
+    dropId?: string | null;
+  }): Promise<GovernanceCase | null> {
+    return withDatabase(async (db) => {
+      const reporter = findAccountById(db, input.reporterAccountId);
+      if (!reporter) return { persist: false, result: null };
+
+      const nowIso = new Date().toISOString();
+      const caseId = `gc_${randomUUID()}`;
+      const record: GovernanceCaseRecord = {
+        id: caseId,
+        caseType: "collect_dispute",
+        status: "open",
+        reporterAccountId: input.reporterAccountId,
+        subjectType: "receipt",
+        subjectId: input.receiptId,
+        relatedDropId: input.dropId ?? null,
+        relatedReceiptId: input.receiptId,
+        relatedOwnershipReceiptId: null,
+        relatedCertificateId: null,
+        relatedProvenanceEventId: null,
+        reason: input.reason,
+        notes: null,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+        resolvedAt: null
+      };
+      db.governanceCases.push(record);
+      appendAuditEvent(db, {
+        action: "collect_dispute_opened",
+        actorAccountId: input.reporterAccountId,
+        subjectType: "receipt",
+        subjectId: input.receiptId,
+        meta: JSON.stringify({ caseId })
+      });
+      return { persist: true, result: { ...record } };
+    });
+  },
+
+  async getMarketDriftSnapshot(): Promise<MarketDriftSnapshot> {
+    return withDatabase(async (db) => {
+      return { persist: false, result: computeMarketDriftSnapshot(db) };
+    });
+  },
+
   async getMyCollectionAnalyticsPanel(accountId: string): Promise<MyCollectionAnalyticsPanel | null> {
     return withDatabase(async (db) => {
       const account = findAccountById(db, accountId);
@@ -8900,6 +9192,54 @@ const gatewayMethods = {
       const ledgerTransactions: LedgerTransaction[] = db.ledgerTransactions
         .filter((t) => t.accountId === account.id)
         .map((t) => ({ ...t }));
+      const savedIntents: SavedIntent[] = db.savedIntents
+        .filter((i) => i.accountId === account.id)
+        .map((i) => ({ id: i.id, accountId: i.accountId, dropId: i.dropId, savedAt: i.savedAt }));
+      const provenanceEvents: ProvenanceEvent[] = db.provenanceEvents
+        .filter((e) => e.actorHandle === account.handle)
+        .map((e) => ({
+          id: e.id,
+          dropId: e.dropId,
+          kind: e.kind,
+          actorHandle: e.actorHandle,
+          certificateId: e.certificateId ?? null,
+          receiptId: e.receiptId ?? null,
+          occurredAt: e.occurredAt
+        }));
+      const creatorEarnings: CreatorEarnings[] = db.creatorEarnings
+        .filter((e) => e.studioHandle === account.handle)
+        .map((e) => ({
+          id: e.id,
+          studioHandle: e.studioHandle,
+          dropId: e.dropId,
+          receiptId: e.receiptId,
+          ledgerTransactionId: e.ledgerTransactionId,
+          grossAmountUsd: e.grossAmountUsd,
+          platformFeeUsd: e.platformFeeUsd,
+          netAmountUsd: e.netAmountUsd,
+          payoutStatus: e.payoutStatus,
+          createdAt: e.createdAt
+        }));
+      const governanceCases: GovernanceCase[] = db.governanceCases
+        .filter((gc) => gc.reporterAccountId === account.id)
+        .map((gc) => ({
+          id: gc.id,
+          caseType: gc.caseType,
+          status: gc.status,
+          reporterAccountId: gc.reporterAccountId,
+          subjectType: gc.subjectType,
+          subjectId: gc.subjectId,
+          relatedDropId: gc.relatedDropId,
+          relatedReceiptId: gc.relatedReceiptId,
+          relatedOwnershipReceiptId: gc.relatedOwnershipReceiptId,
+          relatedCertificateId: gc.relatedCertificateId,
+          relatedProvenanceEventId: gc.relatedProvenanceEventId,
+          reason: gc.reason,
+          notes: gc.notes,
+          createdAt: gc.createdAt,
+          updatedAt: gc.updatedAt,
+          resolvedAt: gc.resolvedAt
+        }));
       const follows = db.studioFollows
         .filter((f) => f.accountId === account.id)
         .map((f) => f.studioHandle);
@@ -8932,6 +9272,10 @@ const gatewayMethods = {
           messageThreads,
           patronCommitments,
           ledgerTransactions,
+          savedIntents,
+          provenanceEvents,
+          creatorEarnings,
+          governanceCases,
           follows,
           blocks,
           mutes,
