@@ -202,8 +202,11 @@ import {
   type TownhallTelemetryEventRecord,
   type WalletConnectionRecord,
   type ProvenanceEventRecord,
-  type SavedIntentRecord
+  type SavedIntentRecord,
+  type RightsMetadataRecord,
+  type TransferRulesRecord
 } from "@/lib/bff/persistence";
+import { PLATFORM_MIN_HOLD_PERIOD_DAYS, PLATFORM_MIN_ROYALTY_PCT } from "@/lib/domain/resale-authority";
 import { createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 
 const PROCESSING_FEE_USD = 1.99;
@@ -7162,6 +7165,154 @@ const gatewayMethods = {
       if (!account) return { persist: false, result: "private" as const };
       account.vaultVisibility = visibility;
       return { persist: true, result: visibility };
+    });
+  },
+
+  async getRightsMetadataForDrop(dropId: string): Promise<RightsMetadataRecord | null> {
+    return withDatabase(async (db) => {
+      const record = db.rightsMetadata.find((r) => r.dropId === dropId) ?? null;
+      return { persist: false, result: record };
+    });
+  },
+
+  async upsertRightsMetadataForDrop(
+    dropId: string,
+    input: {
+      licenseType: string;
+      commercialUse: boolean;
+      derivativesAllowed: boolean;
+      attributionRequired: boolean;
+      royaltyPct?: number | null;
+      notes?: string | null;
+    }
+  ): Promise<RightsMetadataRecord> {
+    return withDatabase(async (db) => {
+      const now = new Date().toISOString();
+      const existing = db.rightsMetadata.find((r) => r.dropId === dropId);
+      if (existing) {
+        existing.licenseType = input.licenseType;
+        existing.commercialUse = input.commercialUse;
+        existing.derivativesAllowed = input.derivativesAllowed;
+        existing.attributionRequired = input.attributionRequired;
+        existing.royaltyPct = input.royaltyPct ?? null;
+        existing.notes = input.notes ?? null;
+        existing.updatedAt = now;
+        return { persist: true, result: existing };
+      }
+      const record: RightsMetadataRecord = {
+        id: `rm_${randomUUID()}`,
+        dropId,
+        licenseType: input.licenseType,
+        commercialUse: input.commercialUse,
+        derivativesAllowed: input.derivativesAllowed,
+        attributionRequired: input.attributionRequired,
+        royaltyPct: input.royaltyPct ?? null,
+        notes: input.notes ?? null,
+        createdAt: now,
+        updatedAt: now
+      };
+      db.rightsMetadata.push(record);
+      return { persist: true, result: record };
+    });
+  },
+
+  validateRightsMetadataComplete(record: RightsMetadataRecord | null): boolean {
+    if (!record) return false;
+    return record.licenseType.trim().length > 0;
+  },
+
+  async getTransferRulesForDrop(dropId: string): Promise<TransferRulesRecord | null> {
+    return withDatabase(async (db) => {
+      const record = db.transferRules.find((r) => r.dropId === dropId) ?? null;
+      return { persist: false, result: record };
+    });
+  },
+
+  async upsertTransferRulesForDrop(
+    dropId: string,
+    input: {
+      transferable: boolean;
+      giftingAllowed: boolean;
+      resaleAllowed: boolean;
+      requiresCreatorApproval: boolean;
+      holdPeriodDays?: number | null;
+      royaltyPct?: number | null;
+      audienceScope?: string | null;
+    }
+  ): Promise<{ record: TransferRulesRecord; validationErrors: string[] }> {
+    return withDatabase(async (db) => {
+      const validationErrors: string[] = [];
+
+      const holdPeriodDays = input.holdPeriodDays ?? null;
+      if (holdPeriodDays !== null && holdPeriodDays < PLATFORM_MIN_HOLD_PERIOD_DAYS) {
+        validationErrors.push(
+          `hold_period_days cannot be below platform minimum of ${PLATFORM_MIN_HOLD_PERIOD_DAYS} days.`
+        );
+      }
+
+      const royaltyPct = input.royaltyPct ?? null;
+      if (input.resaleAllowed && royaltyPct !== null && royaltyPct < PLATFORM_MIN_ROYALTY_PCT) {
+        validationErrors.push(
+          `royalty_pct cannot be below platform minimum of ${PLATFORM_MIN_ROYALTY_PCT * 100}% when resale is enabled.`
+        );
+      }
+
+      const now = new Date().toISOString();
+      const existing = db.transferRules.find((r) => r.dropId === dropId);
+      if (existing) {
+        existing.transferable = input.transferable;
+        existing.giftingAllowed = input.giftingAllowed;
+        existing.resaleAllowed = input.resaleAllowed;
+        existing.requiresCreatorApproval = input.requiresCreatorApproval;
+        existing.holdPeriodDays = holdPeriodDays;
+        existing.royaltyPct = royaltyPct;
+        existing.audienceScope = input.audienceScope ?? null;
+        existing.updatedAt = now;
+        return { persist: validationErrors.length === 0, result: { record: existing, validationErrors } };
+      }
+
+      const record: TransferRulesRecord = {
+        id: `tr_${randomUUID()}`,
+        dropId,
+        transferable: input.transferable,
+        giftingAllowed: input.giftingAllowed,
+        resaleAllowed: input.resaleAllowed,
+        requiresCreatorApproval: input.requiresCreatorApproval,
+        holdPeriodDays,
+        royaltyPct,
+        audienceScope: input.audienceScope ?? null,
+        createdAt: now,
+        updatedAt: now
+      };
+      db.transferRules.push(record);
+      return { persist: validationErrors.length === 0, result: { record, validationErrors } };
+    });
+  },
+
+  validateTransferRules(record: TransferRulesRecord | null): string[] {
+    const errors: string[] = [];
+    if (!record) return errors;
+    if (record.holdPeriodDays !== null && record.holdPeriodDays !== undefined && record.holdPeriodDays < PLATFORM_MIN_HOLD_PERIOD_DAYS) {
+      errors.push(`hold_period_days cannot be below platform minimum of ${PLATFORM_MIN_HOLD_PERIOD_DAYS} days.`);
+    }
+    if (record.resaleAllowed && record.royaltyPct !== null && record.royaltyPct !== undefined && record.royaltyPct < PLATFORM_MIN_ROYALTY_PCT) {
+      errors.push(`royalty_pct cannot be below platform minimum of ${PLATFORM_MIN_ROYALTY_PCT * 100}% when resale is enabled.`);
+    }
+    return errors;
+  },
+
+  async recordCertificatePreviewed(certificateId: string, dropId: string): Promise<void> {
+    await withDatabase(async (db) => {
+      appendProvenanceEvent(db, {
+        dropId,
+        kind: "certificate_previewed",
+        actorHandle: "public",
+        certificateId,
+        receiptId: null,
+        occurredAt: new Date().toISOString(),
+        createdAt: new Date().toISOString()
+      });
+      return { persist: true, result: undefined };
     });
   },
 

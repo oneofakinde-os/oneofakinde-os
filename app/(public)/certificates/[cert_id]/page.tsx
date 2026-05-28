@@ -1,4 +1,5 @@
 import { AppShell } from "@/features/shell/app-shell";
+import { commerceBffService } from "@/lib/bff/service";
 import { gateway } from "@/lib/gateway";
 import { routes } from "@/lib/routes";
 import { getOptionalSession } from "@/lib/server/session";
@@ -23,7 +24,8 @@ export default async function CertificatePage({ params }: CertificatePageProps) 
 
   const [drop, wallets] = await Promise.all([
     gateway.getDropById(certificate.dropId),
-    gateway.getCertificateWallets(certificateId)
+    gateway.getCertificateWallets(certificateId),
+    commerceBffService.recordCertificatePreviewed(certificateId, certificate.dropId).catch(() => undefined)
   ]);
   if (!drop) {
     notFound();

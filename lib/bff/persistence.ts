@@ -576,7 +576,8 @@ export type ProvenanceEventKind =
   | "ownership_transferred"
   | "ownership_revoked"
   | "certificate_issued"
-  | "certificate_revoked";
+  | "certificate_revoked"
+  | "certificate_previewed";
 
 export type ProvenanceEventRecord = {
   id: string;
@@ -586,6 +587,7 @@ export type ProvenanceEventRecord = {
   certificateId: string | null;
   receiptId: string | null;
   occurredAt: string;
+  createdAt?: string;
 };
 
 export type SavedIntentRecord = {
@@ -602,6 +604,8 @@ export type RightsMetadataRecord = {
   commercialUse: boolean;
   derivativesAllowed: boolean;
   attributionRequired: boolean;
+  royaltyPct?: number | null;
+  notes?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -613,6 +617,9 @@ export type TransferRulesRecord = {
   giftingAllowed: boolean;
   resaleAllowed: boolean;
   requiresCreatorApproval: boolean;
+  holdPeriodDays?: number | null;
+  royaltyPct?: number | null;
+  audienceScope?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -4188,14 +4195,15 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       deletionRequestedAt: string | null;
       deletedAt: string | null;
       anonymizedAt: string | null;
+      vaultVisibility: string | null;
     }>(
-      'SELECT id, email, handle, display_name AS "displayName", roles, created_at AS "createdAt", avatar_url AS "avatarUrl", bio, deletion_requested_at AS "deletionRequestedAt", deleted_at AS "deletedAt", anonymized_at AS "anonymizedAt" FROM bff_accounts ORDER BY created_at ASC'
+      'SELECT id, email, handle, display_name AS "displayName", roles, created_at AS "createdAt", avatar_url AS "avatarUrl", bio, deletion_requested_at AS "deletionRequestedAt", deleted_at AS "deletedAt", anonymized_at AS "anonymizedAt", vault_visibility AS "vaultVisibility" FROM bff_accounts ORDER BY created_at ASC'
     ),
     client.query<SessionRecord>(
       'SELECT token, account_id AS "accountId", created_at AS "createdAt", expires_at AS "expiresAt" FROM bff_sessions ORDER BY created_at ASC'
     ),
     client.query<OwnedDropRecord>(
-      'SELECT account_id AS "accountId", drop_id AS "dropId", certificate_id AS "certificateId", receipt_id AS "receiptId", acquired_at AS "acquiredAt" FROM bff_ownerships ORDER BY acquired_at DESC'
+      'SELECT account_id AS "accountId", drop_id AS "dropId", certificate_id AS "certificateId", receipt_id AS "receiptId", acquired_at AS "acquiredAt", edition_number AS "editionNumber", acquisition_type AS "acquisitionType", status FROM bff_ownerships ORDER BY acquired_at DESC'
     ),
     client.query<SavedDropRecord>(
       'SELECT account_id AS "accountId", drop_id AS "dropId", saved_at AS "savedAt" FROM bff_saved_drops ORDER BY saved_at DESC'
@@ -4592,12 +4600,10 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       createdAt: row.createdAt,
       avatarUrl: row.avatarUrl ?? undefined,
       bio: row.bio ?? undefined,
-      // Sprint 0.1 — deletion lifecycle. PR #204 P1 fix: the SELECT brings
-      // these back from Postgres but the mapper was dropping them, so the
-      // deletion state was reverting to "active" on every reload.
       deletionRequestedAt: row.deletionRequestedAt ?? null,
       deletedAt: row.deletedAt ?? null,
-      anonymizedAt: row.anonymizedAt ?? null
+      anonymizedAt: row.anonymizedAt ?? null,
+      vaultVisibility: (row.vaultVisibility === "public" ? "public" : "private") as "private" | "public"
     })),
     sessions: sessionsResult.rows,
     ownerships: ownershipsResult.rows,
@@ -5036,10 +5042,101 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
         return [];
       }
     })(),
-    provenanceEvents: [],
-    savedIntents: [],
-    rightsMetadata: [],
-    transferRules: []
+    provenanceEvents: await (async () => {
+      try {
+        const r = await client.query<{
+          id: string;
+          dropId: string;
+          kind: ProvenanceEventKind;
+          actorHandle: string;
+          certificateId: string | null;
+          receiptId: string | null;
+          occurredAt: string;
+          createdAt: string;
+        }>(
+          'SELECT id, drop_id AS "dropId", kind, actor_handle AS "actorHandle", certificate_id AS "certificateId", receipt_id AS "receiptId", occurred_at AS "occurredAt", created_at AS "createdAt" FROM bff_provenance_events ORDER BY occurred_at ASC'
+        );
+        return r.rows;
+      } catch {
+        return [];
+      }
+    })(),
+    savedIntents: await (async () => {
+      try {
+        const r = await client.query<SavedIntentRecord>(
+          'SELECT id, account_id AS "accountId", drop_id AS "dropId", saved_at AS "savedAt" FROM bff_saved_intents ORDER BY saved_at DESC'
+        );
+        return r.rows;
+      } catch {
+        return [];
+      }
+    })(),
+    rightsMetadata: await (async () => {
+      try {
+        const r = await client.query<{
+          id: string;
+          dropId: string;
+          licenseType: string;
+          commercialUse: boolean;
+          derivativesAllowed: boolean;
+          attributionRequired: boolean;
+          royaltyPct: string | null;
+          notes: string | null;
+          createdAt: string;
+          updatedAt: string;
+        }>(
+          'SELECT id, drop_id AS "dropId", license_type AS "licenseType", commercial_use AS "commercialUse", derivatives_allowed AS "derivativesAllowed", attribution_required AS "attributionRequired", royalty_pct AS "royaltyPct", notes, created_at AS "createdAt", updated_at AS "updatedAt" FROM bff_rights_metadata ORDER BY created_at ASC'
+        );
+        return r.rows.map((row) => ({
+          id: row.id,
+          dropId: row.dropId,
+          licenseType: row.licenseType,
+          commercialUse: Boolean(row.commercialUse),
+          derivativesAllowed: Boolean(row.derivativesAllowed),
+          attributionRequired: Boolean(row.attributionRequired),
+          royaltyPct: row.royaltyPct !== null && row.royaltyPct !== undefined ? Number(row.royaltyPct) : null,
+          notes: row.notes ?? null,
+          createdAt: row.createdAt,
+          updatedAt: row.updatedAt
+        }));
+      } catch {
+        return [];
+      }
+    })(),
+    transferRules: await (async () => {
+      try {
+        const r = await client.query<{
+          id: string;
+          dropId: string;
+          transferable: boolean;
+          giftingAllowed: boolean;
+          resaleAllowed: boolean;
+          requiresCreatorApproval: boolean;
+          holdPeriodDays: string | number | null;
+          royaltyPct: string | null;
+          audienceScope: string | null;
+          createdAt: string;
+          updatedAt: string;
+        }>(
+          'SELECT id, drop_id AS "dropId", transferable, gifting_allowed AS "giftingAllowed", resale_allowed AS "resaleAllowed", requires_creator_approval AS "requiresCreatorApproval", hold_period_days AS "holdPeriodDays", royalty_pct AS "royaltyPct", audience_scope AS "audienceScope", created_at AS "createdAt", updated_at AS "updatedAt" FROM bff_transfer_rules ORDER BY created_at ASC'
+        );
+        return r.rows.map((row) => ({
+          id: row.id,
+          dropId: row.dropId,
+          transferable: Boolean(row.transferable),
+          giftingAllowed: Boolean(row.giftingAllowed),
+          resaleAllowed: Boolean(row.resaleAllowed),
+          requiresCreatorApproval: Boolean(row.requiresCreatorApproval),
+          holdPeriodDays: row.holdPeriodDays !== null && row.holdPeriodDays !== undefined ? Number(row.holdPeriodDays) : null,
+          royaltyPct: row.royaltyPct !== null && row.royaltyPct !== undefined ? Number(row.royaltyPct) : null,
+          audienceScope: row.audienceScope ?? null,
+          createdAt: row.createdAt,
+          updatedAt: row.updatedAt
+        }));
+      } catch {
+        return [];
+      }
+    })()
   };
 }
 
@@ -5105,6 +5202,30 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
     // pre-0043 environment; safe to skip.
   }
 
+  // Sprint 0.5A — provenance (append-only), saved intents, rights metadata, transfer rules.
+  // Wrapped in individual try/catch blocks so each table is tolerant of environments
+  // where its migration has not yet been applied.
+  try {
+    await client.query("TRUNCATE TABLE bff_provenance_events");
+  } catch {
+    // pre-0049 environment; safe to skip.
+  }
+  try {
+    await client.query("TRUNCATE TABLE bff_saved_intents");
+  } catch {
+    // pre-0048 environment; safe to skip.
+  }
+  try {
+    await client.query("TRUNCATE TABLE bff_rights_metadata");
+  } catch {
+    // pre-0050 environment; safe to skip.
+  }
+  try {
+    await client.query("TRUNCATE TABLE bff_transfer_rules");
+  } catch {
+    // pre-0051 environment; safe to skip.
+  }
+
   await client.query("INSERT INTO bff_meta (key, value) VALUES ($1, $2)", ["version", String(db.version)]);
 
   for (const drop of db.catalog.drops) {
@@ -5129,13 +5250,13 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
   }
 
   for (const account of db.accounts) {
-    // Sprint 0.1 — write deletion-lifecycle timestamps; columns are added by
-    // migration 0044. Wrapped in try/catch (with a fallback to the legacy
-    // column set) so the writer remains tolerant on environments where the
-    // migration has not yet been applied.
+    // Sprint 0.5A — vault_visibility column added by migration 0052.
+    // Sprint 0.1 — deletion-lifecycle columns added by migration 0044.
+    // Cascade of try/catch fallbacks preserves writer tolerance on environments
+    // where not all migrations have been applied.
     try {
       await client.query(
-        "INSERT INTO bff_accounts (id, email, handle, display_name, roles, created_at, avatar_url, bio, deletion_requested_at, deleted_at, anonymized_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
+        "INSERT INTO bff_accounts (id, email, handle, display_name, roles, created_at, avatar_url, bio, deletion_requested_at, deleted_at, anonymized_at, vault_visibility) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
         [
           account.id,
           account.email,
@@ -5147,14 +5268,34 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
           account.bio ?? null,
           account.deletionRequestedAt ?? null,
           account.deletedAt ?? null,
-          account.anonymizedAt ?? null
+          account.anonymizedAt ?? null,
+          account.vaultVisibility ?? "private"
         ]
       );
     } catch {
-      await client.query(
-        "INSERT INTO bff_accounts (id, email, handle, display_name, roles, created_at, avatar_url, bio) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
-        [account.id, account.email, account.handle, account.displayName, account.roles, account.createdAt, account.avatarUrl ?? null, account.bio ?? null]
-      );
+      try {
+        await client.query(
+          "INSERT INTO bff_accounts (id, email, handle, display_name, roles, created_at, avatar_url, bio, deletion_requested_at, deleted_at, anonymized_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
+          [
+            account.id,
+            account.email,
+            account.handle,
+            account.displayName,
+            account.roles,
+            account.createdAt,
+            account.avatarUrl ?? null,
+            account.bio ?? null,
+            account.deletionRequestedAt ?? null,
+            account.deletedAt ?? null,
+            account.anonymizedAt ?? null
+          ]
+        );
+      } catch {
+        await client.query(
+          "INSERT INTO bff_accounts (id, email, handle, display_name, roles, created_at, avatar_url, bio) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+          [account.id, account.email, account.handle, account.displayName, account.roles, account.createdAt, account.avatarUrl ?? null, account.bio ?? null]
+        );
+      }
     }
   }
 
@@ -5166,16 +5307,28 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
   }
 
   for (const ownership of db.ownerships) {
-    await client.query(
-      "INSERT INTO bff_ownerships (account_id, drop_id, certificate_id, receipt_id, acquired_at) VALUES ($1, $2, $3, $4, $5)",
-      [
-        ownership.accountId,
-        ownership.dropId,
-        ownership.certificateId,
-        ownership.receiptId,
-        ownership.acquiredAt
-      ]
-    );
+    // Sprint 0.5A — edition_number, acquisition_type, status columns added by migration 0053.
+    // Try/catch fallback for pre-0053 environments.
+    try {
+      await client.query(
+        "INSERT INTO bff_ownerships (account_id, drop_id, certificate_id, receipt_id, acquired_at, edition_number, acquisition_type, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+        [
+          ownership.accountId,
+          ownership.dropId,
+          ownership.certificateId,
+          ownership.receiptId,
+          ownership.acquiredAt,
+          ownership.editionNumber ?? null,
+          ownership.acquisitionType ?? "collect",
+          ownership.status ?? "active"
+        ]
+      );
+    } catch {
+      await client.query(
+        "INSERT INTO bff_ownerships (account_id, drop_id, certificate_id, receipt_id, acquired_at) VALUES ($1, $2, $3, $4, $5)",
+        [ownership.accountId, ownership.dropId, ownership.certificateId, ownership.receiptId, ownership.acquiredAt]
+      );
+    }
   }
 
   for (const savedDrop of db.savedDrops) {
@@ -5847,6 +6000,84 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
       "INSERT INTO bff_studio_follows (id, account_id, studio_handle, created_at) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING",
       [follow.id, follow.accountId, follow.studioHandle, follow.createdAt]
     );
+  }
+
+  // Sprint 0.5A — new collections. Each loop is wrapped so a missing table
+  // (pre-migration environment) silently skips rather than crashing the writer.
+  for (const event of db.provenanceEvents) {
+    try {
+      await client.query(
+        "INSERT INTO bff_provenance_events (id, drop_id, kind, actor_handle, certificate_id, receipt_id, occurred_at, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (id) DO NOTHING",
+        [
+          event.id,
+          event.dropId,
+          event.kind,
+          event.actorHandle,
+          event.certificateId ?? null,
+          event.receiptId ?? null,
+          event.occurredAt,
+          event.createdAt ?? event.occurredAt
+        ]
+      );
+    } catch {
+      // pre-0049 environment; skip.
+    }
+  }
+
+  for (const intent of db.savedIntents) {
+    try {
+      await client.query(
+        "INSERT INTO bff_saved_intents (id, account_id, drop_id, saved_at) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING",
+        [intent.id, intent.accountId, intent.dropId, intent.savedAt]
+      );
+    } catch {
+      // pre-0048 environment; skip.
+    }
+  }
+
+  for (const rm of db.rightsMetadata) {
+    try {
+      await client.query(
+        "INSERT INTO bff_rights_metadata (id, drop_id, license_type, commercial_use, derivatives_allowed, attribution_required, royalty_pct, notes, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) ON CONFLICT (id) DO NOTHING",
+        [
+          rm.id,
+          rm.dropId,
+          rm.licenseType,
+          rm.commercialUse,
+          rm.derivativesAllowed,
+          rm.attributionRequired,
+          rm.royaltyPct ?? null,
+          rm.notes ?? null,
+          rm.createdAt,
+          rm.updatedAt
+        ]
+      );
+    } catch {
+      // pre-0050 environment; skip.
+    }
+  }
+
+  for (const tr of db.transferRules) {
+    try {
+      await client.query(
+        "INSERT INTO bff_transfer_rules (id, drop_id, transferable, gifting_allowed, resale_allowed, requires_creator_approval, hold_period_days, royalty_pct, audience_scope, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) ON CONFLICT (id) DO NOTHING",
+        [
+          tr.id,
+          tr.dropId,
+          tr.transferable,
+          tr.giftingAllowed,
+          tr.resaleAllowed,
+          tr.requiresCreatorApproval,
+          tr.holdPeriodDays ?? null,
+          tr.royaltyPct ?? null,
+          tr.audienceScope ?? null,
+          tr.createdAt,
+          tr.updatedAt
+        ]
+      );
+    } catch {
+      // pre-0051 environment; skip.
+    }
   }
 }
 
