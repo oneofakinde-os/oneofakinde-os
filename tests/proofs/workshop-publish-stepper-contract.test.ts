@@ -47,6 +47,8 @@ test("proof: workshop publish gate enforces hard completion + economics split ru
     cultureComplete: true,
     accessComplete: false,
     economicsComplete: true,
+    rightsMetadataComplete: true,
+    visibility: "world_members",
     collaboratorSplitsTotal: 100
   });
   const incompleteSummary = buildWorkshopPublishValidationSummary(incompleteDraft);

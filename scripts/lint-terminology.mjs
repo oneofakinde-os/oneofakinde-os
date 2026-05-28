@@ -133,4 +133,36 @@ if (violations.length) {
   process.exit(1);
 }
 
-console.log(`terminology lint passed (${routeFiles.length} route page file(s) checked).`);
+// Domain language contract: check lib/domain/ for prohibited market-language identifiers
+const DOMAIN_PROHIBITED_PATTERNS = [
+  { pattern: /\bsellerAccountId\b/, label: "sellerAccountId → resaleHolderAccountId" },
+  { pattern: /\bbuyerAccountId\b/, label: "buyerAccountId → collectorAccountId" },
+  { pattern: /\bseller_payout_resale\b/, label: "seller_payout_resale → resale_payout" },
+  { pattern: /\bbuyerCountry\b/, label: "buyerCountry → collectorJurisdiction" },
+  { pattern: /\bbuyerVatNumber\b/, label: "buyerVatNumber → collectorVatNumber" },
+  { pattern: /\bsellerCountry\b/, label: "sellerCountry → creatorJurisdiction" },
+];
+
+const domainFiles = walk(path.resolve(process.cwd(), "lib/domain")).filter(
+  (file) => file.endsWith(".ts") && !file.endsWith(".d.ts")
+);
+
+const domainViolations = [];
+for (const filePath of domainFiles) {
+  const content = fs.readFileSync(filePath, "utf8");
+  for (const { pattern, label } of DOMAIN_PROHIBITED_PATTERNS) {
+    if (pattern.test(content)) {
+      domainViolations.push({ filePath, label });
+    }
+  }
+}
+
+if (domainViolations.length) {
+  console.error(`domain language contract failed with ${domainViolations.length} issue(s):`);
+  for (const v of domainViolations) {
+    console.error(`- ${v.filePath}: ${v.label}`);
+  }
+  process.exit(1);
+}
+
+console.log(`terminology lint passed (${routeFiles.length} route page file(s) checked, ${domainFiles.length} domain file(s) checked).`);

@@ -139,7 +139,8 @@ import type {
   SetupCreatorStudioResult,
   UpdateDropPreviewMediaInput,
   UpsertWorkshopPatronTierConfigInput,
-  World
+  World,
+  SavedIntent
 } from "@/lib/domain/contracts";
 import type { CheckoutSessionResult, CreateCheckoutSessionInput, StripeWebhookApplyResult } from "@/lib/bff/contracts";
 import {
@@ -199,7 +200,9 @@ import {
   type NotificationPreferencesRecord,
   type TotpEnrollmentRecord,
   type TownhallTelemetryEventRecord,
-  type WalletConnectionRecord
+  type WalletConnectionRecord,
+  type ProvenanceEventRecord,
+  type SavedIntentRecord
 } from "@/lib/bff/persistence";
 import { createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 
@@ -987,7 +990,6 @@ function toPublicCertificate(record: CertificateRecord): Certificate {
     dropTitle: record.dropTitle,
     ownerHandle: record.ownerHandle,
     issuedAt: record.issuedAt,
-    receiptId: record.receiptId,
     status: record.status
   };
 }
@@ -1058,7 +1060,8 @@ function getOwnedDrops(db: BffDatabase, accountId: string): OwnedDrop[] {
         drop,
         certificateId: entry.certificateId,
         acquiredAt: entry.acquiredAt,
-        receiptId: entry.receiptId
+        receiptId: entry.receiptId,
+        ...(entry.editionNumber !== undefined ? { editionNumber: entry.editionNumber } : {})
       } satisfies OwnedDrop;
     })
     .filter((entry): entry is OwnedDrop => entry !== null)
@@ -1454,7 +1457,7 @@ function toMyCollectionAnalyticsPanel(
   // Resale activity: pieces sold (seller payout addressed to this account) and purchased via resale
   const sellerPayoutLineItems = db.ledgerLineItems.filter(
     (entry) =>
-      entry.kind === "seller_payout_resale" &&
+      entry.kind === "resale_payout" &&
       entry.recipientAccountId === account.id
   );
   const soldCount = sellerPayoutLineItems.length;
@@ -2114,6 +2117,13 @@ function seedOnboardingDiscoverySignalsInDatabase(
   };
 }
 
+function appendProvenanceEvent(
+  db: BffDatabase,
+  event: Omit<ProvenanceEventRecord, "id">
+): void {
+  db.provenanceEvents.push({ id: `prov_${randomUUID()}`, ...event });
+}
+
 function issueOwnershipAndReceipt(
   db: BffDatabase,
   account: AccountRecord,
@@ -2165,6 +2175,8 @@ function issueOwnershipAndReceipt(
     ownerAccountId: account.id
   };
 
+  const editionNumber = db.ownerships.filter((o) => o.dropId === drop.id).length + 1;
+
   db.receipts.unshift(receipt);
   db.certificates.push(certificate);
   db.ownerships.unshift({
@@ -2172,7 +2184,27 @@ function issueOwnershipAndReceipt(
     dropId: drop.id,
     certificateId,
     receiptId,
-    acquiredAt: purchasedAt
+    acquiredAt: purchasedAt,
+    editionNumber,
+    acquisitionType: "collect",
+    status: "active"
+  });
+
+  appendProvenanceEvent(db, {
+    dropId: drop.id,
+    kind: "ownership_created",
+    actorHandle: account.handle,
+    certificateId,
+    receiptId,
+    occurredAt: purchasedAt
+  });
+  appendProvenanceEvent(db, {
+    dropId: drop.id,
+    kind: "certificate_issued",
+    actorHandle: account.handle,
+    certificateId,
+    receiptId,
+    occurredAt: purchasedAt
   });
 
   return buildReceiptWithSettlement(db, receipt);
@@ -2198,6 +2230,23 @@ function markRefundByReceipt(db: BffDatabase, accountId: string, receiptId: stri
   );
   if (certificate) {
     certificate.status = "revoked";
+    const refundedAt = new Date().toISOString();
+    appendProvenanceEvent(db, {
+      dropId: certificate.dropId,
+      kind: "ownership_revoked",
+      actorHandle: certificate.ownerHandle,
+      certificateId: certificate.id,
+      receiptId,
+      occurredAt: refundedAt
+    });
+    appendProvenanceEvent(db, {
+      dropId: certificate.dropId,
+      kind: "certificate_revoked",
+      actorHandle: certificate.ownerHandle,
+      certificateId: certificate.id,
+      receiptId,
+      occurredAt: refundedAt
+    });
   }
 
   const originalTransaction = db.ledgerTransactions
@@ -7037,6 +7086,82 @@ const gatewayMethods = {
           totalSpentUsd: Number(totalSpentUsd.toFixed(2))
         }
       };
+    });
+  },
+
+  async addSavedIntent(accountId: string, dropId: string): Promise<SavedIntent | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account) return { persist: false, result: null };
+
+      const drop = findDropById(db, dropId);
+      if (!drop) return { persist: false, result: null };
+
+      const existing = db.savedIntents.find(
+        (entry) => entry.accountId === accountId && entry.dropId === dropId
+      );
+      if (existing) {
+        return { persist: false, result: { id: existing.id, accountId, dropId, savedAt: existing.savedAt } };
+      }
+
+      const record: SavedIntentRecord = {
+        id: `sint_${randomUUID()}`,
+        accountId,
+        dropId,
+        savedAt: new Date().toISOString()
+      };
+      db.savedIntents.push(record);
+
+      return {
+        persist: true,
+        result: { id: record.id, accountId, dropId, savedAt: record.savedAt }
+      };
+    });
+  },
+
+  async removeSavedIntent(accountId: string, dropId: string): Promise<boolean> {
+    return withDatabase(async (db) => {
+      const index = db.savedIntents.findIndex(
+        (entry) => entry.accountId === accountId && entry.dropId === dropId
+      );
+      if (index < 0) return { persist: false, result: false };
+      db.savedIntents.splice(index, 1);
+      return { persist: true, result: true };
+    });
+  },
+
+  async getSavedIntents(accountId: string): Promise<SavedIntent[]> {
+    return withDatabase(async (db) => {
+      const dropsById = getDropMap(db);
+      const intents = db.savedIntents
+        .filter((entry) => entry.accountId === accountId)
+        .filter((entry) => dropsById.has(entry.dropId))
+        .map((entry) => ({
+          id: entry.id,
+          accountId: entry.accountId,
+          dropId: entry.dropId,
+          savedAt: entry.savedAt
+        }));
+      return { persist: false, result: intents };
+    });
+  },
+
+  async getVaultVisibility(accountId: string): Promise<"private" | "public"> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      return { persist: false, result: account?.vaultVisibility ?? "private" };
+    });
+  },
+
+  async setVaultVisibility(
+    accountId: string,
+    visibility: "private" | "public"
+  ): Promise<"private" | "public"> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account) return { persist: false, result: "private" as const };
+      account.vaultVisibility = visibility;
+      return { persist: true, result: visibility };
     });
   },
 
@@ -12305,14 +12430,14 @@ export const commerceBffService = {
             if (!sellerOwnership) {
               return { persist: false, result: null };
             }
-            const sellerAccountId = sellerOwnership.accountId;
+            const resaleHolderAccountId = sellerOwnership.accountId;
 
             // Compute the resale quote — honors per-drop royalty override if set
             const resaleQuote = buildResaleSettlementQuote({
               executionPriceUsd: normalizedExecution,
               processingUsd: PROCESSING_FEE_USD,
               creatorAccountId,
-              sellerAccountId,
+              resaleHolderAccountId,
               creatorRoyaltyOverrideBps: drop.resaleRoyaltyBps ?? null
             });
 
@@ -12350,13 +12475,13 @@ export const commerceBffService = {
 
             // Transfer ownership: revoke seller's certificate and ownership
             const sellerOwnershipIndex = db.ownerships.findIndex(
-              (entry) => entry.accountId === sellerAccountId && entry.dropId === drop.id
+              (entry) => entry.accountId === resaleHolderAccountId && entry.dropId === drop.id
             );
             if (sellerOwnershipIndex >= 0) {
               db.ownerships.splice(sellerOwnershipIndex, 1);
             }
             const sellerCertificate = db.certificates.find(
-              (entry) => entry.ownerAccountId === sellerAccountId && entry.dropId === drop.id && entry.status === "verified"
+              (entry) => entry.ownerAccountId === resaleHolderAccountId && entry.dropId === drop.id && entry.status === "verified"
             );
             if (sellerCertificate) {
               sellerCertificate.status = "revoked";
@@ -12388,7 +12513,7 @@ export const commerceBffService = {
             // 1. Seller: your resale completed
             emitNotification(
               db,
-              sellerAccountId,
+              resaleHolderAccountId,
               "resale_completed",
               "Resale completed",
               `Your listing for "${drop.title}" has been sold for $${normalizedExecution.toFixed(2)}.`,

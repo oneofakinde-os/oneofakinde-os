@@ -20,23 +20,23 @@ export function isVatValid(validation: VatValidation): boolean {
 }
 
 export type ReverseChargeEligibility = {
-  buyerCountry: string;
-  buyerVatNumber: string | null;
-  sellerCountry: string;
+  collectorJurisdiction: string;
+  collectorVatNumber: string | null;
+  creatorJurisdiction: string;
   eligible: boolean;
 };
 
 export function isReverseChargeEligible(
-  buyerCountry: string,
-  buyerVatNumber: string | null,
-  sellerCountry: string
+  collectorJurisdiction: string,
+  collectorVatNumber: string | null,
+  creatorJurisdiction: string
 ): boolean {
   const euCountries = ["AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE"];
   return (
-    euCountries.includes(buyerCountry) &&
-    euCountries.includes(sellerCountry) &&
-    buyerCountry !== sellerCountry &&
-    buyerVatNumber !== null
+    euCountries.includes(collectorJurisdiction) &&
+    euCountries.includes(creatorJurisdiction) &&
+    collectorJurisdiction !== creatorJurisdiction &&
+    collectorVatNumber !== null
   );
 }
 

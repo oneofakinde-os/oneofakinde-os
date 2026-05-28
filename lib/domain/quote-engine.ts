@@ -288,8 +288,8 @@ export type BuildResaleQuoteInput = {
   currency?: "USD";
   /** The original creator's account ID — receives the royalty */
   creatorAccountId: string | null;
-  /** The selling collector's account ID — receives the seller payout */
-  sellerAccountId: string | null;
+  /** The resale holder's account ID — receives the resale payout */
+  resaleHolderAccountId: string | null;
   /** Optional per-drop royalty override in basis points (100 = 1%) */
   creatorRoyaltyOverrideBps?: number | null;
 };
@@ -330,7 +330,7 @@ export function buildResaleSettlementQuote(
       buildLineItem("resale_processing_fee", processingUsd, "public", null),
       buildLineItem("platform_commission_resale", commissionUsd, "internal", null),
       buildLineItem("creator_royalty_resale", royaltyUsd, "participant_private", input.creatorAccountId),
-      buildLineItem("seller_payout_resale", sellerPayoutUsd, "participant_private", input.sellerAccountId)
+      buildLineItem("resale_payout", sellerPayoutUsd, "participant_private", input.resaleHolderAccountId)
     ]
   };
 }

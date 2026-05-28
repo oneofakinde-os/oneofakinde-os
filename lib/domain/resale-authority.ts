@@ -18,7 +18,7 @@ export type WorldDefaultResalePolicy = {
 export type ResaleListing = {
   id: string;
   dropId: string;
-  sellerAccountId: string;
+  resaleHolderAccountId: string;
   askPriceCents: number;
   status: ResaleListingStatus;
   validationErrors: string[];
@@ -130,6 +130,9 @@ export type WaitlistRerelease = {
 export function nextInWaitlist(waitlist: WaitlistRerelease): string | null {
   return waitlist.waitlistAccountIds[0] ?? null;
 }
+
+export const PLATFORM_MIN_HOLD_PERIOD_DAYS = 7;
+export const PLATFORM_MIN_ROYALTY_PCT = 0.05;
 
 export type ResaleViolationRecord = {
   accountId: string;

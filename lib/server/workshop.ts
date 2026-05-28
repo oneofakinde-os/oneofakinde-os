@@ -28,7 +28,7 @@ export const WORKSHOP_PREVIEW_POLICY_OPTIONS: ReadonlyArray<PreviewPolicy> = [
 ];
 
 export type WorkshopComposeTarget = "drop" | "world";
-export type WorkshopPublishSection = "culture" | "access" | "economics";
+export type WorkshopPublishSection = "culture" | "access" | "economics" | "rights_metadata";
 export type WorkshopWorldBuilderSection = "visual_identity" | "lore" | "entry_rule";
 
 export type WorkshopPublishDraftState = {
@@ -36,6 +36,7 @@ export type WorkshopPublishDraftState = {
   cultureComplete: boolean;
   accessComplete: boolean;
   economicsComplete: boolean;
+  rightsMetadataComplete: boolean;
   visibility: DropVisibility;
   previewPolicy: PreviewPolicy;
   visibilitySelectionValid: boolean;
@@ -64,6 +65,7 @@ export type WorkshopContextInput = {
   cultureComplete?: boolean;
   accessComplete?: boolean;
   economicsComplete?: boolean;
+  rightsMetadataComplete?: boolean;
   visibility?: string | null;
   previewPolicy?: string | null;
   collaboratorSplitsTotal?: number | null;
@@ -135,6 +137,7 @@ export function resolveWorkshopPublishDraftState(
     cultureComplete: Boolean(input.cultureComplete),
     accessComplete: Boolean(input.accessComplete),
     economicsComplete: Boolean(input.economicsComplete),
+    rightsMetadataComplete: Boolean(input.rightsMetadataComplete),
     visibility,
     previewPolicy,
     visibilitySelectionValid,
@@ -151,6 +154,9 @@ export function buildWorkshopPublishValidationSummary(
   if (!draft.cultureComplete) missingSections.push("culture");
   if (!draft.accessComplete) missingSections.push("access");
   if (!draft.economicsComplete) missingSections.push("economics");
+  if (draft.visibility === "public" && !draft.rightsMetadataComplete) {
+    missingSections.push("rights_metadata");
+  }
 
   const blockingReasons: string[] = [];
   if (draft.accessComplete && !draft.visibilitySelectionValid) {
@@ -161,6 +167,9 @@ export function buildWorkshopPublishValidationSummary(
   }
   if (draft.economicsComplete && draft.collaboratorSplitsTotal !== 100) {
     blockingReasons.push("economics collaborator splits must sum to 100%.");
+  }
+  if (draft.visibility === "public" && !draft.rightsMetadataComplete) {
+    blockingReasons.push("public drops require rights metadata before publishing.");
   }
 
   return {

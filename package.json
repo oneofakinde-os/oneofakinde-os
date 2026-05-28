@@ -52,7 +52,7 @@
     "@types/react-dom": "18.3.5",
     "eslint": "9.39.2",
     "eslint-config-next": "15.5.12",
-    "tsx": "4.20.5",
+    "tsx": "^4.20.5",
     "typescript": "5.7.2"
   },
   "engines": {

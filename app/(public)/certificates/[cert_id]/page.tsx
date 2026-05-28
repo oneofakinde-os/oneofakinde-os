@@ -58,10 +58,6 @@ export default async function CertificatePage({ params }: CertificatePageProps) 
             <dd>@{certificate.ownerHandle}</dd>
           </div>
           <div>
-            <dt>receipt</dt>
-            <dd>{certificate.receiptId}</dd>
-          </div>
-          <div>
             <dt>issued</dt>
             <dd>{certificate.issuedAt}</dd>
           </div>

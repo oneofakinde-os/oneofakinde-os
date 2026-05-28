@@ -130,7 +130,7 @@ const makePolicy = (overrides?: Partial<ResalePolicy>): ResalePolicy => ({
 });
 
 const makeListing = (overrides?: Partial<ResaleListing>): ResaleListing => ({
-  id: "l1", dropId: "d1", sellerAccountId: "s1",
+  id: "l1", dropId: "d1", resaleHolderAccountId: "s1",
   askPriceCents: 25000, status: "active",
   validationErrors: [], listedAt: "2026-05-18", soldAt: null, cancelledAt: null,
   ...overrides,

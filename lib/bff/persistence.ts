@@ -65,6 +65,7 @@ export type AccountRecord = {
   createdAt: string;
   avatarUrl?: string;
   bio?: string;
+  vaultVisibility?: "private" | "public";
   /**
    * Sprint 0.1 — GDPR deletion lifecycle timestamps.
    *
@@ -93,6 +94,9 @@ export type OwnedDropRecord = {
   certificateId: string;
   receiptId: string;
   acquiredAt: string;
+  editionNumber?: number;
+  acquisitionType?: "collect" | "gift" | "migration";
+  status?: "active" | "transferred" | "revoked";
 };
 
 export type SavedDropRecord = {
@@ -110,6 +114,7 @@ export type LibraryEligibilityStateRecord = {
 
 export type CertificateRecord = Certificate & {
   ownerAccountId: string;
+  receiptId: string;
 };
 
 export type ReceiptBadgeRecord = ReceiptBadge & {
@@ -565,6 +570,53 @@ export type MuteRecord = {
   createdAt: string;
 };
 
+export type ProvenanceEventKind =
+  | "drop_published"
+  | "ownership_created"
+  | "ownership_transferred"
+  | "ownership_revoked"
+  | "certificate_issued"
+  | "certificate_revoked";
+
+export type ProvenanceEventRecord = {
+  id: string;
+  dropId: string;
+  kind: ProvenanceEventKind;
+  actorHandle: string;
+  certificateId: string | null;
+  receiptId: string | null;
+  occurredAt: string;
+};
+
+export type SavedIntentRecord = {
+  id: string;
+  accountId: string;
+  dropId: string;
+  savedAt: string;
+};
+
+export type RightsMetadataRecord = {
+  id: string;
+  dropId: string;
+  licenseType: string;
+  commercialUse: boolean;
+  derivativesAllowed: boolean;
+  attributionRequired: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TransferRulesRecord = {
+  id: string;
+  dropId: string;
+  transferable: boolean;
+  giftingAllowed: boolean;
+  resaleAllowed: boolean;
+  requiresCreatorApproval: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type BffDatabase = {
   version: 1;
   catalog: {
@@ -620,6 +672,10 @@ export type BffDatabase = {
   walletConnections: WalletConnectionRecord[];
   blocks: BlockRecord[];
   mutes: MuteRecord[];
+  provenanceEvents: ProvenanceEventRecord[];
+  savedIntents: SavedIntentRecord[];
+  rightsMetadata: RightsMetadataRecord[];
+  transferRules: TransferRulesRecord[];
 };
 
 type MutationResult<T> = {
@@ -1427,7 +1483,11 @@ function createSeedDatabase(): BffDatabase {
     totpEnrollments: [],
     walletConnections: [],
     blocks: [],
-    mutes: []
+    mutes: [],
+    provenanceEvents: [],
+    savedIntents: [],
+    rightsMetadata: [],
+    transferRules: []
   };
 }
 
@@ -1541,7 +1601,11 @@ function createEmptyDatabase(): BffDatabase {
     totpEnrollments: [],
     walletConnections: [],
     blocks: [],
-    mutes: []
+    mutes: [],
+    provenanceEvents: [],
+    savedIntents: [],
+    rightsMetadata: [],
+    transferRules: []
   };
 }
 
@@ -3490,6 +3554,18 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         : [],
       mutes: Array.isArray(input.mutes)
         ? (input.mutes as MuteRecord[])
+        : [],
+      provenanceEvents: Array.isArray(input.provenanceEvents)
+        ? (input.provenanceEvents as ProvenanceEventRecord[])
+        : [],
+      savedIntents: Array.isArray(input.savedIntents)
+        ? (input.savedIntents as SavedIntentRecord[])
+        : [],
+      rightsMetadata: Array.isArray(input.rightsMetadata)
+        ? (input.rightsMetadata as RightsMetadataRecord[])
+        : [],
+      transferRules: Array.isArray(input.transferRules)
+        ? (input.transferRules as TransferRulesRecord[])
         : []
     };
   }
@@ -3656,6 +3732,18 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         : [],
       mutes: Array.isArray(candidate.mutes)
         ? (candidate.mutes as MuteRecord[])
+        : [],
+      provenanceEvents: Array.isArray(candidate.provenanceEvents)
+        ? (candidate.provenanceEvents as ProvenanceEventRecord[])
+        : [],
+      savedIntents: Array.isArray(candidate.savedIntents)
+        ? (candidate.savedIntents as SavedIntentRecord[])
+        : [],
+      rightsMetadata: Array.isArray(candidate.rightsMetadata)
+        ? (candidate.rightsMetadata as RightsMetadataRecord[])
+        : [],
+      transferRules: Array.isArray(candidate.transferRules)
+        ? (candidate.transferRules as TransferRulesRecord[])
         : []
     };
   }
@@ -4947,7 +5035,11 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       } catch {
         return [];
       }
-    })()
+    })(),
+    provenanceEvents: [],
+    savedIntents: [],
+    rightsMetadata: [],
+    transferRules: []
   };
 }
 
@@ -5877,6 +5969,7 @@ export function createAccountFromEmail(email: string, role: AccountRole): Accoun
     handle,
     displayName: startCase(handle),
     roles: [role],
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    vaultVisibility: "private"
   };
 }

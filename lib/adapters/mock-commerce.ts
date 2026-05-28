@@ -77,6 +77,7 @@ type AccountRecord = {
 
 type CertificateRecord = Certificate & {
   ownerAccountId: string;
+  receiptId: string;
 };
 
 type MembershipEntitlementRecord = Omit<MembershipEntitlement, "whatYouGet" | "isActive">;
@@ -187,7 +188,6 @@ function toPublicCertificate(record: CertificateRecord): Certificate {
     dropTitle: record.dropTitle,
     ownerHandle: record.ownerHandle,
     issuedAt: record.issuedAt,
-    receiptId: record.receiptId,
     status: record.status
   };
 }

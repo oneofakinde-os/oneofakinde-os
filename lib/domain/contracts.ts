@@ -962,7 +962,7 @@ export type SettlementLineItemKind =
   | "resale_processing_fee"
   | "platform_commission_resale"
   | "creator_royalty_resale"
-  | "seller_payout_resale";
+  | "resale_payout";
 
 export type SettlementLineItem = {
   id: string;
@@ -1081,8 +1081,14 @@ export type Certificate = {
   dropTitle: string;
   ownerHandle: string;
   issuedAt: string;
-  receiptId: string;
   status: "verified" | "revoked";
+};
+
+export type SavedIntent = {
+  id: string;
+  accountId: string;
+  dropId: string;
+  savedAt: string;
 };
 
 export type ReceiptBadge = {
@@ -1158,6 +1164,7 @@ export type OwnedDrop = {
   certificateId: string;
   acquiredAt: string;
   receiptId: string;
+  editionNumber?: number;
 };
 
 export type MyCollectionSnapshot = {

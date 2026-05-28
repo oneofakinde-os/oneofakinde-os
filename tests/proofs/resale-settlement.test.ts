@@ -42,7 +42,7 @@ test("proof: resale quote computes platform commission, creator royalty, and sel
       executionPriceUsd: 100,
       processingUsd: 1.99,
       creatorAccountId: "creator_001",
-      sellerAccountId: "seller_001"
+      resaleHolderAccountId: "seller_001"
     },
     TEST_CONFIG
   );
@@ -58,7 +58,7 @@ test("proof: resale quote computes platform commission, creator royalty, and sel
   assert.equal(royaltyLine.amountUsd, 10);
   assert.equal(royaltyLine.recipientAccountId, "creator_001");
 
-  const sellerLine = quote.lineItems.find((li) => li.kind === "seller_payout_resale");
+  const sellerLine = quote.lineItems.find((li) => li.kind === "resale_payout");
   assert.ok(sellerLine);
   assert.equal(sellerLine.amountUsd, 87.5);
   assert.equal(sellerLine.recipientAccountId, "seller_001");
@@ -72,7 +72,7 @@ test("proof: resale quote respects per-drop royalty override", () => {
       executionPriceUsd: 200,
       processingUsd: 0,
       creatorAccountId: "creator_001",
-      sellerAccountId: "seller_001",
+      resaleHolderAccountId: "seller_001",
       creatorRoyaltyOverrideBps: 500
     },
     TEST_CONFIG
@@ -82,7 +82,7 @@ test("proof: resale quote respects per-drop royalty override", () => {
   assert.equal(royaltyLine?.amountUsd, 10);
   assert.equal(quote.commissionUsd, 5);
 
-  const sellerLine = quote.lineItems.find((li) => li.kind === "seller_payout_resale");
+  const sellerLine = quote.lineItems.find((li) => li.kind === "resale_payout");
   assert.equal(sellerLine?.amountUsd, 185);
 });
 
@@ -92,7 +92,7 @@ test("proof: resale quote handles zero royalty override", () => {
       executionPriceUsd: 50,
       processingUsd: 0,
       creatorAccountId: "creator_001",
-      sellerAccountId: "seller_001",
+      resaleHolderAccountId: "seller_001",
       creatorRoyaltyOverrideBps: 0
     },
     TEST_CONFIG
@@ -101,7 +101,7 @@ test("proof: resale quote handles zero royalty override", () => {
   const royaltyLine = quote.lineItems.find((li) => li.kind === "creator_royalty_resale");
   assert.equal(royaltyLine?.amountUsd, 0);
 
-  const sellerLine = quote.lineItems.find((li) => li.kind === "seller_payout_resale");
+  const sellerLine = quote.lineItems.find((li) => li.kind === "resale_payout");
   assert.equal(sellerLine?.amountUsd, 48.75);
 });
 
@@ -111,7 +111,7 @@ test("proof: resale quote line items have correct scopes and recipients", () => 
       executionPriceUsd: 100,
       processingUsd: 1.99,
       creatorAccountId: "creator_001",
-      sellerAccountId: "seller_001"
+      resaleHolderAccountId: "seller_001"
     },
     TEST_CONFIG
   );
@@ -132,7 +132,7 @@ test("proof: resale quote line items have correct scopes and recipients", () => 
   assert.equal(royalty?.scope, "participant_private");
   assert.equal(royalty?.recipientAccountId, "creator_001");
 
-  const sellerPayout = quote.lineItems.find((li) => li.kind === "seller_payout_resale");
+  const sellerPayout = quote.lineItems.find((li) => li.kind === "resale_payout");
   assert.equal(sellerPayout?.scope, "participant_private");
   assert.equal(sellerPayout?.recipientAccountId, "seller_001");
 });
@@ -286,7 +286,7 @@ test("proof: resale settle_offer creates ledger entries, transfers ownership, an
   assert.equal(royaltyItem.recipientAccountId, creator.accountId, "royalty routes to creator");
 
   // 3. Seller payout line item routes to seller account
-  const sellerPayoutItem = resaleLineItems.find((li) => li.kind === "seller_payout_resale");
+  const sellerPayoutItem = resaleLineItems.find((li) => li.kind === "resale_payout");
   assert.ok(sellerPayoutItem, "seller payout line item should exist");
   assert.ok(sellerPayoutItem.amountUsd > 0, "seller payout should be positive");
   assert.equal(sellerPayoutItem.recipientAccountId, seller.accountId, "payout routes to seller");
