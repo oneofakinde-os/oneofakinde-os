@@ -88,7 +88,59 @@ export type AccountDataExport = {
   follows: string[];
   blocks: string[];
   mutes: string[];
+  // Sprint 1.2 — relationship layer
+  studioDispatches: StudioDispatch[];
+  receivedDispatches: StudioDispatch[];
+  recognitionNotes: RecognitionNote[];
+  notificationPreferences: NotificationPreferences;
   exportedAt: string;
+};
+
+// Sprint 1.2 — Studio Dispatch
+export type StudioDispatchAudienceScope =
+  | "followers"
+  | "holders"
+  | "all_collectors"
+  | "active_patrons"
+  | "world_members";
+
+export type StudioDispatchStatus = "draft" | "published" | "archived";
+
+export type StudioDispatch = {
+  id: string;
+  studioHandle: string;
+  creatorAccountId: string;
+  audienceScope: StudioDispatchAudienceScope;
+  relatedDropId: string | null;
+  relatedWorldId: string | null;
+  title: string;
+  body: string;
+  status: StudioDispatchStatus;
+  createdAt: string;
+  publishedAt: string | null;
+};
+
+// Sprint 1.2 — Creator Recognition
+export type RecognitionNote = {
+  id: string;
+  creatorAccountId: string;
+  studioHandle: string;
+  collectorAccountId: string;
+  receiptId: string;
+  dropId: string;
+  note: string;
+  isPublic: boolean;
+  createdAt: string;
+};
+
+// Sprint 1.2 — Relationship Context
+export type RelationshipContext = {
+  viewerAccountId: string;
+  studioHandle: string;
+  hasCollectedFromStudio: boolean;
+  hasSavedFromStudio: boolean;
+  isFollowingStudio: boolean;
+  isActivePatron: boolean;
 };
 
 /**
@@ -1792,7 +1844,15 @@ export type NotificationType =
   | "new_drop_from_followed"
   | "refund_issued"
   | "refund_on_your_drop"
-  | "new_follower";
+  | "new_follower"
+  // Sprint 1.2 — relationship layer
+  | "studio_dispatch"
+  | "proof_update"
+  | "certificate_status_update"
+  | "collector_only_update"
+  | "patron_dispatch"
+  | "creator_recognition"
+  | "governance_alert";
 
 export type NotificationEntry = {
   id: string;

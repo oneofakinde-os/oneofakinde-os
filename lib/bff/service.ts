@@ -152,6 +152,11 @@ import type {
   DiscoveryFilterInput,
   StudioDiscoveryEntry,
   CreatorMarketDataSummary,
+  StudioDispatch,
+  StudioDispatchAudienceScope,
+  StudioDispatchStatus,
+  RecognitionNote,
+  RelationshipContext,
 } from "@/lib/domain/contracts";
 import type { CheckoutSessionResult, CreateCheckoutSessionInput, StripeWebhookApplyResult } from "@/lib/bff/contracts";
 import {
@@ -219,7 +224,9 @@ import {
   type CreatorEarningsRecord,
   type CreatorEarningsPayoutStatus,
   type GovernanceCaseRecord,
-  type AuditEventRecord
+  type AuditEventRecord,
+  type StudioDispatchRecord,
+  type RecognitionNoteRecord
 } from "@/lib/bff/persistence";
 import { PLATFORM_MIN_HOLD_PERIOD_DAYS, PLATFORM_MIN_ROYALTY_PCT } from "@/lib/domain/resale-authority";
 import { computeDiscoveryDriftMetrics, computeMarketDriftSnapshot } from "@/lib/domain/market-drift";
@@ -230,6 +237,12 @@ import {
   isMarketReady,
   rankDiscoveryDrops,
 } from "@/lib/domain/discovery";
+import {
+  buildRelationshipContext,
+  canAccessCollectorOnlyContent as computeCollectorAccess,
+  validateRecognitionNoteText,
+  isSafetyNoticeType,
+} from "@/lib/domain/relationship";
 import { createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 
 const PROCESSING_FEE_USD = 1.99;
@@ -7373,6 +7386,53 @@ const gatewayMethods = {
     });
   },
 
+  async addProvenanceEventForDrop(
+    actorAccountId: string,
+    dropId: string,
+    kind: string
+  ): Promise<void> {
+    await withDatabase(async (db) => {
+      const actor = findAccountById(db, actorAccountId);
+      if (!actor) return { persist: false, result: undefined };
+
+      const drop = findDropById(db, dropId);
+      if (!drop) return { persist: false, result: undefined };
+
+      appendProvenanceEvent(db, {
+        dropId,
+        kind: kind as import("@/lib/domain/contracts").ProvenanceEventKind,
+        actorHandle: actor.handle,
+        certificateId: null,
+        receiptId: null,
+        occurredAt: new Date().toISOString(),
+        createdAt: new Date().toISOString()
+      });
+
+      // Notify current active holders that provenance was updated
+      const holderIds = new Set(
+        db.ownerships
+          .filter((o) => o.dropId === dropId && o.status !== "revoked")
+          .map((o) => o.accountId)
+      );
+      for (const holderId of holderIds) {
+        if (holderId === actorAccountId) continue;
+        const prefs = db.notificationPreferences.find((p) => p.accountId === holderId);
+        const muted = prefs?.mutedTypes?.includes("proof_update") ?? false;
+        if (!muted) {
+          emitNotification(
+            db,
+            holderId,
+            "proof_update",
+            `Proof updated for "${drop.title}"`,
+            `A provenance event was added to this drop.`,
+            null
+          );
+        }
+      }
+      return { persist: true, result: undefined };
+    });
+  },
+
   async hasCertificatePreviewed(dropId: string): Promise<boolean> {
     return withDatabase(async (db) => {
       // Gate only applies when prior ownership exists (prior certificates exist).
@@ -7658,6 +7718,24 @@ const gatewayMethods = {
 
       cert.status = "under_review";
       const nowIso = new Date().toISOString();
+
+      // Notify the certificate holder that their certificate is under review
+      const holder = db.accounts.find((a) => a.id === cert.ownerAccountId);
+      if (holder) {
+        const prefs = db.notificationPreferences.find((p) => p.accountId === holder.id);
+        const muted = prefs?.mutedTypes?.includes("certificate_status_update") ?? false;
+        if (!muted) {
+          emitNotification(
+            db,
+            holder.id,
+            "certificate_status_update",
+            "Your certificate is under review",
+            `The certificate for "${cert.dropTitle}" has been flagged for review.`,
+            null
+          );
+        }
+      }
+
       const caseId = `gc_${randomUUID()}`;
       const record: GovernanceCaseRecord = {
         id: caseId,
@@ -9265,6 +9343,34 @@ const gatewayMethods = {
       );
       const mutes = db.accounts.filter((a) => mutedIds.has(a.id)).map((a) => a.handle);
 
+      // Sprint 1.2 — relationship layer export
+      const studioDispatches: StudioDispatch[] = db.studioDispatches
+        .filter((d) => d.creatorAccountId === account.id)
+        .map((d) => ({ ...d }) as StudioDispatch);
+
+      // receivedDispatches: notification entries don't store the full dispatch record,
+      // so we export metadata stubs keyed by dispatch id where available.
+      const receivedDispatches: StudioDispatch[] = [];
+
+      const recognitionNotes: RecognitionNote[] = db.recognitionNotes
+        .filter((r) => r.creatorAccountId === account.id || r.collectorAccountId === account.id)
+        .map((r) => ({ ...r }) as RecognitionNote);
+
+      const notifPrefsRecord = db.notificationPreferences.find((p) => p.accountId === account.id);
+      const notificationPreferences: NotificationPreferences = notifPrefsRecord
+        ? {
+            accountId: notifPrefsRecord.accountId,
+            channels: notifPrefsRecord.channels as Record<import("@/lib/domain/contracts").NotificationChannel, boolean>,
+            mutedTypes: notifPrefsRecord.mutedTypes as NotificationType[],
+            digestEnabled: notifPrefsRecord.digestEnabled
+          }
+        : {
+            accountId: account.id,
+            channels: { in_app: true, email: true, push: false },
+            mutedTypes: [],
+            digestEnabled: false
+          };
+
       return {
         persist: false,
         result: {
@@ -9291,6 +9397,10 @@ const gatewayMethods = {
           follows,
           blocks,
           mutes,
+          studioDispatches,
+          receivedDispatches,
+          recognitionNotes,
+          notificationPreferences,
           exportedAt: new Date().toISOString()
         }
       };
@@ -15260,6 +15370,274 @@ export const commerceBffService = {
   async getDiscoveryDriftMetrics(): Promise<DiscoveryDriftMetrics> {
     return withDatabase(async (db) => {
       return { persist: false, result: computeDiscoveryDriftMetrics(db) };
+    });
+  },
+
+  // ── Sprint 1.2: Studio Dispatches ────────────────────────────────────────
+
+  async createStudioDispatch(
+    creatorAccountId: string,
+    input: {
+      audienceScope: StudioDispatchAudienceScope;
+      title: string;
+      body: string;
+      relatedDropId?: string | null;
+      relatedWorldId?: string | null;
+    }
+  ): Promise<StudioDispatch | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, creatorAccountId);
+      if (!account || !account.roles.includes("creator")) return { persist: false, result: null };
+
+      const studio = db.catalog.studios.find((s) => s.handle === account.handle);
+      if (!studio) return { persist: false, result: null };
+
+      const title = input.title.trim();
+      const body = input.body.trim();
+      if (!title || title.length > 200) return { persist: false, result: null };
+      if (!body || body.length > 5000) return { persist: false, result: null };
+
+      const now = new Date().toISOString();
+      const record: StudioDispatchRecord = {
+        id: `disp_${randomUUID()}`,
+        studioHandle: account.handle,
+        creatorAccountId,
+        audienceScope: input.audienceScope,
+        relatedDropId: input.relatedDropId ?? null,
+        relatedWorldId: input.relatedWorldId ?? null,
+        title,
+        body,
+        status: "draft",
+        createdAt: now,
+        publishedAt: null,
+      };
+      db.studioDispatches.push(record);
+      return { persist: true, result: { ...record } as StudioDispatch };
+    });
+  },
+
+  async publishStudioDispatch(
+    creatorAccountId: string,
+    dispatchId: string
+  ): Promise<StudioDispatch | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, creatorAccountId);
+      if (!account || !account.roles.includes("creator")) return { persist: false, result: null };
+
+      const record = db.studioDispatches.find(
+        (d) => d.id === dispatchId && d.creatorAccountId === creatorAccountId && d.status === "draft"
+      );
+      if (!record) return { persist: false, result: null };
+
+      const now = new Date().toISOString();
+      record.status = "published";
+      record.publishedAt = now;
+
+      // Identify eligible recipients
+      const blockedByCreator = new Set(
+        db.blocks.filter((b) => b.blockerAccountId === creatorAccountId).map((b) => b.blockedAccountId)
+      );
+
+      let recipientAccountIds: string[] = [];
+      const scope = record.audienceScope;
+
+      if (scope === "followers") {
+        recipientAccountIds = db.studioFollows
+          .filter((sf) => sf.studioHandle === account.handle)
+          .map((sf) => sf.accountId);
+      } else if (scope === "holders") {
+        const dropIds = new Set(
+          db.catalog.drops.filter((d) => d.studioHandle === account.handle).map((d) => d.id)
+        );
+        if (record.relatedDropId) {
+          recipientAccountIds = db.ownerships
+            .filter((o) => o.dropId === record.relatedDropId && o.status !== "revoked")
+            .map((o) => o.accountId);
+        } else {
+          recipientAccountIds = db.ownerships
+            .filter((o) => dropIds.has(o.dropId) && o.status !== "revoked")
+            .map((o) => o.accountId);
+        }
+      } else if (scope === "all_collectors") {
+        const dropIds = new Set(
+          db.catalog.drops.filter((d) => d.studioHandle === account.handle).map((d) => d.id)
+        );
+        const accountSet = new Set(
+          db.ownerships.filter((o) => dropIds.has(o.dropId) && o.status !== "revoked").map((o) => o.accountId)
+        );
+        recipientAccountIds = [...accountSet];
+      } else if (scope === "active_patrons") {
+        recipientAccountIds = db.patrons
+          .filter((p) => p.studioHandle === account.handle && p.status === "active")
+          .map((p) => p.accountId);
+      } else if (scope === "world_members" && record.relatedWorldId) {
+        recipientAccountIds = db.membershipEntitlements
+          .filter((me) => me.worldId === record.relatedWorldId && me.status === "active")
+          .map((me) => me.accountId);
+      }
+
+      // Remove duplicates, self, and blocked accounts
+      const seen = new Set<string>();
+      const eligible = recipientAccountIds.filter((id) => {
+        if (id === creatorAccountId) return false;
+        if (blockedByCreator.has(id)) return false;
+        if (seen.has(id)) return false;
+        seen.add(id);
+
+        // Check notification preferences — studio_dispatch can be muted
+        const prefs = db.notificationPreferences.find((p) => p.accountId === id);
+        if (prefs && Array.isArray(prefs.mutedTypes) && prefs.mutedTypes.includes("studio_dispatch")) {
+          return false;
+        }
+        return true;
+      });
+
+      for (const recipientId of eligible) {
+        emitNotification(
+          db,
+          recipientId,
+          "studio_dispatch",
+          record.title,
+          `${account.handle}: ${record.body.slice(0, 120)}${record.body.length > 120 ? "…" : ""}`,
+          null
+        );
+      }
+
+      return { persist: true, result: { ...record } as StudioDispatch };
+    });
+  },
+
+  async archiveStudioDispatch(
+    creatorAccountId: string,
+    dispatchId: string
+  ): Promise<StudioDispatch | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, creatorAccountId);
+      if (!account || !account.roles.includes("creator")) return { persist: false, result: null };
+
+      const record = db.studioDispatches.find(
+        (d) => d.id === dispatchId && d.creatorAccountId === creatorAccountId
+      );
+      if (!record || record.status === "archived") return { persist: false, result: null };
+
+      record.status = "archived";
+      return { persist: true, result: { ...record } as StudioDispatch };
+    });
+  },
+
+  async listStudioDispatches(
+    creatorAccountId: string,
+    studioHandle: string
+  ): Promise<StudioDispatch[]> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, creatorAccountId);
+      if (!account || account.handle !== studioHandle) return { persist: false, result: [] };
+
+      const dispatches = db.studioDispatches
+        .filter((d) => d.studioHandle === studioHandle)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .map((d) => ({ ...d }) as StudioDispatch);
+      return { persist: false, result: dispatches };
+    });
+  },
+
+  // ── Sprint 1.2: Collector-Only Access ─────────────────────────────────────
+
+  async canAccessCollectorOnlyContent(
+    accountId: string,
+    dropId: string
+  ): Promise<boolean> {
+    return withDatabase(async (db) => {
+      return { persist: false, result: computeCollectorAccess(accountId, dropId, db) };
+    });
+  },
+
+  // ── Sprint 1.2: Creator Recognition ───────────────────────────────────────
+
+  async createRecognitionNote(
+    creatorAccountId: string,
+    input: {
+      receiptId: string;
+      note: string;
+      isPublic?: boolean;
+    }
+  ): Promise<RecognitionNote | null> {
+    return withDatabase(async (db) => {
+      const creator = findAccountById(db, creatorAccountId);
+      if (!creator || !creator.roles.includes("creator")) return { persist: false, result: null };
+
+      const receipt = db.receipts.find((r) => r.id === input.receiptId);
+      if (!receipt) return { persist: false, result: null };
+
+      const drop = findDropById(db, receipt.dropId);
+      if (!drop || drop.studioHandle !== creator.handle) return { persist: false, result: null };
+
+      const validation = validateRecognitionNoteText(input.note.trim());
+      if (!validation.ok) return { persist: false, result: null };
+
+      const now = new Date().toISOString();
+      const record: RecognitionNoteRecord = {
+        id: `rec_${randomUUID()}`,
+        creatorAccountId,
+        studioHandle: creator.handle,
+        collectorAccountId: receipt.accountId,
+        receiptId: input.receiptId,
+        dropId: receipt.dropId,
+        note: input.note.trim(),
+        isPublic: input.isPublic ?? false,
+        createdAt: now,
+      };
+      db.recognitionNotes.push(record);
+
+      // Notify collector (if prefs allow)
+      const prefs = db.notificationPreferences.find((p) => p.accountId === receipt.accountId);
+      const muted = prefs?.mutedTypes?.includes("creator_recognition") ?? false;
+      if (!muted) {
+        emitNotification(
+          db,
+          receipt.accountId,
+          "creator_recognition",
+          `Recognition from ${creator.displayName ?? creator.handle}`,
+          input.note.trim().slice(0, 120),
+          null
+        );
+      }
+
+      return { persist: true, result: { ...record } as RecognitionNote };
+    });
+  },
+
+  async getRecognitionNote(
+    accountId: string,
+    receiptId: string
+  ): Promise<RecognitionNote | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account) return { persist: false, result: null };
+
+      const note = db.recognitionNotes.find((r) => r.receiptId === receiptId);
+      if (!note) return { persist: false, result: null };
+
+      // Only creator or collector can see the note
+      const canView =
+        note.creatorAccountId === accountId || note.collectorAccountId === accountId;
+      if (!canView) return { persist: false, result: null };
+
+      return { persist: false, result: { ...note } as RecognitionNote };
+    });
+  },
+
+  // ── Sprint 1.2: Relationship Context ──────────────────────────────────────
+
+  async getRelationshipContext(
+    viewerAccountId: string,
+    studioHandle: string
+  ): Promise<RelationshipContext> {
+    return withDatabase(async (db) => {
+      return {
+        persist: false,
+        result: buildRelationshipContext(viewerAccountId, studioHandle, db),
+      };
     });
   },
 };
