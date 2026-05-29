@@ -698,6 +698,21 @@ export type RecognitionNoteRecord = {
   createdAt: string;
 };
 
+// Sprint 1.3 — OOAK-REL-001: persist dispatch recipient records so inbox can be hydrated
+export type StudioDispatchRecipientRecord = {
+  id: string;
+  dispatchId: string;
+  recipientAccountId: string;
+  deliveredAt: string;
+};
+
+// Sprint 1.3 — personalization preferences record
+export type PersonalizationPreferencesRecord = {
+  accountId: string;
+  disableTasteGraph: boolean;
+  updatedAt: string;
+};
+
 export type BffDatabase = {
   version: 1;
   catalog: {
@@ -763,6 +778,9 @@ export type BffDatabase = {
   // Sprint 1.2
   studioDispatches: StudioDispatchRecord[];
   recognitionNotes: RecognitionNoteRecord[];
+  // Sprint 1.3
+  studioDispatchRecipients: StudioDispatchRecipientRecord[];
+  personalizationPreferences: PersonalizationPreferencesRecord[];
 };
 
 type MutationResult<T> = {
@@ -1655,7 +1673,9 @@ function createSeedDatabase(): BffDatabase {
     governanceCases: [],
     auditEvents: [],
     studioDispatches: [],
-    recognitionNotes: []
+    recognitionNotes: [],
+    studioDispatchRecipients: [],
+    personalizationPreferences: []
   };
 }
 
@@ -1714,7 +1734,9 @@ function createCatalogSeedDatabase(): BffDatabase {
     governanceCases: [],
     auditEvents: [],
     studioDispatches: [],
-    recognitionNotes: []
+    recognitionNotes: [],
+    studioDispatchRecipients: [],
+    personalizationPreferences: []
   };
 }
 
@@ -1782,7 +1804,9 @@ function createEmptyDatabase(): BffDatabase {
     governanceCases: [],
     auditEvents: [],
     studioDispatches: [],
-    recognitionNotes: []
+    recognitionNotes: [],
+    studioDispatchRecipients: [],
+    personalizationPreferences: []
   };
 }
 
@@ -3758,6 +3782,12 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         : [],
       recognitionNotes: Array.isArray((input as Record<string, unknown>).recognitionNotes)
         ? ((input as Record<string, unknown>).recognitionNotes as RecognitionNoteRecord[])
+        : [],
+      studioDispatchRecipients: Array.isArray((input as Record<string, unknown>).studioDispatchRecipients)
+        ? ((input as Record<string, unknown>).studioDispatchRecipients as StudioDispatchRecipientRecord[])
+        : [],
+      personalizationPreferences: Array.isArray((input as Record<string, unknown>).personalizationPreferences)
+        ? ((input as Record<string, unknown>).personalizationPreferences as PersonalizationPreferencesRecord[])
         : []
     };
   }
@@ -3951,6 +3981,12 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         : [],
       recognitionNotes: Array.isArray(candidate.recognitionNotes)
         ? (candidate.recognitionNotes as RecognitionNoteRecord[])
+        : [],
+      studioDispatchRecipients: Array.isArray(candidate.studioDispatchRecipients)
+        ? (candidate.studioDispatchRecipients as StudioDispatchRecipientRecord[])
+        : [],
+      personalizationPreferences: Array.isArray(candidate.personalizationPreferences)
+        ? (candidate.personalizationPreferences as PersonalizationPreferencesRecord[])
         : []
     };
   }
@@ -5485,7 +5521,9 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       }
     })(),
     studioDispatches: [],
-    recognitionNotes: []
+    recognitionNotes: [],
+    studioDispatchRecipients: [],
+    personalizationPreferences: []
   };
 }
 

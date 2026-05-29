@@ -157,6 +157,8 @@ import type {
   StudioDispatchStatus,
   RecognitionNote,
   RelationshipContext,
+  CreatorMarketIntelligence,
+  PersonalizationPreferences,
 } from "@/lib/domain/contracts";
 import type { CheckoutSessionResult, CreateCheckoutSessionInput, StripeWebhookApplyResult } from "@/lib/bff/contracts";
 import {
@@ -226,7 +228,9 @@ import {
   type GovernanceCaseRecord,
   type AuditEventRecord,
   type StudioDispatchRecord,
-  type RecognitionNoteRecord
+  type RecognitionNoteRecord,
+  type StudioDispatchRecipientRecord,
+  type PersonalizationPreferencesRecord
 } from "@/lib/bff/persistence";
 import { PLATFORM_MIN_HOLD_PERIOD_DAYS, PLATFORM_MIN_ROYALTY_PCT } from "@/lib/domain/resale-authority";
 import { computeDiscoveryDriftMetrics, computeMarketDriftSnapshot } from "@/lib/domain/market-drift";
@@ -234,6 +238,7 @@ import {
   applyDiscoveryFilters,
   buildDiscoveryStudios,
   buildViewerContext,
+  computeProofSignal,
   isMarketReady,
   rankDiscoveryDrops,
 } from "@/lib/domain/discovery";
@@ -243,6 +248,7 @@ import {
   validateRecognitionNoteText,
   isSafetyNoticeType,
 } from "@/lib/domain/relationship";
+import { computeTasteGraph, type TasteGraph } from "@/lib/domain/personalization";
 import { createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 
 const PROCESSING_FEE_USD = 1.99;
@@ -9348,9 +9354,15 @@ const gatewayMethods = {
         .filter((d) => d.creatorAccountId === account.id)
         .map((d) => ({ ...d }) as StudioDispatch);
 
-      // receivedDispatches: notification entries don't store the full dispatch record,
-      // so we export metadata stubs keyed by dispatch id where available.
-      const receivedDispatches: StudioDispatch[] = [];
+      // OOAK-REL-001: hydrate full dispatch records via studioDispatchRecipients join
+      const receivedDispatchIds = new Set(
+        db.studioDispatchRecipients
+          .filter((sdr) => sdr.recipientAccountId === account.id)
+          .map((sdr) => sdr.dispatchId)
+      );
+      const receivedDispatches: StudioDispatch[] = db.studioDispatches
+        .filter((d) => receivedDispatchIds.has(d.id))
+        .map((d) => ({ ...d }) as StudioDispatch);
 
       const recognitionNotes: RecognitionNote[] = db.recognitionNotes
         .filter((r) => r.creatorAccountId === account.id || r.collectorAccountId === account.id)
@@ -15492,6 +15504,7 @@ export const commerceBffService = {
         return true;
       });
 
+      const deliveredAt = now;
       for (const recipientId of eligible) {
         emitNotification(
           db,
@@ -15501,6 +15514,14 @@ export const commerceBffService = {
           `${account.handle}: ${record.body.slice(0, 120)}${record.body.length > 120 ? "…" : ""}`,
           null
         );
+        // OOAK-REL-001: persist recipient record so inbox can hydrate full dispatch
+        const recipientRecord: StudioDispatchRecipientRecord = {
+          id: `sdr_${randomUUID()}`,
+          dispatchId: record.id,
+          recipientAccountId: recipientId,
+          deliveredAt,
+        };
+        db.studioDispatchRecipients.push(recipientRecord);
       }
 
       return { persist: true, result: { ...record } as StudioDispatch };
@@ -15637,6 +15658,159 @@ export const commerceBffService = {
       return {
         persist: false,
         result: buildRelationshipContext(viewerAccountId, studioHandle, db),
+      };
+    });
+  },
+
+  // ── Sprint 1.3: Dispatch Recipient Inbox ──────────────────────────────────
+
+  async listReceivedDispatches(accountId: string): Promise<StudioDispatch[]> {
+    return withDatabase(async (db) => {
+      const recipientRecords = db.studioDispatchRecipients.filter(
+        (sdr) => sdr.recipientAccountId === accountId
+      );
+      const dispatchIds = new Set(recipientRecords.map((r) => r.dispatchId));
+      const dispatches = db.studioDispatches
+        .filter((d) => dispatchIds.has(d.id))
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .map((d) => ({ ...d }) as StudioDispatch);
+      return { persist: false, result: dispatches };
+    });
+  },
+
+  // ── Sprint 1.3: Taste Graph & Personalization ─────────────────────────────
+
+  async getTasteGraph(accountId: string): Promise<TasteGraph | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account) return { persist: false, result: null };
+      const pref = db.personalizationPreferences.find((p) => p.accountId === accountId);
+      if (pref?.disableTasteGraph) return { persist: false, result: null };
+      return { persist: false, result: computeTasteGraph(accountId, db) };
+    });
+  },
+
+  async updatePersonalizationPreferences(
+    accountId: string,
+    input: { disableTasteGraph?: boolean }
+  ): Promise<PersonalizationPreferences | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account) return { persist: false, result: null };
+
+      const now = new Date().toISOString();
+      let record = db.personalizationPreferences.find((p) => p.accountId === accountId);
+      if (!record) {
+        record = { accountId, disableTasteGraph: false, updatedAt: now };
+        db.personalizationPreferences.push(record);
+      }
+
+      if (typeof input.disableTasteGraph === "boolean") {
+        record.disableTasteGraph = input.disableTasteGraph;
+        record.updatedAt = now;
+      }
+
+      return {
+        persist: true,
+        result: {
+          accountId: record.accountId,
+          disableTasteGraph: record.disableTasteGraph,
+          updatedAt: record.updatedAt,
+        },
+      };
+    });
+  },
+
+  async getPersonalizationPreferences(accountId: string): Promise<PersonalizationPreferences> {
+    return withDatabase(async (db) => {
+      const record = db.personalizationPreferences.find((p) => p.accountId === accountId);
+      return {
+        persist: false,
+        result: {
+          accountId,
+          disableTasteGraph: record?.disableTasteGraph ?? false,
+          updatedAt: record?.updatedAt ?? new Date().toISOString(),
+        },
+      };
+    });
+  },
+
+  // ── Sprint 1.3: Saved-Intent Relevance Lane ───────────────────────────────
+
+  async getSavedIntentRelevanceLane(accountId: string): Promise<DiscoveryDrop[]> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account) return { persist: false, result: [] };
+
+      const savedDropIds = new Set(
+        db.savedIntents.filter((si) => si.accountId === accountId).map((si) => si.dropId)
+      );
+      if (savedDropIds.size === 0) return { persist: false, result: [] };
+
+      const savedDrops = db.catalog.drops.filter((d) => savedDropIds.has(d.id));
+      const ranked = rankDiscoveryDrops(savedDrops, db, accountId);
+      return { persist: false, result: ranked };
+    });
+  },
+
+  // ── Sprint 1.3: Creator Market Intelligence ───────────────────────────────
+
+  async getCreatorMarketIntelligence(
+    requestingAccountId: string,
+    studioHandle: string
+  ): Promise<CreatorMarketIntelligence | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, requestingAccountId);
+      if (!account) return { persist: false, result: null };
+
+      const studio = db.catalog.studios.find((s) => s.handle === studioHandle);
+      if (!studio) return { persist: false, result: null };
+
+      // Only the studio's creator can see their own intelligence
+      if (account.handle !== studioHandle) return { persist: false, result: null };
+
+      const studioDrops = db.catalog.drops.filter((d) => d.studioHandle === studioHandle);
+
+      const drops = studioDrops.map((drop) => {
+        const savedIntentCount = db.savedIntents.filter((si) => si.dropId === drop.id).length;
+        const collectCount = db.ownerships.filter(
+          (o) => o.dropId === drop.id && o.status !== "revoked"
+        ).length;
+        const openGovernanceCaseCount = db.governanceCases.filter(
+          (gc) =>
+            gc.relatedDropId === drop.id &&
+            ["open", "under_review", "action_required", "escalated"].includes(gc.status)
+        ).length;
+        const proofSignal = computeProofSignal(drop, db);
+        return {
+          dropId: drop.id,
+          title: drop.title,
+          savedIntentCount,
+          collectCount,
+          followerCount: 0,
+          proofSignal,
+          openGovernanceCaseCount,
+        };
+      });
+
+      const totalSavedIntents = drops.reduce((s, d) => s + d.savedIntentCount, 0);
+      const totalCollects = drops.reduce((s, d) => s + d.collectCount, 0);
+      const followerCount = db.studioFollows.filter((sf) => sf.studioHandle === studioHandle).length;
+      const activePatronCount = db.patrons.filter(
+        (p) => p.studioHandle === studioHandle && p.status === "active"
+      ).length;
+
+      return {
+        persist: false,
+        result: {
+          studioHandle,
+          drops,
+          totalSavedIntents,
+          totalCollects,
+          followerCount,
+          activePatronCount,
+          measuredAt: new Date().toISOString(),
+        },
       };
     });
   },

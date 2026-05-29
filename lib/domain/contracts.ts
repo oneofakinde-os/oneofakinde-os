@@ -1305,6 +1305,15 @@ export type ProofReadinessSignal = {
   isProofReady: boolean;
 };
 
+// Sprint 1.3 — recommendation reason surfaced alongside ranked drops
+export type RecommendationReason =
+  | "patron_studio"
+  | "collected_studio"
+  | "followed_studio"
+  | "saved_intent"
+  | "proof_complete"
+  | "default_ranking";
+
 export type DiscoveryDrop = Drop & {
   savedByViewer: boolean;
   isFollowingStudio: boolean;
@@ -1312,6 +1321,7 @@ export type DiscoveryDrop = Drop & {
   proofSignal: ProofReadinessSignal;
   collectAvailable: boolean;
   isGovernanceFlagged: boolean;
+  recommendationReason?: RecommendationReason;
 };
 
 export type DiscoveryFilterInput = {
@@ -1875,6 +1885,32 @@ export type NotificationPreferences = {
 export type NotificationFeed = {
   entries: NotificationEntry[];
   unreadCount: number;
+};
+
+// Sprint 1.3 — creator market intelligence (no resale/investment signals)
+export type CreatorMarketIntelligence = {
+  studioHandle: string;
+  drops: Array<{
+    dropId: string;
+    title: string;
+    savedIntentCount: number;
+    collectCount: number;
+    followerCount: number;
+    proofSignal: ProofReadinessSignal;
+    openGovernanceCaseCount: number;
+  }>;
+  totalSavedIntents: number;
+  totalCollects: number;
+  followerCount: number;
+  activePatronCount: number;
+  measuredAt: string;
+};
+
+// Sprint 1.3 — personalization preferences
+export type PersonalizationPreferences = {
+  accountId: string;
+  disableTasteGraph: boolean;
+  updatedAt: string;
 };
 
 export type WalletChain = "ethereum" | "tezos" | "polygon";

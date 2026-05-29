@@ -6,8 +6,10 @@ import type {
   DropType,
   GovernanceCaseStatus,
   ProofReadinessSignal,
+  RecommendationReason,
   StudioDiscoveryEntry,
 } from "@/lib/domain/contracts";
+import { computeTasteGraph, type TasteGraph } from "@/lib/domain/personalization";
 
 const ACTIVE_GOVERNANCE_STATUSES = new Set<GovernanceCaseStatus>([
   "open",
@@ -87,6 +89,8 @@ export type ViewerContext = {
   savedIntentDropIds: Set<string>;
   followedStudioHandles: Set<string>;
   collectedDropIds: Set<string>;
+  patronStudioHandles: Set<string>;
+  tasteGraph: TasteGraph | null;
 };
 
 export function buildViewerContext(db: BffDatabase, viewerAccountId: string | null): ViewerContext {
@@ -96,8 +100,15 @@ export function buildViewerContext(db: BffDatabase, viewerAccountId: string | nu
       savedIntentDropIds: new Set(),
       followedStudioHandles: new Set(),
       collectedDropIds: new Set(),
+      patronStudioHandles: new Set(),
+      tasteGraph: null,
     };
   }
+
+  const prefRecord = db.personalizationPreferences.find((p) => p.accountId === viewerAccountId);
+  const tasteGraph = prefRecord?.disableTasteGraph
+    ? null
+    : computeTasteGraph(viewerAccountId, db);
 
   return {
     accountId: viewerAccountId,
@@ -110,6 +121,12 @@ export function buildViewerContext(db: BffDatabase, viewerAccountId: string | nu
     collectedDropIds: new Set(
       db.ownerships.filter((o) => o.accountId === viewerAccountId).map((o) => o.dropId)
     ),
+    patronStudioHandles: new Set(
+      db.patrons
+        .filter((p) => p.accountId === viewerAccountId && p.status === "active")
+        .map((p) => p.studioHandle)
+    ),
+    tasteGraph,
   };
 }
 
@@ -126,12 +143,40 @@ function scoreDropForDiscovery(
   if (proofSignal.hasProvenance) score += 20;
   if (proofSignal.hasTransferRules) score += 20;
   if (viewerContext.savedIntentDropIds.has(drop.id)) score += 40;
+  if (viewerContext.patronStudioHandles.has(drop.studioHandle)) score += 50;
   if (viewerContext.followedStudioHandles.has(drop.studioHandle)) score += 30;
   if (viewerContext.collectedDropIds.has(drop.id)) score += 10;
   const daysOld = Math.max(0, (Date.now() - new Date(drop.releaseDate).getTime()) / 86_400_000);
   score += Math.max(0, 10 - Math.floor(daysOld / 3));
   if (governanceFlagged) score -= 20;
+
+  // Taste graph affinity boost — capped at +25, no speculative signals
+  if (viewerContext.tasteGraph) {
+    const handleAffinity = viewerContext.tasteGraph.affinityByHandle[drop.studioHandle] ?? 0;
+    const categoryAffinity = drop.category
+      ? (viewerContext.tasteGraph.affinityByCategory[drop.category] ?? 0)
+      : 0;
+    const mediumAffinity = drop.medium
+      ? (viewerContext.tasteGraph.affinityByMedium[drop.medium] ?? 0)
+      : 0;
+    const rawBoost = (handleAffinity + categoryAffinity + mediumAffinity) * 2;
+    score += Math.min(rawBoost, 25);
+  }
+
   return score;
+}
+
+function resolveRecommendationReason(
+  drop: Drop,
+  proofSignal: ProofReadinessSignal,
+  viewerContext: ViewerContext
+): RecommendationReason {
+  if (viewerContext.patronStudioHandles.has(drop.studioHandle)) return "patron_studio";
+  if (viewerContext.collectedDropIds.has(drop.id)) return "collected_studio";
+  if (viewerContext.followedStudioHandles.has(drop.studioHandle)) return "followed_studio";
+  if (viewerContext.savedIntentDropIds.has(drop.id)) return "saved_intent";
+  if (proofSignal.isProofReady) return "proof_complete";
+  return "default_ranking";
 }
 
 export function enrichDropForDiscovery(
@@ -219,11 +264,16 @@ export function rankDiscoveryDrops(
 ): DiscoveryDrop[] {
   const viewerContext = buildViewerContext(db, viewerAccountId);
   const enriched = drops.map((d) => enrichDropForDiscovery(d, db, viewerContext));
-  return enriched.sort((a, b) => {
-    const scoreA = scoreDropForDiscovery(a, a.proofSignal, viewerContext, a.isGovernanceFlagged);
-    const scoreB = scoreDropForDiscovery(b, b.proofSignal, viewerContext, b.isGovernanceFlagged);
-    return scoreB - scoreA;
-  });
+  return enriched
+    .sort((a, b) => {
+      const scoreA = scoreDropForDiscovery(a, a.proofSignal, viewerContext, a.isGovernanceFlagged);
+      const scoreB = scoreDropForDiscovery(b, b.proofSignal, viewerContext, b.isGovernanceFlagged);
+      return scoreB - scoreA;
+    })
+    .map((drop) => ({
+      ...drop,
+      recommendationReason: resolveRecommendationReason(drop, drop.proofSignal, viewerContext),
+    }));
 }
 
 export function listMarketReadyDrops(db: BffDatabase): Drop[] {
