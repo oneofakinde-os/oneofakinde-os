@@ -1,6 +1,8 @@
 import { requireRequestSession } from "@/lib/bff/auth";
-import { badRequest, ok, safeJson } from "@/lib/bff/http";
+import { ok } from "@/lib/bff/http";
+import { checkRateLimit, RATE_LIMITS } from "@/lib/bff/rate-limit";
 import { commerceBffService } from "@/lib/bff/service";
+import { validateBody, validateQuery, z } from "@/lib/bff/validate";
 import type { GovernanceCaseStatus, GovernanceCaseType } from "@/lib/domain/contracts";
 
 const VALID_CASE_TYPES: GovernanceCaseType[] = [
@@ -12,40 +14,50 @@ const VALID_CASE_TYPES: GovernanceCaseType[] = [
   "safety_report",
   "policy_review",
   "promotion_review",
-  "privacy_request"
+  "privacy_request",
 ];
+
+const postSchema = z.object({
+  caseType: z.enum(VALID_CASE_TYPES as [GovernanceCaseType, ...GovernanceCaseType[]]),
+  subjectType: z.string().min(1).max(64),
+  subjectId: z.string().min(1).max(256),
+  reason: z.string().min(1).max(4096),
+  relatedDropId: z.string().nullable().optional(),
+  relatedReceiptId: z.string().nullable().optional(),
+  relatedOwnershipReceiptId: z.string().nullable().optional(),
+  relatedCertificateId: z.string().nullable().optional(),
+  relatedProvenanceEventId: z.string().nullable().optional(),
+});
+
+const getQuerySchema = z.object({
+  status: z.string().optional(),
+  caseType: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+});
 
 export async function POST(request: Request) {
   const guard = await requireRequestSession(request);
   if (!guard.ok) return guard.response;
 
-  const body = await safeJson<Record<string, unknown>>(request);
-  const caseType = body?.caseType as string | undefined;
-  const subjectType = body?.subjectType as string | undefined;
-  const subjectId = body?.subjectId as string | undefined;
-  const reason = body?.reason as string | undefined;
+  const rate = checkRateLimit(request, RATE_LIMITS.governance, "governance:cases:post", guard.session.accountId);
+  if (!rate.ok) return rate.response;
 
-  if (!caseType || !VALID_CASE_TYPES.includes(caseType as GovernanceCaseType)) {
-    return badRequest("valid caseType is required");
-  }
-  if (!subjectType?.trim()) return badRequest("subjectType is required");
-  if (!subjectId?.trim()) return badRequest("subjectId is required");
-  if (!reason?.trim()) return badRequest("reason is required");
+  const body = await validateBody(request, postSchema);
+  if (!body.ok) return body.response;
 
   const governanceCase = await commerceBffService.createGovernanceCase({
     reporterAccountId: guard.session.accountId,
-    caseType: caseType as GovernanceCaseType,
-    subjectType,
-    subjectId,
-    reason,
-    relatedDropId: (body?.relatedDropId as string | null) ?? null,
-    relatedReceiptId: (body?.relatedReceiptId as string | null) ?? null,
-    relatedOwnershipReceiptId: (body?.relatedOwnershipReceiptId as string | null) ?? null,
-    relatedCertificateId: (body?.relatedCertificateId as string | null) ?? null,
-    relatedProvenanceEventId: (body?.relatedProvenanceEventId as string | null) ?? null
+    caseType: body.data.caseType,
+    subjectType: body.data.subjectType,
+    subjectId: body.data.subjectId,
+    reason: body.data.reason,
+    relatedDropId: body.data.relatedDropId ?? null,
+    relatedReceiptId: body.data.relatedReceiptId ?? null,
+    relatedOwnershipReceiptId: body.data.relatedOwnershipReceiptId ?? null,
+    relatedCertificateId: body.data.relatedCertificateId ?? null,
+    relatedProvenanceEventId: body.data.relatedProvenanceEventId ?? null,
   });
 
-  if (!governanceCase) return badRequest("could not create governance case");
   return ok(governanceCase, 201);
 }
 
@@ -53,16 +65,17 @@ export async function GET(request: Request) {
   const guard = await requireRequestSession(request);
   if (!guard.ok) return guard.response;
 
+  const rate = checkRateLimit(request, RATE_LIMITS.authenticated, "governance:cases:get", guard.session.accountId);
+  if (!rate.ok) return rate.response;
+
   const url = new URL(request.url);
-  const statusFilter = url.searchParams.get("status") as GovernanceCaseStatus | null;
-  const caseTypeFilter = url.searchParams.get("caseType") as GovernanceCaseType | null;
-  const limitParam = url.searchParams.get("limit");
-  const limit = limitParam ? Number(limitParam) : undefined;
+  const query = validateQuery(url, getQuerySchema);
+  if (!query.ok) return query.response;
 
   const cases = await commerceBffService.listGovernanceCases({
-    status: statusFilter ?? undefined,
-    caseType: caseTypeFilter ?? undefined,
-    limit
+    status: query.data.status as GovernanceCaseStatus | undefined,
+    caseType: query.data.caseType as GovernanceCaseType | undefined,
+    limit: query.data.limit,
   });
 
   return ok({ cases });

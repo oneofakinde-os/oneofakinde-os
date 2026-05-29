@@ -1,0 +1,35 @@
+{
+  "FORBIDDEN_FILTER_KEYS": [
+    "most_resold",
+    "resale_ranking",
+    "resale_velocity",
+    "market_cap",
+    "top_value",
+    "highest_resale_gain",
+    "fastest_price_increase",
+    "bid",
+    "ask",
+    "order_book",
+    "speculation",
+    "investment_rank",
+    "market_value_leaderboard",
+    "most_profitable",
+    "top_value_collector",
+    "resale_count",
+    "price_appreciation"
+  ],
+  "FORBIDDEN_NOTIFICATION_TYPES": [
+    "resale_value_increased",
+    "price_appreciation",
+    "most_resold",
+    "most_profitable",
+    "bid_received",
+    "ask_placed",
+    "order_matched",
+    "market_cap_alert",
+    "resale_velocity_alert",
+    "speculative_ranking",
+    "profit_alert",
+    "investment_return"
+  ]
+}

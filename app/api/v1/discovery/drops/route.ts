@@ -1,11 +1,21 @@
 import { getRequestSession } from "@/lib/bff/auth";
 import { badRequest, ok } from "@/lib/bff/http";
+import { checkRateLimit, RATE_LIMITS } from "@/lib/bff/rate-limit";
 import { commerceBffService } from "@/lib/bff/service";
 import { FORBIDDEN_FILTER_KEYS } from "@/lib/domain/discovery";
 import type { DiscoveryFilterInput } from "@/lib/domain/contracts";
 
 export async function GET(request: Request) {
   const session = await getRequestSession(request);
+
+  const rate = checkRateLimit(
+    request,
+    session ? RATE_LIMITS.authenticated : RATE_LIMITS.public,
+    "discovery:drops:get",
+    session?.accountId
+  );
+  if (!rate.ok) return rate.response;
+
   const url = new URL(request.url);
 
   for (const key of url.searchParams.keys()) {

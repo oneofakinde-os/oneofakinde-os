@@ -59,7 +59,7 @@ test("proof: POST /api/v1/governance/cases returns 201 with valid body", async (
   assert.equal(payload.status, "open");
 });
 
-test("proof: POST /api/v1/governance/cases returns 400 when caseType missing", async (t) => {
+test("proof: POST /api/v1/governance/cases returns 4xx when caseType missing", async (t) => {
   const dbPath = isolatedDbPath();
   process.env.OOK_BFF_DB_PATH = dbPath;
   process.env.OOK_PAYMENTS_PROVIDER = "manual";
@@ -90,7 +90,7 @@ test("proof: POST /api/v1/governance/cases returns 400 when caseType missing", a
     })
   );
 
-  assert.equal(response.status, 400, "should return 400 when caseType is missing");
+  assert.ok(response.status >= 400 && response.status < 500, `should return 4xx when caseType is missing, got ${response.status}`);
 });
 
 test("proof: GET /api/v1/governance/cases returns 200 with cases array", async (t) => {

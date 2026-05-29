@@ -5520,10 +5520,72 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
         return [];
       }
     })(),
-    studioDispatches: [],
-    recognitionNotes: [],
-    studioDispatchRecipients: [],
-    personalizationPreferences: []
+    studioDispatches: await (async () => {
+      try {
+        const r = await client.query<StudioDispatchRecord>(
+          'SELECT id, studio_handle AS "studioHandle", creator_account_id AS "creatorAccountId", audience_scope AS "audienceScope", related_drop_id AS "relatedDropId", related_world_id AS "relatedWorldId", title, body, status, created_at AS "createdAt", published_at AS "publishedAt" FROM bff_studio_dispatches ORDER BY created_at DESC'
+        );
+        return r.rows.map((row) => ({
+          id: row.id,
+          studioHandle: row.studioHandle,
+          creatorAccountId: row.creatorAccountId,
+          audienceScope: row.audienceScope,
+          relatedDropId: row.relatedDropId ?? null,
+          relatedWorldId: row.relatedWorldId ?? null,
+          title: row.title,
+          body: row.body,
+          status: row.status,
+          createdAt: row.createdAt,
+          publishedAt: row.publishedAt ?? null
+        }));
+      } catch {
+        return [];
+      }
+    })(),
+    recognitionNotes: await (async () => {
+      try {
+        const r = await client.query<RecognitionNoteRecord>(
+          'SELECT id, creator_account_id AS "creatorAccountId", studio_handle AS "studioHandle", collector_account_id AS "collectorAccountId", receipt_id AS "receiptId", drop_id AS "dropId", note, is_public AS "isPublic", created_at AS "createdAt" FROM bff_recognition_notes ORDER BY created_at DESC'
+        );
+        return r.rows.map((row) => ({
+          id: row.id,
+          creatorAccountId: row.creatorAccountId,
+          studioHandle: row.studioHandle,
+          collectorAccountId: row.collectorAccountId,
+          receiptId: row.receiptId,
+          dropId: row.dropId,
+          note: row.note,
+          isPublic: Boolean(row.isPublic),
+          createdAt: row.createdAt
+        }));
+      } catch {
+        return [];
+      }
+    })(),
+    studioDispatchRecipients: await (async () => {
+      try {
+        const r = await client.query<StudioDispatchRecipientRecord>(
+          'SELECT id, dispatch_id AS "dispatchId", recipient_account_id AS "recipientAccountId", delivered_at AS "deliveredAt" FROM bff_studio_dispatch_recipients ORDER BY delivered_at DESC'
+        );
+        return r.rows;
+      } catch {
+        return [];
+      }
+    })(),
+    personalizationPreferences: await (async () => {
+      try {
+        const r = await client.query<PersonalizationPreferencesRecord>(
+          'SELECT account_id AS "accountId", disable_taste_graph AS "disableTasteGraph", updated_at AS "updatedAt" FROM bff_personalization_preferences ORDER BY updated_at DESC'
+        );
+        return r.rows.map((row) => ({
+          accountId: row.accountId,
+          disableTasteGraph: Boolean(row.disableTasteGraph),
+          updatedAt: row.updatedAt
+        }));
+      } catch {
+        return [];
+      }
+    })()
   };
 }
 
@@ -6551,6 +6613,81 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
       );
     } catch {
       // pre-0056 environment; skip.
+    }
+  }
+
+  // Sprint 1.3 — studio dispatches, recognition notes, dispatch recipients, personalization preferences.
+  try {
+    await client.query("TRUNCATE TABLE bff_studio_dispatch_recipients, bff_studio_dispatches, bff_recognition_notes CASCADE");
+  } catch {
+    // pre-0059 environment; safe to skip.
+  }
+  for (const dispatch of db.studioDispatches) {
+    try {
+      await client.query(
+        "INSERT INTO bff_studio_dispatches (id, studio_handle, creator_account_id, audience_scope, related_drop_id, related_world_id, title, body, status, created_at, published_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) ON CONFLICT (id) DO NOTHING",
+        [
+          dispatch.id,
+          dispatch.studioHandle,
+          dispatch.creatorAccountId,
+          dispatch.audienceScope,
+          dispatch.relatedDropId ?? null,
+          dispatch.relatedWorldId ?? null,
+          dispatch.title,
+          dispatch.body,
+          dispatch.status,
+          dispatch.createdAt,
+          dispatch.publishedAt ?? null
+        ]
+      );
+    } catch {
+      // pre-0059 environment; skip.
+    }
+  }
+  for (const note of db.recognitionNotes) {
+    try {
+      await client.query(
+        "INSERT INTO bff_recognition_notes (id, creator_account_id, studio_handle, collector_account_id, receipt_id, drop_id, note, is_public, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (id) DO NOTHING",
+        [
+          note.id,
+          note.creatorAccountId,
+          note.studioHandle,
+          note.collectorAccountId,
+          note.receiptId,
+          note.dropId,
+          note.note,
+          note.isPublic,
+          note.createdAt
+        ]
+      );
+    } catch {
+      // pre-0059 environment; skip.
+    }
+  }
+  for (const recipient of db.studioDispatchRecipients) {
+    try {
+      await client.query(
+        "INSERT INTO bff_studio_dispatch_recipients (id, dispatch_id, recipient_account_id, delivered_at) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING",
+        [recipient.id, recipient.dispatchId, recipient.recipientAccountId, recipient.deliveredAt]
+      );
+    } catch {
+      // pre-0059 environment; skip.
+    }
+  }
+
+  try {
+    await client.query("TRUNCATE TABLE bff_personalization_preferences");
+  } catch {
+    // pre-0060 environment; safe to skip.
+  }
+  for (const pref of db.personalizationPreferences) {
+    try {
+      await client.query(
+        "INSERT INTO bff_personalization_preferences (account_id, disable_taste_graph, updated_at) VALUES ($1, $2, $3) ON CONFLICT (account_id) DO UPDATE SET disable_taste_graph = EXCLUDED.disable_taste_graph, updated_at = EXCLUDED.updated_at",
+        [pref.accountId, pref.disableTasteGraph, pref.updatedAt]
+      );
+    } catch {
+      // pre-0060 environment; skip.
     }
   }
 }
