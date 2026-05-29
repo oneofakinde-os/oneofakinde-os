@@ -45,6 +45,12 @@ export function isMarketReady(drop: Drop, db: BffDatabase): boolean {
   return true;
 }
 
+export function hasPublishReadinessSignals(drop: Drop, db: BffDatabase): boolean {
+  if (!isMarketReady(drop, db)) return false;
+  if (!db.creatorTerms.some((ct) => ct.dropId === drop.id)) return false;
+  return true;
+}
+
 export function isGovernanceFlagged(dropId: string, db: BffDatabase): boolean {
   return db.governanceCases.some(
     (gc) => gc.relatedDropId === dropId && ACTIVE_GOVERNANCE_STATUSES.has(gc.status)

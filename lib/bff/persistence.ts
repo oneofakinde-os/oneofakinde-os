@@ -626,6 +626,30 @@ export type TransferRulesRecord = {
   updatedAt: string;
 };
 
+// Sprint 0.4A — creator terms registry
+export type CreatorTermsRecord = {
+  id: string;
+  creatorAccountId: string;
+  dropId: string;
+  termsVersion: string;
+  commercialUse: boolean;
+  derivativesAllowed: boolean;
+  attributionRequired: boolean;
+  royaltyPct: number | null;
+  notes: string | null;
+  acceptedAt: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+// Sprint 0.4A — certificate preview records (collector previewed terms before checkout)
+export type CertificatePreviewRecord = {
+  id: string;
+  collectorAccountId: string;
+  dropId: string;
+  previewedAt: string;
+};
+
 export type CreatorEarningsPayoutStatus = "pending" | "available" | "paid" | "held" | "reversed";
 
 export type CreatorEarningsRecord = {
@@ -781,6 +805,9 @@ export type BffDatabase = {
   // Sprint 1.3
   studioDispatchRecipients: StudioDispatchRecipientRecord[];
   personalizationPreferences: PersonalizationPreferencesRecord[];
+  // Sprint 0.4A
+  creatorTerms: CreatorTermsRecord[];
+  certificatePreviews: CertificatePreviewRecord[];
 };
 
 type MutationResult<T> = {
@@ -1675,7 +1702,9 @@ function createSeedDatabase(): BffDatabase {
     studioDispatches: [],
     recognitionNotes: [],
     studioDispatchRecipients: [],
-    personalizationPreferences: []
+    personalizationPreferences: [],
+    creatorTerms: [],
+    certificatePreviews: []
   };
 }
 
@@ -1736,7 +1765,9 @@ function createCatalogSeedDatabase(): BffDatabase {
     studioDispatches: [],
     recognitionNotes: [],
     studioDispatchRecipients: [],
-    personalizationPreferences: []
+    personalizationPreferences: [],
+    creatorTerms: [],
+    certificatePreviews: []
   };
 }
 
@@ -1806,7 +1837,9 @@ function createEmptyDatabase(): BffDatabase {
     studioDispatches: [],
     recognitionNotes: [],
     studioDispatchRecipients: [],
-    personalizationPreferences: []
+    personalizationPreferences: [],
+    creatorTerms: [],
+    certificatePreviews: []
   };
 }
 
@@ -3788,6 +3821,12 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         : [],
       personalizationPreferences: Array.isArray((input as Record<string, unknown>).personalizationPreferences)
         ? ((input as Record<string, unknown>).personalizationPreferences as PersonalizationPreferencesRecord[])
+        : [],
+      creatorTerms: Array.isArray((input as Record<string, unknown>).creatorTerms)
+        ? ((input as Record<string, unknown>).creatorTerms as CreatorTermsRecord[])
+        : [],
+      certificatePreviews: Array.isArray((input as Record<string, unknown>).certificatePreviews)
+        ? ((input as Record<string, unknown>).certificatePreviews as CertificatePreviewRecord[])
         : []
     };
   }
@@ -3987,6 +4026,12 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         : [],
       personalizationPreferences: Array.isArray(candidate.personalizationPreferences)
         ? (candidate.personalizationPreferences as PersonalizationPreferencesRecord[])
+        : [],
+      creatorTerms: Array.isArray(candidate.creatorTerms)
+        ? (candidate.creatorTerms as CreatorTermsRecord[])
+        : [],
+      certificatePreviews: Array.isArray(candidate.certificatePreviews)
+        ? (candidate.certificatePreviews as CertificatePreviewRecord[])
         : []
     };
   }
@@ -5585,6 +5630,31 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       } catch {
         return [];
       }
+    })(),
+    creatorTerms: await (async () => {
+      try {
+        const r = await client.query<CreatorTermsRecord>(
+          'SELECT id, creator_account_id AS "creatorAccountId", drop_id AS "dropId", terms_version AS "termsVersion", commercial_use AS "commercialUse", derivatives_allowed AS "derivativesAllowed", attribution_required AS "attributionRequired", royalty_pct AS "royaltyPct", notes, accepted_at AS "acceptedAt", created_at AS "createdAt", updated_at AS "updatedAt" FROM bff_creator_terms ORDER BY created_at DESC'
+        );
+        return r.rows.map((row) => ({
+          ...row,
+          commercialUse: Boolean(row.commercialUse),
+          derivativesAllowed: Boolean(row.derivativesAllowed),
+          attributionRequired: Boolean(row.attributionRequired)
+        }));
+      } catch {
+        return [];
+      }
+    })(),
+    certificatePreviews: await (async () => {
+      try {
+        const r = await client.query<CertificatePreviewRecord>(
+          'SELECT id, collector_account_id AS "collectorAccountId", drop_id AS "dropId", previewed_at AS "previewedAt" FROM bff_certificate_previews ORDER BY previewed_at DESC'
+        );
+        return r.rows;
+      } catch {
+        return [];
+      }
     })()
   };
 }
@@ -6688,6 +6758,38 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
       );
     } catch {
       // pre-0060 environment; skip.
+    }
+  }
+
+  // Sprint 0.4A — creator terms and certificate previews
+  try {
+    await client.query("TRUNCATE TABLE bff_creator_terms");
+  } catch {
+    // pre-0061 environment; skip.
+  }
+  for (const ct of db.creatorTerms) {
+    try {
+      await client.query(
+        "INSERT INTO bff_creator_terms (id, creator_account_id, drop_id, terms_version, commercial_use, derivatives_allowed, attribution_required, royalty_pct, notes, accepted_at, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) ON CONFLICT (id) DO NOTHING",
+        [ct.id, ct.creatorAccountId, ct.dropId, ct.termsVersion, ct.commercialUse, ct.derivativesAllowed, ct.attributionRequired, ct.royaltyPct, ct.notes, ct.acceptedAt, ct.createdAt, ct.updatedAt]
+      );
+    } catch {
+      // pre-0061 environment; skip.
+    }
+  }
+  try {
+    await client.query("TRUNCATE TABLE bff_certificate_previews");
+  } catch {
+    // pre-0062 environment; skip.
+  }
+  for (const cp of db.certificatePreviews) {
+    try {
+      await client.query(
+        "INSERT INTO bff_certificate_previews (id, collector_account_id, drop_id, previewed_at) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING",
+        [cp.id, cp.collectorAccountId, cp.dropId, cp.previewedAt]
+      );
+    } catch {
+      // pre-0062 environment; skip.
     }
   }
 }

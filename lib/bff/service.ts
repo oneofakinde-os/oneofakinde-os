@@ -230,7 +230,9 @@ import {
   type StudioDispatchRecord,
   type RecognitionNoteRecord,
   type StudioDispatchRecipientRecord,
-  type PersonalizationPreferencesRecord
+  type PersonalizationPreferencesRecord,
+  type CreatorTermsRecord,
+  type CertificatePreviewRecord
 } from "@/lib/bff/persistence";
 import { PLATFORM_MIN_HOLD_PERIOD_DAYS, PLATFORM_MIN_ROYALTY_PCT } from "@/lib/domain/resale-authority";
 import { computeDiscoveryDriftMetrics, computeMarketDriftSnapshot } from "@/lib/domain/market-drift";
@@ -239,6 +241,7 @@ import {
   buildDiscoveryStudios,
   buildViewerContext,
   computeProofSignal,
+  hasPublishReadinessSignals,
   isMarketReady,
   rankDiscoveryDrops,
 } from "@/lib/domain/discovery";
@@ -15812,6 +15815,175 @@ export const commerceBffService = {
           measuredAt: new Date().toISOString(),
         },
       };
+    });
+  },
+
+  // Sprint 0.4A — creator terms registry
+
+  async upsertCreatorTerms(
+    creatorAccountId: string,
+    dropId: string,
+    input: {
+      commercialUse: boolean;
+      derivativesAllowed: boolean;
+      attributionRequired: boolean;
+      royaltyPct?: number | null;
+      notes?: string | null;
+      termsVersion?: string;
+    }
+  ): Promise<CreatorTermsRecord | null> {
+    return withDatabase(async (db) => {
+      const drop = findDropById(db, dropId);
+      if (!drop) return { persist: false, result: null };
+
+      const account = findAccountById(db, creatorAccountId);
+      if (!account) return { persist: false, result: null };
+      if (drop.studioHandle !== account.handle) return { persist: false, result: null };
+
+      const now = new Date().toISOString();
+      const termsVersion = input.termsVersion ?? "1.0";
+      const existing = db.creatorTerms.find((ct) => ct.dropId === dropId);
+      if (existing) {
+        existing.commercialUse = input.commercialUse;
+        existing.derivativesAllowed = input.derivativesAllowed;
+        existing.attributionRequired = input.attributionRequired;
+        existing.royaltyPct = input.royaltyPct ?? null;
+        existing.notes = input.notes ?? null;
+        existing.termsVersion = termsVersion;
+        existing.acceptedAt = now;
+        existing.updatedAt = now;
+        return { persist: true, result: existing };
+      }
+      const record: CreatorTermsRecord = {
+        id: `ct_${randomUUID()}`,
+        creatorAccountId,
+        dropId,
+        termsVersion,
+        commercialUse: input.commercialUse,
+        derivativesAllowed: input.derivativesAllowed,
+        attributionRequired: input.attributionRequired,
+        royaltyPct: input.royaltyPct ?? null,
+        notes: input.notes ?? null,
+        acceptedAt: now,
+        createdAt: now,
+        updatedAt: now
+      };
+      db.creatorTerms.push(record);
+      return { persist: true, result: record };
+    });
+  },
+
+  async getCreatorTerms(dropId: string): Promise<CreatorTermsRecord | null> {
+    return withDatabase(async (db) => {
+      const record = db.creatorTerms.find((ct) => ct.dropId === dropId) ?? null;
+      return { persist: false, result: record };
+    });
+  },
+
+  async recordCertificatePreview(
+    collectorAccountId: string,
+    dropId: string
+  ): Promise<CertificatePreviewRecord | null> {
+    return withDatabase(async (db) => {
+      const drop = findDropById(db, dropId);
+      if (!drop) return { persist: false, result: null };
+
+      const account = findAccountById(db, collectorAccountId);
+      if (!account) return { persist: false, result: null };
+
+      const now = new Date().toISOString();
+      const record: CertificatePreviewRecord = {
+        id: `cpv_${randomUUID()}`,
+        collectorAccountId,
+        dropId,
+        previewedAt: now
+      };
+      db.certificatePreviews.push(record);
+
+      appendProvenanceEvent(db, {
+        dropId,
+        kind: "certificate_previewed",
+        actorHandle: account.handle,
+        certificateId: null,
+        receiptId: null,
+        occurredAt: now,
+        createdAt: now
+      });
+
+      return { persist: true, result: record };
+    });
+  },
+
+  async hasCertificatePreview(collectorAccountId: string, dropId: string): Promise<boolean> {
+    return withDatabase(async (db) => {
+      const result = db.certificatePreviews.some(
+        (cp) => cp.collectorAccountId === collectorAccountId && cp.dropId === dropId
+      );
+      return { persist: false, result };
+    });
+  },
+
+  async publishDrop(
+    creatorAccountId: string,
+    dropId: string
+  ): Promise<{ ok: true; drop: Drop } | { ok: false; reason: "not_found" | "not_creator" | "missing_rights" | "missing_creator_terms" }> {
+    type PublishResult = { ok: true; drop: Drop } | { ok: false; reason: "not_found" | "not_creator" | "missing_rights" | "missing_creator_terms" };
+    return withDatabase<PublishResult>(async (db) => {
+      const drop = findDropById(db, dropId);
+      if (!drop) return { persist: false, result: { ok: false, reason: "not_found" } };
+
+      const account = findAccountById(db, creatorAccountId);
+      if (!account) return { persist: false, result: { ok: false, reason: "not_found" } };
+      if (drop.studioHandle !== account.handle) return { persist: false, result: { ok: false, reason: "not_creator" } };
+
+      const hasRights = db.rightsMetadata.some((r) => r.dropId === dropId);
+      if (!hasRights) return { persist: false, result: { ok: false, reason: "missing_rights" } };
+
+      const hasTerms = db.creatorTerms.some((ct) => ct.dropId === dropId);
+      if (!hasTerms) return { persist: false, result: { ok: false, reason: "missing_creator_terms" } };
+
+      drop.releaseAt = new Date().toISOString();
+      return { persist: true, result: { ok: true as const, drop } };
+    });
+  },
+
+  async getVaultProjection(
+    viewerAccountId: string,
+    targetAccountId: string
+  ): Promise<{ ownedDrops: Drop[]; isPublic: boolean; totalCount: number } | null> {
+    return withDatabase(async (db) => {
+      const targetAccount = findAccountById(db, targetAccountId);
+      if (!targetAccount) return { persist: false, result: null };
+
+      const isOwner = viewerAccountId === targetAccountId;
+      const isPublic = targetAccount.vaultVisibility === "public";
+
+      if (!isOwner && !isPublic) {
+        return { persist: false, result: { ownedDrops: [], isPublic: false, totalCount: 0 } };
+      }
+
+      const ownedDropIds = db.ownerships
+        .filter((o) => o.accountId === targetAccountId && o.status !== "revoked")
+        .map((o) => o.dropId);
+
+      const ownedDrops = ownedDropIds
+        .map((id) => findDropById(db, id))
+        .filter((d): d is Drop => d !== null);
+
+      return {
+        persist: false,
+        result: { ownedDrops, isPublic, totalCount: ownedDrops.length }
+      };
+    });
+  },
+
+  async collectDrop(accountId: string, dropId: string): Promise<PurchaseReceipt | null> {
+    return withDatabase(async (db) => {
+      const hasPreviewed = db.certificatePreviews.some(
+        (cp) => cp.collectorAccountId === accountId && cp.dropId === dropId
+      );
+      if (!hasPreviewed) return { persist: false, result: null };
+      return purchaseDropInDatabase(db, accountId, dropId, { liveSessionId: null });
     });
   },
 };
