@@ -232,9 +232,18 @@ import {
   type StudioDispatchRecipientRecord,
   type PersonalizationPreferencesRecord,
   type CreatorTermsRecord,
-  type CertificatePreviewRecord
+  type CertificatePreviewRecord,
+  type ProvenanceEventKind
 } from "@/lib/bff/persistence";
-import { PLATFORM_MIN_HOLD_PERIOD_DAYS, PLATFORM_MIN_ROYALTY_PCT } from "@/lib/domain/resale-authority";
+import {
+  PLATFORM_MIN_HOLD_PERIOD_DAYS,
+  PLATFORM_MIN_ROYALTY_PCT,
+  isRoyaltyApplicable,
+  validateHoldPeriod,
+  validateRoyaltyFloor,
+  computeScaffoldRoyaltyAmount,
+  type TransferReason
+} from "@/lib/domain/resale-authority";
 import { computeDiscoveryDriftMetrics, computeMarketDriftSnapshot } from "@/lib/domain/market-drift";
 import {
   applyDiscoveryFilters,
@@ -2236,6 +2245,7 @@ function issueOwnershipAndReceipt(
   };
 
   const editionNumber = db.ownerships.filter((o) => o.dropId === drop.id).length + 1;
+  const ownershipId = `own_${randomUUID()}`;
 
   db.receipts.unshift(receipt);
   db.certificates.push(certificate);
@@ -2250,12 +2260,22 @@ function issueOwnershipAndReceipt(
     status: "active"
   });
 
+  appendAuditEvent(db, {
+    action: "ownership_settlement_completed",
+    actorAccountId: account.id,
+    subjectType: "drop",
+    subjectId: drop.id,
+    meta: JSON.stringify({ receiptId, certificateId, ownershipId })
+  });
+
   appendProvenanceEvent(db, {
     dropId: drop.id,
     kind: "ownership_created",
     actorHandle: account.handle,
     certificateId,
     receiptId,
+    ownershipId,
+    sourceAction: "collect",
     occurredAt: purchasedAt
   });
   appendProvenanceEvent(db, {
@@ -2264,6 +2284,8 @@ function issueOwnershipAndReceipt(
     actorHandle: account.handle,
     certificateId,
     receiptId,
+    ownershipId,
+    sourceAction: "collect",
     occurredAt: purchasedAt
   });
 
@@ -15979,11 +16001,164 @@ export const commerceBffService = {
 
   async collectDrop(accountId: string, dropId: string): Promise<PurchaseReceipt | null> {
     return withDatabase(async (db) => {
+      // Gate 1: rights metadata must exist
+      const hasRights = db.rightsMetadata.some((r) => r.dropId === dropId);
+      if (!hasRights) {
+        appendAuditEvent(db, {
+          action: "ownership_settlement_failed",
+          actorAccountId: accountId,
+          subjectType: "drop",
+          subjectId: dropId,
+          meta: JSON.stringify({ reason: "missing_rights" })
+        });
+        return { persist: true, result: null };
+      }
+
+      // Gate 2: creator terms must exist
+      const hasTerms = db.creatorTerms.some((ct) => ct.dropId === dropId);
+      if (!hasTerms) {
+        appendAuditEvent(db, {
+          action: "ownership_settlement_failed",
+          actorAccountId: accountId,
+          subjectType: "drop",
+          subjectId: dropId,
+          meta: JSON.stringify({ reason: "missing_creator_terms" })
+        });
+        return { persist: true, result: null };
+      }
+
+      // Gate 3: collector must have previewed the certificate
       const hasPreviewed = db.certificatePreviews.some(
         (cp) => cp.collectorAccountId === accountId && cp.dropId === dropId
       );
-      if (!hasPreviewed) return { persist: false, result: null };
+      if (!hasPreviewed) {
+        appendAuditEvent(db, {
+          action: "ownership_settlement_failed",
+          actorAccountId: accountId,
+          subjectType: "drop",
+          subjectId: dropId,
+          meta: JSON.stringify({ reason: "missing_certificate_preview" })
+        });
+        return { persist: true, result: null };
+      }
+
+      appendAuditEvent(db, {
+        action: "ownership_settlement_started",
+        actorAccountId: accountId,
+        subjectType: "drop",
+        subjectId: dropId,
+        meta: JSON.stringify({})
+      });
+
       return purchaseDropInDatabase(db, accountId, dropId, { liveSessionId: null });
     });
+  },
+
+  // Sprint 0.5H — getProvenancePath: replay the proof path for a collected drop
+  async getProvenancePath(
+    dropId: string,
+    options?: { ownershipId?: string }
+  ): Promise<ProvenanceEvent[]> {
+    return withDatabase(async (db) => {
+      let events = db.provenanceEvents.filter((e) => e.dropId === dropId);
+      if (options?.ownershipId) {
+        events = events.filter(
+          (e) => (e as ProvenanceEventRecord).ownershipId === options.ownershipId
+        );
+      }
+      const result: ProvenanceEvent[] = events
+        .slice()
+        .sort((a, b) => (a.occurredAt < b.occurredAt ? -1 : 1))
+        .map((e) => ({
+          id: e.id,
+          dropId: e.dropId,
+          kind: e.kind,
+          actorHandle: e.actorHandle,
+          certificateId: e.certificateId,
+          receiptId: e.receiptId,
+          ownershipId: (e as ProvenanceEventRecord).ownershipId ?? null,
+          sourceAction: (e as ProvenanceEventRecord).sourceAction ?? null,
+          occurredAt: e.occurredAt
+        }));
+      return { persist: false, result };
+    });
+  },
+
+  // Sprint 0.5H — updateCertificateStatus: lifecycle transitions with audit trail
+  async updateCertificateStatus(
+    certificateId: string,
+    newStatus: "verified" | "under_review" | "revoked" | "issued" | "disputed" | "superseded",
+    options?: { actorAccountId?: string; supersededById?: string }
+  ): Promise<boolean> {
+    return withDatabase(async (db) => {
+      const cert = db.certificates.find((c) => c.id === certificateId);
+      if (!cert) return { persist: false, result: false };
+
+      const prevStatus = cert.status;
+      cert.status = newStatus;
+
+      const kindMap: Record<typeof newStatus, ProvenanceEventKind | null> = {
+        issued: "certificate_issued",
+        verified: null,
+        under_review: null,
+        revoked: "certificate_revoked",
+        disputed: "certificate_disputed",
+        superseded: "certificate_superseded"
+      };
+
+      const kind = kindMap[newStatus];
+      const actor = options?.actorAccountId
+        ? findAccountById(db, options.actorAccountId)
+        : null;
+      const actorHandle = actor?.handle ?? "platform";
+
+      if (kind) {
+        appendProvenanceEvent(db, {
+          dropId: cert.dropId,
+          kind,
+          actorHandle,
+          certificateId,
+          receiptId: cert.receiptId,
+          sourceAction: "certificate_status_change",
+          occurredAt: new Date().toISOString()
+        });
+      }
+
+      appendAuditEvent(db, {
+        action: "certificate_status_changed",
+        actorAccountId: options?.actorAccountId ?? null,
+        subjectType: "certificate",
+        subjectId: certificateId,
+        meta: JSON.stringify({ prevStatus, newStatus, supersededById: options?.supersededById ?? null })
+      });
+
+      return { persist: true, result: true };
+    });
+  },
+
+  // Sprint 0.5H — validateResaleTransfer: hold period + royalty floor scaffold (gated)
+  validateResaleTransfer(input: {
+    transferReason: TransferReason;
+    holdPeriodDays: number;
+    royaltyPct: number | null;
+    resaleAllowed: boolean;
+    creatorHoldPeriodOverrideDays?: number | null;
+  }): { valid: boolean; errors: string[]; royaltyAmountCents: number } {
+    const errors: string[] = [];
+
+    const holdResult = validateHoldPeriod(
+      input.holdPeriodDays,
+      input.creatorHoldPeriodOverrideDays
+    );
+    errors.push(...holdResult.errors);
+
+    const royaltyResult = validateRoyaltyFloor(input.royaltyPct, input.resaleAllowed);
+    errors.push(...royaltyResult.errors);
+
+    const royaltyAmountCents = isRoyaltyApplicable(input.transferReason)
+      ? computeScaffoldRoyaltyAmount(0, input.royaltyPct ?? 0, input.transferReason)
+      : 0;
+
+    return { valid: errors.length === 0, errors, royaltyAmountCents };
   },
 };

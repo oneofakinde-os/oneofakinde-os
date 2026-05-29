@@ -246,7 +246,19 @@ test("proof: collectDrop succeeds when collector has previewed certificate", asy
     await fs.rm(dbPath, { force: true });
   });
 
-  const { drop } = await bootstrapCreatorWithDrop(dbPath, "t7");
+  const { creator, drop } = await bootstrapCreatorWithDrop(dbPath, "t7");
+
+  await commerceBffService.upsertRightsMetadataForDrop(drop.id, {
+    licenseType: "all_rights_reserved",
+    commercialUse: false,
+    derivativesAllowed: false,
+    attributionRequired: true,
+  });
+  await commerceBffService.upsertCreatorTerms(creator.accountId, drop.id, {
+    commercialUse: false,
+    derivativesAllowed: false,
+    attributionRequired: true,
+  });
 
   const collector = await commerceBffService.createSession({
     email: `t7-collector-${randomUUID()}@oneofakinde.test`,
@@ -270,7 +282,19 @@ test("proof: private vault returns empty ownedDrops to non-owner viewer", async 
     await fs.rm(dbPath, { force: true });
   });
 
-  const { drop } = await bootstrapCreatorWithDrop(dbPath, "t8");
+  const { creator, drop } = await bootstrapCreatorWithDrop(dbPath, "t8");
+
+  await commerceBffService.upsertRightsMetadataForDrop(drop.id, {
+    licenseType: "all_rights_reserved",
+    commercialUse: false,
+    derivativesAllowed: false,
+    attributionRequired: true,
+  });
+  await commerceBffService.upsertCreatorTerms(creator.accountId, drop.id, {
+    commercialUse: false,
+    derivativesAllowed: false,
+    attributionRequired: true,
+  });
 
   const collector = await commerceBffService.createSession({
     email: `t8-collector-${randomUUID()}@oneofakinde.test`,
@@ -302,7 +326,19 @@ test("proof: public vault exposes ownedDrops (without aggregate value) to viewer
     await fs.rm(dbPath, { force: true });
   });
 
-  const { drop } = await bootstrapCreatorWithDrop(dbPath, "t9");
+  const { creator, drop } = await bootstrapCreatorWithDrop(dbPath, "t9");
+
+  await commerceBffService.upsertRightsMetadataForDrop(drop.id, {
+    licenseType: "all_rights_reserved",
+    commercialUse: false,
+    derivativesAllowed: false,
+    attributionRequired: true,
+  });
+  await commerceBffService.upsertCreatorTerms(creator.accountId, drop.id, {
+    commercialUse: false,
+    derivativesAllowed: false,
+    attributionRequired: true,
+  });
 
   const collector = await commerceBffService.createSession({
     email: `t9-collector-${randomUUID()}@oneofakinde.test`,
@@ -403,7 +439,19 @@ test("proof: vault projection never exposes totalValue or aggregateValue — eve
     await fs.rm(dbPath, { force: true });
   });
 
-  const { drop } = await bootstrapCreatorWithDrop(dbPath, "t12");
+  const { creator, drop } = await bootstrapCreatorWithDrop(dbPath, "t12");
+
+  await commerceBffService.upsertRightsMetadataForDrop(drop.id, {
+    licenseType: "all_rights_reserved",
+    commercialUse: false,
+    derivativesAllowed: false,
+    attributionRequired: true,
+  });
+  await commerceBffService.upsertCreatorTerms(creator.accountId, drop.id, {
+    commercialUse: false,
+    derivativesAllowed: false,
+    attributionRequired: true,
+  });
 
   const collector = await commerceBffService.createSession({
     email: `t12-collector-${randomUUID()}@oneofakinde.test`,

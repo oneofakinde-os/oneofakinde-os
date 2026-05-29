@@ -579,7 +579,9 @@ export type ProvenanceEventKind =
   | "ownership_revoked"
   | "certificate_issued"
   | "certificate_revoked"
-  | "certificate_previewed";
+  | "certificate_previewed"
+  | "certificate_disputed"
+  | "certificate_superseded";
 
 export type ProvenanceEventRecord = {
   id: string;
@@ -588,6 +590,8 @@ export type ProvenanceEventRecord = {
   actorHandle: string;
   certificateId: string | null;
   receiptId: string | null;
+  ownershipId?: string | null;
+  sourceAction?: string | null;
   occurredAt: string;
   createdAt?: string;
 };

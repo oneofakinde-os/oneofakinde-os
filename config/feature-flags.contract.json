@@ -1,5 +1,5 @@
 {
-  "version": "train7-m2",
+  "version": "train7-m3",
   "flags": [
     {
       "key": "surface_live_now",
@@ -36,6 +36,58 @@
       "owner": "platform-creator",
       "rollout": "beta",
       "description": "controls lineage rails presentation in workshop and drop detail surfaces"
+    },
+    {
+      "key": "resale_settlement_live",
+      "owner": "platform-commerce",
+      "rollout": "dark",
+      "description": "Sprint 0.5H gate — live resale settlement; requires approval metadata before production activation",
+      "approval": {
+        "owner": null,
+        "decision_source": null,
+        "approved_at": null,
+        "expires_at": null,
+        "notes": "must not be enabled without explicit approval metadata"
+      }
+    },
+    {
+      "key": "auto_routed_resale_royalty_live",
+      "owner": "platform-commerce",
+      "rollout": "dark",
+      "description": "Sprint 0.5H gate — auto-routed resale royalty payment rail; requires approval metadata before production activation",
+      "approval": {
+        "owner": null,
+        "decision_source": null,
+        "approved_at": null,
+        "expires_at": null,
+        "notes": "must not be enabled without explicit approval metadata"
+      }
+    },
+    {
+      "key": "public_studio_value_index_live",
+      "owner": "platform-discovery",
+      "rollout": "dark",
+      "description": "Sprint 0.5H gate — public studio aggregate value index; requires approval metadata before production activation",
+      "approval": {
+        "owner": null,
+        "decision_source": null,
+        "approved_at": null,
+        "expires_at": null,
+        "notes": "must not be enabled without explicit approval metadata"
+      }
+    },
+    {
+      "key": "creator_promotion_lane_live",
+      "owner": "platform-discovery",
+      "rollout": "dark",
+      "description": "Sprint 0.5H gate — creator bid-based promotion lane; requires approval metadata before production activation",
+      "approval": {
+        "owner": null,
+        "decision_source": null,
+        "approved_at": null,
+        "expires_at": null,
+        "notes": "must not be enabled without explicit approval metadata"
+      }
     }
   ],
   "defaults": {
@@ -45,7 +97,11 @@
       "showroom_featured_lane": true,
       "collect_auctions_lane": true,
       "watch_quality_ladder": true,
-      "drop_lineage_surfaces": true
+      "drop_lineage_surfaces": true,
+      "resale_settlement_live": false,
+      "auto_routed_resale_royalty_live": false,
+      "public_studio_value_index_live": false,
+      "creator_promotion_lane_live": false
     },
     "preview": {
       "surface_live_now": true,
@@ -53,7 +109,11 @@
       "showroom_featured_lane": true,
       "collect_auctions_lane": true,
       "watch_quality_ladder": true,
-      "drop_lineage_surfaces": true
+      "drop_lineage_surfaces": true,
+      "resale_settlement_live": false,
+      "auto_routed_resale_royalty_live": false,
+      "public_studio_value_index_live": false,
+      "creator_promotion_lane_live": false
     },
     "production": {
       "surface_live_now": true,
@@ -61,7 +121,11 @@
       "showroom_featured_lane": true,
       "collect_auctions_lane": true,
       "watch_quality_ladder": true,
-      "drop_lineage_surfaces": true
+      "drop_lineage_surfaces": true,
+      "resale_settlement_live": false,
+      "auto_routed_resale_royalty_live": false,
+      "public_studio_value_index_live": false,
+      "creator_promotion_lane_live": false
     }
   }
 }

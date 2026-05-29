@@ -1218,7 +1218,7 @@ export type Certificate = {
   dropTitle: string;
   ownerHandle: string;
   issuedAt: string;
-  status: "verified" | "under_review" | "revoked";
+  status: "verified" | "under_review" | "revoked" | "issued" | "disputed" | "superseded";
 };
 
 export type SavedIntent = {
@@ -1235,7 +1235,12 @@ export type ProvenanceEventKind =
   | "ownership_revoked"
   | "certificate_issued"
   | "certificate_revoked"
-  | "certificate_previewed";
+  | "certificate_previewed"
+  | "certificate_disputed"
+  | "certificate_superseded";
+
+// Sprint 0.5H — transfer reasons: royalty only applies on "sale"
+export type TransferReason = "sale" | "gift" | "migration" | "correction" | "dispute_reversal";
 
 export type ProvenanceEvent = {
   id: string;
@@ -1244,6 +1249,10 @@ export type ProvenanceEvent = {
   actorHandle: string;
   certificateId: string | null;
   receiptId: string | null;
+  /** Sprint 0.5H — links provenance event to the ownership record it describes */
+  ownershipId?: string | null;
+  /** Sprint 0.5H — records the service action that produced this event */
+  sourceAction?: string | null;
   occurredAt: string;
 };
 

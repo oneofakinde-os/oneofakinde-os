@@ -134,6 +134,49 @@ export function nextInWaitlist(waitlist: WaitlistRerelease): string | null {
 export const PLATFORM_MIN_HOLD_PERIOD_DAYS = 7;
 export const PLATFORM_MIN_ROYALTY_PCT = 0.05;
 
+// Sprint 0.5H — transfer reason taxonomy; royalty only applies to "sale"
+export type TransferReason = "sale" | "gift" | "migration" | "correction" | "dispute_reversal";
+
+export function isRoyaltyApplicable(reason: TransferReason): boolean {
+  return reason === "sale";
+}
+
+export function validateHoldPeriod(
+  holdPeriodDays: number,
+  creatorOverrideDays?: number | null
+): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+  const effective = creatorOverrideDays != null ? creatorOverrideDays : holdPeriodDays;
+  if (effective < PLATFORM_MIN_HOLD_PERIOD_DAYS) {
+    errors.push(
+      `hold period of ${effective} days is below the platform minimum of ${PLATFORM_MIN_HOLD_PERIOD_DAYS} days`
+    );
+  }
+  return { valid: errors.length === 0, errors };
+}
+
+export function validateRoyaltyFloor(
+  royaltyPct: number | null | undefined,
+  resaleAllowed: boolean
+): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+  if (resaleAllowed && royaltyPct != null && royaltyPct < PLATFORM_MIN_ROYALTY_PCT) {
+    errors.push(
+      `royalty of ${(royaltyPct * 100).toFixed(1)}% is below the platform floor of ${(PLATFORM_MIN_ROYALTY_PCT * 100).toFixed(0)}% for resale-enabled drops`
+    );
+  }
+  return { valid: errors.length === 0, errors };
+}
+
+export function computeScaffoldRoyaltyAmount(
+  salePriceCents: number,
+  royaltyPct: number,
+  reason: TransferReason
+): number {
+  if (!isRoyaltyApplicable(reason)) return 0;
+  return Math.round(salePriceCents * royaltyPct);
+}
+
 export type ResaleViolationRecord = {
   accountId: string;
   violations: number;
