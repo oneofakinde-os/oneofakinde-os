@@ -146,7 +146,12 @@ import type {
   GovernanceCaseType,
   ProvenanceEvent,
   CreatorEarnings,
-  MarketDriftSnapshot
+  MarketDriftSnapshot,
+  DiscoveryDrop,
+  DiscoveryDriftMetrics,
+  DiscoveryFilterInput,
+  StudioDiscoveryEntry,
+  CreatorMarketDataSummary,
 } from "@/lib/domain/contracts";
 import type { CheckoutSessionResult, CreateCheckoutSessionInput, StripeWebhookApplyResult } from "@/lib/bff/contracts";
 import {
@@ -217,7 +222,14 @@ import {
   type AuditEventRecord
 } from "@/lib/bff/persistence";
 import { PLATFORM_MIN_HOLD_PERIOD_DAYS, PLATFORM_MIN_ROYALTY_PCT } from "@/lib/domain/resale-authority";
-import { computeMarketDriftSnapshot } from "@/lib/domain/market-drift";
+import { computeDiscoveryDriftMetrics, computeMarketDriftSnapshot } from "@/lib/domain/market-drift";
+import {
+  applyDiscoveryFilters,
+  buildDiscoveryStudios,
+  buildViewerContext,
+  isMarketReady,
+  rankDiscoveryDrops,
+} from "@/lib/domain/discovery";
 import { createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 
 const PROCESSING_FEE_USD = 1.99;
@@ -15183,5 +15195,71 @@ export const commerceBffService = {
         }
       };
     });
-  }
+  },
+
+  async listDiscoveryDrops(
+    viewerAccountId?: string | null,
+    filters?: DiscoveryFilterInput
+  ): Promise<DiscoveryDrop[]> {
+    return withDatabase(async (db) => {
+      const account = viewerAccountId ? findAccountById(db, viewerAccountId) : null;
+      const visibleDrops = db.catalog.drops.filter((drop) =>
+        canAccountDiscoverDrop(db, account, drop)
+      );
+      const marketReady = visibleDrops.filter((d) => isMarketReady(d, db));
+
+      if (filters && Object.keys(filters).length > 0) {
+        const viewerContext = buildViewerContext(db, viewerAccountId ?? null);
+        return { persist: false, result: applyDiscoveryFilters(marketReady, filters, viewerContext, db) };
+      }
+
+      return { persist: false, result: rankDiscoveryDrops(marketReady, db, viewerAccountId ?? null) };
+    });
+  },
+
+  async listDiscoveryStudios(viewerAccountId?: string | null): Promise<StudioDiscoveryEntry[]> {
+    return withDatabase(async (db) => {
+      return { persist: false, result: buildDiscoveryStudios(db, viewerAccountId ?? null) };
+    });
+  },
+
+  async getCreatorMarketData(
+    requestorAccountId: string,
+    studioHandle: string
+  ): Promise<CreatorMarketDataSummary | null> {
+    return withDatabase(async (db) => {
+      const requestor = findAccountById(db, requestorAccountId);
+      if (!requestor) return { persist: false, result: null };
+
+      const isOwner =
+        requestor.roles.includes("creator") && requestor.handle === studioHandle;
+      if (!isOwner) return { persist: false, result: null };
+
+      const ACTIVE_GOV = new Set(["open", "under_review", "action_required", "escalated"]);
+      const studioDrops = db.catalog.drops.filter((d) => d.studioHandle === studioHandle);
+
+      const drops = studioDrops.map((drop) => ({
+        dropId: drop.id,
+        title: drop.title,
+        savedIntentCount: db.savedIntents.filter((si) => si.dropId === drop.id).length,
+        collectCount: db.receipts.filter((r) => r.dropId === drop.id && r.status === "completed").length,
+        provenanceEventCount: db.provenanceEvents.filter((pe) => pe.dropId === drop.id).length,
+        rightsComplete: db.rightsMetadata.some((r) => r.dropId === drop.id),
+        openGovernanceCaseCount: db.governanceCases.filter(
+          (gc) => gc.relatedDropId === drop.id && ACTIVE_GOV.has(gc.status)
+        ).length,
+      }));
+
+      return {
+        persist: false,
+        result: { studioHandle, drops, measuredAt: new Date().toISOString() },
+      };
+    });
+  },
+
+  async getDiscoveryDriftMetrics(): Promise<DiscoveryDriftMetrics> {
+    return withDatabase(async (db) => {
+      return { persist: false, result: computeDiscoveryDriftMetrics(db) };
+    });
+  },
 };

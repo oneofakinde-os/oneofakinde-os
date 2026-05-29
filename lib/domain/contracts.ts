@@ -192,6 +192,40 @@ export type SensitivitySource = "drop" | "world_default";
 
 export type DropPricingType = "free" | "fixed" | "auction" | "bundle_priced";
 
+export type DropCategory =
+  | "art"
+  | "music"
+  | "video"
+  | "writing"
+  | "fashion_design"
+  | "experience"
+  | "membership_access"
+  | "hybrid";
+
+export type DropMedium =
+  | "image"
+  | "video"
+  | "audio"
+  | "text"
+  | "physical_digital"
+  | "access_pass"
+  | "membership"
+  | "artifact"
+  | "edition";
+
+export type DropType =
+  | "available_now"
+  | "upcoming"
+  | "timed_release"
+  | "limited_edition"
+  | "one_of_one"
+  | "open_edition"
+  | "membership_linked"
+  | "collector_only"
+  | "archive_release"
+  | "physical_digital"
+  | "access_pass";
+
 export type Drop = {
   id: string;
   title: string;
@@ -220,6 +254,14 @@ export type Drop = {
   sensitivityRating?: SensitivityRating;
   /** Sprint 0.3 — set by the resolver alongside `sensitivityRating` so consumers can show inheritance hints. */
   sensitivitySource?: SensitivitySource;
+  /** Sprint 1.1 — creator-specified category for discovery taxonomy. */
+  category?: DropCategory;
+  /** Sprint 1.1 — primary medium/format for discovery taxonomy. */
+  medium?: DropMedium;
+  /** Sprint 1.1 — creator-defined genre/style tags. */
+  tags?: string[];
+  /** Sprint 1.1 — drop access/release structure type. */
+  dropType?: DropType;
 };
 
 export type MembershipEntitlementStatus = "active" | "expired" | "canceled";
@@ -1178,6 +1220,19 @@ export type AuditEvent = {
   createdAt: string;
 };
 
+export type DiscoveryDriftMetrics = {
+  proofCompleteDropCount: number;
+  rightsCompleteDropCount: number;
+  totalPublishedDropCount: number;
+  proofCompletenessRatio: number;
+  rightsCompletenessRatio: number;
+  savedIntentToCollectRatio: number | null;
+  governanceFlaggedContentExposureCount: number;
+  publicVaultExposureCount: number;
+  speculationSignalCount: number;
+  measuredAt: string;
+};
+
 export type MarketDriftSnapshot = {
   totalCollects: number;
   activeResaleRuleCount: number;
@@ -1185,6 +1240,64 @@ export type MarketDriftSnapshot = {
   enforcementSignalCount: number;
   creatorEarningsTotalUsd: number;
   ledgerTransactionCount: number;
+  measuredAt: string;
+  discoveryMetrics?: DiscoveryDriftMetrics;
+};
+
+export type ProofReadinessSignal = {
+  hasRightsMetadata: boolean;
+  hasCertificate: boolean;
+  certificateStatus: "verified" | "under_review" | "revoked" | null;
+  hasProvenance: boolean;
+  hasTransferRules: boolean;
+  isProofReady: boolean;
+};
+
+export type DiscoveryDrop = Drop & {
+  savedByViewer: boolean;
+  isFollowingStudio: boolean;
+  hasCollectedDrop: boolean;
+  proofSignal: ProofReadinessSignal;
+  collectAvailable: boolean;
+  isGovernanceFlagged: boolean;
+};
+
+export type DiscoveryFilterInput = {
+  category?: DropCategory[];
+  medium?: DropMedium[];
+  tags?: string[];
+  dropType?: DropType[];
+  proofReady?: boolean;
+  followedStudiosOnly?: boolean;
+  collectedFromOnly?: boolean;
+  savedBeforeOnly?: boolean;
+  collectNow?: boolean;
+  priceMaxUsd?: number;
+  freeToSave?: boolean;
+  membershipIncluded?: boolean;
+  fromMyWorlds?: boolean;
+};
+
+export type StudioDiscoveryEntry = {
+  handle: string;
+  displayName: string;
+  synopsis: string;
+  availableDropCount: number;
+  proofCompletenessSignal: "complete" | "partial" | "none";
+  isFollowedByViewer: boolean;
+};
+
+export type CreatorMarketDataSummary = {
+  studioHandle: string;
+  drops: {
+    dropId: string;
+    title: string;
+    savedIntentCount: number;
+    collectCount: number;
+    provenanceEventCount: number;
+    rightsComplete: boolean;
+    openGovernanceCaseCount: number;
+  }[];
   measuredAt: string;
 };
 

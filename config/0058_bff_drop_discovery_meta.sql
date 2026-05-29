@@ -1,0 +1,11 @@
+-- Sprint 1.1: Drop discovery metadata
+-- Drops are stored as JSON blobs in bff_catalog_drops.data — no column changes required.
+-- This migration documents the new optional fields added to the Drop JSON schema:
+--   category  (DropCategory)  — art, music, video, writing, fashion_design, experience, membership_access, hybrid
+--   medium    (DropMedium)    — image, video, audio, text, physical_digital, access_pass, membership, artifact, edition
+--   tags      (string[])      — creator-defined genre/style tags
+--   drop_type (DropType)      — available_now, upcoming, timed_release, limited_edition, one_of_one,
+--                               open_edition, membership_linked, collector_only, archive_release, physical_digital, access_pass
+-- These fields are optional and default to NULL/undefined for existing drops.
+-- normalizeDropRecord and parseDropJson handle absent fields gracefully.
+SELECT 'sprint_1_1_drop_discovery_meta_acknowledged' AS migration_note;

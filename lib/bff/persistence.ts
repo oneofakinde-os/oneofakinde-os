@@ -1022,7 +1022,11 @@ function createSeedDatabase(): BffDatabase {
       visibility: "public",
       visibilitySource: "world_default",
       previewPolicy: "full",
-      releaseAt: "2026-02-16T12:00:00.000Z"
+      releaseAt: "2026-02-16T12:00:00.000Z",
+      category: "video",
+      medium: "video",
+      tags: ["cinematic", "identity", "experimental"],
+      dropType: "available_now",
     },
     {
       id: "twilight-whispers",
@@ -1040,7 +1044,11 @@ function createSeedDatabase(): BffDatabase {
       visibility: "world_members",
       visibilitySource: "world_default",
       previewPolicy: "limited",
-      releaseAt: "2026-02-10T12:00:00.000Z"
+      releaseAt: "2026-02-10T12:00:00.000Z",
+      category: "music",
+      medium: "audio",
+      tags: ["ambient", "atmospheric"],
+      dropType: "membership_linked",
     },
     {
       id: "voidrunner",
@@ -1059,7 +1067,11 @@ function createSeedDatabase(): BffDatabase {
       visibility: "collectors_only",
       visibilitySource: "drop",
       previewPolicy: "poster",
-      releaseAt: "2026-02-12T12:00:00.000Z"
+      releaseAt: "2026-02-12T12:00:00.000Z",
+      category: "video",
+      medium: "video",
+      tags: ["cinematic", "live"],
+      dropType: "collector_only",
     },
     {
       id: "through-the-lens",
@@ -1078,7 +1090,11 @@ function createSeedDatabase(): BffDatabase {
       visibility: "public",
       visibilitySource: "drop",
       previewPolicy: "full",
-      releaseAt: "2026-02-14T12:00:00.000Z"
+      releaseAt: "2026-02-14T12:00:00.000Z",
+      category: "video",
+      medium: "video",
+      tags: ["documentary", "cinematic"],
+      dropType: "available_now",
     }
   ];
 
@@ -4118,7 +4134,11 @@ function normalizeDropRecord(drop: Drop): Drop {
     visibility: normalizeDropVisibility(drop.visibility),
     visibilitySource: normalizeDropVisibilitySource(drop.visibilitySource),
     previewPolicy: normalizePreviewPolicy(drop.previewPolicy),
-    releaseAt: typeof drop.releaseAt === "string" && drop.releaseAt.trim() ? drop.releaseAt : undefined
+    releaseAt: typeof drop.releaseAt === "string" && drop.releaseAt.trim() ? drop.releaseAt : undefined,
+    category: drop.category,
+    medium: drop.medium,
+    tags: Array.isArray(drop.tags) ? drop.tags : undefined,
+    dropType: drop.dropType,
   };
 }
 
@@ -4147,7 +4167,13 @@ function parseDropJson(value: unknown): Drop {
         : seedPreviewMediaForDrop(String(parsed.id ?? "")),
     walletGate: parseWalletChain(parsed.walletGate),
     sensitivityRating: parseSensitivityRating(parsed.sensitivityRating),
-    sensitivitySource: parseSensitivitySource(parsed.sensitivitySource)
+    sensitivitySource: parseSensitivitySource(parsed.sensitivitySource),
+    category: parseDropCategory(parsed.category),
+    medium: parseDropMedium(parsed.medium),
+    tags: Array.isArray(parsed.tags)
+      ? (parsed.tags as unknown[]).filter((t): t is string => typeof t === "string")
+      : undefined,
+    dropType: parseDropType(parsed.dropType),
   };
 
   return normalizeDropRecord(normalized);
@@ -4192,6 +4218,37 @@ function parseSensitivitySource(value: unknown): "drop" | "world_default" | unde
   return VALID_SENSITIVITY_SOURCES.has(value)
     ? (value as "drop" | "world_default")
     : undefined;
+}
+
+const VALID_DROP_CATEGORIES = new Set([
+  "art", "music", "video", "writing", "fashion_design",
+  "experience", "membership_access", "hybrid",
+]);
+
+function parseDropCategory(value: unknown): Drop["category"] {
+  if (typeof value !== "string") return undefined;
+  return VALID_DROP_CATEGORIES.has(value) ? (value as Drop["category"]) : undefined;
+}
+
+const VALID_DROP_MEDIUMS = new Set([
+  "image", "video", "audio", "text", "physical_digital",
+  "access_pass", "membership", "artifact", "edition",
+]);
+
+function parseDropMedium(value: unknown): Drop["medium"] {
+  if (typeof value !== "string") return undefined;
+  return VALID_DROP_MEDIUMS.has(value) ? (value as Drop["medium"]) : undefined;
+}
+
+const VALID_DROP_TYPES = new Set([
+  "available_now", "upcoming", "timed_release", "limited_edition", "one_of_one",
+  "open_edition", "membership_linked", "collector_only", "archive_release",
+  "physical_digital", "access_pass",
+]);
+
+function parseDropType(value: unknown): Drop["dropType"] {
+  if (typeof value !== "string") return undefined;
+  return VALID_DROP_TYPES.has(value) ? (value as Drop["dropType"]) : undefined;
 }
 
 function parseWorldJson(value: unknown): World {
