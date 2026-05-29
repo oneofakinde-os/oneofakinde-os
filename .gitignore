@@ -23,3 +23,6 @@ artifacts/
 playwright-report
 test-results
 .vercel
+
+# Claude Code session metadata (local tooling only)
+.claude/
