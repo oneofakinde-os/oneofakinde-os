@@ -4,19 +4,31 @@ import { mockGateway } from "@/lib/gateway/mock-gateway";
 
 export type GatewayProvider = "mock" | "bff";
 
-function isProductionRuntime(): boolean {
-  const appEnv = process.env.OOK_APP_ENV?.trim().toLowerCase();
-  const vercelEnv = process.env.VERCEL_ENV?.trim().toLowerCase();
-  return appEnv === "production" || vercelEnv === "production";
+// Fail-safe provider selection. The ungated mock is used ONLY when we can
+// positively confirm a non-production runtime. If the environment is ambiguous
+// (e.g. a production deploy missing its env vars), default to "bff" — the gated
+// path — rather than silently exposing the ungated mock in production.
+function isNonProductionRuntime(): boolean {
+  const app = process.env.OOK_APP_ENV?.trim().toLowerCase();
+  const vercel = process.env.VERCEL_ENV?.trim().toLowerCase();
+  const node = process.env.NODE_ENV?.trim().toLowerCase();
+  return (
+    app === "development" ||
+    app === "test" ||
+    app === "preview" ||
+    vercel === "preview" ||
+    vercel === "development" ||
+    (node === "development" && app !== "production" && vercel !== "production")
+  );
 }
 
-function resolveProvider(): GatewayProvider {
+export function resolveProvider(): GatewayProvider {
   const input = process.env.OOK_GATEWAY_PROVIDER?.trim().toLowerCase();
   if (input === "bff" || input === "mock") {
-    return input;
+    return input; // explicit override always wins
   }
 
-  return isProductionRuntime() ? "bff" : "mock";
+  return isNonProductionRuntime() ? "mock" : "bff"; // gated unless positively non-prod
 }
 
 export const gatewayProvider = resolveProvider();
