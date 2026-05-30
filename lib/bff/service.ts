@@ -7156,6 +7156,10 @@ const gatewayMethods = {
     });
   },
 
+  // TEST-ONLY — internal legacy helper used by test suites that pre-date the Sprint 0.5I
+  // ownership settlement gate. No app route, API endpoint, or gateway port calls this.
+  // Production collect paths are: collectDrop, purchaseDropViaLiveSession,
+  // and the Stripe/manual payment completion path (completePendingPaymentById).
   async purchaseDrop(accountId: string, dropId: string): Promise<PurchaseReceipt | null> {
     return withDatabase(async (db) =>
       purchaseDropInDatabase(db, accountId, dropId, {
@@ -9492,6 +9496,42 @@ const gatewayMethods = {
   }
 };
 
+// ─── Sprint 0.5I — Shared ownership-settlement readiness gate ─────────────────
+// Every production collect path must pass this before ownership, certificate,
+// provenance, receipt, ledger, or creator earnings can be created.
+
+type SettlementReadinessReason =
+  | "missing_rights"
+  | "missing_creator_terms"
+  | "missing_certificate_preview";
+
+type SettlementReadinessResult =
+  | { ok: true }
+  | { ok: false; reason: SettlementReadinessReason };
+
+function validateOwnershipSettlementReadiness(
+  db: BffDatabase,
+  accountId: string,
+  dropId: string
+): SettlementReadinessResult {
+  if (!db.rightsMetadata.some((r) => r.dropId === dropId)) {
+    return { ok: false, reason: "missing_rights" };
+  }
+  if (!db.creatorTerms.some((ct) => ct.dropId === dropId)) {
+    return { ok: false, reason: "missing_creator_terms" };
+  }
+  if (
+    !db.certificatePreviews.some(
+      (cp) => cp.collectorAccountId === accountId && cp.dropId === dropId
+    )
+  ) {
+    return { ok: false, reason: "missing_certificate_preview" };
+  }
+  return { ok: true };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 async function createCheckoutSessionForPayment(
   input: CreateCheckoutSessionInput
 ): Promise<CheckoutSessionResult | null> {
@@ -9670,6 +9710,21 @@ async function completePendingPaymentById(
       }
     }
 
+    // Sprint 0.5I — ownership settlement gate (rights → creator terms → cert preview).
+    const readiness = validateOwnershipSettlementReadiness(db, payment.accountId, payment.dropId);
+    if (!readiness.ok) {
+      appendAuditEvent(db, {
+        action: "ownership_settlement_failed",
+        actorAccountId: payment.accountId,
+        subjectType: "drop",
+        subjectId: payment.dropId,
+        meta: JSON.stringify({ reason: readiness.reason, paymentId: payment.id })
+      });
+      payment.status = "failed";
+      payment.updatedAt = new Date().toISOString();
+      return { persist: true, result: null };
+    }
+
     const quote = payment.quote ?? resolveCollectQuote(db, drop);
     const receipt = issueOwnershipAndReceipt(db, account, drop, {
       quote,
@@ -9782,6 +9837,31 @@ function completePaymentByLookupInDatabase(
       result: {
         received: true,
         effect: "payment_completed",
+        paymentId: payment.id
+      }
+    };
+  }
+
+  // Sprint 0.5I — ownership settlement gate (rights → creator terms → cert preview).
+  const webhookReadiness = validateOwnershipSettlementReadiness(
+    db,
+    payment.accountId,
+    payment.dropId
+  );
+  if (!webhookReadiness.ok) {
+    appendAuditEvent(db, {
+      action: "ownership_settlement_failed",
+      actorAccountId: payment.accountId,
+      subjectType: "drop",
+      subjectId: payment.dropId,
+      meta: JSON.stringify({ reason: webhookReadiness.reason, paymentId: payment.id })
+    });
+    payment.status = "failed";
+    return {
+      persist: true,
+      result: {
+        received: true,
+        effect: "payment_failed",
         paymentId: payment.id
       }
     };
@@ -10156,11 +10236,21 @@ export const commerceBffService = {
     dropId: string,
     liveSessionId: string
   ): Promise<PurchaseReceipt | null> {
-    return withDatabase(async (db) =>
-      purchaseDropInDatabase(db, accountId, dropId, {
-        liveSessionId
-      })
-    );
+    return withDatabase(async (db) => {
+      // Sprint 0.5I — ownership settlement gate (rights → creator terms → cert preview).
+      const readiness = validateOwnershipSettlementReadiness(db, accountId, dropId);
+      if (!readiness.ok) {
+        appendAuditEvent(db, {
+          action: "ownership_settlement_failed",
+          actorAccountId: accountId,
+          subjectType: "drop",
+          subjectId: dropId,
+          meta: JSON.stringify({ reason: readiness.reason, liveSessionId })
+        });
+        return { persist: true, result: null };
+      }
+      return purchaseDropInDatabase(db, accountId, dropId, { liveSessionId });
+    });
   },
 
   async releaseWorkshopLiveSessionDrop(
@@ -16001,43 +16091,15 @@ export const commerceBffService = {
 
   async collectDrop(accountId: string, dropId: string): Promise<PurchaseReceipt | null> {
     return withDatabase(async (db) => {
-      // Gate 1: rights metadata must exist
-      const hasRights = db.rightsMetadata.some((r) => r.dropId === dropId);
-      if (!hasRights) {
+      // Sprint 0.5I — shared ownership settlement gate.
+      const readiness = validateOwnershipSettlementReadiness(db, accountId, dropId);
+      if (!readiness.ok) {
         appendAuditEvent(db, {
           action: "ownership_settlement_failed",
           actorAccountId: accountId,
           subjectType: "drop",
           subjectId: dropId,
-          meta: JSON.stringify({ reason: "missing_rights" })
-        });
-        return { persist: true, result: null };
-      }
-
-      // Gate 2: creator terms must exist
-      const hasTerms = db.creatorTerms.some((ct) => ct.dropId === dropId);
-      if (!hasTerms) {
-        appendAuditEvent(db, {
-          action: "ownership_settlement_failed",
-          actorAccountId: accountId,
-          subjectType: "drop",
-          subjectId: dropId,
-          meta: JSON.stringify({ reason: "missing_creator_terms" })
-        });
-        return { persist: true, result: null };
-      }
-
-      // Gate 3: collector must have previewed the certificate
-      const hasPreviewed = db.certificatePreviews.some(
-        (cp) => cp.collectorAccountId === accountId && cp.dropId === dropId
-      );
-      if (!hasPreviewed) {
-        appendAuditEvent(db, {
-          action: "ownership_settlement_failed",
-          actorAccountId: accountId,
-          subjectType: "drop",
-          subjectId: dropId,
-          meta: JSON.stringify({ reason: "missing_certificate_preview" })
+          meta: JSON.stringify({ reason: readiness.reason })
         });
         return { persist: true, result: null };
       }

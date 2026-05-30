@@ -193,6 +193,7 @@ test("proof: live session explicit drop release enforces attendee gate and atten
   const attendeeJoinPayload = await parseJson<{ joinToken: string }>(attendeeJoinResponse);
   assert.ok(attendeeJoinPayload.joinToken.length > 20);
 
+  await commerceBffService.recordCertificatePreview(attendee.accountId, "twilight-whispers");
   const attendeeCollectResponse = await postLiveSessionCollectRoute(
     new Request(
       `http://127.0.0.1:3000/api/v1/live-sessions/${encodeURIComponent(liveSessionId)}/collect/twilight-whispers`,

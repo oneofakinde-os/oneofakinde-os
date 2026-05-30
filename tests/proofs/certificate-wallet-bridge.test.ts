@@ -62,6 +62,7 @@ async function seedCertificate(email: string) {
   assert.equal(checkoutPayload.checkoutSession.status, "pending");
   if (checkoutPayload.checkoutSession.status !== "pending") throw new Error("checkout not pending");
 
+  await commerceBffService.recordCertificatePreview(session.accountId, drop.id);
   const purchaseRes = await postPurchaseRoute(
     new Request("http://localhost/api/v1/payments/purchase", {
       method: "POST",

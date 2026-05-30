@@ -137,6 +137,7 @@ test("proof: receipt badge create/get endpoints are public-safe and no-leak", as
     role: "collector"
   });
 
+  await commerceBffService.recordCertificatePreview(session.accountId, "voidrunner");
   const receipt = await purchaseDropForSession(session.sessionToken, "voidrunner");
 
   const createBadgeResponse = await postReceiptBadgeRoute(
@@ -208,6 +209,7 @@ test("proof: receipt badge endpoint enforces ownership and conflict semantics", 
     role: "collector"
   });
 
+  await commerceBffService.recordCertificatePreview(ownerSession.accountId, "through-the-lens");
   const ownerReceipt = await purchaseDropForSession(ownerSession.sessionToken, "through-the-lens");
 
   const crossAccountResponse = await postReceiptBadgeRoute(

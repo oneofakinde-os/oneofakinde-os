@@ -44,6 +44,7 @@ test("proof: creator refund route refunds completed payments and revokes entitle
   const paymentId = checkoutSession?.status === "pending" ? checkoutSession.paymentId : "";
   assert.ok(paymentId);
 
+  await commerceBffService.recordCertificatePreview(collector.accountId, "stardust");
   const receipt = await commerceBffService.completePendingPaymentForAccount(
     collector.accountId,
     paymentId
@@ -116,6 +117,7 @@ test("proof: creator refund route enforces role and studio ownership rails", asy
 
   const paymentId = checkoutSession?.status === "pending" ? checkoutSession.paymentId : "";
   assert.ok(paymentId);
+  await commerceBffService.recordCertificatePreview(collector.accountId, "stardust");
   await commerceBffService.completePendingPaymentForAccount(collector.accountId, paymentId);
 
   const collectorForbidden = await postRefundPaymentRoute(

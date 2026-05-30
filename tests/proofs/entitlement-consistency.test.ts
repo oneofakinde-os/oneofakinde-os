@@ -92,6 +92,7 @@ test("proof: entitlement consistency stays in sync across collect, media access,
     return;
   }
 
+  await commerceBffService.recordCertificatePreview(session.accountId, dropId);
   const completedEvent = {
     id: `evt_entitlement_complete_${randomUUID()}`,
     type: "checkout.session.completed",

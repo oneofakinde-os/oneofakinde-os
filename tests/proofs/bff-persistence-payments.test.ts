@@ -73,6 +73,7 @@ test("bff proof: checkout session and completion flow persists payment contract"
     return;
   }
 
+  await commerceBffService.recordCertificatePreview(session.accountId, "twilight-whispers");
   const receipt = await commerceBffService.completePendingPayment(checkoutSession.paymentId);
   assert.ok(receipt, "expected receipt from pending payment completion");
   assert.equal(receipt?.status, "completed");

@@ -124,6 +124,7 @@ test("proof: refund webhook revokes entitlement and certificate", async (t) => {
     return;
   }
 
+  await commerceBffService.recordCertificatePreview(session.accountId, "voidrunner");
   const completedEventPayload = {
     id: "evt_proof_checkout_completed_once",
     type: "checkout.session.completed",

@@ -77,6 +77,7 @@ test("proof: provenance events are appended on collect and revoked on refund (ap
   assert.equal(checkoutPayload.checkoutSession.status, "pending");
   if (checkoutPayload.checkoutSession.status !== "pending") return;
 
+  await commerceBffService.recordCertificatePreview(session.accountId, "voidrunner");
   const paymentIntentId = `pi_prov_${randomUUID()}`;
   const completedEvent = {
     id: `evt_prov_complete_${randomUUID()}`,

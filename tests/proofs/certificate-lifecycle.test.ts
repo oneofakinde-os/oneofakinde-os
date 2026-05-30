@@ -74,6 +74,7 @@ test("proof: certificate is issued on collect and revoked on refund", async (t) 
   assert.equal(checkoutPayload.checkoutSession.status, "pending");
   if (checkoutPayload.checkoutSession.status !== "pending") return;
 
+  await commerceBffService.recordCertificatePreview(session.accountId, "voidrunner");
   const paymentIntentId = `pi_cert_${randomUUID()}`;
   const completedResponse = await postStripeWebhookRoute(
     createStripeSignedRequest({

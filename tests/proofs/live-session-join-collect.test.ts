@@ -114,6 +114,7 @@ test("proof: live session join token gates attendee collect flow", async (t) => 
   );
   assert.equal(missingTokenCollectResponse.status, 400);
 
+  await commerceBffService.recordCertificatePreview(seededCollector.accountId, "twilight-whispers");
   const collectResponse = await postLiveSessionCollectRoute(
     new Request(
       `http://127.0.0.1:3000/api/v1/live-sessions/${encodeURIComponent(liveSessionId)}/collect/twilight-whispers`,

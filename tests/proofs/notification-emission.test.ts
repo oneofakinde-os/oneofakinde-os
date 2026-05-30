@@ -72,6 +72,7 @@ test("proof: refunding a payment emits a receipt_confirmed refund notification t
   const paymentId = checkoutSession?.status === "pending" ? checkoutSession.paymentId : "";
   assert.ok(paymentId);
 
+  await commerceBffService.recordCertificatePreview(collector.accountId, "stardust");
   await commerceBffService.completePendingPaymentForAccount(collector.accountId, paymentId);
 
   const feedBeforeRefund = await commerceBffService.getNotificationFeed(collector.accountId);

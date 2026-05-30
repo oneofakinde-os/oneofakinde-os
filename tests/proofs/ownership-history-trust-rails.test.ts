@@ -118,6 +118,7 @@ test("proof: drop ownership history endpoint is public-safe and append-only acro
     return;
   }
 
+  await commerceBffService.recordCertificatePreview(session.accountId, "stardust");
   const paymentIntentId = `pi_history_${randomUUID()}`;
   const completionEvent = {
     id: `evt_history_complete_${randomUUID()}`,

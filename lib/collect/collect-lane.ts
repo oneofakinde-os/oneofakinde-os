@@ -43,6 +43,14 @@ export type RevenueVisibilitySetting = {
 
 export const DEFAULT_REVENUE_VISIBILITY: RevenueVisibility = "public";
 
+// Sprint 0.5I gate: "hot_resale" and "recent_high_resale" are PROHIBITED from
+// all public discovery surfaces, API responses, and lane outputs. They may only
+// appear as internal domain classification values. Any code that outputs these
+// values to a client response or a public endpoint is a constitutional violation.
+// See: FORBIDDEN_FILTER_KEYS (includes "resale_velocity", "most_resold"),
+//      FORBIDDEN_NOTIFICATION_TYPES, and check-approved-language.ts guardrails.
+// classifyEconomicIndicator must NEVER be called from a public API route or
+// discovery service method.
 export function classifyEconomicIndicator(
   resaleCount: number,
   resaleWindowMs: number,
@@ -103,23 +111,12 @@ export type DropResume = {
   totalRevenueUsd: number;
   revenueVisible: boolean;
   economicIndicator: EconomicActivityIndicator;
-  secondaryMarketListings: number;
-  economicProvenance: {
-    originalPriceUsd: number;
-    highestResalePriceUsd: number | null;
-    totalResales: number;
-    creatorRoyaltyPercent: number;
-  };
 };
 
 export function buildDropResume(
   drop: Drop,
   entry: CollectLaneEntry,
-  revenueVisibility: RevenueVisibility,
-  secondaryListingCount: number,
-  highestResalePrice: number | null,
-  totalResales: number,
-  royaltyPercent: number
+  revenueVisibility: RevenueVisibility
 ): DropResume {
   return {
     dropId: drop.id,
@@ -129,12 +126,5 @@ export function buildDropResume(
     totalRevenueUsd: entry.totalRevenueUsd,
     revenueVisible: revenueVisibility === "public",
     economicIndicator: entry.economicIndicator,
-    secondaryMarketListings: secondaryListingCount,
-    economicProvenance: {
-      originalPriceUsd: drop.priceUsd,
-      highestResalePriceUsd: highestResalePrice,
-      totalResales,
-      creatorRoyaltyPercent: royaltyPercent,
-    },
   };
 }

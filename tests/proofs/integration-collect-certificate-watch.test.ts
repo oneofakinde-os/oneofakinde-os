@@ -115,6 +115,7 @@ test("integration proof: drop -> collect -> my collection -> certificate -> watc
     return;
   }
 
+  await commerceBffService.recordCertificatePreview(session.accountId, drop.id);
   const purchaseResponse = await postPurchaseRoute(
     new Request("http://127.0.0.1:3000/api/v1/payments/purchase", {
       method: "POST",

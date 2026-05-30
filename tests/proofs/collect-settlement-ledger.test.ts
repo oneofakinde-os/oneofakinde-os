@@ -306,6 +306,7 @@ test("proof: refund appends reversal ledger rows and keeps original collect rows
     return;
   }
 
+  await commerceBffService.recordCertificatePreview(session.accountId, "stardust");
   const completionEvent = {
     id: `evt_m2_complete_${randomUUID()}`,
     type: "checkout.session.completed",

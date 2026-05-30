@@ -1707,7 +1707,64 @@ function createSeedDatabase(): BffDatabase {
     recognitionNotes: [],
     studioDispatchRecipients: [],
     personalizationPreferences: [],
-    creatorTerms: [],
+    creatorTerms: [
+      {
+        id: "ct_seed_stardust",
+        creatorAccountId: "acct_creator_demo",
+        dropId: "stardust",
+        termsVersion: "1.0",
+        commercialUse: false,
+        derivativesAllowed: false,
+        attributionRequired: true,
+        royaltyPct: null,
+        notes: null,
+        acceptedAt: nowIso,
+        createdAt: nowIso,
+        updatedAt: nowIso
+      },
+      {
+        id: "ct_seed_voidrunner",
+        creatorAccountId: "acct_creator_demo",
+        dropId: "voidrunner",
+        termsVersion: "1.0",
+        commercialUse: false,
+        derivativesAllowed: false,
+        attributionRequired: true,
+        royaltyPct: null,
+        notes: null,
+        acceptedAt: nowIso,
+        createdAt: nowIso,
+        updatedAt: nowIso
+      },
+      {
+        id: "ct_seed_through_the_lens",
+        creatorAccountId: "acct_creator_demo",
+        dropId: "through-the-lens",
+        termsVersion: "1.0",
+        commercialUse: false,
+        derivativesAllowed: false,
+        attributionRequired: true,
+        royaltyPct: null,
+        notes: null,
+        acceptedAt: nowIso,
+        createdAt: nowIso,
+        updatedAt: nowIso
+      },
+      {
+        id: "ct_seed_twilight_whispers",
+        creatorAccountId: "acct_creator_demo",
+        dropId: "twilight-whispers",
+        termsVersion: "1.0",
+        commercialUse: false,
+        derivativesAllowed: false,
+        attributionRequired: true,
+        royaltyPct: null,
+        notes: null,
+        acceptedAt: nowIso,
+        createdAt: nowIso,
+        updatedAt: nowIso
+      }
+    ],
     certificatePreviews: []
   };
 }
