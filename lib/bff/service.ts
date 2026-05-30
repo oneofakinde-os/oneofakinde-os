@@ -71,7 +71,9 @@ import type {
   MyCollectionSnapshot,
   MembershipEntitlement,
   NotificationEntry,
+  NotificationChannel,
   NotificationFeed,
+  NotificationPreferences,
   NotificationType,
   OpsAnalyticsPanel,
   OwnedDrop,
@@ -6430,6 +6432,71 @@ function createSubmittedOfferRecord(input: {
   };
 }
 
+/**
+ * Wave 2.1 — default notification preferences for new accounts.
+ *
+ * `in_app` is on by default (the in-app feed is the platform's first-party
+ * delivery channel). `email` and `push` default off — they require explicit
+ * delivery contracts (Wave 2.3 / 2.4) and an explicit subscription before
+ * the platform sends to them. `digestEnabled` defaults true so a user can
+ * receive a weekly summary even when they're muting individual types.
+ */
+const DEFAULT_NOTIFICATION_PREFERENCES = {
+  channels: {
+    in_app: true,
+    email: false,
+    push: false
+  },
+  mutedTypes: [] as NotificationType[],
+  digestEnabled: true
+} as const;
+
+/**
+ * Read the persisted preferences row for an account, materializing the
+ * defaults if no row exists yet. Pure read helper — does NOT seed the row;
+ * the seed only happens via `updateNotificationPreferences` (write-on-demand)
+ * to keep the persistence layer's row count tied to actual user choices.
+ */
+function readNotificationPreferences(
+  db: BffDatabase,
+  accountId: string
+): NotificationPreferences {
+  const row = db.notificationPreferences.find((p) => p.accountId === accountId);
+  if (!row) {
+    return {
+      accountId,
+      channels: { ...DEFAULT_NOTIFICATION_PREFERENCES.channels },
+      mutedTypes: [...DEFAULT_NOTIFICATION_PREFERENCES.mutedTypes],
+      digestEnabled: DEFAULT_NOTIFICATION_PREFERENCES.digestEnabled
+    };
+  }
+  return {
+    accountId: row.accountId,
+    channels: {
+      in_app: row.channels.in_app ?? DEFAULT_NOTIFICATION_PREFERENCES.channels.in_app,
+      email: row.channels.email ?? DEFAULT_NOTIFICATION_PREFERENCES.channels.email,
+      push: row.channels.push ?? DEFAULT_NOTIFICATION_PREFERENCES.channels.push
+    },
+    mutedTypes: [...row.mutedTypes] as NotificationType[],
+    digestEnabled: row.digestEnabled
+  };
+}
+
+/**
+ * True iff the account has muted this notification type. Used by
+ * `emitNotification` to skip per-type opt-outs without changing the
+ * delivery-channel routing. Accounts without a persisted preference row
+ * fall back to defaults (no mutes).
+ */
+function isNotificationTypeMuted(
+  db: BffDatabase,
+  accountId: string,
+  type: NotificationType
+): boolean {
+  const row = db.notificationPreferences.find((p) => p.accountId === accountId);
+  return row ? row.mutedTypes.includes(type) : false;
+}
+
 function emitNotification(
   db: BffDatabase,
   accountId: string,
@@ -6438,6 +6505,13 @@ function emitNotification(
   body: string,
   href: string | null
 ): void {
+  // Wave 2.1 — honor per-type mutes. If the recipient has muted this kind of
+  // notification, skip the entry entirely (don't even create it). The intent
+  // is the in-app feed never shows muted types either; a future digest
+  // (`weekly_digest`) MAY surface counts but that's its own opt-in.
+  if (isNotificationTypeMuted(db, accountId, type)) {
+    return;
+  }
   const entry: NotificationEntryRecord = {
     id: `notif_${randomUUID()}`,
     accountId,
@@ -14178,6 +14252,113 @@ export const commerceBffService = {
         }
       }
       return { persist: true, result: undefined };
+    });
+  },
+
+  /**
+   * Wave 2.1 — read a user's notification preferences.
+   *
+   * Returns the persisted row when present, otherwise the platform defaults
+   * (in_app on, email/push off, no mutes, digest enabled). The defaults are
+   * NOT persisted on read — only `updateNotificationPreferences` writes.
+   * This keeps the table tied to actual user choices and avoids polluting
+   * it with one row per signed-up account.
+   */
+  async getNotificationPreferences(accountId: string): Promise<NotificationPreferences | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account) {
+        return { persist: false, result: null };
+      }
+      return { persist: false, result: readNotificationPreferences(db, accountId) };
+    });
+  },
+
+  /**
+   * Wave 2.1 — partial-update a user's notification preferences.
+   *
+   * Fields not provided in the patch are left unchanged. This is a true
+   * upsert: if no row exists yet, the patch is merged onto the platform
+   * defaults and persisted. Validation:
+   *
+   *   - channels: only the three known keys (in_app/email/push) are kept;
+   *     unknown keys are silently dropped to keep the schema defensive
+   *   - mutedTypes: only valid NotificationType values are kept; duplicates
+   *     are de-duped
+   *   - digestEnabled: optional boolean
+   *
+   * Returns the resolved preferences object after the merge.
+   */
+  async updateNotificationPreferences(
+    accountId: string,
+    patch: {
+      channels?: Partial<Record<NotificationChannel, boolean>>;
+      mutedTypes?: NotificationType[];
+      digestEnabled?: boolean;
+    }
+  ): Promise<NotificationPreferences | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account) {
+        return { persist: false, result: null };
+      }
+
+      const current = readNotificationPreferences(db, accountId);
+
+      // Defensive merge for channels — only keep the three known keys so a
+      // malformed PATCH can't pollute the row with arbitrary properties.
+      const mergedChannels: Record<NotificationChannel, boolean> = {
+        in_app: patch.channels?.in_app ?? current.channels.in_app,
+        email: patch.channels?.email ?? current.channels.email,
+        push: patch.channels?.push ?? current.channels.push
+      };
+
+      // De-dupe + validate mutedTypes against the union.
+      const VALID_TYPES: ReadonlySet<NotificationType> = new Set<NotificationType>([
+        "drop_collected",
+        "receipt_confirmed",
+        "resale_completed",
+        "resale_royalty_earned",
+        "comment_reply",
+        "comment_mention",
+        "world_update",
+        "membership_change",
+        "patron_renewal",
+        "live_session_starting",
+        "featured_lane_alert",
+        "weekly_digest"
+      ]);
+      const mergedMutedTypes = patch.mutedTypes
+        ? Array.from(
+            new Set(
+              patch.mutedTypes.filter((t): t is NotificationType => VALID_TYPES.has(t))
+            )
+          )
+        : current.mutedTypes;
+
+      const merged: NotificationPreferences = {
+        accountId,
+        channels: mergedChannels,
+        mutedTypes: mergedMutedTypes,
+        digestEnabled: patch.digestEnabled ?? current.digestEnabled
+      };
+
+      const existingIndex = db.notificationPreferences.findIndex(
+        (p) => p.accountId === accountId
+      );
+      const record = {
+        accountId: merged.accountId,
+        channels: merged.channels,
+        mutedTypes: merged.mutedTypes,
+        digestEnabled: merged.digestEnabled
+      };
+      if (existingIndex >= 0) {
+        db.notificationPreferences[existingIndex] = record;
+      } else {
+        db.notificationPreferences.push(record);
+      }
+
+      return { persist: true, result: merged };
     });
   }
 };

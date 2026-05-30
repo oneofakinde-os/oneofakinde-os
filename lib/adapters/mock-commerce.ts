@@ -32,6 +32,7 @@ import type {
   MyCollectionAnalyticsPanel,
   MyCollectionSnapshot,
   NotificationFeed,
+  NotificationPreferences,
   OwnedDrop,
   OpsAnalyticsPanel,
   PatronCommitmentCadence,
@@ -2659,6 +2660,32 @@ export const commerceGateway: CommerceGateway = {
   async markNotificationRead(): Promise<void> {},
 
   async markAllNotificationsRead(): Promise<void> {},
+
+  async getNotificationPreferences(accountId: string): Promise<NotificationPreferences | null> {
+    const account = store.accounts.get(accountId);
+    if (!account) return null;
+    return {
+      accountId,
+      channels: { in_app: true, email: false, push: false },
+      mutedTypes: [],
+      digestEnabled: true
+    };
+  },
+
+  async updateNotificationPreferences(
+    accountId: string
+    // patch: ignored — the mock adapter is read-only.
+  ): Promise<NotificationPreferences | null> {
+    const account = store.accounts.get(accountId);
+    if (!account) return null;
+    // Mock adapter does not persist updates. Return the same defaults.
+    return {
+      accountId,
+      channels: { in_app: true, email: false, push: false },
+      mutedTypes: [],
+      digestEnabled: true
+    };
+  },
 
   async isFollowingStudio(accountId: string, studioHandle: string): Promise<boolean> {
     const account = store.accounts.get(accountId);

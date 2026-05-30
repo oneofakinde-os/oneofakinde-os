@@ -36,7 +36,10 @@ import type {
   MembershipEntitlement,
   MyCollectionAnalyticsPanel,
   MyCollectionSnapshot,
+  NotificationChannel,
   NotificationFeed,
+  NotificationPreferences,
+  NotificationType,
   OpsAnalyticsPanel,
   PatronIndicator,
   PatronTierConfig,
@@ -907,6 +910,37 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
       await requestJson(options, "/api/v1/notifications/read-all", {
         method: "POST"
       });
+    },
+
+    async getNotificationPreferences(_accountId: string): Promise<NotificationPreferences | null> {
+      const response = await requestJson<{ preferences: NotificationPreferences }>(
+        options,
+        "/api/v1/account/notification-preferences",
+        { method: "GET" }
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.preferences;
+    },
+
+    async updateNotificationPreferences(
+      _accountId: string,
+      patch: {
+        channels?: Partial<Record<NotificationChannel, boolean>>;
+        mutedTypes?: NotificationType[];
+        digestEnabled?: boolean;
+      }
+    ): Promise<NotificationPreferences | null> {
+      const response = await requestJson<{ preferences: NotificationPreferences }>(
+        options,
+        "/api/v1/account/notification-preferences",
+        {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(patch)
+        }
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.preferences;
     },
 
     async isFollowingStudio(_accountId: string, studioHandle: string): Promise<boolean> {

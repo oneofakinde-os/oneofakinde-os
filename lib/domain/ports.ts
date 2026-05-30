@@ -38,7 +38,10 @@ import type {
   MembershipEntitlement,
   MyCollectionAnalyticsPanel,
   MyCollectionSnapshot,
+  NotificationChannel,
   NotificationFeed,
+  NotificationPreferences,
+  NotificationType,
   OpsAnalyticsPanel,
   PatronIndicator,
   PatronTierConfig,
@@ -208,6 +211,17 @@ export interface CommerceGateway {
   getNotificationUnreadCount(accountId: string): Promise<number>;
   markNotificationRead(accountId: string, notificationId: string): Promise<void>;
   markAllNotificationsRead(accountId: string): Promise<void>;
+
+  /* Wave 2.1 — notification delivery preferences */
+  getNotificationPreferences(accountId: string): Promise<NotificationPreferences | null>;
+  updateNotificationPreferences(
+    accountId: string,
+    patch: {
+      channels?: Partial<Record<NotificationChannel, boolean>>;
+      mutedTypes?: NotificationType[];
+      digestEnabled?: boolean;
+    }
+  ): Promise<NotificationPreferences | null>;
 
   /* ── social ── */
   isFollowingStudio(accountId: string, studioHandle: string): Promise<boolean>;
