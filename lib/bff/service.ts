@@ -7156,10 +7156,20 @@ const gatewayMethods = {
     });
   },
 
-  // TEST-ONLY — internal legacy helper used by test suites that pre-date the Sprint 0.5I
-  // ownership settlement gate. No app route, API endpoint, or gateway port calls this.
-  // Production collect paths are: collectDrop, purchaseDropViaLiveSession,
-  // and the Stripe/manual payment completion path (completePendingPaymentById).
+  // Internal legacy collect helper, pre-dating the Sprint 0.5I ownership settlement gate.
+  // Sprint 0.5J correctness note — the prior "no gateway port calls this" claim was FALSE:
+  // purchaseDrop IS declared on the CommercePort interface (lib/domain/ports.ts) and is
+  // implemented by the gateway client (lib/gateway/bff-client.ts, which routes through the
+  // gated HTTP checkout + payment-completion path) and the mock adapter
+  // (lib/adapters/mock-commerce.ts). What remains true: no app route or server action
+  // invokes this SERVICE method — enforced for app/ by sprint05i-collect-gate-
+  // centralization test 10. The hazard: this method calls purchaseDropInDatabase directly,
+  // which does NOT run validateOwnershipSettlementReadiness, so it BYPASSES the
+  // rights → creator terms → certificate preview gate. Do NOT wire it to any new caller
+  // without gating first. The production collect paths (collectDrop,
+  // purchaseDropViaLiveSession, completePendingPaymentById, and the Stripe webhook
+  // completion) all gate before settlement; moving the gate into purchaseDropInDatabase
+  // for defense-in-depth is a tracked settlement-core refactor (held for review).
   async purchaseDrop(accountId: string, dropId: string): Promise<PurchaseReceipt | null> {
     return withDatabase(async (db) =>
       purchaseDropInDatabase(db, accountId, dropId, {
