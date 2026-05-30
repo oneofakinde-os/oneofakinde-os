@@ -35,6 +35,17 @@ async function bootstrapCreatorWithDrop() {
     priceUsd: 1.99,
     visibility: "public",
   });
+  await commerceBffService.upsertRightsMetadataForDrop(drop!.id, {
+    licenseType: "personal-use-only",
+    commercialUse: false,
+    derivativesAllowed: false,
+    attributionRequired: true
+  });
+  await commerceBffService.upsertCreatorTerms(creator.accountId, drop!.id, {
+    commercialUse: false,
+    derivativesAllowed: false,
+    attributionRequired: true
+  });
 
   return { creator, drop: drop! };
 }

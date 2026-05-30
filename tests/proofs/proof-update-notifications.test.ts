@@ -46,6 +46,17 @@ test("proof: certificate flagged for review emits certificate_status_update noti
     visibility: "public",
   });
   assert.ok(drop, "drop created");
+  await commerceBffService.upsertRightsMetadataForDrop(drop.id, {
+    licenseType: "personal-use-only",
+    commercialUse: false,
+    derivativesAllowed: false,
+    attributionRequired: true
+  });
+  await commerceBffService.upsertCreatorTerms(creator.accountId, drop.id, {
+    commercialUse: false,
+    derivativesAllowed: false,
+    attributionRequired: true
+  });
 
   // Collector purchases to get a certificate
   const collectorSession = await commerceBffService.createSession({
@@ -108,6 +119,17 @@ test("proof: provenance event added for collected drop emits proof_update to hol
     visibility: "public",
   });
   assert.ok(drop, "drop created");
+  await commerceBffService.upsertRightsMetadataForDrop(drop.id, {
+    licenseType: "personal-use-only",
+    commercialUse: false,
+    derivativesAllowed: false,
+    attributionRequired: true
+  });
+  await commerceBffService.upsertCreatorTerms(creator.accountId, drop.id, {
+    commercialUse: false,
+    derivativesAllowed: false,
+    attributionRequired: true
+  });
 
   const collectorSession = await commerceBffService.createSession({
     email: `pun-collector2-${randomUUID()}@oneofakinde.test`,
@@ -160,6 +182,17 @@ test("proof: proof update notifications are viewer-scoped and do not leak PII", 
     visibility: "public",
   });
   assert.ok(drop, "drop created");
+  await commerceBffService.upsertRightsMetadataForDrop(drop.id, {
+    licenseType: "personal-use-only",
+    commercialUse: false,
+    derivativesAllowed: false,
+    attributionRequired: true
+  });
+  await commerceBffService.upsertCreatorTerms(creator.accountId, drop.id, {
+    commercialUse: false,
+    derivativesAllowed: false,
+    attributionRequired: true
+  });
 
   const holderA = await commerceBffService.createSession({
     email: `pun-holdera-${randomUUID()}@oneofakinde.test`,

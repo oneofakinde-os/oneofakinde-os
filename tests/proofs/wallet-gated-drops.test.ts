@@ -56,6 +56,17 @@ async function seedGatedDrop(chain: "ethereum" | "tezos" | "polygon" = "ethereum
     walletGate: chain
   });
   assert.ok(drop, "gated drop created");
+  await commerceBffService.upsertRightsMetadataForDrop(drop.id, {
+    licenseType: "personal-use-only",
+    commercialUse: false,
+    derivativesAllowed: false,
+    attributionRequired: true
+  });
+  await commerceBffService.upsertCreatorTerms(creatorSession.accountId, drop.id, {
+    commercialUse: false,
+    derivativesAllowed: false,
+    attributionRequired: true
+  });
   assert.equal(drop.walletGate, chain);
 
   // 2. Collector account

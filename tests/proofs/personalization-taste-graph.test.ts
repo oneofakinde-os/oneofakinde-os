@@ -34,6 +34,17 @@ async function bootstrapCreatorWithDrop() {
     visibility: "public",
   });
   assert.ok(drop, "drop created");
+  await commerceBffService.upsertRightsMetadataForDrop(drop.id, {
+    licenseType: "personal-use-only",
+    commercialUse: false,
+    derivativesAllowed: false,
+    attributionRequired: true
+  });
+  await commerceBffService.upsertCreatorTerms(creator.accountId, drop.id, {
+    commercialUse: false,
+    derivativesAllowed: false,
+    attributionRequired: true
+  });
 
   // Add rights metadata so drop is market-ready and appears in discovery
   await commerceBffService.upsertRightsMetadataForDrop(drop.id, {

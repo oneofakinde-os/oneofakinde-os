@@ -2204,6 +2204,25 @@ function issueOwnershipAndReceipt(
     paymentId?: string | null;
   }
 ): PurchaseReceipt {
+  // Market-law settlement backstop. Ownership can NEVER be minted for a drop that
+  // does not carry the creator's rights and terms — even if a future caller reaches
+  // this primitive without gating. The certificate-preview is a checkout-flow gate
+  // enforced by the payment paths, not a property of the raw mint, so it is not
+  // checked here. Term-less drops remain constructable; they simply cannot settle.
+  const dropHasRights = db.rightsMetadata.some((r) => r.dropId === drop.id);
+  const dropHasCreatorTerms = db.creatorTerms.some((ct) => ct.dropId === drop.id);
+  if (!dropHasRights || !dropHasCreatorTerms) {
+    const missing = [
+      !dropHasRights ? "rights metadata" : null,
+      !dropHasCreatorTerms ? "creator terms" : null
+    ]
+      .filter(Boolean)
+      .join(" and ");
+    throw new Error(
+      `issueOwnershipAndReceipt: refusing to mint ownership for drop "${drop.id}" without ${missing} (market-law settlement backstop)`
+    );
+  }
+
   const purchasedAt = options.purchasedAt ?? new Date().toISOString();
   const receiptId = options.receiptId ?? `rcpt_${randomUUID()}`;
   const ledger = appendLedgerEntries(db, {
