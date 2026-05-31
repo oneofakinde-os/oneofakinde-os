@@ -5771,6 +5771,7 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
       bff_catalog_worlds,
       bff_catalog_drops,
       bff_meta
+    CASCADE
   `);
 
   // Sprint 0.2 — block + mute. TRUNCATEd separately so the writer tolerates
