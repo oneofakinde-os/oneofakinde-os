@@ -603,6 +603,15 @@ const metadataCases = [
     ]
   },
   {
+    "pathname": "/create/drop/drop_id-sample/terms",
+    "surfaceKey": "create_drop_terms",
+    "publicSafe": "false",
+    "hasSession": true,
+    "sessionRoles": [
+      "creator"
+    ]
+  },
+  {
     "pathname": "/create/world",
     "surfaceKey": "create_world",
     "publicSafe": "false",
@@ -898,6 +907,9 @@ const sessionCases = [
     "pathname": "/create/drop"
   },
   {
+    "pathname": "/create/drop/drop_id-sample/terms"
+  },
+  {
     "pathname": "/create/world"
   },
   {
@@ -1138,6 +1150,13 @@ const roleRequiredCases = [
     "disallowedRole": "collector"
   },
   {
+    "pathname": "/create/drop/drop_id-sample/terms",
+    "allowedRoles": [
+      "creator"
+    ],
+    "disallowedRole": "collector"
+  },
+  {
     "pathname": "/create/world",
     "allowedRoles": [
       "creator"
@@ -1260,6 +1279,9 @@ const proofSessionCases = [
   },
   {
     "pathname": "/create/drop"
+  },
+  {
+    "pathname": "/create/drop/drop_id-sample/terms"
   },
   {
     "pathname": "/create/world"

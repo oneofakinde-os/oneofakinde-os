@@ -805,6 +805,17 @@ surfaces:
     contract_deps: ["openapi_v1.workshop", "schema_v1.drops"]
     proof_ids: ["p_session_required"]
 
+  - route: "/create/drop/:drop_id/terms"
+    legacy_routes: []
+    surface_key: "create_drop_terms"
+    ui_title: "set your terms"
+    ui_nouns: ["drop", "workshop"]
+    lint_targets: ["h1", "metadata_labels"]
+    roles: ["creator"]
+    public_safe: false
+    contract_deps: ["openapi_v1.workshop", "schema_v1.drops"]
+    proof_ids: ["p_session_required"]
+
   - route: "/create/world"
     legacy_routes: []
     surface_key: "create_world"
