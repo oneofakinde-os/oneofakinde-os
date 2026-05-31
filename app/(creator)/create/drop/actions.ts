@@ -71,5 +71,8 @@ export async function createDropAction(formData: FormData): Promise<CreateDropRe
     return { ok: false, error: "failed to create drop. check that you own the selected world." };
   }
 
-  redirect(`/drops/${encodeURIComponent(drop.id)}`);
+  // Drops are born term-less. Route the creator straight into the in-flow
+  // "set your terms" step (conservative defaults pre-filled) so nothing ships
+  // without the creator's terms — and so the drop can actually be published.
+  redirect(`/create/drop/${encodeURIComponent(drop.id)}/terms`);
 }
