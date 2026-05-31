@@ -134,6 +134,28 @@ async function hasSettlementFailure(reason: string): Promise<boolean> {
     }
   });
 }
+async function worldOwnershipCount(accountId: string, worldId: string): Promise<number> {
+  const r = await pgRows<{ c: number }>(
+    "SELECT count(*)::int AS c FROM bff_world_collect_ownerships WHERE account_id = $1 AND world_id = $2",
+    [accountId, worldId]
+  );
+  return r[0].c;
+}
+// A4: did the world-bundle gate refuse this specific term-less constituent drop?
+// Scoped by dropId in the audit meta so it can't pass on a leftover from another test.
+async function hasWorldBundleFailureForDrop(dropId: string): Promise<boolean> {
+  const r = await pgRows<{ meta: string }>(
+    "SELECT meta FROM bff_audit_events WHERE action = 'ownership_settlement_failed'"
+  );
+  return r.some((row) => {
+    try {
+      const m = JSON.parse(row.meta) as { surface?: string; dropId?: string };
+      return m.surface === "collect_world_bundle" && m.dropId === dropId;
+    } catch {
+      return false;
+    }
+  });
+}
 
 // ── Stripe webhook harness (mirrors sprint05j-stripe-webhook-gate, driven on Postgres) ──
 type PendingCheckout = { status: "pending"; paymentId: string; checkoutSessionId: string };
@@ -301,4 +323,44 @@ test("pg-parity: manual payment-completion SETTLES a fully-gated drop on real Po
   assert.ok(receipt, "a fully-gated manual completion settles on Postgres");
   assert.equal(await ownershipCount(collectorId, drop.id), 1, "ownership minted on Postgres");
   assert.equal(await paymentStatus(pending.paymentId), "succeeded", "payment marked succeeded");
+});
+
+// ───────────────────── world-bundle collect path (A4) ─────────────────────
+
+test("pg-parity: collectWorldBundle is BLOCKED for a term-less constituent drop on real Postgres", { skip }, async () => {
+  const { drop } = await makeCreatorWorldDrop("wbundle-block");
+  const collectorId = await makeCollector("wbundle-block");
+  const collected = await commerceBffService.collectWorldBundle({
+    accountId: collectorId,
+    worldId: drop.worldId,
+    bundleType: "current_only"
+  });
+  assert.equal(collected, null, "a bundle whose only drop is term-less is refused on Postgres");
+  assert.equal(
+    await worldOwnershipCount(collectorId, drop.worldId),
+    0,
+    "no world-collect ownership minted on Postgres"
+  );
+  assert.ok(
+    await hasWorldBundleFailureForDrop(drop.id),
+    "the world-bundle gate recorded an audit failure naming the term-less drop (non-vacuous)"
+  );
+});
+
+test("pg-parity: collectWorldBundle SETTLES a fully-gated bundle on real Postgres", { skip }, async () => {
+  const { creator, drop } = await makeCreatorWorldDrop("wbundle-ok");
+  await addRights(drop.id);
+  await addTerms(creator.accountId, drop.id);
+  const collectorId = await makeCollector("wbundle-ok");
+  const collected = await commerceBffService.collectWorldBundle({
+    accountId: collectorId,
+    worldId: drop.worldId,
+    bundleType: "current_only"
+  });
+  assert.ok(collected, "a fully-gated world bundle settles on Postgres");
+  assert.equal(
+    await worldOwnershipCount(collectorId, drop.worldId),
+    1,
+    "a world-collect ownership row is written on Postgres"
+  );
 });
