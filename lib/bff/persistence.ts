@@ -4462,6 +4462,10 @@ async function ensurePostgresMigrations(client: PoolClient): Promise<void> {
       applied_at TEXT NOT NULL
     )
   `);
+  // The tracker lives in the public schema; enable RLS so PostgREST/anon can't read the
+  // migration history (deny-all; the app and runner connect as the table owner and bypass
+  // RLS). Keeps the "every public table has RLS" guarantee absolute — no allowlist exception.
+  await client.query("ALTER TABLE ook_bff_schema_migrations ENABLE ROW LEVEL SECURITY");
 
   const migrationsDir = resolveMigrationsDir();
   let files: string[] = [];
