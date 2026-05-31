@@ -160,6 +160,9 @@ jobs:
       - name: install dependencies
         run: npm ci
 
+      - name: ci supabase-compat (roles, auth.uid, storage, realtime) — CI only
+        run: node --import tsx scripts/ci-postgres-supabase-compat.ts
+
       - name: apply bff migrations to postgres
         run: npm run db:migrate:bff
 
