@@ -12,6 +12,7 @@ export const routes = {
   auctions: (): Route => asRoute("/auctions"),
   create: (): Route => asRoute("/create"),
   createDrop: (): Route => asRoute("/create/drop"),
+  createDropTerms: (dropId: string): Route => asRoute(`/create/drop/${dropId}/terms`),
   createWorld: (): Route => asRoute("/create/world"),
   becomeCreator: (): Route => asRoute("/become-creator"),
 

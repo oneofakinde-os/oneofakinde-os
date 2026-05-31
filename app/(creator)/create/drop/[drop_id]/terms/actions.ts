@@ -64,9 +64,14 @@ export async function commitDropDealAction(formData: FormData): Promise<void> {
     notes: null
   });
 
-  const published = await commerceBffService.publishDrop(session.accountId, dropId);
-  if (!published.ok) {
-    throw new Error(`Couldn't publish this drop (${published.reason}).`);
+  // Publish on first set; when editing an already-live drop just update the deal —
+  // re-publishing would reset the drop's release time.
+  const current = await commerceBffService.getDropById(dropId);
+  if (!current?.releaseAt) {
+    const published = await commerceBffService.publishDrop(session.accountId, dropId);
+    if (!published.ok) {
+      throw new Error(`Couldn't publish this drop (${published.reason}).`);
+    }
   }
 
   redirect(`/drops/${encodeURIComponent(dropId)}`);

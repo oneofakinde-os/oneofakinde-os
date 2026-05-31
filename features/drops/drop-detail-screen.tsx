@@ -78,6 +78,8 @@ export function DropDetailScreen({
   const watchHref = session ? routes.dropWatch(drop.id) : routes.signIn(routes.dropWatch(drop.id));
   const libraryHref = session ? routes.library() : routes.signIn(routes.library());
   const threadSignInHref = routes.signIn(routes.drop(drop.id));
+  const isStudioOwner = Boolean(session && session.handle === drop.studioHandle);
+  const manageTermsHref = routes.createDropTerms(drop.id);
 
   return (
     <main className="dropflow-page">
@@ -152,6 +154,11 @@ export function DropDetailScreen({
               <Link href={libraryHref} className="dropflow-secondary-cta">
                 save to library
               </Link>
+              {isStudioOwner ? (
+                <Link href={manageTermsHref} className="dropflow-secondary-cta">
+                  manage terms
+                </Link>
+              ) : null}
             </div>
           </div>
         </section>

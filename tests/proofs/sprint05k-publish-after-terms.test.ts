@@ -95,3 +95,54 @@ test("proof: a term-less drop cannot publish, but publishes after the creator co
     assert.ok(after.drop.releaseAt, "publish stamps releaseAt (the drop is now live)");
   }
 });
+
+test("proof: editing terms after publish applies the new terms and preserves the live release timestamp", async (t) => {
+  const dbPath = isolatedDbPath();
+  process.env.OOK_BFF_DB_PATH = dbPath;
+  process.env.OOK_BFF_PERSISTENCE_BACKEND = "file";
+  t.after(async () => {
+    delete process.env.OOK_BFF_DB_PATH;
+    delete process.env.OOK_BFF_PERSISTENCE_BACKEND;
+    await fs.rm(dbPath, { force: true });
+  });
+
+  const { creator, drop } = await makeCreatorWorldDrop();
+
+  // Set the conservative default deal and publish (the in-flow step).
+  await commerceBffService.upsertCreatorTerms(creator.accountId, drop.id, {
+    commercialUse: false,
+    derivativesAllowed: false,
+    attributionRequired: true,
+    royaltyPct: null,
+    termsVersion: "1.0"
+  });
+  await commerceBffService.upsertRightsMetadataForDrop(drop.id, {
+    licenseType: "personal-use-only",
+    commercialUse: false,
+    derivativesAllowed: false,
+    attributionRequired: true,
+    royaltyPct: null,
+    notes: null
+  });
+  const published = await commerceBffService.publishDrop(creator.accountId, drop.id);
+  assert.ok(published.ok, "drop publishes");
+  const releaseAtBefore = (await commerceBffService.getDropById(drop.id))?.releaseAt;
+  assert.ok(releaseAtBefore, "a published drop carries a release timestamp");
+
+  // Edit the deal later (open commercial use). upserting terms must NOT touch the
+  // drop's releaseAt — which is exactly why the edit path skips re-publishing a
+  // live drop. (A naive re-publish-on-edit would reset the release time.)
+  await commerceBffService.upsertCreatorTerms(creator.accountId, drop.id, {
+    commercialUse: true,
+    derivativesAllowed: false,
+    attributionRequired: true,
+    royaltyPct: null,
+    termsVersion: "1.0"
+  });
+
+  const updatedTerms = await commerceBffService.getCreatorTerms(drop.id);
+  assert.equal(updatedTerms?.commercialUse, true, "the edited terms are applied");
+
+  const releaseAtAfter = (await commerceBffService.getDropById(drop.id))?.releaseAt;
+  assert.equal(releaseAtAfter, releaseAtBefore, "editing terms preserves the live release timestamp");
+});
