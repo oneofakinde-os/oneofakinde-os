@@ -166,5 +166,8 @@ jobs:
       - name: apply bff migrations to postgres
         run: npm run db:migrate:bff
 
+      - name: assert every public table has RLS (PostgREST exposure guard)
+        run: node --import tsx scripts/ci-assert-public-tables-have-rls.ts
+
       - name: postgres settlement parity proofs
         run: node --import tsx --test tests/proofs/postgres-settlement-parity.test.ts
