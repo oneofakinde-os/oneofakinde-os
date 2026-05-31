@@ -12717,6 +12717,38 @@ export const commerceBffService = {
         };
       }
 
+      // ── Market-law settlement gate (A4) ────────────────────────────────────
+      // collectWorldBundle is a PAID exchange that confers the collector access
+      // to the world's constituent drops. "No exchange may outrun the creator's
+      // terms": every drop this bundle grants must carry the creator's rights and
+      // terms — the same floor issueOwnershipAndReceipt enforces before any mint.
+      // We reuse the shared readiness gate but deliberately do NOT require a
+      // per-drop certificate preview: that is a single-drop checkout artifact the
+      // bundle flow never generates, so requiring it would block every bundle.
+      // Any other failure (missing rights / terms, or a future requirement) fails
+      // closed — refuse the whole bundle and leave an audit trail.
+      for (const dropId of targetOption.ownershipScope.includedDropIds) {
+        const readiness = validateOwnershipSettlementReadiness(db, account.id, dropId);
+        if (!readiness.ok && readiness.reason !== "missing_certificate_preview") {
+          appendAuditEvent(db, {
+            action: "ownership_settlement_failed",
+            actorAccountId: account.id,
+            subjectType: "world",
+            subjectId: world.id,
+            meta: JSON.stringify({
+              reason: readiness.reason,
+              dropId,
+              bundleType: targetOption.bundle.bundleType,
+              surface: "collect_world_bundle"
+            })
+          });
+          return {
+            persist: true,
+            result: null
+          };
+        }
+      }
+
       const nowIso = new Date().toISOString();
       if (snapshot.activeOwnership) {
         const existing = db.worldCollectOwnerships.find(
