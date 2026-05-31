@@ -7,6 +7,7 @@ on:
       - main
       - master
       - "codex/**"
+      - "sprint-**"
 
 permissions:
   contents: read
@@ -124,3 +125,43 @@ jobs:
 
       - name: enforce release governance
         run: npm run release:governance
+
+  postgres-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ook_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      OOK_BFF_DATABASE_URL: postgres://postgres:postgres@localhost:5432/ook_test
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: install dependencies
+        run: npm ci
+
+      - name: apply bff migrations to postgres
+        run: npm run db:migrate:bff
+
+      - name: postgres settlement parity proofs
+        run: node --import tsx --test tests/proofs/postgres-settlement-parity.test.ts
