@@ -17,6 +17,7 @@ test("proof: flagCertificateForReview creates a certificate_review case", async 
   t.after(async () => {
     delete process.env.OOK_BFF_DB_PATH;
     delete process.env.OOK_PAYMENTS_PROVIDER;
+    delete process.env.OOK_MODERATOR_ACCOUNT_IDS;
     await fs.rm(dbPath, { force: true });
   });
 
@@ -24,6 +25,7 @@ test("proof: flagCertificateForReview creates a certificate_review case", async 
     email: `crf-admin-${randomUUID()}@oneofakinde.test`,
     role: "creator",
   });
+  process.env.OOK_MODERATOR_ACCOUNT_IDS = adminSession.accountId;
 
   const gc = await commerceBffService.flagCertificateForReview(
     adminSession.accountId,
@@ -43,6 +45,7 @@ test("proof: flagCertificateForReview sets certificate status to under_review", 
   t.after(async () => {
     delete process.env.OOK_BFF_DB_PATH;
     delete process.env.OOK_PAYMENTS_PROVIDER;
+    delete process.env.OOK_MODERATOR_ACCOUNT_IDS;
     await fs.rm(dbPath, { force: true });
   });
 
@@ -50,6 +53,7 @@ test("proof: flagCertificateForReview sets certificate status to under_review", 
     email: `crf-admin-status-${randomUUID()}@oneofakinde.test`,
     role: "creator",
   });
+  process.env.OOK_MODERATOR_ACCOUNT_IDS = adminSession.accountId;
 
   await commerceBffService.flagCertificateForReview(
     adminSession.accountId,
@@ -70,6 +74,7 @@ test("proof: flagCertificateForReview returns null for unknown certId", async (t
   t.after(async () => {
     delete process.env.OOK_BFF_DB_PATH;
     delete process.env.OOK_PAYMENTS_PROVIDER;
+    delete process.env.OOK_MODERATOR_ACCOUNT_IDS;
     await fs.rm(dbPath, { force: true });
   });
 
@@ -77,6 +82,7 @@ test("proof: flagCertificateForReview returns null for unknown certId", async (t
     email: `crf-admin-unknown-${randomUUID()}@oneofakinde.test`,
     role: "creator",
   });
+  process.env.OOK_MODERATOR_ACCOUNT_IDS = adminSession.accountId;
 
   const result = await commerceBffService.flagCertificateForReview(
     adminSession.accountId,

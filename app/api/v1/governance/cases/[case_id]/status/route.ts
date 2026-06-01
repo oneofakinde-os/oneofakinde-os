@@ -1,6 +1,7 @@
 import { requireRequestSession } from "@/lib/bff/auth";
-import { badRequest, notFound, ok, safeJson } from "@/lib/bff/http";
+import { badRequest, forbidden, notFound, ok, safeJson } from "@/lib/bff/http";
 import { commerceBffService } from "@/lib/bff/service";
+import { isModeratorAccountId } from "@/lib/bff/moderation";
 import type { RouteContext } from "@/lib/bff/http";
 import type { GovernanceCaseStatus } from "@/lib/domain/contracts";
 
@@ -20,6 +21,11 @@ export async function PATCH(
 ) {
   const guard = await requireRequestSession(request);
   if (!guard.ok) return guard.response;
+
+  // Sprint 0.6a authz: mutating a governance case is moderator-only.
+  if (!isModeratorAccountId(guard.session.accountId)) {
+    return forbidden("moderator role required");
+  }
 
   const { case_id: caseId } = await context.params;
   if (!caseId?.trim()) return badRequest("case_id is required");

@@ -17,6 +17,7 @@ test("proof: certificate flagged for review emits certificate_status_update noti
   t.after(async () => {
     delete process.env.OOK_BFF_DB_PATH;
     delete process.env.OOK_PAYMENTS_PROVIDER;
+    delete process.env.OOK_MODERATOR_ACCOUNT_IDS;
     await fs.rm(dbPath, { force: true });
   });
 
@@ -75,6 +76,7 @@ test("proof: certificate flagged for review emits certificate_status_update noti
     email: `pun-admin-${randomUUID()}@oneofakinde.test`,
     role: "creator",
   });
+  process.env.OOK_MODERATOR_ACCOUNT_IDS = adminSession.accountId;
   await commerceBffService.flagCertificateForReview(adminSession.accountId, cert.id, "testing proof update notification");
 
   const feed = await commerceBffService.getNotificationFeed(collectorSession.accountId);
@@ -90,6 +92,7 @@ test("proof: provenance event added for collected drop emits proof_update to hol
   t.after(async () => {
     delete process.env.OOK_BFF_DB_PATH;
     delete process.env.OOK_PAYMENTS_PROVIDER;
+    delete process.env.OOK_MODERATOR_ACCOUNT_IDS;
     await fs.rm(dbPath, { force: true });
   });
 
@@ -153,6 +156,7 @@ test("proof: proof update notifications are viewer-scoped and do not leak PII", 
   t.after(async () => {
     delete process.env.OOK_BFF_DB_PATH;
     delete process.env.OOK_PAYMENTS_PROVIDER;
+    delete process.env.OOK_MODERATOR_ACCOUNT_IDS;
     await fs.rm(dbPath, { force: true });
   });
 

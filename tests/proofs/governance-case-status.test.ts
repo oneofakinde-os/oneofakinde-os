@@ -17,6 +17,7 @@ test("proof: updateGovernanceCaseStatus transitions to under_review", async (t) 
   t.after(async () => {
     delete process.env.OOK_BFF_DB_PATH;
     delete process.env.OOK_PAYMENTS_PROVIDER;
+    delete process.env.OOK_MODERATOR_ACCOUNT_IDS;
     await fs.rm(dbPath, { force: true });
   });
 
@@ -29,6 +30,7 @@ test("proof: updateGovernanceCaseStatus transitions to under_review", async (t) 
     email: `gcs-admin-${randomUUID()}@oneofakinde.test`,
     role: "creator",
   });
+  process.env.OOK_MODERATOR_ACCOUNT_IDS = adminSession.accountId;
 
   const gc = await commerceBffService.createGovernanceCase({
     reporterAccountId: session.accountId,
@@ -59,6 +61,7 @@ test("proof: updateGovernanceCaseStatus sets resolvedAt on closed", async (t) =>
   t.after(async () => {
     delete process.env.OOK_BFF_DB_PATH;
     delete process.env.OOK_PAYMENTS_PROVIDER;
+    delete process.env.OOK_MODERATOR_ACCOUNT_IDS;
     await fs.rm(dbPath, { force: true });
   });
 
@@ -71,6 +74,7 @@ test("proof: updateGovernanceCaseStatus sets resolvedAt on closed", async (t) =>
     email: `gcs-admin-resolve-${randomUUID()}@oneofakinde.test`,
     role: "creator",
   });
+  process.env.OOK_MODERATOR_ACCOUNT_IDS = adminSession.accountId;
 
   const gc = await commerceBffService.createGovernanceCase({
     reporterAccountId: session.accountId,
@@ -101,6 +105,7 @@ test("proof: updateGovernanceCaseStatus sets notes when provided", async (t) => 
   t.after(async () => {
     delete process.env.OOK_BFF_DB_PATH;
     delete process.env.OOK_PAYMENTS_PROVIDER;
+    delete process.env.OOK_MODERATOR_ACCOUNT_IDS;
     await fs.rm(dbPath, { force: true });
   });
 
@@ -113,6 +118,7 @@ test("proof: updateGovernanceCaseStatus sets notes when provided", async (t) => 
     email: `gcs-admin-notes-${randomUUID()}@oneofakinde.test`,
     role: "creator",
   });
+  process.env.OOK_MODERATOR_ACCOUNT_IDS = adminSession.accountId;
 
   const gc = await commerceBffService.createGovernanceCase({
     reporterAccountId: session.accountId,
@@ -147,6 +153,7 @@ test("proof: updateGovernanceCaseStatus returns null for unknown caseId", async 
   t.after(async () => {
     delete process.env.OOK_BFF_DB_PATH;
     delete process.env.OOK_PAYMENTS_PROVIDER;
+    delete process.env.OOK_MODERATOR_ACCOUNT_IDS;
     await fs.rm(dbPath, { force: true });
   });
 
@@ -154,6 +161,7 @@ test("proof: updateGovernanceCaseStatus returns null for unknown caseId", async 
     email: `gcs-admin-unknown-${randomUUID()}@oneofakinde.test`,
     role: "creator",
   });
+  process.env.OOK_MODERATOR_ACCOUNT_IDS = adminSession.accountId;
 
   const result = await commerceBffService.updateGovernanceCaseStatus(
     adminSession.accountId,

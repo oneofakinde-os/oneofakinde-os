@@ -3,7 +3,8 @@ import { ok } from "@/lib/bff/http";
 import { checkRateLimit, RATE_LIMITS } from "@/lib/bff/rate-limit";
 import { commerceBffService } from "@/lib/bff/service";
 import { validateBody, validateQuery, z } from "@/lib/bff/validate";
-import type { GovernanceCaseStatus, GovernanceCaseType } from "@/lib/domain/contracts";
+import type { GovernanceCase, GovernanceCaseStatus, GovernanceCaseType } from "@/lib/domain/contracts";
+import { isModeratorAccountId } from "@/lib/bff/moderation";
 
 const VALID_CASE_TYPES: GovernanceCaseType[] = [
   "rights_dispute",
@@ -72,11 +73,25 @@ export async function GET(request: Request) {
   const query = validateQuery(url, getQuerySchema);
   if (!query.ok) return query.response;
 
-  const cases = await commerceBffService.listGovernanceCases({
-    status: query.data.status as GovernanceCaseStatus | undefined,
-    caseType: query.data.caseType as GovernanceCaseType | undefined,
-    limit: query.data.limit,
-  });
+  // Sprint 0.6a authz: a moderator sees every case; everyone else sees only the
+  // cases they themselves reported — never another reporter's case or reporter PII.
+  let cases: GovernanceCase[];
+  if (isModeratorAccountId(guard.session.accountId)) {
+    cases = await commerceBffService.listGovernanceCases({
+      status: query.data.status as GovernanceCaseStatus | undefined,
+      caseType: query.data.caseType as GovernanceCaseType | undefined,
+      limit: query.data.limit,
+    });
+  } else {
+    cases = await commerceBffService.getGovernanceCasesForAccount(guard.session.accountId);
+    if (query.data.status) {
+      cases = cases.filter((c) => c.status === (query.data.status as GovernanceCaseStatus));
+    }
+    if (query.data.caseType) {
+      cases = cases.filter((c) => c.caseType === (query.data.caseType as GovernanceCaseType));
+    }
+    if (query.data.limit) cases = cases.slice(0, query.data.limit);
+  }
 
   return ok({ cases });
 }

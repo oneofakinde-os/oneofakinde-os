@@ -174,6 +174,7 @@ import {
 import { sortDropsForStudioSurface, sortDropsForWorldSurface } from "@/lib/catalog/drop-curation";
 import { applyCollectOfferAction, canApplyCollectOfferAction } from "@/lib/collect/offer-state-machine";
 import { createCheckoutSession, parseStripeWebhook, type ParsedStripeWebhookEvent } from "@/lib/bff/payments";
+import { isModeratorAccountId } from "@/lib/bff/moderation";
 import { buildCollectSettlementQuote, buildPatronSettlementQuote, buildResaleSettlementQuote } from "@/lib/domain/quote-engine";
 import {
   type AuthorizedDerivativeRecord,
@@ -7650,6 +7651,10 @@ const gatewayMethods = {
     return withDatabase(async (db) => {
       const admin = findAccountById(db, adminAccountId);
       if (!admin) return { persist: false, result: null };
+      // Sprint 0.6a authz: only a configured moderator may change case status.
+      // Defense-in-depth — the route also refuses non-moderators with a 403; this
+      // guarantees the rule holds for any future caller of the service too.
+      if (!isModeratorAccountId(adminAccountId)) return { persist: false, result: null };
 
       const record = db.governanceCases.find((gc) => gc.id === caseId);
       if (!record) return { persist: false, result: null };
@@ -7707,6 +7712,8 @@ const gatewayMethods = {
     return withDatabase(async (db) => {
       const admin = findAccountById(db, adminAccountId);
       if (!admin) return { persist: false, result: null };
+      // Sprint 0.6a authz: only a configured moderator may add case notes.
+      if (!isModeratorAccountId(adminAccountId)) return { persist: false, result: null };
 
       const record = db.governanceCases.find((gc) => gc.id === caseId);
       if (!record) return { persist: false, result: null };
@@ -7776,6 +7783,10 @@ const gatewayMethods = {
     return withDatabase(async (db) => {
       const admin = findAccountById(db, adminAccountId);
       if (!admin) return { persist: false, result: null };
+      // Sprint 0.6a authz: flagging a certificate for review flips its status to
+      // under_review — an act, not a report — so it is moderator-only. A non-moderator
+      // with a concern files a governance case (createGovernanceCase), which stays open.
+      if (!isModeratorAccountId(adminAccountId)) return { persist: false, result: null };
 
       const cert = db.certificates.find((c) => c.id === certId);
       if (!cert) return { persist: false, result: null };

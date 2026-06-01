@@ -17,6 +17,7 @@ test("proof: governance case operations succeed with audit trail intact", async 
   t.after(async () => {
     delete process.env.OOK_BFF_DB_PATH;
     delete process.env.OOK_PAYMENTS_PROVIDER;
+    delete process.env.OOK_MODERATOR_ACCOUNT_IDS;
     await fs.rm(dbPath, { force: true });
   });
 
@@ -29,6 +30,7 @@ test("proof: governance case operations succeed with audit trail intact", async 
     email: `aet-admin-${randomUUID()}@oneofakinde.test`,
     role: "creator",
   });
+  process.env.OOK_MODERATOR_ACCOUNT_IDS = adminSession.accountId;
 
   const gc = await commerceBffService.createGovernanceCase({
     reporterAccountId: session.accountId,
@@ -67,6 +69,7 @@ test("proof: multiple governance operations produce consistent state", async (t)
   t.after(async () => {
     delete process.env.OOK_BFF_DB_PATH;
     delete process.env.OOK_PAYMENTS_PROVIDER;
+    delete process.env.OOK_MODERATOR_ACCOUNT_IDS;
     await fs.rm(dbPath, { force: true });
   });
 
@@ -79,6 +82,7 @@ test("proof: multiple governance operations produce consistent state", async (t)
     email: `aet-multi-admin-${randomUUID()}@oneofakinde.test`,
     role: "creator",
   });
+  process.env.OOK_MODERATOR_ACCOUNT_IDS = adminSession.accountId;
 
   const countBefore = (await commerceBffService.listGovernanceCases({})).length;
 
@@ -150,6 +154,7 @@ test("proof: audit trail does not block case resolution", async (t) => {
   t.after(async () => {
     delete process.env.OOK_BFF_DB_PATH;
     delete process.env.OOK_PAYMENTS_PROVIDER;
+    delete process.env.OOK_MODERATOR_ACCOUNT_IDS;
     await fs.rm(dbPath, { force: true });
   });
 
@@ -162,6 +167,7 @@ test("proof: audit trail does not block case resolution", async (t) => {
     email: `aet-resolve-admin-${randomUUID()}@oneofakinde.test`,
     role: "creator",
   });
+  process.env.OOK_MODERATOR_ACCOUNT_IDS = adminSession.accountId;
 
   const gc = await commerceBffService.createGovernanceCase({
     reporterAccountId: session.accountId,
@@ -192,6 +198,7 @@ test("proof: flagCertificateForReview changes cert status without breaking audit
   t.after(async () => {
     delete process.env.OOK_BFF_DB_PATH;
     delete process.env.OOK_PAYMENTS_PROVIDER;
+    delete process.env.OOK_MODERATOR_ACCOUNT_IDS;
     await fs.rm(dbPath, { force: true });
   });
 
@@ -199,6 +206,7 @@ test("proof: flagCertificateForReview changes cert status without breaking audit
     email: `aet-flag-cert-${randomUUID()}@oneofakinde.test`,
     role: "creator",
   });
+  process.env.OOK_MODERATOR_ACCOUNT_IDS = adminSession.accountId;
 
   const gc = await commerceBffService.flagCertificateForReview(
     adminSession.accountId,
