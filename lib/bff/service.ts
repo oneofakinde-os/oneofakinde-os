@@ -9400,7 +9400,7 @@ const gatewayMethods = {
           relatedCertificateId: gc.relatedCertificateId,
           relatedProvenanceEventId: gc.relatedProvenanceEventId,
           reason: gc.reason,
-          notes: gc.notes,
+          notes: null, // moderator-internal deliberation — not the reporter's data (Sprint 0.6a)
           createdAt: gc.createdAt,
           updatedAt: gc.updatedAt,
           resolvedAt: gc.resolvedAt

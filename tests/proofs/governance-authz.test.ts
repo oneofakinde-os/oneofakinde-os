@@ -227,3 +227,49 @@ test("proof: the case list is visibility-scoped and never leaks another reporter
   assert.ok(moderatorView.some((c) => c.id === reporterCase.id), "moderator sees reporter case");
   assert.ok(moderatorView.some((c) => c.id === outsiderCase.id), "moderator sees outsider case");
 });
+
+test("proof: a reporter's own-case view redacts moderator-internal notes", async (t) => {
+  const { moderator, reporter } = await setup(t);
+  const gc = await fileCase(reporter.accountId, "subj-redact");
+
+  // A moderator records internal deliberation on the case.
+  const updated = await commerceBffService.updateGovernanceCaseStatus(
+    moderator.accountId,
+    gc.id,
+    "under_review",
+    "INTERNAL: suspected repeat reporter — do not disclose"
+  );
+  assert.ok(updated?.notes?.includes("INTERNAL"), "moderator note recorded on the case");
+
+  async function listAs(token: string) {
+    const res = await getCasesRoute(
+      new Request("http://localhost/api/v1/governance/cases", {
+        headers: { "x-ook-session-token": token },
+      })
+    );
+    assert.equal(res.status, 200);
+    const body = (await res.json()) as { cases: Array<{ id: string; notes: string | null }> };
+    return body.cases;
+  }
+
+  // The reporter sees their own case, but NEVER the moderator's internal notes.
+  const reporterView = await listAs(reporter.sessionToken);
+  const reporterCase = reporterView.find((c) => c.id === gc.id);
+  assert.ok(reporterCase, "reporter sees own case");
+  assert.equal(reporterCase.notes, null, "moderator notes must be redacted from the reporter view");
+  assert.ok(
+    !JSON.stringify(reporterView).includes("INTERNAL"),
+    "no moderator deliberation text may appear anywhere in the reporter view"
+  );
+
+  // The moderator, by contrast, retains visibility of the notes.
+  const moderatorView = await listAs(moderator.sessionToken);
+  const moderatorCase = moderatorView.find((c) => c.id === gc.id);
+  assert.ok(moderatorCase?.notes?.includes("INTERNAL"), "moderator retains visibility of notes");
+
+  // The reporter's data-export carries the same redaction — notes are not their data.
+  const exported = await commerceBffService.exportAccountData(reporter.accountId);
+  const exportedCase = exported?.governanceCases.find((c) => c.id === gc.id);
+  assert.ok(exportedCase, "reporter's export includes their own case");
+  assert.equal(exportedCase.notes, null, "data-export must redact moderator notes");
+});

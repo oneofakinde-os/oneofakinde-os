@@ -4,7 +4,7 @@ import { checkRateLimit, RATE_LIMITS } from "@/lib/bff/rate-limit";
 import { commerceBffService } from "@/lib/bff/service";
 import { validateBody, validateQuery, z } from "@/lib/bff/validate";
 import type { GovernanceCase, GovernanceCaseStatus, GovernanceCaseType } from "@/lib/domain/contracts";
-import { isModeratorAccountId } from "@/lib/bff/moderation";
+import { isModeratorAccountId, redactGovernanceCaseForReporter } from "@/lib/bff/moderation";
 
 const VALID_CASE_TYPES: GovernanceCaseType[] = [
   "rights_dispute",
@@ -91,6 +91,8 @@ export async function GET(request: Request) {
       cases = cases.filter((c) => c.caseType === (query.data.caseType as GovernanceCaseType));
     }
     if (query.data.limit) cases = cases.slice(0, query.data.limit);
+    // Redact moderator-internal notes before returning a case to its reporter.
+    cases = cases.map(redactGovernanceCaseForReporter);
   }
 
   return ok({ cases });

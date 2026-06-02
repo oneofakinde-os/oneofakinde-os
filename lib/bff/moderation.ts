@@ -1,3 +1,5 @@
+import type { GovernanceCase } from "@/lib/domain/contracts";
+
 /**
  * Moderator designation — Sprint 0.6a (governance authz).
  *
@@ -28,4 +30,15 @@ export function moderatorAccountIds(): string[] {
 export function isModeratorAccountId(accountId: string | null | undefined): boolean {
   if (!accountId) return false;
   return moderatorAccountIds().includes(accountId);
+}
+
+/**
+ * Strip moderator-internal fields before returning a governance case to a
+ * non-moderator (a reporter viewing or exporting their own case). The `notes`
+ * field is exclusively moderator-authored — both writers (updateGovernanceCaseStatus,
+ * addGovernanceCaseNote) are moderator-gated — so it is internal deliberation, not
+ * the reporter's data, and must never be disclosed to the reporter. (Sprint 0.6a)
+ */
+export function redactGovernanceCaseForReporter(gc: GovernanceCase): GovernanceCase {
+  return { ...gc, notes: null };
 }
