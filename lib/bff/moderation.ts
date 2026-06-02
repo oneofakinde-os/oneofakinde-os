@@ -27,9 +27,22 @@ export function moderatorAccountIds(): string[] {
     .filter((id) => id.length > 0);
 }
 
+let warnedNoModerators = false;
+
 export function isModeratorAccountId(accountId: string | null | undefined): boolean {
   if (!accountId) return false;
-  return moderatorAccountIds().includes(accountId);
+  const ids = moderatorAccountIds();
+  if (ids.length === 0 && !warnedNoModerators) {
+    warnedNoModerators = true;
+    // Fail-safe visibility: an unset allowlist disables ALL governance/moderation
+    // (no account can moderate). Surface it once so a misconfigured deploy is noticed.
+    console.warn(
+      "[moderation] OOK_MODERATOR_ACCOUNT_IDS is unset or empty — every governance and " +
+        "moderation action is disabled (no account is a moderator). Set it in the deploy " +
+        "configuration to enable moderation."
+    );
+  }
+  return ids.includes(accountId);
 }
 
 /**

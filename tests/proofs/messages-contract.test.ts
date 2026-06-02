@@ -301,6 +301,7 @@ test("proof: private messages can be reported and resolved through moderation", 
   t.after(async () => {
     delete process.env.OOK_BFF_DB_PATH;
     delete process.env.OOK_BFF_PERSISTENCE_BACKEND;
+    delete process.env.OOK_MODERATOR_ACCOUNT_IDS;
     await fs.rm(dbPath, { force: true });
   });
 
@@ -316,6 +317,8 @@ test("proof: private messages can be reported and resolved through moderation", 
     email: "oneofakinde@oneofakinde.test",
     role: "creator"
   });
+  // Sprint 0.6b: DM moderation is moderator-only — designate this account.
+  process.env.OOK_MODERATOR_ACCOUNT_IDS = moderator.accountId;
 
   const created = await commerceBffService.createMessageThread(alice.accountId, {
     recipientHandles: [bob.handle],

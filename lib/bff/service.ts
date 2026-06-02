@@ -2747,7 +2747,10 @@ function canAccountModerateTownhallPost(
     return true;
   }
 
-  return account.roles.includes("creator");
+  // Sprint 0.6b: Town Hall posts are a global feed with no owning studio, so
+  // moderation is restricted to a configured moderator (not any creator). The
+  // author may still moderate their own post via the branch above.
+  return isModeratorAccountId(account.id);
 }
 
 function canAccountReportTownhallPost(
@@ -3545,7 +3548,10 @@ function getMessageUnreadCount(
 function canAccountModerateMessage(account: AccountRecord | null, record: MessageEntryRecord): boolean {
   if (!account) return false;
   if (account.id === record.accountId) return false;
-  return account.roles.includes("creator");
+  // Sprint 0.6b: a direct/group message thread has no owning studio, so moderation
+  // is restricted to a configured moderator (not any creator). Participant-scoped
+  // actions (report, thread-admin transfer) remain separate and correctly scoped.
+  return isModeratorAccountId(account.id);
 }
 
 function canAccountReportMessage(
@@ -3688,7 +3694,9 @@ function buildMessageModerationQueue(
   db: BffDatabase,
   account: AccountRecord
 ): MessageModerationQueueItem[] {
-  if (!account.roles.includes("creator")) {
+  // Sprint 0.6b: the moderation queue exposes reported private-message bodies and
+  // participant handles — restrict it to a configured moderator, never any creator.
+  if (!isModeratorAccountId(account.id)) {
     return [];
   }
 

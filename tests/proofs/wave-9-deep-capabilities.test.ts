@@ -20,7 +20,6 @@ import {
 } from "../../lib/domain/creator-tools";
 import type { CollaboratorInvite } from "../../lib/domain/creator-tools";
 import {
-  hasOpsPermission,
   isPostmortemRequired,
   POSTMORTEM_REQUIREMENTS,
 } from "../../lib/domain/operations-governance";
@@ -123,13 +122,9 @@ test("CRT: collaborator invite validity", () => {
 });
 
 // ── Operations & Governance ──
-
-test("OPS: role-based permissions", () => {
-  assert.ok(hasOpsPermission("ops_admin", "manage_accounts"));
-  assert.ok(hasOpsPermission("ops_admin", "manage_feature_flags"));
-  assert.ok(!hasOpsPermission("ops_readonly", "manage_accounts"));
-  assert.ok(hasOpsPermission("ops_readonly", "view_audit_logs"));
-});
+// (The aspirational OpsRole/hasOpsPermission RBAC was removed in 0.6b — it was a
+// dead auth-mimic; the live moderation gate is isModeratorAccountId. See
+// lib/domain/operations-governance.ts.)
 
 test("OPS: postmortem required for P0/P1", () => {
   assert.ok(isPostmortemRequired("p0"));

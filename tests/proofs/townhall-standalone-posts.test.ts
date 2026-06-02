@@ -30,6 +30,7 @@ test("proof: townhall standalone posts support compose, link references, and mod
   t.after(async () => {
     delete process.env.OOK_BFF_DB_PATH;
     delete process.env.OOK_BFF_PERSISTENCE_BACKEND;
+    delete process.env.OOK_MODERATOR_ACCOUNT_IDS;
     await fs.rm(dbPath, { force: true });
   });
 
@@ -45,6 +46,8 @@ test("proof: townhall standalone posts support compose, link references, and mod
     email: "oneofakinde@oneofakinde.test",
     role: "creator"
   });
+  // Sprint 0.6b: Town Hall post moderation is moderator-only — designate the creator.
+  process.env.OOK_MODERATOR_ACCOUNT_IDS = creatorSession.accountId;
   const drop = (await commerceBffService.listDrops(authorSession.accountId))[0];
   assert.ok(drop, "expected at least one drop");
 

@@ -9,6 +9,7 @@ import {
   safeJson,
   type RouteContext
 } from "@/lib/bff/http";
+import { isModeratorAccountId } from "@/lib/bff/moderation";
 import { commerceBffService } from "@/lib/bff/service";
 import type { MessageModerationResolution } from "@/lib/domain/contracts";
 
@@ -38,8 +39,9 @@ export async function POST(
     return guard.response;
   }
 
-  if (!guard.session.roles.includes("creator")) {
-    return forbidden("creator role is required");
+  // Sprint 0.6b: resolving a reported private-DM moderation case is moderator-only.
+  if (!isModeratorAccountId(guard.session.accountId)) {
+    return forbidden("moderator role required");
   }
 
   const threadId = await getRequiredRouteParam(context, "thread_id");

@@ -1,31 +1,11 @@
-export type OpsRole =
-  | "ops_admin"
-  | "ops_lead"
-  | "ops_reviewer"
-  | "ops_support"
-  | "ops_readonly";
-
-export type OpsPermission =
-  | "manage_accounts"
-  | "manage_content"
-  | "manage_billing"
-  | "manage_ops_team"
-  | "view_audit_logs"
-  | "manage_feature_flags"
-  | "approve_appeals"
-  | "manage_editorial";
-
-export const OPS_ROLE_PERMISSIONS: Record<OpsRole, readonly OpsPermission[]> = {
-  ops_admin: ["manage_accounts", "manage_content", "manage_billing", "manage_ops_team", "view_audit_logs", "manage_feature_flags", "approve_appeals", "manage_editorial"],
-  ops_lead: ["manage_accounts", "manage_content", "manage_billing", "view_audit_logs", "approve_appeals"],
-  ops_reviewer: ["manage_content", "view_audit_logs", "approve_appeals"],
-  ops_support: ["manage_accounts", "manage_billing", "view_audit_logs"],
-  ops_readonly: ["view_audit_logs"],
-};
-
-export function hasOpsPermission(role: OpsRole, permission: OpsPermission): boolean {
-  return (OPS_ROLE_PERMISSIONS[role] as readonly string[]).includes(permission);
-}
+// NOTE (Sprint 0.6b): This module holds operational-governance DOMAIN TYPES ONLY
+// (incident severity, postmortem requirements, feature-flag governance metadata).
+// It does NOT implement authorization. An earlier aspirational OpsRole / OpsPermission /
+// hasOpsPermission RBAC lived here but was never wired to any route or service — it only
+// mimicked a permission layer and risked being mistaken for live enforcement, so it was
+// removed. The live authorization mechanism is `isModeratorAccountId` in
+// lib/bff/moderation.ts (governance + moderation gates). Do not add permission
+// enforcement to this module.
 
 export type FeatureFlagGovernance = {
   flagName: string;
